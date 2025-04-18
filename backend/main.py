@@ -1,11 +1,12 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
-import pymongo
-from app.database import get_database
 from contextlib import asynccontextmanager
 
-from app.routers import auth_router, user_router, job_router
+import pymongo
+import uvicorn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.database import get_database
+from app.routers import auth_router, job_router, user_router
 
 
 @asynccontextmanager

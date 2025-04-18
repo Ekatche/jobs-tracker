@@ -1,9 +1,10 @@
+from datetime import datetime
+from enum import Enum
+from typing import Any, List, Optional
+
 from bson import ObjectId
 from pydantic import BaseModel, Field, GetCoreSchemaHandler, HttpUrl
-from typing import Optional, List, Any
-from datetime import datetime
 from pydantic_core import core_schema
-from enum import Enum
 
 
 # Classe personnalisée pour gérer les ObjectId de MongoDB

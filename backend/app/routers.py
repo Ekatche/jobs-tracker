@@ -1,35 +1,36 @@
+from datetime import datetime, timedelta
+from typing import List, Optional
+
+import pymongo
+from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.security import OAuth2PasswordRequestForm
-from typing import List, Optional
-from bson import ObjectId
-from datetime import datetime, timedelta
-import pymongo
 from jose import JWTError, jwt
 from pydantic import BaseModel
 
-from .models import (
-    UserModel,
-    UserCreate,
-    UserResponse,
-    JobApplicationCreate,
-    JobApplicationUpdate,
-    JobApplicationResponse,
-)
-from .database import get_database
 from .auth import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    ALGORITHM,
+    REFRESH_TOKEN_EXPIRE_DAYS,
+    SECRET_KEY,
+    Token,
+    create_access_token,
+    create_refresh_token,
     get_current_user,
     get_password_hash,
     verify_password,
-    create_access_token,
-    create_refresh_token,
-    Token,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
-    REFRESH_TOKEN_EXPIRE_DAYS,
-    SECRET_KEY,
-    ALGORITHM,
 )
-from .utils import serialize_mongodb_doc, capitalize_words
+from .database import get_database
+from .models import (
+    JobApplicationCreate,
+    JobApplicationResponse,
+    JobApplicationUpdate,
+    UserCreate,
+    UserModel,
+    UserResponse,
+)
+from .utils import capitalize_words, serialize_mongodb_doc
 
 
 # Ajoutez cette classe pour le body de la requête

@@ -1,7 +1,8 @@
-import motor.motor_asyncio
 import os
-from dotenv import load_dotenv
 import pathlib
+
+import motor.motor_asyncio
+from dotenv import load_dotenv
 
 # Chargement des variables d'environnement (cherche dans le dossier parent aussi)
 dotenv_path = pathlib.Path(__file__).parent.parent.parent / ".env"
