@@ -28,6 +28,10 @@ jobs:
     - name: Format with Black
       run: |
         black backend/ --exclude "/(\.git|\.venv|venv|env)/"
+    
+    - name: Fix imports with isort
+      run: |
+        isort --profile black backend/
         
     - name: Check imports with isort
       run: |
