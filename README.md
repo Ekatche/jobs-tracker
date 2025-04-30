@@ -1,4 +1,3 @@
-
 # Guide d'installation et d'utilisation de Job Tracker
 
 Job Tracker est une application web qui vous permet de suivre vos candidatures d'emploi, d'organiser votre recherche et de visualiser vos progrès.
@@ -17,13 +16,32 @@ git clone https://github.com/votre-username/job-tracker.git
 cd job-tracker
 ```
 2. Configuration du backend
-Créez un fichier `.env` dans le dossier backend avec les variables d'environnement suivantes :
+Créez un fichier `.env` à la racine du projet avec les variables d'environnement suivantes :
 
-```python
-SECRET_KEY=votre-clé-secrète-à-générer
-MONGODB_URL=mongodb://mongo:27017/job-tracker
-MONGODB_DB=job-tracker
 ```
+# Configuration de l'API
+SECRET_KEY=votre-clé-secrète-à-générer
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=7
+
+# MongoDB Configuration
+DATABASE_NAME=job_tracker
+
+# Paramètres MongoDB
+MONGO_USER=mongo_user
+MONGO_PASSWORD=votre_mot_de_passe_mongodb
+MONGO_HOST=mongodb
+
+# Paramètres RabbitMQ
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_USER=job_tracker
+RABBITMQ_PASSWORD=secure_password_here
+
+# Configuration OpenAI (si utilisé)
+OPENAI_API_KEY=votre_clé_api_openai
+```
+
 Pour générer une clé secrète sécurisée, exécutez :
 
 ```bash
