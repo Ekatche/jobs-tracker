@@ -326,8 +326,8 @@ export default function ApplicationsPage() {
         </div>
 
         {/* Tableau Kanban sans défilement horizontal mais avec défilement vertical par colonne */}
-        <div className="flex-grow overflow-y-hidden overflow-x-hidden custom-scrollbar">
-          <KanbanBoard 
+        <div className="flex-grow overflow-x-auto overflow-y-hidden custom-scrollbar">
+        <KanbanBoard 
             groupedApplications={groupedApplications} 
             onCardClick={handleCardClick} 
           />

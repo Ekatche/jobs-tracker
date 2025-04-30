@@ -94,13 +94,25 @@ export const calculateDays = (dateString: string): number => {
 // Fonction pour calculer la progression en fonction du statut
 export const calculateProgress = (status: string): number => {
   switch (status) {
+    case 'En étude':
+      return 10;
     case 'Candidature envoyée':
-      return 25;
+      return 20;
+    case 'Première sélection':
+      return 40;
     case 'Entretien':
-      return 50;
+      return 60;
+    case 'Test technique':
+      return 80;
+    case 'Négociation':
+      return 90;
     case 'Offre reçue':
+      return 95;
+    case 'Offre acceptée':
       return 100;
     case 'Refusée':
+      return 0;
+    case 'Retirée':
       return 0;
     default:
       return 0;
