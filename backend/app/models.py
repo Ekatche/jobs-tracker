@@ -1,10 +1,15 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, List, Optional
 
 from bson import ObjectId
 from pydantic import BaseModel, Field, GetCoreSchemaHandler, HttpUrl
 from pydantic_core import core_schema
+
+
+# Fonction utilitaire pour créer des dates UTC avec timezone
+def utcnow_with_timezone():
+    return datetime.now(timezone.utc)
 
 
 # Classe personnalisée pour gérer les ObjectId de MongoDB
@@ -32,7 +37,7 @@ class UserModel(BaseModel):
     hashed_password: str = Field(...)
     full_name: Optional[str] = None
     disabled: Optional[bool] = False
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow_with_timezone)
     updated_at: Optional[datetime] = None
 
     model_config = {
@@ -102,12 +107,13 @@ class JobApplication(BaseModel):
     position: str = Field(...)
     location: Optional[str] = None
     url: Optional[HttpUrl] = None
-    application_date: datetime = Field(default_factory=datetime.utcnow)
+    application_date: datetime = Field(default_factory=utcnow_with_timezone)
     status: ApplicationStatus = Field(default=ApplicationStatus.APPLIED)
     description: Optional[str] = None
     notes: Optional[List[str]] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow_with_timezone)
     updated_at: Optional[datetime] = None
+    archived: Optional[bool] = False
 
     model_config = {
         "populate_by_name": True,
@@ -135,6 +141,7 @@ class JobApplicationCreate(BaseModel):
     location: Optional[str] = None
     status: ApplicationStatus = ApplicationStatus.APPLIED
     description: Optional[str] = None
+    archived: Optional[bool] = False
 
     model_config = {
         "json_schema_extra": {
@@ -161,6 +168,7 @@ class JobApplicationUpdate(BaseModel):
     status: Optional[ApplicationStatus] = None
     description: Optional[str] = None
     notes: Optional[List[str]] = None
+    archived: Optional[bool] = None  # Changé de str à bool
 
     model_config = {
         "json_schema_extra": {
@@ -188,5 +196,6 @@ class JobApplicationResponse(BaseModel):
     notes: Optional[List[str]] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
+    archived: Optional[bool] = False  # Ajout du champ archived
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}

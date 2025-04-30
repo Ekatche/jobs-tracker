@@ -1,7 +1,5 @@
 import { removeToken, removeRefreshToken } from './auth';
 
-const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes en millisecondes
-let inactivityTimer: NodeJS.Timeout | null = null;
 let lastActivityTime: number = Date.now();
 let lastUpdateTime = 0;
 const UPDATE_THROTTLE = 5000; // 5 secondes
@@ -17,60 +15,33 @@ const activityEvents = [
   'keydown'
 ];
 
-const logout = () => {
-  console.log("Inactivité détectée, déconnexion...");
-  removeToken();
-  removeRefreshToken();
-  window.location.href = '/auth/login?session=expired';
-};
-
+// Démarre le tracking de l'activité utilisateur
 export const startActivityTracking = () => {
-  // Mettre à jour le temps d'activité
   const updateActivity = () => {
     const now = Date.now();
-    // Limiter les mises à jour fréquentes
+    // Throttle pour limiter la fréquence des MAJ
     if (now - lastUpdateTime < UPDATE_THROTTLE) {
       return;
     }
-    
     lastUpdateTime = now;
     lastActivityTime = now;
-    
-    // Réinitialiser le timer d'inactivité
-    if (inactivityTimer) {
-      clearTimeout(inactivityTimer);
-    }
-    
-    // Configurer un nouveau timer
-    inactivityTimer = setTimeout(() => {
-      // Si aucune activité n'est détectée pendant INACTIVITY_TIMEOUT
-      console.log("Inactivité détectée, déconnexion...");
-      removeToken();
-      removeRefreshToken();
-      window.location.href = '/auth/login?session=expired';
-    }, INACTIVITY_TIMEOUT);
   };
-  
-  // Ajouter les écouteurs d'événements
+
+  // Enregistre les écouteurs
   activityEvents.forEach(event => {
     window.addEventListener(event, updateActivity);
   });
-  
-  // Initialiser le timer
+
+  // MAJ initiale
   updateActivity();
-  
-  // Retourner une fonction de nettoyage
+
+  // Nettoyage
   return () => {
     activityEvents.forEach(event => {
       window.removeEventListener(event, updateActivity);
     });
-    
-    if (inactivityTimer) {
-      clearTimeout(inactivityTimer);
-    }
   };
 };
 
-export const getLastActivityTime = () => {
-  return lastActivityTime;
-};
+// Récupère le timestamp de la dernière activité
+export const getLastActivityTime = () => lastActivityTime;

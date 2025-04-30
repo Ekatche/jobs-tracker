@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { FiCheck, FiAlertTriangle, FiX } from 'react-icons/fi';
+import { v4 as uuidv4 } from 'uuid';  // npm install uuid
 
 type NotificationType = 'success' | 'error' | 'info';
 
@@ -26,7 +27,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   const addNotification = (type: NotificationType, message: string) => {
-    const id = new Date().getTime().toString();
+    const id = uuidv4();
     setNotifications(prev => [...prev, { id, type, message }]);
     setTimeout(() => {
       removeNotification(id);

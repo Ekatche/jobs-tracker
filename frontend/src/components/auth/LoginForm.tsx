@@ -6,8 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { authApi } from '@/lib/api'; // Importer depuis api.ts au lieu de auth.ts
-
+import { authApi } from '@/lib/api'; 
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Le nom d\'utilisateur est requis'),
@@ -20,20 +20,22 @@ export default function LoginForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
+  
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
   
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // Utiliser authApi.login depuis notre fichier api.ts
       await authApi.login(data.username, data.password);
-      
-      // Redirection vers le tableau de bord après connexion réussie
       router.push('/applications');
     } catch (err: unknown) {
       setError(
@@ -77,13 +79,22 @@ export default function LoginForm() {
           <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
             Mot de passe
           </label>
-          <input
-            id="password"
-            type="password"
-            {...register('password')}
-            className="w-full px-3 py-2 bg-blue-night border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-            disabled={isLoading}
-          />
+          <div className="relative">
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              {...register('password')}
+              className="w-full px-3 py-2 bg-blue-night border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent pr-10"
+              disabled={isLoading}
+            />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white"
+              onClick={togglePasswordVisibility}
+            >
+              {showPassword ? <FiEyeOff /> : <FiEye />}
+            </button>
+          </div>
           {errors.password && (
             <p className="mt-1 text-sm text-red-400">{errors.password.message}</p>
           )}

@@ -8,12 +8,12 @@ import { FiX, FiPlus, FiCalendar, FiCheck } from 'react-icons/fi';
 import { applicationApi } from '@/lib/api';
 import { format } from 'date-fns';
 
-// Schéma de validation pour le formulaire (corrigé)
+// Schéma de validation pour le formulaire (inchangé)
 const applicationSchema = z.object({
   company: z.string().min(1, 'Le nom de l\'entreprise est requis'),
   position: z.string().min(1, 'Le poste est requis'),
   location: z.string().optional(),
-  status: z.string().min(1, 'Le statut est requis'), // Modifié ici - status est obligatoire
+  status: z.string().min(1, 'Le statut est requis'),
   url: z.string().url('URL invalide').optional().or(z.literal('')),
   application_date: z.string().min(1, 'La date de candidature est requise'),
   description: z.string().optional(),
@@ -31,10 +31,15 @@ export default function NewApplicationModal({ isOpen, onClose, onSuccess }: NewA
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  
+  // États pour la gestion des notes
+  const [notes, setNotes] = useState<string[]>([]);
+  const [newNote, setNewNote] = useState<string>('');
+  const [isAddingNote, setIsAddingNote] = useState<boolean>(false);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ApplicationFormData>({
     resolver: zodResolver(applicationSchema),
-    mode: 'onChange', // Validation au fur et à mesure
+    mode: 'onChange',
     defaultValues: {
       company: '',
       position: '',
@@ -46,6 +51,23 @@ export default function NewApplicationModal({ isOpen, onClose, onSuccess }: NewA
     }
   });
 
+  // Fonction pour ajouter une note
+  const handleAddNote = () => {
+    if (!newNote.trim()) return;
+    
+    // Ajouter la note à la liste
+    setNotes([...notes, newNote]);
+    setNewNote('');
+    setIsAddingNote(false);
+  };
+
+  // Fonction pour supprimer une note
+  const handleDeleteNote = (index: number) => {
+    const updatedNotes = [...notes];
+    updatedNotes.splice(index, 1);
+    setNotes(updatedNotes);
+  };
+
   const onSubmit = async (data: ApplicationFormData) => {
     setIsSubmitting(true);
     setError(null);
@@ -56,6 +78,7 @@ export default function NewApplicationModal({ isOpen, onClose, onSuccess }: NewA
       const formData = {
         ...data,
         url: data.url === '' ? undefined : data.url,
+        notes: notes.length > 0 ? notes : undefined // Inclure les notes s'il y en a
       };
 
       // Appel à l'API pour créer une nouvelle candidature
@@ -64,22 +87,20 @@ export default function NewApplicationModal({ isOpen, onClose, onSuccess }: NewA
       // Afficher le message de succès
       setShowSuccessMessage(true);
       
-      // Réinitialiser le formulaire
+      // Réinitialiser le formulaire et les notes
       reset();
+      setNotes([]);
       
       // Appeler onSuccess pour déclencher le rafraîchissement et fermer la modal
       onSuccess();
-      
-      // On ne ferme pas la modal tout de suite, car onSuccess va s'en charger après le délai
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message || 'Une erreur est survenue lors de la création de la candidature');
       } else {
         setError('Une erreur est survenue lors de la création de la candidature');
       }
-      setIsSubmitting(false);  // Réinitialiser isSubmitting en cas d'erreur
+      setIsSubmitting(false);
     }
-    // Ne pas mettre setIsSubmitting(false) ici, car on veut garder le spinner jusqu'à ce que la page se rafraîchisse
   };
 
   if (!isOpen) return null;
@@ -230,10 +251,10 @@ export default function NewApplicationModal({ isOpen, onClose, onSuccess }: NewA
                   <option value="Candidature envoyée">Candidature envoyée</option>
                   <option value="Première sélection">Première sélection</option>
                   <option value="Entretien">Entretien</option>
-                  <option value="Test technique">Test technique</option>
-                  <option value="Négociation">Négociation</option>
+                  {/* <option value="Test technique">Test technique</option> */}
+                  {/* <option value="Négociation">Négociation</option> */}
                   <option value="Offre reçue">Offre reçue</option>
-                  <option value="Offre acceptée">Offre acceptée</option>
+                  {/* <option value="Offre acceptée">Offre acceptée</option> */}
                   <option value="Refusée">Refusée</option>
                 </select>
                 {errors.status && (
@@ -284,6 +305,86 @@ export default function NewApplicationModal({ isOpen, onClose, onSuccess }: NewA
               )}
             </div>
 
+            {/* Section des notes - à ajouter */}
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold mb-2 text-white">Notes</h3>
+              
+              {/* Liste des notes existantes */}
+              <div className="space-y-2 mb-4">
+                {notes.length > 0 ? (
+                  notes.map((note, index) => (
+                    <div key={index} className="p-3 bg-blue-night-light rounded-md relative group">
+                      <p className="text-gray-300 pr-12">{note}</p>
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          type="button"
+                          onClick={() => handleDeleteNote(index)}
+                          className="p-1 rounded-full text-gray-400 hover:text-red-400 hover:bg-red-900/30"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-400 italic mb-4">Aucune note pour cette candidature</p>
+                )}
+              </div>
+              
+              {/* Formulaire d'ajout de note */}
+              <div>
+                {isAddingNote ? (
+                  <div className="mb-4">
+                    <textarea
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      placeholder="Détails sur la candidature, contacts, préparation d'entretien..."
+                      className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={3}
+                    ></textarea>
+                    <div className="flex space-x-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={handleAddNote}
+                        className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-500 transition-colors flex items-center text-sm"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Ajouter
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingNote(false);
+                          setNewNote('');
+                        }}
+                        className="px-3 py-1 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors flex items-center text-sm"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingNote(true)}
+                    className="mt-2 px-3 py-1 bg-blue-900/50 hover:bg-blue-900 text-white rounded-md transition-colors flex items-center text-sm"
+                  >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    Ajouter une note
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700">
               <button
                 type="button"
@@ -295,12 +396,12 @@ export default function NewApplicationModal({ isOpen, onClose, onSuccess }: NewA
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-blue-700 hover:bg-blue-800 text-white font-medium py-2 px-4 rounded-md flex items-center justify-center transition-colors"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-500 transition-colors flex items-center"
+                disabled={isSubmitting || showSuccessMessage}
               >
                 {isSubmitting ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>

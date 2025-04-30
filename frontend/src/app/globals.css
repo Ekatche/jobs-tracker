@@ -158,3 +158,17 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.5);
 }
+
+/* Style pour les onglets */
+.tab-active {
+  border-bottom: 2px solid #3b82f6;
+  color: white;
+}
+
+.tab-inactive {
+  color: #9ca3af;
+}
+
+.tab-inactive:hover {
+  color: white;
+}

@@ -1,13 +1,13 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
-
 import pymongo
 from bson import ObjectId
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status, BackgroundTasks
 from fastapi.encoders import jsonable_encoder
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pydantic import BaseModel
+import logging
 
 from .auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
@@ -30,7 +30,15 @@ from .models import (
     UserModel,
     UserResponse,
 )
-from .utils import capitalize_words, serialize_mongodb_doc
+from .utils import (
+    capitalize_words,
+    serialize_mongodb_doc,
+)
+
+from .llm.utils import fetch_documents, split_documents, summarize_chunks
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 
 # Ajoutez cette classe pour le body de la requête
@@ -91,7 +99,7 @@ async def login_for_access_token(
 
     # Mettre à jour la dernière connexion de l'utilisateur
     await db["users"].update_one(
-        {"_id": user["_id"]}, {"$set": {"last_login": datetime.utcnow()}}
+        {"_id": user["_id"]}, {"$set": {"last_login": datetime.now(timezone.utc)}}
     )
 
     return {
@@ -136,7 +144,12 @@ async def change_password(
     # Mettre à jour le mot de passe
     await db["users"].update_one(
         {"_id": ObjectId(current_user.id)},
-        {"$set": {"hashed_password": hashed_password, "updated_at": datetime.utcnow()}},
+        {
+            "$set": {
+                "hashed_password": hashed_password,
+                "updated_at": datetime.now(timezone.utc),
+            }
+        },
     )
 
     # Récupérer l'utilisateur mis à jour
@@ -218,7 +231,7 @@ async def create_user(user: UserCreate = Body(...), db=Depends(get_database)):
         "hashed_password": hashed_password,
         "full_name": user.full_name,
         "disabled": False,
-        "created_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
         "updated_at": None,
     }
 
@@ -287,7 +300,7 @@ async def update_user(
         )
 
     # Ajouter la date de mise à jour
-    update_data["updated_at"] = datetime.utcnow()
+    update_data["updated_at"] = datetime.now(timezone.utc)
 
     # Mettre à jour l'utilisateur
     result = await db["users"].update_one(
@@ -333,35 +346,45 @@ async def delete_user(
     "/", response_model=JobApplicationResponse, status_code=status.HTTP_201_CREATED
 )
 async def create_application(
+    background_tasks: BackgroundTasks,
     application: JobApplicationCreate = Body(...),
     db=Depends(get_database),
     current_user: UserModel = Depends(get_current_user),
 ):
-    # Préparer les données de candidature
-    app_data = jsonable_encoder(application)
-
-    # Standardiser l'entreprise et le poste avec capitalisation
-    if "company" in app_data and app_data["company"]:
-        app_data["company"] = capitalize_words(app_data["company"])
-
-    if "position" in app_data and app_data["position"]:
-        app_data["position"] = capitalize_words(app_data["position"])
-
+    raw_data = jsonable_encoder(application)
+    app_data = {
+        k: v
+        for k, v in raw_data.items()
+        if v is not None and (not isinstance(v, str) or v.strip() != "")
+    }
     app_data["user_id"] = current_user.id
-    app_data["created_at"] = datetime.utcnow()
-
-    # Si application_date n'est pas fournie, utiliser la date actuelle
+    app_data["created_at"] = datetime.now(timezone.utc)
     if not app_data.get("application_date"):
         app_data["application_date"] = app_data["created_at"]
 
-    # Insérer dans la base de données
     result = await db["applications"].insert_one(app_data)
+    created = await db["applications"].find_one({"_id": result.inserted_id})
 
-    # Récupérer la candidature créée
-    created_app = await db["applications"].find_one({"_id": result.inserted_id})
+    # Corrigeons le problème de génération de description
+    url_exists = "url" in app_data and app_data["url"]
+    description_missing = "description" not in app_data or not app_data["description"]
+    if url_exists and description_missing:
+        try:
+            url = app_data.get("url")
+            logger.info(f"[create_application] URL: {url!r}, ID: {result.inserted_id}")
+            # Assurons-nous que l'ID est un ObjectId
+            app_id = result.inserted_id
+            logger.info(f"[create_application] Type ID: {type(app_id)}")
 
-    # Sérialiser le document pour convertir les ObjectId en chaînes
-    return serialize_mongodb_doc(created_app)
+            # Programmation explicite de la tâche
+            background_tasks.add_task(_generate_description_bg, app_id, url.strip(), db)
+            logger.info(f"[create_application] Tâche planifiée pour URL: {url}")
+        except Exception as e:
+            logger.error(f"[create_application] Erreur: {str(e)}")
+    else:
+        logger.warning(f"[create_application] URL manquante/invalide: {url!r}")
+
+    return serialize_mongodb_doc(created)
 
 
 @job_router.get("/", response_model=List[JobApplicationResponse])
@@ -422,6 +445,7 @@ async def get_application(
 
 @job_router.put("/{application_id}", response_model=JobApplicationResponse)
 async def update_application(
+    background_tasks: BackgroundTasks,
     application_id: str,
     application_data: JobApplicationUpdate = Body(...),
     db=Depends(get_database),
@@ -439,8 +463,11 @@ async def update_application(
         )
 
     # Préparer les données à mettre à jour
+    raw_data = jsonable_encoder(application_data)
     update_data = {
-        k: v for k, v in jsonable_encoder(application_data).items() if v is not None
+        k: v
+        for k, v in raw_data.items()
+        if v is not None and (not isinstance(v, str) or v.strip() != "")
     }
 
     # Standardiser l'entreprise et le poste avec capitalisation
@@ -450,18 +477,39 @@ async def update_application(
     if "position" in update_data and update_data["position"]:
         update_data["position"] = capitalize_words(update_data["position"])
 
-    update_data["updated_at"] = datetime.utcnow()
+    # Vérifier si une URL est fournie et s'il n'y a pas de description existante
+    # OU si l'URL est mise à jour et que la description actuelle est vide
 
-    # Mettre à jour la candidature
+    # Check if URL exists and is not empty
+    url_provided = "url" in update_data and update_data["url"]
+
+    # Check if URL has been changed from previous value
+    url_changed = url_provided and update_data["url"] != application.get("url", "")
+
+    # Check if description exists and is not empty
+    description_provided = "description" in update_data and update_data["description"]
+
+    # Update timestamp and save changes to database
+    update_data["updated_at"] = datetime.now(timezone.utc)
     await db["applications"].update_one(
         {"_id": ObjectId(application_id)}, {"$set": update_data}
     )
 
-    # Récupérer la candidature mise à jour
+    # Generate description in background if URL changed or URL exists but description is missing
+    if url_changed or (url_provided and not description_provided):
+        try:
+            background_tasks.add_task(
+                _generate_description_bg,
+                ObjectId(application_id),
+                update_data["url"],
+                db,
+            )
+        except Exception as e:
+            logger.error(f"Failed to schedule description generation: {e}")
+
     updated_application = await db["applications"].find_one(
         {"_id": ObjectId(application_id)}
     )
-
     return serialize_mongodb_doc(updated_application)
 
 
@@ -510,7 +558,7 @@ async def add_note(
     # Ajouter la note
     _ = await db["applications"].update_one(
         {"_id": ObjectId(application_id)},
-        {"$push": {"notes": note}, "$set": {"updated_at": datetime.utcnow()}},
+        {"$push": {"notes": note}, "$set": {"updated_at": datetime.now(timezone.utc)}},
     )
 
     # Récupérer la candidature mise à jour
@@ -519,3 +567,35 @@ async def add_note(
     )
 
     return serialize_mongodb_doc(updated_application)
+
+
+# Ajoutez cette fonction en haut du fichier, avant les routes
+async def _generate_description_bg(application_id: ObjectId, url: str, db):
+    logger.info(f"[description_bg] Démarrage pour ID={application_id}, URL={url}")
+    try:
+        docs = await fetch_documents(url)
+        if not docs:
+            logger.warning(f"[description_bg] Aucun document récupéré pour {url}")
+            return
+
+        logger.info(f"[description_bg] {len(docs)} documents récupérés")
+        chunks = split_documents(docs)
+        description = await summarize_chunks(chunks)
+
+        if description:
+            logger.info(
+                f"[description_bg] Description générée ({len(description)} chars)"
+            )
+            await db["applications"].update_one(
+                {"_id": ObjectId(application_id)},
+                {
+                    "$set": {
+                        "description": description,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+        else:
+            logger.warning("[description_bg] Échec de génération de description")
+    except Exception as e:
+        logger.error(f"[description_bg] Erreur: {str(e)}")

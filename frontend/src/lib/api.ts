@@ -9,6 +9,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Ajouter cette constante au début du fichier, après les imports
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes en millisecondes
+const REFRESH_THRESHOLD = 5 * 60 * 1000;   // 5 min avant exp
+
 
 // Création d'une instance Axios avec la configuration de base
 const apiClient: AxiosInstance = axios.create({
@@ -49,11 +51,11 @@ interface RequestOptions {
 
 // Fonction utilitaire pour les requêtes API
 async function fetchApi<T, D = Record<string, unknown>>(
-    endpoint: string, 
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
-    data?: D,
-    options: RequestOptions = {}
-  ): Promise<T> {
+  endpoint: string,
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+  data?: D,
+  options: RequestOptions = {}
+): Promise<T> {
   const config: AxiosRequestConfig = {
     method,
     url: endpoint,
@@ -77,13 +79,10 @@ async function fetchApi<T, D = Record<string, unknown>>(
   }
 
   try {
-    const response: AxiosResponse<T> = await apiClient(config);
+    const response: AxiosResponse<T> = await apiClient(config)
 
-    // Si le token est expiré (401)
     if (response.status === 401) {
-      // Tentative de rafraîchissement du token
-      const refreshed = await refreshAccessToken();
-      
+      const refreshed = await refreshAccessToken()
       if (refreshed) {
         // Retenter la requête avec le nouveau token
         const newToken = getToken();
@@ -95,20 +94,28 @@ async function fetchApi<T, D = Record<string, unknown>>(
         const newResponse: AxiosResponse<T> = await apiClient(config);
         return newResponse.data;
       } else {
-        // Si le rafraîchissement a échoué, rediriger vers la page de connexion
-        window.location.href = '/login';
-        throw new Error('Session expirée');
+        // redirige vers la page login
+        removeToken()
+        removeRefreshToken()
+        window.location.href = '/auth/login?session=expired'
+        throw new Error('Session expirée')
       }
     }
 
-    return response.data;
+    return response.data
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
-      // Gérer les erreurs HTTP
-      const errorMessage = error.response.data.detail || 'Une erreur est survenue lors de la communication avec le serveur';
-      throw new Error(errorMessage);
+      // Si on reçoit une 401 hors du cas précédent
+      if (error.response.status === 401) {
+        removeToken()
+        removeRefreshToken()
+        window.location.href = '/auth/login'
+        throw new Error('Session expirée')
+      }
+      const message = error.response.data.detail || 'Erreur communication serveur'
+      throw new Error(message)
     }
-    throw error;
+    throw error
   }
 }
 
@@ -116,75 +123,78 @@ async function fetchApi<T, D = Record<string, unknown>>(
 export const setupTokenRefresh = () => {
   const token = getToken();
   if (!token) return;
-  
+
   try {
-    // Décoder le token pour vérifier quand il expire
-    const tokenData = JSON.parse(atob(token.split('.')[1]));
-    const expiryTime = tokenData.exp * 1000; // Convertir en millisecondes
-    const currentTime = Date.now();
-    
-    // Calculer combien de temps avant l'expiration (en millisecondes)
-    const timeUntilExpiry = expiryTime - currentTime;
-    
-    // Si le token est sur le point d'expirer (dans moins de 5 minutes)
-    // et que l'utilisateur est actif, rafraîchir le token
-    if (timeUntilExpiry < 5 * 60 * 1000 && timeUntilExpiry > 0) {
-      setTimeout(async () => {
-        // Vérifier si l'utilisateur est actif
-        const lastActivity = getLastActivityTime();
-        const timeSinceLastActivity = Date.now() - lastActivity;
-        
-        if (timeSinceLastActivity < INACTIVITY_TIMEOUT) {
-          await refreshAccessToken();
-          // Configurer le prochain rafraîchissement
-          setupTokenRefresh();
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const expiryTime = payload.exp * 1000;
+    const now = Date.now();
+    const msToExpiry = expiryTime - now;
+    if (msToExpiry <= 0) return; // déjà expiré
+
+    // Planifier la tentative de refresh msToExpiry - REFRESH_THRESHOLD à partir de maintenant
+    const delay = Math.max(msToExpiry - REFRESH_THRESHOLD, 0);
+    setTimeout(async () => {
+      const idle = Date.now() - getLastActivityTime();
+      if (idle < INACTIVITY_TIMEOUT) {
+        const ok = await refreshAccessToken();
+        if (ok) {
+          setupTokenRefresh(); // re‑planifier
         }
-      }, timeUntilExpiry - 1 * 60 * 1000); // Rafraîchir 1 minute avant l'expiration
-    }
-  } catch (error) {
-    console.error('Erreur lors de la configuration du rafraîchissement de token:', error);
+      } else {
+        // Inactif > 30 min → forcer logout
+        removeToken();
+        removeRefreshToken();
+        window.location.href = '/auth/login?session=expired';
+      }
+    }, delay);
+  } catch (err) {
+    console.error('Erreur setupTokenRefresh', err);
   }
 };
 
-// Fonction pour rafraîchir le token
+// Fonction pour rafraîchir le token - corrigée
 const refreshAccessToken = async (): Promise<boolean> => {
   const refreshToken = getRefreshToken();
   
   if (!refreshToken) {
-    console.warn("Impossible de rafraîchir le token : aucun refresh token trouvé");
+    console.warn("Impossible de rafraîchir : aucun refresh token");
     return false;
   }
   
   try {
-    const response = await fetch(`${API_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+    console.log('Tentative refresh avec token:', refreshToken.substring(0, 10) + '...');
+    
+    // Utilisez directement axios plutôt que votre apiClient
+    // qui ajoute des headers d'autorisation qui peuvent être invalides
+    const response = await axios({
+      method: 'post',
+      url: `${API_URL}/auth/refresh`,
+      data: { refresh_token: refreshToken },
+      headers: { 'Content-Type': 'application/json' }
     });
     
-    if (!response.ok) {
-      removeToken();
-      removeRefreshToken();
-      return false;
-    }
+    // Vérifiez le contenu de la réponse
+    console.log('Réponse refresh:', response.data);
     
-    const data = await response.json();
-    setToken(data.access_token);
-    setRefreshToken(data.refresh_token);
-    // Après avoir rafraîchi le token avec succès
+    setToken(response.data.access_token);
+    setRefreshToken(response.data.refresh_token);
+    
+    // Re-planifier le prochain refresh
     setupTokenRefresh();
     return true;
-  } catch (error) {
-    console.error('Erreur lors du rafraîchissement du token:', error);
-    // Si une erreur se produit, c'est probablement que le refresh token est invalide
-    // On nettoie tout et on renvoie l'utilisateur à la page de connexion
-    removeToken();
-    removeRefreshToken();
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      console.error('Erreur refresh:', error.response?.data || error);
+      if (error.response?.status === 401) {
+        removeToken();
+        removeRefreshToken();
+      }
+    } else {
+      console.error('Erreur refresh:', error);
+    }
     return false;
   }
-}
+};
 
 // Types pour les modèles d'API
 export interface User {
@@ -196,17 +206,19 @@ export interface User {
 }
 
 export interface Application {
-  id: string;
-  user_id: string;
+  _id?: string;
+  user_id?: string;
   company: string;
   position: string;
-  status: string;
-  application_date: string;
-  description?: string;
+  location?: string;
   url?: string;
+  application_date: string;
+  status: string;
+  description?: string;
   notes?: string[];
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
+  archived?: boolean;
 }
 
 // API Authentication

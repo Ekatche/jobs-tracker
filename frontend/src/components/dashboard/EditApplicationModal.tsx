@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { FiX, FiSave, FiCalendar, FiCheck } from 'react-icons/fi';
+import { FiX, FiSave, FiCalendar, FiCheck, FiArchive } from 'react-icons/fi';
 import { applicationApi } from '@/lib/api';
 import { format } from 'date-fns';
+import { Application } from '@/types/application';
 
 // Schéma de validation pour le formulaire (identique à NewApplicationModal)
 const applicationSchema = z.object({
@@ -17,25 +18,11 @@ const applicationSchema = z.object({
   url: z.string().url('URL invalide').optional().or(z.literal('')),
   application_date: z.string().min(1, 'La date de candidature est requise'),
   description: z.string().optional(),
+  archived: z.boolean().optional(), // Ajout du champ archived
 });
 
 type ApplicationFormData = z.infer<typeof applicationSchema>;
 
-// Interface pour les propriétés de l'application à modifier
-interface Application {
-  _id: string;
-  user_id: string;
-  company: string;
-  position: string;
-  location?: string;
-  url?: string;
-  application_date: string;
-  status: string;
-  description?: string;
-  notes?: string[];
-  created_at: string;
-  updated_at?: string;
-}
 
 interface EditApplicationModalProps {
   isOpen: boolean;
@@ -48,7 +35,7 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [actionType, setActionType] = useState<'update' | 'delete' | null>(null);
+  const [actionType, setActionType] = useState<'update' | 'delete' | 'archive' | null>(null);
 
   const [notes, setNotes] = useState<string[]>([]);
   const [newNote, setNewNote] = useState<string>('');
@@ -207,6 +194,37 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
     setEditedNoteText('');
   };
 
+  // Fonction pour gérer l'archivage/désarchivage d'une candidature
+  const handleToggleArchive = async () => {
+    if (!application) return;
+    
+    try {
+      setIsSubmitting(true);
+      setActionType('archive');
+      
+      // Mettre à jour l'état archivé
+      await applicationApi.update(application._id, {
+        ...application,
+        archived: !application.archived
+      });
+      
+      // Afficher le message de succès
+      setShowSuccessMessage(true);
+      
+      // Appeler la fonction de succès après un délai
+      setTimeout(() => {
+        onSuccess();
+        onClose();
+      }, 1500);
+      
+    } catch (error) {
+      console.error("Erreur lors de l'archivage/désarchivage:", error);
+      setError("Une erreur est survenue lors de l'archivage/désarchivage de la candidature");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (!isOpen || !application) return null;
 
   return (
@@ -237,6 +255,8 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
               <FiCheck className="mr-2" /> 
               {actionType === 'delete' 
                 ? 'Candidature supprimée avec succès !' 
+                : actionType === 'archive'
+                ? 'Candidature archivée avec succès !'
                 : 'Candidature modifiée avec succès !'}
             </div>
           )}
@@ -472,8 +492,22 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
                 </svg>
                 Supprimer
               </button>
+
+              {/* Bouton d'archivage */}
+              <button
+                type="button"
+                onClick={handleToggleArchive}
+                className={`px-4 py-2 ${
+                  application?.archived 
+                    ? 'bg-blue-600 hover:bg-blue-700' 
+                    : 'bg-gray-600 hover:bg-gray-700'
+                } text-white rounded-md transition-colors flex items-center`}
+                disabled={isSubmitting || showSuccessMessage}
+              >
+                <FiArchive className="mr-2" />
+                {application?.archived ? 'Désarchiver' : 'Archiver'}
+              </button>
               
-              {/* Groupe des boutons Annuler/Enregistrer (à droite) */}
               <div className="flex space-x-3">
                 <button
                   type="button"

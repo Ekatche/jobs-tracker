@@ -16,9 +16,13 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - ALGORITHM=${ALGORITHM}
       - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     restart: unless-stopped
+    networks:
+      - app-network
 
   mongodb:
     image: mongo:latest
@@ -37,6 +41,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+    networks:
+      - app-network
 
   mongo-express:
     image: mongo-express:latest
@@ -53,6 +59,8 @@ services:
     depends_on:
       - mongodb
     restart: unless-stopped
+    networks:
+      - app-network
 
   frontend:
     build:
@@ -69,6 +77,90 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+    networks:
+      - app-network
+
+  # RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"   # AMQP Port
+      - "15672:15672" # Management interface port
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Airflow
+  airflow:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./airflow/dags:/opt/airflow/dags
+      - airflow_data:/opt/airflow
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW_HOME=/opt/airflow
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_SECRET_KEY:-change_me}
+      - MONGO_USER=${MONGO_USER}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_HOST=mongodb
+      - DATABASE_NAME=${DATABASE_NAME}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    command: >
+        bash -c "mkdir -p /opt/airflow &&
+        chmod -R 777 /opt/airflow &&
+        airflow standalone"
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Log consumption service
+  log-consumer:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./logs:/app/logs
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-guest}
+    command: python -m app.tasks.log_consumer
+    restart: unless-stopped
+    networks:
+      - app-network
 
 volumes:
   mongodb_data:
+  rabbitmq_data:
+  airflow_data:
+
+networks:
+  app-network:

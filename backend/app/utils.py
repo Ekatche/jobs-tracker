@@ -25,7 +25,12 @@ def serialize_mongodb_doc(doc):
 
 def capitalize_words(text):
     """
-    Capitalise la première lettre de chaque mot dans une chaîne de caractères.
+    Capitalise la première lettre de chaque mot dans une chaîne de caractères
+    et met le reste en minuscule.
+
+    Exemples:
+        "MACHINE LEARNING ENGINEER" -> "Machine Learning Engineer"
+        "data analyst" -> "Data Analyst"
     """
     if not text:
         return text
