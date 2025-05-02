@@ -23,10 +23,6 @@ dag = DAG(
 )
 
 
-# Déplacer l'importation dans la fonction pour éviter qu'elle
-# ne soit évaluée lors du chargement du DAG
-
-
 def run_archive_task():
     import sys
 
@@ -44,10 +40,16 @@ def run_archive_task():
     try:
         from app.tasks.archive_old_applications import archive_old_applications
 
-        return archive_old_applications()
+        # Ajout de timeout pour toutes les opérations MongoDB
+        result = archive_old_applications()
+        print(f"Résultat de l'archivage: {result} candidatures archivées")
+        return result
     except ImportError as e:
         print(f"Erreur d'importation: {e}")
         print(f"sys.path = {sys.path}")
+        raise
+    except Exception as e:
+        print(f"Erreur lors de l'exécution: {e}")
         raise
 
 

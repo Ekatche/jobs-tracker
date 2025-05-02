@@ -33,10 +33,12 @@ MONGO_USER=mongo_user
 MONGO_PASSWORD=votre_mot_de_passe_mongodb
 MONGO_HOST=mongodb
 
-# Paramètres RabbitMQ
-RABBITMQ_HOST=rabbitmq
-RABBITMQ_USER=job_tracker
-RABBITMQ_PASSWORD=secure_password_here
+# Configuration MongoDB Express (interface d'administration)
+MONGO_EXPRESS_USER=admin
+MONGO_EXPRESS_PASSWORD=admin_password
+
+# Configuration Airflow
+AIRFLOW_SECRET_KEY=votre_clé_airflow
 
 # Configuration OpenAI (si utilisé)
 OPENAI_API_KEY=votre_clé_api_openai

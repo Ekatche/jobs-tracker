@@ -4,8 +4,6 @@ import pathlib
 from datetime import datetime, timedelta, timezone
 from pymongo import MongoClient
 from dotenv import load_dotenv
-import pika
-import json
 
 # Configuration du logging standard
 logging.basicConfig(
@@ -23,64 +21,28 @@ MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
 DATABASE_NAME = os.getenv("DATABASE_NAME")
 MONGO_HOST = os.getenv("MONGO_HOST")
 
-# Configuration RabbitMQ
-RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "rabbitmq")
-RABBITMQ_USER = os.getenv("RABBITMQ_USER", "guest")
-RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", "guest")
-
 # Nombre de jours après lesquels une candidature est considérée comme "vieille"
 DAYS_THRESHOLD = 40  # au lieu de 45 jours
 
 
-def send_to_queue(message):
-    """Envoie un message au broker RabbitMQ"""
-    try:
-        credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASSWORD)
-        connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host=RABBITMQ_HOST, credentials=credentials)
-        )
-        channel = connection.channel()
-
-        # Déclarer la queue pour les logs d'archivage
-        channel.queue_declare(queue="job_tracker_archive_logs", durable=True)
-
-        # Publier le message
-        channel.basic_publish(
-            exchange="",
-            routing_key="job_tracker_archive_logs",
-            body=json.dumps(message),
-            properties=pika.BasicProperties(
-                delivery_mode=2,  # make message persistent
-            ),
-        )
-
-        connection.close()
-        return True
-    except Exception as e:
-        logger.error(f"Erreur lors de l'envoi du message au broker: {str(e)}")
-        return False
+def log_message(message):
+    """Log un message (anciennement envoyé à RabbitMQ)"""
+    logger.info(f"MESSAGE: {message}")
+    return True
 
 
 def log_and_queue(level, message, **extra_data):
-    """Journalise et envoie à RabbitMQ"""
+    """Journalise sans envoyer à RabbitMQ"""
+    # Préparer le message enrichi
+    full_message = f"{message} | {extra_data if extra_data else ''}"
+
     # Log standard
     if level == "INFO":
-        logger.info(message)
+        logger.info(full_message)
     elif level == "WARNING":
-        logger.warning(message)
+        logger.warning(full_message)
     elif level == "ERROR":
-        logger.error(message)
-
-    # Préparer le message pour RabbitMQ
-    queue_message = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "level": level,
-        "message": message,
-        **extra_data,  # Ajouter les données supplémentaires
-    }
-
-    # Envoyer à RabbitMQ
-    send_to_queue(queue_message)
+        logger.error(full_message)
 
 
 def archive_old_applications():
@@ -100,30 +62,39 @@ def archive_old_applications():
             MONGO_URI = f"mongodb://{MONGO_USER}:{MONGO_PASSWORD}@{MONGO_HOST}:27017/{DATABASE_NAME}?authSource=admin"
             log_and_queue("INFO", f"Connexion à MongoDB sur {MONGO_HOST}")
 
-        client = MongoClient(MONGO_URI)
+        client = MongoClient(
+            MONGO_URI,
+            serverSelectionTimeoutMS=6000,
+            connectTimeoutMS=5000,
+            socketTimeoutMS=10000,
+        )
         db = client[DATABASE_NAME]
 
         # Calculer l'âge des candidatures en jours
         today = datetime.now(timezone.utc)
-        cutoff_date = today - timedelta(days=DAYS_THRESHOLD)
+
+        cutoff_date_naive = (today - timedelta(days=DAYS_THRESHOLD)).replace(
+            tzinfo=None
+        )
         log_and_queue("INFO", f"Date actuelle: {today.isoformat()}")
+        # Convertir la date limite en chaîne de caractères pour comparer avec des strings
+        cutoff_date_str = cutoff_date_naive.isoformat()
         log_and_queue(
-            "INFO",
-            f"Les candidatures de plus de {DAYS_THRESHOLD} jours avec statut 'refusé' ou 'candidature envoyée' seront archivées",
+            "INFO", f"Date limite d'archivage (format chaîne): {cutoff_date_str}"
         )
 
-        # Requête modifiée pour inclure le filtre sur le statut avec les bonnes valeurs
+        # Requête adaptée pour les dates stockées en format string
         query = {
             "$and": [
                 {
                     "$or": [
-                        {"application_date": {"$lt": cutoff_date}},
-                        {"created_at": {"$lt": cutoff_date}},
+                        # Comparaison lexicographique pour les chaînes de caractères
+                        {"application_date": {"$lt": cutoff_date_str}},
+                        # Au cas où certaines dates sont stockées comme objets Date
+                        {"application_date": {"$lt": cutoff_date_naive}},
                     ]
                 },
-                {
-                    "status": {"$in": ["Refusée", "Candidature envoyée"]}
-                },  # Notez les majuscules et le féminin
+                {"status": {"$in": ["Refusée", "Candidature envoyée"]}},
                 {"archived": {"$ne": True}},
             ]
         }
