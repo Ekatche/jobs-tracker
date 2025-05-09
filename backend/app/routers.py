@@ -366,23 +366,22 @@ async def create_application(
     created = await db["applications"].find_one({"_id": result.inserted_id})
 
     # Corrigeons le problème de génération de description
-    url_exists = "url" in app_data and app_data["url"]
+    url_exists = "url" in app_data and app_data["url"] and app_data["url"].strip() != ""
     description_missing = "description" not in app_data or not app_data["description"]
     if url_exists and description_missing:
         try:
             url = app_data.get("url")
             logger.info(f"[create_application] URL: {url!r}, ID: {result.inserted_id}")
-            # Assurons-nous que l'ID est un ObjectId
             app_id = result.inserted_id
             logger.info(f"[create_application] Type ID: {type(app_id)}")
-
-            # Programmation explicite de la tâche
             background_tasks.add_task(_generate_description_bg, app_id, url.strip(), db)
             logger.info(f"[create_application] Tâche planifiée pour URL: {url}")
         except Exception as e:
             logger.error(f"[create_application] Erreur: {str(e)}")
     else:
-        logger.warning(f"[create_application] URL manquante/invalide: {url!r}")
+        logger.info(
+            "[create_application] Pas de génération de description (URL manquante ou description déjà présente)."
+        )
 
     return serialize_mongodb_doc(created)
 
