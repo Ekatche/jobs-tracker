@@ -105,7 +105,8 @@ services:
       - DATABASE_NAME=${DATABASE_NAME}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     command: >
-        bash -c "mkdir -p /opt/airflow &&
+        bash -c "pip install pymongo &&
+        mkdir -p /opt/airflow &&
         chmod -R 777 /opt/airflow &&
         airflow standalone"
     networks:

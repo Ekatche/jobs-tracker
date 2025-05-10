@@ -45,60 +45,37 @@ def log_and_queue(level, message, **extra_data):
         logger.error(full_message)
 
 
-def archive_old_applications():
+def archive_old_applications(mongo_uri=None, threshold_days=40):
     """
-    Recherche et archive les candidatures plus anciennes que 45 jours
-    qui sont dans les états "refusé" ou "candidature envoyée"
+    Archive les candidatures rejetées ou envoyées datant de plus de X jours
+    
+    Args:
+        mongo_uri: URI de connexion MongoDB (optionnel)
+        threshold_days: Nombre de jours avant archivage
+    
+    Returns:
+        int: Nombre de candidatures archivées, -1 en cas d'erreur
     """
     client = None
     try:
-        # Connexion à MongoDB
-        if not all([MONGO_USER, MONGO_PASSWORD, MONGO_HOST]):
-            MONGO_URI = f"mongodb://localhost:27017/{DATABASE_NAME}"
-            log_and_queue(
-                "WARNING", "Utilisation de la configuration locale pour MongoDB"
-            )
-        else:
-            MONGO_URI = f"mongodb://{MONGO_USER}:{MONGO_PASSWORD}@{MONGO_HOST}:27017/{DATABASE_NAME}?authSource=admin"
-            log_and_queue("INFO", f"Connexion à MongoDB sur {MONGO_HOST}")
-
-        client = MongoClient(
-            MONGO_URI,
-            serverSelectionTimeoutMS=6000,
-            connectTimeoutMS=5000,
-            socketTimeoutMS=10000,
-        )
-        db = client[DATABASE_NAME]
-
-        # Calculer l'âge des candidatures en jours
-        today = datetime.now(timezone.utc)
-
-        cutoff_date_naive = (today - timedelta(days=DAYS_THRESHOLD)).replace(
-            tzinfo=None
-        )
-        log_and_queue("INFO", f"Date actuelle: {today.isoformat()}")
-        # Convertir la date limite en chaîne de caractères pour comparer avec des strings
-        cutoff_date_str = cutoff_date_naive.isoformat()
-        log_and_queue(
-            "INFO", f"Date limite d'archivage (format chaîne): {cutoff_date_str}"
-        )
-
-        # Requête adaptée pour les dates stockées en format string
+        # Utiliser l'URI fourni ou construire depuis les variables d'environnement
+        if not mongo_uri:
+            mongo_uri = f"mongodb://{os.getenv('MONGO_USER')}:{os.getenv('MONGO_PASSWORD')}@{os.getenv('MONGO_HOST')}:27017/{os.getenv('DATABASE_NAME')}?authSource=admin"
+            
+        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=6000)
+        db = client[os.getenv('DATABASE_NAME', 'job_tracker')]
+        
+        # Date limite unique en format naïve
+        today = datetime.now()
+        cutoff_date = (today - timedelta(days=threshold_days)).replace(tzinfo=None)
+        
+        # Requête simplifiée
         query = {
-            "$and": [
-                {
-                    "$or": [
-                        # Comparaison lexicographique pour les chaînes de caractères
-                        {"application_date": {"$lt": cutoff_date_str}},
-                        # Au cas où certaines dates sont stockées comme objets Date
-                        {"application_date": {"$lt": cutoff_date_naive}},
-                    ]
-                },
-                {"status": {"$in": ["Refusée", "Candidature envoyée"]}},
-                {"archived": {"$ne": True}},
-            ]
+            "application_date": {"$lt": cutoff_date},
+            "status": {"$in": ["Refusée", "Candidature envoyée"]},
+            "archived": {"$ne": True}
         }
-
+        
         # Log de la requête pour debug
         log_and_queue("INFO", f"Requête MongoDB: {str(query)}")
 

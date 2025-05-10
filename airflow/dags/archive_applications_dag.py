@@ -25,6 +25,10 @@ dag = DAG(
 
 def run_archive_task():
     import sys
+    import logging
+    
+    # Configuration du logging pour Airflow
+    logger = logging.getLogger("airflow.task")
 
     # Chemins alternatifs pour trouver les modules backend
     possible_paths = [
@@ -36,20 +40,32 @@ def run_archive_task():
     for path in possible_paths:
         if path not in sys.path and os.path.exists(path):
             sys.path.append(path)
+            logger.info(f"Ajout du chemin {path} au sys.path")
 
     try:
-        from app.tasks.archive_old_applications import archive_old_applications
+        # Vérifier si pymongo est disponible
+        try:
+            from pymongo import MongoClient
+            logger.info("pymongo importé avec succès")
+        except ImportError:
+            logger.error("pymongo n'est pas installé !")
+            raise
 
-        # Ajout de timeout pour toutes les opérations MongoDB
+        # Importer la fonction d'archivage
+        from app.tasks.archive_old_applications import archive_old_applications
+        logger.info("Module archive_old_applications importé avec succès")
+
+        # Exécuter la fonction d'archivage
+        logger.info("Début de l'exécution de archive_old_applications")
         result = archive_old_applications()
-        print(f"Résultat de l'archivage: {result} candidatures archivées")
+        logger.info(f"Résultat de l'archivage: {result} candidatures archivées")
         return result
     except ImportError as e:
-        print(f"Erreur d'importation: {e}")
-        print(f"sys.path = {sys.path}")
+        logger.error(f"Erreur d'importation: {e}")
+        logger.info(f"sys.path = {sys.path}")
         raise
     except Exception as e:
-        print(f"Erreur lors de l'exécution: {e}")
+        logger.error(f"Erreur lors de l'exécution: {e}")
         raise
 
 
