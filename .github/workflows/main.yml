@@ -17,6 +17,7 @@ jobs:
         ports:
           - 27017:27017
         env:
+
           MONGO_INITDB_ROOT_USERNAME: ${{ secrets.MONGO_TEST_USER }}
           MONGO_INITDB_ROOT_PASSWORD: ${{ secrets.MONGO_TEST_PASSWORD }}
     steps:
@@ -45,6 +46,10 @@ jobs:
           DATABASE_NAME=jobtracker_test
           MONGO_HOST=localhost
           EOF
+          
+      - name: Create uploads directory
+        run: mkdir -p backend/app/uploads
+
       - name: Run tests
         run: |
           cd backend
