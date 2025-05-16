@@ -35,7 +35,7 @@ export const getStatusColor = (status: string) => {
       return "bg-emerald-900";
     case "en cours":
       return "bg-blue-900 ";
-    case "en attente":
+    case "à faire":
       return "bg-violet-900 ";
     default:
       return "bg-blue-night-light";
@@ -48,7 +48,7 @@ export const getStatusBackgroundColor = (status: string) => {
       return "bg-emerald-900/50";
     case "en cours":
       return "bg-blue-900/50";
-    case "en attente":
+    case "à faire":
       return "bg-violet-900/50";
     default:
       return "bg-blue-night-lighter/60";
@@ -59,7 +59,7 @@ export const getStatusBackgroundColor = (status: string) => {
 export type GroupedTasks = {
   [key: string]: Task[];
 };
-export const STATUS_ORDER: string[] = ["en attente", "en cours", "terminée"];
+export const STATUS_ORDER: string[] = ["à faire", "en cours", "terminée"];
 
 export const calculateDays = (dateString?: string): number => {
   if (!dateString) return 0;

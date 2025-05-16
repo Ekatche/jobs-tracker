@@ -24,8 +24,8 @@ export default function KanbanColumn({
           {tasks?.length || 0}
         </span>
       </div>
-      <div className="space-y-2 flex-grow overflow-y-auto max-h-[calc(100vh-220px)] pr-1 custom-scrollbar">
-        {tasks?.map((app) => (
+      <div className="space-y-2 flex-grow overflow-y-auto max-h-[500px] pr-1 custom-scrollbar">
+        {tasks?.slice(0, 5).map((app) => (
           <TaskCards
             key={app._id}
             task={app}

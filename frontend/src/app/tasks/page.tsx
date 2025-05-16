@@ -30,7 +30,7 @@ export default function TasksPage() {
       if (!Array.isArray(apiTasks)) throw new Error("Format de données inattendu");
       const tasks: Task[] = apiTasks.map((apiTask: ApiTask) => ({
         ...apiTask,
-        status: apiTask.status as TaskStatus, 
+        status: (apiTask.status as string).toLowerCase() as TaskStatus,
 
         archived: typeof apiTask.archived === "boolean" ? apiTask.archived : false,
       }));
