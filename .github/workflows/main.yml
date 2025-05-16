@@ -40,6 +40,10 @@ jobs:
           SECRET_KEY=${{ secrets.SECRET_KEY }}
           ALGORITHM=HS256
           TEST_ENV=github
+          MONGO_USER=${{ secrets.MONGO_TEST_USER }}
+          MONGO_PASSWORD=${{ secrets.MONGO_TEST_PASSWORD }}
+          DATABASE_NAME=jobtracker_test
+          MONGO_HOST=localhost
           EOF
       - name: Run tests
         run: |

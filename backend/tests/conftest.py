@@ -21,6 +21,9 @@ TEST_ENV = os.getenv("TEST_ENV", "local")
 if TEST_ENV == "docker":
     MONGO_HOST = os.getenv("MONGO_TEST_HOST")
     MONGO_PORT = 27017
+elif TEST_ENV == "github":
+    MONGO_HOST = os.getenv("MONGO_LOCAL_TEST_HOST", "localhost")
+    MONGO_PORT = 27017
 else:
     MONGO_HOST = os.getenv("MONGO_LOCAL_TEST_HOST", "localhost")
     MONGO_PORT = 27018
