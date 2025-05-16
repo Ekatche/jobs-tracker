@@ -1,19 +1,27 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { FiBriefcase, FiMenu, FiX, FiUser, FiLogOut, FiPlusCircle, FiUserPlus } from 'react-icons/fi';
-import { useRouter } from 'next/navigation';
-import { logout, getToken } from '@/lib/auth';
-import { authApi } from '@/lib/api';
-import type { User } from '@/lib/api';
-import NewApplicationModal from '@/components/dashboard/NewApplicationModal';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  FiBriefcase,
+  FiMenu,
+  FiX,
+  FiUser,
+  FiLogOut,
+  FiPlusCircle,
+  FiUserPlus,
+} from "react-icons/fi";
+import { useRouter } from "next/navigation";
+import { logout, getToken } from "@/lib/auth";
+import { authApi } from "@/lib/api";
+import type { User } from "@/lib/api";
+import NewApplicationModal from "@/components/dashboard/NewApplicationModal";
 
 // Définir le style de fond une seule fois
 const headerBackground = {
-  background: '#1a2a45',
-  borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+  background: "#1a2a45",
+  borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
 };
 
 export default function Header() {
@@ -22,7 +30,8 @@ export default function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isNewApplicationModalOpen, setIsNewApplicationModalOpen] = useState(false);
+  const [isNewApplicationModalOpen, setIsNewApplicationModalOpen] =
+    useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -31,16 +40,19 @@ export default function Header() {
     const checkAuth = async () => {
       setLoading(true);
       const token = getToken();
-      console.log("Token in Header:", token);  // Ajoutez cette ligne
-      
+      console.log("Token in Header:", token); // Ajoutez cette ligne
+
       if (token) {
         try {
           const userData = await authApi.getCurrentUser();
-          console.log("User data:", userData);  // Ajoutez cette ligne
+          console.log("User data:", userData); // Ajoutez cette ligne
           setUser(userData);
           setIsLoggedIn(true);
         } catch (error) {
-          console.error('Erreur lors de la récupération des informations utilisateur', error);
+          console.error(
+            "Erreur lors de la récupération des informations utilisateur",
+            error,
+          );
           setIsLoggedIn(false);
           setUser(null);
         }
@@ -50,7 +62,7 @@ export default function Header() {
       }
       setLoading(false);
     };
-  
+
     checkAuth();
   }, [pathname]);
 
@@ -59,7 +71,7 @@ export default function Header() {
     setUser(null);
     setIsLoggedIn(false);
     closeMenu();
-    router.push('/auth/login');
+    router.push("/auth/login");
   };
 
   const closeMenu = () => {
@@ -72,21 +84,21 @@ export default function Header() {
     // Fermer la modal après un délai pour montrer le message de succès
     setTimeout(() => {
       setIsNewApplicationModalOpen(false);
-      
+
       // Effectuer un rafraîchissement complet de la page
       window.location.reload();
     }, 1500);
-    
+
     // Nous gardons aussi l'événement pour la compatibilité avec le code existant
     // qui pourrait l'utiliser ailleurs
-    if (pathname.includes('/applications') || pathname.includes('/dashboard')) {
-      window.dispatchEvent(new Event('application-created'));
+    if (pathname.includes("/applications") || pathname.includes("/dashboard")) {
+      window.dispatchEvent(new Event("application-created"));
     }
   };
 
   // Fonction pour déterminer si le lien est actif
   const isActive = (path: string) => {
-    if (path === '/' && pathname !== '/') return false;
+    if (path === "/" && pathname !== "/") return false;
     return pathname?.startsWith(path);
   };
 
@@ -97,34 +109,45 @@ export default function Header() {
           {/* Logo et titre */}
           <Link href="/" className="flex items-center gap-2 text-white">
             <FiBriefcase className="text-2xl" />
-            <span className="font-bold text-xl hidden sm:block">Job Tracker</span>
+            <span className="font-bold text-xl hidden sm:block">
+              Job Tracker
+            </span>
           </Link>
 
           {/* Navigation sur grand écran */}
           <nav className="hidden md:flex items-center space-x-8">
             {isLoggedIn ? (
               <>
-                <Link 
-                  href="/dashboard" 
+                <Link
+                  href="/dashboard"
                   className={`text-sm font-medium transition-colors ${
-                    isActive('/dashboard') 
-                      ? 'text-white border-b-2 border-blue-400' 
-                      : 'text-gray-300 hover:text-white'
+                    isActive("/dashboard")
+                      ? "text-white border-b-2 border-blue-400"
+                      : "text-gray-300 hover:text-white"
                   }`}
                 >
                   Tableau de bord
                 </Link>
-                <Link 
-                  href="/applications" 
+                <Link
+                  href="/applications"
                   className={`text-sm font-medium transition-colors ${
-                    isActive('/applications') 
-                      ? 'text-white border-b-2 border-blue-400' 
-                      : 'text-gray-300 hover:text-white'
+                    isActive("/applications")
+                      ? "text-white border-b-2 border-blue-400"
+                      : "text-gray-300 hover:text-white"
                   }`}
                 >
                   Mes candidatures
                 </Link>
-               
+                <Link
+                  href="/tasks"
+                  className={`text-sm font-medium transition-colors ${
+                    isActive("/tasks")
+                      ? "text-white border-b-2 border-blue-400"
+                      : "text-gray-300 hover:text-white"
+                  }`}
+                >
+                  Mes demarches
+                </Link>
               </>
             ) : (
               <></>
@@ -151,7 +174,9 @@ export default function Header() {
                     className="flex items-center gap-2 px-3 py-2 rounded-md bg-blue-900/30 hover:bg-blue-800/50 text-white transition-colors"
                   >
                     <FiUser className="text-lg" />
-                    <span className="hidden sm:inline">{user?.username || 'Utilisateur'}</span>
+                    <span className="hidden sm:inline">
+                      {user?.username || "Utilisateur"}
+                    </span>
                   </button>
 
                   {/* Dropdown menu utilisateur */}
@@ -159,7 +184,9 @@ export default function Header() {
                     <div className="absolute right-0 mt-2 w-48 bg-blue-night-lighter rounded-md shadow-lg z-10 py-1 border border-gray-700">
                       <div className="px-4 py-2 text-sm text-gray-300 border-b border-gray-700">
                         <div className="font-medium">{user?.username}</div>
-                        <div className="text-xs text-gray-400 truncate">{user?.email}</div>
+                        <div className="text-xs text-gray-400 truncate">
+                          {user?.email}
+                        </div>
                       </div>
                       <Link
                         href="/profile"
@@ -209,7 +236,11 @@ export default function Header() {
               className="md:hidden flex items-center text-white"
               onClick={() => setIsOpen(!isOpen)}
             >
-              {isOpen ? <FiX className="text-2xl" /> : <FiMenu className="text-2xl" />}
+              {isOpen ? (
+                <FiX className="text-2xl" />
+              ) : (
+                <FiMenu className="text-2xl" />
+              )}
             </button>
           </div>
         </div>
@@ -223,8 +254,12 @@ export default function Header() {
               <>
                 {user && (
                   <div className="py-2 mb-2 border-b border-gray-700">
-                    <div className="text-white font-medium">{user.username}</div>
-                    <div className="text-sm text-gray-400 truncate">{user.email}</div>
+                    <div className="text-white font-medium">
+                      {user.username}
+                    </div>
+                    <div className="text-sm text-gray-400 truncate">
+                      {user.email}
+                    </div>
                   </div>
                 )}
                 <Link

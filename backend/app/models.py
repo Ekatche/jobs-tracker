@@ -1,9 +1,8 @@
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, List, Optional
-
 from bson import ObjectId
-from pydantic import BaseModel, Field, GetCoreSchemaHandler, HttpUrl
+from pydantic import BaseModel, Field, GetCoreSchemaHandler, HttpUrl, ConfigDict
 from pydantic_core import core_schema
 
 
@@ -39,6 +38,7 @@ class UserModel(BaseModel):
     disabled: Optional[bool] = False
     created_at: datetime = Field(default_factory=utcnow_with_timezone)
     updated_at: Optional[datetime] = None
+    cv_url: Optional[HttpUrl] = None  # <--- Ajouté ici
 
     model_config = {
         "populate_by_name": True,
@@ -49,6 +49,7 @@ class UserModel(BaseModel):
                 "email": "john.doe@example.com",
                 "full_name": "John Doe",
                 "disabled": False,
+                "cv_url": "https://monapp.com/uploads/cv_johndoe.pdf",
             }
         },
     }
@@ -199,3 +200,53 @@ class JobApplicationResponse(BaseModel):
     archived: Optional[bool] = False  # Ajout du champ archived
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
+
+
+class TaskStatus(str, Enum):
+    TODO = "À faire"
+    IN_PROGRESS = "En cours"
+    DONE = "Terminée"
+
+
+class Task(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    user_id: PyObjectId = Field(...)
+    title: str = Field(...)
+    description: Optional[str] = None
+    status: TaskStatus = Field(default=TaskStatus.TODO)
+    archived: Optional[bool] = False
+    due_date: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utcnow_with_timezone)
+    updated_at: Optional[datetime] = None
+
+    model_config = {
+        "populate_by_name": True,
+        "arbitrary_types_allowed": True,
+        "json_schema_extra": {
+            "example": {
+                "title": "Préparer le CV",
+                "description": "Mettre à jour le CV avec les dernières expériences.",
+                "status": "À faire",
+                "due_date": "2025-04-10T10:00:00Z",
+            }
+        },
+    }
+
+
+class TaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    due_date: Optional[datetime] = None
+    # Ajoute d'autres champs si besoin (ex: attached_files, etc.)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class TaskCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    status: Optional[str] = None
+    due_date: Optional[datetime] = None
+
+    model_config = ConfigDict(extra="forbid")

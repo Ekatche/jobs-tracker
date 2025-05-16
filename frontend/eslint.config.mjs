@@ -15,12 +15,12 @@ const eslintConfig = [
     rules: {
       // Désactiver la règle des apostrophes non-échappées
       "react/no-unescaped-entities": "off",
-      
+
       // Désactiver l'erreur des variables non utilisées
       "@typescript-eslint/no-unused-vars": "off",
-      
+
       // Ou alternativement, la transformer en avertissement et ignorer certains modèles
-      // "@typescript-eslint/no-unused-vars": ["warn", { 
+      // "@typescript-eslint/no-unused-vars": ["warn", {
       //   "argsIgnorePattern": "^_",
       //   "varsIgnorePattern": "^_",
       //   "caughtErrorsIgnorePattern": "^_"

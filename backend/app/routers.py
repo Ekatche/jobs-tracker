@@ -2,7 +2,18 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 import pymongo
 from bson import ObjectId
-from fastapi import APIRouter, Body, Depends, HTTPException, status, BackgroundTasks
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    HTTPException,
+    status,
+    BackgroundTasks,
+    File,
+    UploadFile,
+)
+import os
+from uuid import uuid4
 from fastapi.encoders import jsonable_encoder
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
@@ -29,6 +40,9 @@ from .models import (
     UserCreate,
     UserModel,
     UserResponse,
+    Task,
+    TaskUpdate,
+    TaskCreate,
 )
 from .utils import (
     capitalize_words,
@@ -41,6 +55,9 @@ from .llm.utils import fetch_documents, split_documents, summarize_chunks
 logger = logging.getLogger(__name__)
 
 
+UPLOAD_DIR = "app/uploads"
+
+
 # Ajoutez cette classe pour le body de la requête
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
@@ -50,8 +67,40 @@ class RefreshTokenRequest(BaseModel):
 auth_router = APIRouter(prefix="/auth", tags=["authentication"])
 user_router = APIRouter(prefix="/users", tags=["users"])
 job_router = APIRouter(prefix="/applications", tags=["applications"])
+task_router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 # ============ Routes d'authentification ============
+
+
+async def _generate_description_bg(application_id: ObjectId, url: str, db):
+    logger.info(f"[description_bg] Démarrage pour ID={application_id}, URL={url}")
+    try:
+        docs = await fetch_documents(url)
+        if not docs:
+            logger.warning(f"[description_bg] Aucun document récupéré pour {url}")
+            return
+
+        logger.info(f"[description_bg] {len(docs)} documents récupérés")
+        chunks = split_documents(docs)
+        description = await summarize_chunks(chunks)
+
+        if description:
+            logger.info(
+                f"[description_bg] Description générée ({len(description)} chars)"
+            )
+            await db["applications"].update_one(
+                {"_id": ObjectId(application_id)},
+                {
+                    "$set": {
+                        "description": description,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+        else:
+            logger.warning("[description_bg] Échec de génération de description")
+    except Exception as e:
+        logger.error(f"[description_bg] Erreur: {str(e)}")
 
 
 @auth_router.post("/token", response_model=Token)
@@ -155,7 +204,8 @@ async def change_password(
     # Récupérer l'utilisateur mis à jour
     updated_user = await db["users"].find_one({"_id": ObjectId(current_user.id)})
 
-    return updated_user
+    # Sérialiser le document pour convertir les ObjectId en chaînes
+    return serialize_mongodb_doc(updated_user)
 
 
 @auth_router.post("/refresh", response_model=Token)
@@ -205,6 +255,39 @@ async def refresh_access_token(
         "refresh_token": refresh_token,
         "token_type": "bearer",
     }
+
+
+# ============ Routes de téléchargement ============
+@user_router.post("/upload-cv")
+async def upload_cv(
+    file: UploadFile = File(...),
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    # Vérifier le type de fichier (PDF, Word, etc.)
+    allowed_types = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Type de fichier non autorisé")
+
+    ext = os.path.splitext(file.filename)[1]
+    filename = f"cv_{current_user.id}_{uuid4().hex}{ext}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+
+    # Sauvegarder le fichier
+    with open(file_path, "wb") as buffer:
+        buffer.write(await file.read())
+
+    # Générer l'URL publique
+    url = f"/uploads/{filename}"
+
+    # Mettre à jour le champ cv_url de l'utilisateur
+    await db["users"].update_one({"_id": current_user.id}, {"$set": {"cv_url": url}})
+
+    return {"cv_url": url}
 
 
 # ============ Routes utilisateur ============
@@ -286,7 +369,6 @@ async def update_user(
 ):
     # Vérifier que l'utilisateur modifie son propre profil ou est administrateur
     if str(current_user.id) != user_id:
-        # Vérifier si l'utilisateur est administrateur (à implémenter)
         pass
 
     # Préparer les données à mettre à jour
@@ -313,7 +395,7 @@ async def update_user(
     # Récupérer l'utilisateur mis à jour
     updated_user = await db["users"].find_one({"_id": ObjectId(user_id)})
 
-    return updated_user
+    return serialize_mongodb_doc(updated_user)
 
 
 @user_router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -568,33 +650,84 @@ async def add_note(
     return serialize_mongodb_doc(updated_application)
 
 
-# Ajoutez cette fonction en haut du fichier, avant les routes
-async def _generate_description_bg(application_id: ObjectId, url: str, db):
-    logger.info(f"[description_bg] Démarrage pour ID={application_id}, URL={url}")
-    try:
-        docs = await fetch_documents(url)
-        if not docs:
-            logger.warning(f"[description_bg] Aucun document récupéré pour {url}")
-            return
+# ============ Routes candidatures ============
 
-        logger.info(f"[description_bg] {len(docs)} documents récupérés")
-        chunks = split_documents(docs)
-        description = await summarize_chunks(chunks)
 
-        if description:
-            logger.info(
-                f"[description_bg] Description générée ({len(description)} chars)"
-            )
-            await db["applications"].update_one(
-                {"_id": ObjectId(application_id)},
-                {
-                    "$set": {
-                        "description": description,
-                        "updated_at": datetime.now(timezone.utc),
-                    }
-                },
-            )
-        else:
-            logger.warning("[description_bg] Échec de génération de description")
-    except Exception as e:
-        logger.error(f"[description_bg] Erreur: {str(e)}")
+@task_router.get("/", response_model=List[Task])
+async def get_tasks(
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    tasks = await db["tasks"].find({"user_id": current_user.id}).to_list(length=100)
+    return [serialize_mongodb_doc(task) for task in tasks]
+
+
+@task_router.get("/{task_id}", response_model=Task)
+async def get_task(
+    task_id: str,
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    task = await db["tasks"].find_one({"_id": ObjectId(task_id)})
+    if not task:
+        raise HTTPException(status_code=404, detail="Tâche non trouvée")
+    if str(task["user_id"]) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé à cette tâche")
+    return serialize_mongodb_doc(task)
+
+
+@task_router.post("/", response_model=Task, status_code=status.HTTP_201_CREATED)
+async def create_task(
+    task: TaskCreate = Body(...),
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    # Préparer les données de la tâche
+    task_data = task.model_dump()
+    task_data["user_id"] = current_user.id
+    task_data["created_at"] = datetime.now(timezone.utc)
+    task_data["updated_at"] = datetime.now(timezone.utc)
+
+    # Insérer la tâche dans la base de données
+    result = await db["tasks"].insert_one(task_data)
+    created_task = await db["tasks"].find_one({"_id": result.inserted_id})
+
+    return serialize_mongodb_doc(created_task)
+
+
+@task_router.put("/{task_id}", response_model=Task)
+async def update_task(
+    task_id: str,
+    task_update: TaskUpdate = Body(...),
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    task = await db["tasks"].find_one({"_id": ObjectId(task_id)})
+    if not task:
+        raise HTTPException(status_code=404, detail="Tâche non trouvée")
+    if str(task["user_id"]) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé à cette tâche")
+
+    update_dict = task_update.model_dump(exclude_unset=True)
+
+    update_data = {k: v for k, v in update_dict.items() if v is not None}
+
+    update_data["updated_at"] = datetime.now(timezone.utc)
+    await db["tasks"].update_one({"_id": ObjectId(task_id)}, {"$set": update_data})
+    updated_task = await db["tasks"].find_one({"_id": ObjectId(task_id)})
+    return serialize_mongodb_doc(updated_task)
+
+
+@task_router.delete("/{task_id}", status_code=204)
+async def delete_task(
+    task_id: str,
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    task = await db["tasks"].find_one({"_id": ObjectId(task_id)})
+    if not task:
+        raise HTTPException(status_code=404, detail="Tâche non trouvée")
+    if str(task["user_id"]) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé à cette tâche")
+    await db["tasks"].delete_one({"_id": ObjectId(task_id)})
+    return None

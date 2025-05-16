@@ -9,8 +9,13 @@ on:
 jobs:
   # VÉRIFICATIONS DES BUILDS ET TESTS
   backend-test:
-    name: Backend - Tests
+    name: Backend - Tests avec Docker
     runs-on: ubuntu-latest
+
+     # Variables non-sensibles globales pour ce job
+    env:
+     DATABASE_NAME_TEST: jobtracker_test
+     TEST_ENV: github
     
     steps:
     - uses: actions/checkout@v3
@@ -19,7 +24,15 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
-        
+
+    - name: Install MongoDB
+      run: |
+        wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | sudo apt-key add -
+        echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/5.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-5.0.list
+        sudo apt-get update
+        sudo apt-get install -y mongodb-org
+        sudo systemctl start mongod
+          
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -30,16 +43,31 @@ jobs:
       run: |
         cd backend
         python -m compileall .
+    
+    - name: Create MongoDB test user
+      run: |
+         mongosh --eval "db = db.getSiblingDB('admin'); db.createUser({user: '${{ secrets.MONGO_TEST_USER }}', pwd: '${{ secrets.MONGO_TEST_PASSWORD }}', roles: [{role: 'root', db: 'admin'}]})"
+    
+    - name: Create .env file
+      run: |
+          cat > backend/.env << EOF
+          MONGO_TEST_USER=${{secrets.MONGO_TEST_USER }}
+          MONGO_TEST_PASSWORD=${{ secrets.MONGO_TEST_PASSWORD }}
+          DATABASE_NAME_TEST=jobtracker_test
+          MONGO_LOCAL_TEST_HOST=localhost
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+          ALGORITHM=HS256
+          TEST_ENV=github
+          EOF
         
-    - name: Run tests (si disponibles)
+    - name: Run tests
       run: |
         cd backend
         if [ -d "tests" ] || [ -f "test_*.py" ]; then
-          pytest --cov=. --cov-report=xml || echo "Tests en échec mais on continue"
+          python -m pytest tests/ -v
         else
           echo "Aucun test trouvé"
         fi
-      continue-on-error: true
 
   frontend-test:
     name: Frontend - Build & Tests  

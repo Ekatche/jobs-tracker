@@ -1,28 +1,27 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { FiX, FiSave, FiCalendar, FiCheck, FiArchive } from 'react-icons/fi';
-import { applicationApi } from '@/lib/api';
-import { format } from 'date-fns';
-import { Application } from '@/types/application';
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { FiX, FiSave, FiCalendar, FiCheck, FiArchive } from "react-icons/fi";
+import { applicationApi } from "@/lib/api";
+import { format } from "date-fns";
+import { Application } from "@/types/application";
 
 // Schéma de validation pour le formulaire (identique à NewApplicationModal)
 const applicationSchema = z.object({
-  company: z.string().min(1, 'Le nom de l\'entreprise est requis'),
-  position: z.string().min(1, 'Le poste est requis'),
+  company: z.string().min(1, "Le nom de l'entreprise est requis"),
+  position: z.string().min(1, "Le poste est requis"),
   location: z.string().optional(),
-  status: z.string().min(1, 'Le statut est requis'),
-  url: z.string().url('URL invalide').optional().or(z.literal('')),
-  application_date: z.string().min(1, 'La date de candidature est requise'),
+  status: z.string().min(1, "Le statut est requis"),
+  url: z.string().url("URL invalide").optional().or(z.literal("")),
+  application_date: z.string().min(1, "La date de candidature est requise"),
   description: z.string().optional(),
   archived: z.boolean().optional(), // Ajout du champ archived
 });
 
 type ApplicationFormData = z.infer<typeof applicationSchema>;
-
 
 interface EditApplicationModalProps {
   isOpen: boolean;
@@ -31,29 +30,41 @@ interface EditApplicationModalProps {
   application: Application | null;
 }
 
-export default function EditApplicationModal({ isOpen, onClose, onSuccess, application }: EditApplicationModalProps) {
+export default function EditApplicationModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  application,
+}: EditApplicationModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [actionType, setActionType] = useState<'update' | 'delete' | 'archive' | null>(null);
+  const [actionType, setActionType] = useState<
+    "update" | "delete" | "archive" | null
+  >(null);
 
   const [notes, setNotes] = useState<string[]>([]);
-  const [newNote, setNewNote] = useState<string>('');
+  const [newNote, setNewNote] = useState<string>("");
   const [isAddingNote, setIsAddingNote] = useState<boolean>(false);
   const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
-  const [editedNoteText, setEditedNoteText] = useState<string>('');
+  const [editedNoteText, setEditedNoteText] = useState<string>("");
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<ApplicationFormData>({
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<ApplicationFormData>({
     resolver: zodResolver(applicationSchema),
     defaultValues: {
-      company: '',
-      position: '',
-      location: '',
-      status: 'Candidature envoyée',
-      url: '',
-      application_date: format(new Date(), 'yyyy-MM-dd'),
-      description: '',
-    }
+      company: "",
+      position: "",
+      location: "",
+      status: "Candidature envoyée",
+      url: "",
+      application_date: format(new Date(), "yyyy-MM-dd"),
+      description: "",
+    },
   });
 
   // Mettre à jour le formulaire quand une application est sélectionnée
@@ -62,11 +73,11 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
       reset({
         company: application.company,
         position: application.position,
-        location: application.location || '',
+        location: application.location || "",
         status: application.status,
-        url: application.url || '',
+        url: application.url || "",
         application_date: application.application_date.substring(0, 10), // Format YYYY-MM-DD
-        description: application.description || '',
+        description: application.description || "",
       });
     }
   }, [application, reset]);
@@ -83,34 +94,42 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
   // Fonction pour gérer la suppression d'une candidature
   const handleDeleteApplication = async () => {
     if (!application?._id) return;
-    
+
     // Demander confirmation avant suppression
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette candidature ? Cette action est irréversible.')) {
+    if (
+      !confirm(
+        "Êtes-vous sûr de vouloir supprimer cette candidature ? Cette action est irréversible.",
+      )
+    ) {
       return;
     }
-    
+
     try {
       setIsSubmitting(true);
       setError(null);
-      setActionType('delete');
-      
+      setActionType("delete");
+
       // Appel à l'API pour supprimer la candidature
       await applicationApi.delete(application._id);
-      
+
       // Afficher un message de succès temporaire
       setShowSuccessMessage(true);
-      
+
       // Fermer le modal et actualiser la liste des candidatures après un délai
       setTimeout(() => {
         onSuccess();
         onClose();
       }, 1000);
-      
     } catch (err) {
       if (err instanceof Error) {
-        setError(err.message || 'Une erreur est survenue lors de la suppression de la candidature');
+        setError(
+          err.message ||
+            "Une erreur est survenue lors de la suppression de la candidature",
+        );
       } else {
-        setError('Une erreur est survenue lors de la suppression de la candidature');
+        setError(
+          "Une erreur est survenue lors de la suppression de la candidature",
+        );
       }
       setIsSubmitting(false);
     }
@@ -118,26 +137,26 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
 
   const onSubmit = async (data: ApplicationFormData) => {
     if (!application?._id) return;
-    
+
     setIsSubmitting(true);
     setError(null);
     setShowSuccessMessage(false);
-    setActionType('update');
+    setActionType("update");
 
     try {
       // Traitement des données avant envoi
       const formData = {
         ...data,
-        url: data.url === '' ? undefined : data.url,
-        notes: notes // Ajoutez les notes aux données du formulaire
+        url: data.url === "" ? undefined : data.url,
+        notes: notes, // Ajoutez les notes aux données du formulaire
       };
 
       // Appel à l'API pour mettre à jour la candidature
       await applicationApi.update(application._id, formData);
-      
+
       // Afficher le message de succès
       setShowSuccessMessage(true);
-      
+
       // Fermer le modal et actualiser la liste des candidatures après un délai
       setTimeout(() => {
         onSuccess();
@@ -145,9 +164,14 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
       }, 1500);
     } catch (err) {
       if (err instanceof Error) {
-        setError(err.message || 'Une erreur est survenue lors de la modification de la candidature');
+        setError(
+          err.message ||
+            "Une erreur est survenue lors de la modification de la candidature",
+        );
       } else {
-        setError('Une erreur est survenue lors de la modification de la candidature');
+        setError(
+          "Une erreur est survenue lors de la modification de la candidature",
+        );
       }
     } finally {
       setIsSubmitting(false);
@@ -157,10 +181,10 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
   // Ajouter une note
   const handleAddNote = () => {
     if (!newNote.trim()) return;
-    
+
     const updatedNotes = [...notes, newNote];
     setNotes(updatedNotes);
-    setNewNote('');
+    setNewNote("");
   };
 
   // Supprimer une note
@@ -179,47 +203,48 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
   // Sauvegarder une note modifiée
   const handleSaveEditNote = () => {
     if (editingNoteIndex === null || !editedNoteText.trim()) return;
-    
+
     const updatedNotes = [...notes];
     updatedNotes[editingNoteIndex] = editedNoteText;
     setNotes(updatedNotes);
-    
+
     setEditingNoteIndex(null);
-    setEditedNoteText('');
+    setEditedNoteText("");
   };
 
   // Annuler l'édition d'une note
   const handleCancelEditNote = () => {
     setEditingNoteIndex(null);
-    setEditedNoteText('');
+    setEditedNoteText("");
   };
 
   // Fonction pour gérer l'archivage/désarchivage d'une candidature
   const handleToggleArchive = async () => {
     if (!application) return;
-    
+
     try {
       setIsSubmitting(true);
-      setActionType('archive');
-      
+      setActionType("archive");
+
       // Mettre à jour l'état archivé
       await applicationApi.update(application._id, {
         ...application,
-        archived: !application.archived
+        archived: !application.archived,
       });
-      
+
       // Afficher le message de succès
       setShowSuccessMessage(true);
-      
+
       // Appeler la fonction de succès après un délai
       setTimeout(() => {
         onSuccess();
         onClose();
       }, 1500);
-      
     } catch (error) {
       console.error("Erreur lors de l'archivage/désarchivage:", error);
-      setError("Une erreur est survenue lors de l'archivage/désarchivage de la candidature");
+      setError(
+        "Une erreur est survenue lors de l'archivage/désarchivage de la candidature",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -249,15 +274,17 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
               {error}
             </div>
           )}
-          
+
           {showSuccessMessage && (
-            <div className={`${actionType === 'delete' ? 'bg-red-900/40 border-red-600' : 'bg-green-900/40 border-green-600'} border p-3 rounded-md mb-4 flex items-center text-white`}>
-              <FiCheck className="mr-2" /> 
-              {actionType === 'delete' 
-                ? 'Candidature supprimée avec succès !' 
-                : actionType === 'archive'
-                ? 'Candidature archivée avec succès !'
-                : 'Candidature modifiée avec succès !'}
+            <div
+              className={`${actionType === "delete" ? "bg-red-900/40 border-red-600" : "bg-green-900/40 border-green-600"} border p-3 rounded-md mb-4 flex items-center text-white`}
+            >
+              <FiCheck className="mr-2" />
+              {actionType === "delete"
+                ? "Candidature supprimée avec succès !"
+                : actionType === "archive"
+                  ? "Candidature archivée avec succès !"
+                  : "Candidature modifiée avec succès !"}
             </div>
           )}
 
@@ -265,45 +292,58 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Entreprise */}
               <div className="col-span-1">
-                <label htmlFor="company" className="block text-sm font-medium text-gray-300 mb-1">
+                <label
+                  htmlFor="company"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
                   Entreprise *
                 </label>
                 <input
                   id="company"
                   type="text"
-                  {...register('company')}
+                  {...register("company")}
                   className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {errors.company && (
-                  <p className="mt-1 text-sm text-red-400">{errors.company.message}</p>
+                  <p className="mt-1 text-sm text-red-400">
+                    {errors.company.message}
+                  </p>
                 )}
               </div>
 
               {/* Poste */}
               <div className="col-span-1">
-                <label htmlFor="position" className="block text-sm font-medium text-gray-300 mb-1">
+                <label
+                  htmlFor="position"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
                   Poste *
                 </label>
                 <input
                   id="position"
                   type="text"
-                  {...register('position')}
+                  {...register("position")}
                   className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {errors.position && (
-                  <p className="mt-1 text-sm text-red-400">{errors.position.message}</p>
+                  <p className="mt-1 text-sm text-red-400">
+                    {errors.position.message}
+                  </p>
                 )}
               </div>
 
               {/* Localisation */}
               <div className="col-span-1">
-                <label htmlFor="location" className="block text-sm font-medium text-gray-300 mb-1">
+                <label
+                  htmlFor="location"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
                   Localisation
                 </label>
                 <input
                   id="location"
                   type="text"
-                  {...register('location')}
+                  {...register("location")}
                   className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Ex: Paris, Remote, etc."
                 />
@@ -311,16 +351,21 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
 
               {/* Statut */}
               <div className="col-span-1">
-                <label htmlFor="status" className="block text-sm font-medium text-gray-300 mb-1">
+                <label
+                  htmlFor="status"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
                   Statut *
                 </label>
                 <select
                   id="status"
-                  {...register('status')}
+                  {...register("status")}
                   className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="En étude">En étude</option>
-                  <option value="Candidature envoyée">Candidature envoyée</option>
+                  <option value="Candidature envoyée">
+                    Candidature envoyée
+                  </option>
                   <option value="Première sélection">Première sélection</option>
                   <option value="Entretien">Entretien</option>
                   <option value="Test technique">Test technique</option>
@@ -330,30 +375,40 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
                   <option value="Refusée">Refusée</option>
                 </select>
                 {errors.status && (
-                  <p className="mt-1 text-sm text-red-400">{errors.status.message}</p>
+                  <p className="mt-1 text-sm text-red-400">
+                    {errors.status.message}
+                  </p>
                 )}
               </div>
 
               {/* URL de l'offre */}
               <div className="col-span-1">
-                <label htmlFor="url" className="block text-sm font-medium text-gray-300 mb-1">
+                <label
+                  htmlFor="url"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
                   URL de l'offre
                 </label>
                 <input
                   id="url"
                   type="text"
-                  {...register('url')}
+                  {...register("url")}
                   className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="https://..."
                 />
                 {errors.url && (
-                  <p className="mt-1 text-sm text-red-400">{errors.url.message}</p>
+                  <p className="mt-1 text-sm text-red-400">
+                    {errors.url.message}
+                  </p>
                 )}
               </div>
 
               {/* Date de candidature */}
               <div className="col-span-1">
-                <label htmlFor="application_date" className="block text-sm font-medium text-gray-300 mb-1">
+                <label
+                  htmlFor="application_date"
+                  className="block text-sm font-medium text-gray-300 mb-1"
+                >
                   Date de candidature *
                 </label>
                 <div className="relative">
@@ -363,24 +418,29 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
                   <input
                     id="application_date"
                     type="date"
-                    {...register('application_date')}
+                    {...register("application_date")}
                     className="w-full rounded-md bg-blue-night border border-gray-700 py-2 pl-10 pr-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 {errors.application_date && (
-                  <p className="mt-1 text-sm text-red-400">{errors.application_date.message}</p>
+                  <p className="mt-1 text-sm text-red-400">
+                    {errors.application_date.message}
+                  </p>
                 )}
               </div>
             </div>
 
             {/* Description */}
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-1">
+              <label
+                htmlFor="description"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
                 Description
               </label>
               <textarea
                 id="description"
-                {...register('description')}
+                {...register("description")}
                 rows={4}
                 placeholder="Informations supplémentaires sur le poste, exigences, etc."
                 className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -390,11 +450,14 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
             {/* Notes */}
             <div className="mt-4">
               <h3 className="text-lg font-semibold mb-2">Notes</h3>
-              
+
               {/* Liste des notes existantes */}
               <div className="space-y-2 mb-4">
                 {notes.map((note, index) => (
-                  <div key={index} className="p-3 bg-blue-night-light rounded-md relative group">
+                  <div
+                    key={index}
+                    className="p-3 bg-blue-night-light rounded-md relative group"
+                  >
                     {editingNoteIndex === index ? (
                       <div>
                         <textarea
@@ -416,7 +479,9 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
                             onClick={handleSaveEditNote}
                             disabled={!editedNoteText.trim()}
                             className={`px-2 py-1 rounded-md text-sm text-white ${
-                              !editedNoteText.trim() ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500'
+                              !editedNoteText.trim()
+                                ? "bg-gray-600 cursor-not-allowed"
+                                : "bg-blue-600 hover:bg-blue-500"
                             }`}
                           >
                             Enregistrer
@@ -427,22 +492,44 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
                       <>
                         <p className="text-gray-300 pr-12">{note}</p>
                         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
-                          <button 
+                          <button
                             type="button"
                             onClick={() => handleStartEditNote(index, note)}
                             className="p-1 rounded-full text-gray-400 hover:text-blue-400 hover:bg-blue-900/30"
                           >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                              ></path>
                             </svg>
                           </button>
-                          <button 
+                          <button
                             type="button"
                             onClick={() => handleDeleteNote(index)}
                             className="p-1 rounded-full text-gray-400 hover:text-red-400 hover:bg-red-900/30"
                           >
-                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              ></path>
                             </svg>
                           </button>
                         </div>
@@ -451,7 +538,7 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
                   </div>
                 ))}
               </div>
-              
+
               {/* Formulaire d'ajout de note */}
               <div>
                 <textarea
@@ -467,11 +554,24 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
                     onClick={handleAddNote}
                     disabled={!newNote.trim() || isAddingNote}
                     className={`px-3 py-1 rounded-md flex items-center text-white ${
-                      !newNote.trim() || isAddingNote ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500'
+                      !newNote.trim() || isAddingNote
+                        ? "bg-gray-600 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-500"
                     }`}
                   >
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    <svg
+                      className="w-4 h-4 mr-1"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                      ></path>
                     </svg>
                     Ajouter
                   </button>
@@ -487,8 +587,19 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center"
                 disabled={isSubmitting || showSuccessMessage}
               >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                <svg
+                  className="w-4 h-4 mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  ></path>
                 </svg>
                 Supprimer
               </button>
@@ -498,16 +609,16 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
                 type="button"
                 onClick={handleToggleArchive}
                 className={`px-4 py-2 ${
-                  application?.archived 
-                    ? 'bg-blue-600 hover:bg-blue-700' 
-                    : 'bg-gray-600 hover:bg-gray-700'
+                  application?.archived
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : "bg-gray-600 hover:bg-gray-700"
                 } text-white rounded-md transition-colors flex items-center`}
                 disabled={isSubmitting || showSuccessMessage}
               >
                 <FiArchive className="mr-2" />
-                {application?.archived ? 'Désarchiver' : 'Archiver'}
+                {application?.archived ? "Désarchiver" : "Archiver"}
               </button>
-              
+
               <div className="flex space-x-3">
                 <button
                   type="button"
@@ -524,16 +635,34 @@ export default function EditApplicationModal({ isOpen, onClose, onSuccess, appli
                 >
                   {isSubmitting ? (
                     <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      <svg
+                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
                       </svg>
-                      {actionType === 'delete' ? 'Suppression...' : 'Enregistrement...'}
+                      {actionType === "delete"
+                        ? "Suppression..."
+                        : "Enregistrement..."}
                     </>
                   ) : showSuccessMessage ? (
                     <>
                       <FiCheck className="mr-2" />
-                      {actionType === 'delete' ? 'Supprimée' : 'Enregistrée'}
+                      {actionType === "delete" ? "Supprimée" : "Enregistrée"}
                     </>
                   ) : (
                     <>

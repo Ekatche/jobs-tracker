@@ -1,27 +1,22 @@
 import React from "react";
-import {
-  Application,
-  GroupedApplications,
-  STATUS_ORDER,
-} from "@/types/application";
+import { Task, GroupedTasks, STATUS_ORDER } from "@/types/tasks";
 import KanbanColumn from "./KanbanColumn";
 
 interface KanbanBoardProps {
-  groupedApplications: GroupedApplications;
-  onCardClick: (application: Application) => void;
+  groupedTasks: GroupedTasks;
+  onCardClick: (task: Task) => void;
 }
-
 export default function KanbanBoard({
-  groupedApplications,
+  groupedTasks,
   onCardClick,
 }: KanbanBoardProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {STATUS_ORDER.map((status) => (
         <KanbanColumn
           key={status}
           status={status}
-          applications={groupedApplications[status] || []}
+          tasks={groupedTasks[status] || []}
           onCardClick={onCardClick}
         />
       ))}

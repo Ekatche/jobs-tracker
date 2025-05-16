@@ -1,6 +1,6 @@
 import { jwtDecode } from "jwt-decode"; // Importation correcte
-import Cookies from 'js-cookie';
-import axios from 'axios'; 
+import Cookies from "js-cookie";
+import axios from "axios";
 
 export interface User {
   id: string;
@@ -21,23 +21,23 @@ export interface RegisterCredentials {
   full_name?: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export async function login(credentials: LoginCredentials) {
   try {
     const formData = new FormData();
-    formData.append('username', credentials.username);
-    formData.append('password', credentials.password);
+    formData.append("username", credentials.username);
+    formData.append("password", credentials.password);
 
     const response = await axios.post(`${API_URL}/auth/token`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        "Content-Type": "multipart/form-data",
       },
     });
-    
+
     // Assurez-vous que le token est correctement enregistré
-    Cookies.set('token', response.data.access_token, { expires: 1 });
-    
+    Cookies.set("token", response.data.access_token, { expires: 1 });
+
     return response.data;
   } catch (error) {
     // Gestion d'erreur...
@@ -46,27 +46,27 @@ export async function login(credentials: LoginCredentials) {
 
 export async function register(credentials: RegisterCredentials) {
   const response = await fetch(`${API_URL}/auth/register`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(credentials),
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to register');
+    throw new Error(error.detail || "Failed to register");
   }
 
   return await response.json();
 }
 
 export async function logout() {
-  Cookies.remove('token');
+  Cookies.remove("token");
 }
 
 export function getToken() {
-  return Cookies.get('token');
+  return Cookies.get("token");
 }
 
 interface JwtPayload {
@@ -77,9 +77,9 @@ interface JwtPayload {
 
 export function isAuthenticated() {
   const token = getToken();
-  console.log('Token:', token); // Debugging line
+  console.log("Token:", token); // Debugging line
   if (!token) return false;
-  
+
   try {
     const decoded: JwtPayload = jwtDecode(token);
     const currentTime = Date.now() / 1000;
@@ -92,18 +92,18 @@ export function isAuthenticated() {
 export async function getCurrentUser(): Promise<User | null> {
   const token = getToken();
   if (!token) return null;
-  
+
   try {
     const response = await fetch(`${API_URL}/auth/me`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
-    
+
     if (!response.ok) {
-      throw new Error('Failed to get user');
+      throw new Error("Failed to get user");
     }
-    
+
     return await response.json();
   } catch {
     return null;
@@ -112,19 +112,19 @@ export async function getCurrentUser(): Promise<User | null> {
 
 // Ajouter ces fonctions si elles ne sont pas déjà définies
 export function removeToken() {
-  Cookies.remove('token');
+  Cookies.remove("token");
 }
 
 export function removeRefreshToken() {
-  localStorage.removeItem('refreshToken');
+  localStorage.removeItem("refreshToken");
 }
 
 export function setRefreshToken(token: string) {
-  localStorage.setItem('refreshToken', token);
+  localStorage.setItem("refreshToken", token);
 }
 
 export function getRefreshToken() {
-  return localStorage.getItem('refreshToken');
+  return localStorage.getItem("refreshToken");
 }
 
 /**
@@ -133,5 +133,5 @@ export function getRefreshToken() {
  * @param expireInDays Durée de validité du cookie en jours (par défaut: 1 jour)
  */
 export function setToken(token: string, expireInDays: number = 1) {
-  Cookies.set('token', token, { expires: expireInDays });
+  Cookies.set("token", token, { expires: expireInDays });
 }

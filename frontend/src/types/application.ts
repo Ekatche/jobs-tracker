@@ -22,53 +22,53 @@ export type GroupedApplications = {
 // Statuts d'après le backend (classe ApplicationStatus)
 export const STATUS_ORDER: string[] = [
   "En étude",
-  "Candidature envoyée", 
-  "Première sélection", 
-  "Entretien", 
-  "Offre reçue", 
-  "Refusée"
+  "Candidature envoyée",
+  "Première sélection",
+  "Entretien",
+  "Offre reçue",
+  "Refusée",
 ];
 
 // Fonction pour obtenir la couleur de fond selon le statut
 export const getStatusColor = (status: string): string => {
   switch (status) {
-    case 'En étude':
-      return 'bg-amber-700';
-    case 'Candidature envoyée':
-      return 'bg-blue-800';
-    case 'Première sélection':
-      return 'bg-cyan-700';
-    case 'Entretien':
-      return 'bg-purple-800';
-    case 'Test technique': 
-      return 'bg-indigo-700';
-    case 'Offre reçue':
-      return 'bg-green-800';
-    case 'Refusée':
-      return 'bg-red-800';
+    case "En étude":
+      return "bg-amber-700";
+    case "Candidature envoyée":
+      return "bg-blue-800";
+    case "Première sélection":
+      return "bg-cyan-700";
+    case "Entretien":
+      return "bg-purple-800";
+    case "Test technique":
+      return "bg-indigo-700";
+    case "Offre reçue":
+      return "bg-green-800";
+    case "Refusée":
+      return "bg-red-800";
     default:
-      return 'bg-gray-800';
+      return "bg-gray-800";
   }
 };
 
 export const getStatusBackgroundColor = (status: string): string => {
   switch (status) {
     case "En étude":
-      return 'bg-amber-900/40';
-    case 'Candidature envoyée':
-      return 'bg-blue-900/40';
-    case 'Première sélection':
-      return 'bg-cyan-900/40';
-    case 'Entretien':
-      return 'bg-purple-900/40';
-    case 'Test technique':
-      return 'bg-indigo-900/40';
-    case 'Offre reçue':
-      return 'bg-green-900/40';
-    case 'Refusée':
-      return 'bg-red-900/40';
+      return "bg-amber-900/40";
+    case "Candidature envoyée":
+      return "bg-blue-900/40";
+    case "Première sélection":
+      return "bg-cyan-900/40";
+    case "Entretien":
+      return "bg-purple-900/40";
+    case "Test technique":
+      return "bg-indigo-900/40";
+    case "Offre reçue":
+      return "bg-green-900/40";
+    case "Refusée":
+      return "bg-red-900/40";
     default:
-      return 'bg-gray-800/40';
+      return "bg-gray-800/40";
   }
 };
 
@@ -76,10 +76,10 @@ export const getStatusBackgroundColor = (status: string): string => {
 export const formatDate = (dateString: string | undefined): string => {
   if (!dateString) return "Non défini";
   const date = new Date(dateString);
-  return date.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
+  return date.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
   });
 };
 
@@ -94,25 +94,25 @@ export const calculateDays = (dateString: string): number => {
 // Fonction pour calculer la progression en fonction du statut
 export const calculateProgress = (status: string): number => {
   switch (status) {
-    case 'En étude':
+    case "En étude":
       return 10;
-    case 'Candidature envoyée':
+    case "Candidature envoyée":
       return 20;
-    case 'Première sélection':
+    case "Première sélection":
       return 40;
-    case 'Entretien':
+    case "Entretien":
       return 60;
-    case 'Test technique':
+    case "Test technique":
       return 80;
-    case 'Négociation':
+    case "Négociation":
       return 90;
-    case 'Offre reçue':
+    case "Offre reçue":
       return 95;
-    case 'Offre acceptée':
+    case "Offre acceptée":
       return 100;
-    case 'Refusée':
+    case "Refusée":
       return 0;
-    case 'Retirée':
+    case "Retirée":
       return 0;
     default:
       return 0;
@@ -120,18 +120,20 @@ export const calculateProgress = (status: string): number => {
 };
 
 // Fonction pour normaliser les données de l'API
-export const normalizeApiData = (apiData: Partial<Application> & { id?: string }): Application => ({
-  _id: apiData._id || apiData.id || '',
-  user_id: apiData.user_id || '',
-  company: apiData.company || '',
-  position: apiData.position || '',
+export const normalizeApiData = (
+  apiData: Partial<Application> & { id?: string },
+): Application => ({
+  _id: apiData._id || apiData.id || "",
+  user_id: apiData.user_id || "",
+  company: apiData.company || "",
+  position: apiData.position || "",
   location: apiData.location,
   url: apiData.url,
-  application_date: apiData.application_date || '',
-  status: apiData.status || '',
+  application_date: apiData.application_date || "",
+  status: apiData.status || "",
   description: apiData.description,
   notes: Array.isArray(apiData.notes) ? apiData.notes : [],
-  created_at: apiData.created_at || '',
+  created_at: apiData.created_at || "",
   updated_at: apiData.updated_at,
-  archived: typeof apiData.archived === 'boolean' ? apiData.archived : false
+  archived: typeof apiData.archived === "boolean" ? apiData.archived : false,
 });

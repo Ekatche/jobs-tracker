@@ -1,4 +1,4 @@
-import { removeToken, removeRefreshToken } from './auth';
+import { removeToken, removeRefreshToken } from "./auth";
 
 let lastActivityTime: number = Date.now();
 let lastUpdateTime = 0;
@@ -6,13 +6,13 @@ const UPDATE_THROTTLE = 5000; // 5 secondes
 
 // Événements à surveiller pour détecter l'activité utilisateur
 const activityEvents = [
-  'mousedown',
-  'mousemove',
-  'keypress',
-  'scroll',
-  'touchstart',
-  'click',
-  'keydown'
+  "mousedown",
+  "mousemove",
+  "keypress",
+  "scroll",
+  "touchstart",
+  "click",
+  "keydown",
 ];
 
 // Démarre le tracking de l'activité utilisateur
@@ -28,7 +28,7 @@ export const startActivityTracking = () => {
   };
 
   // Enregistre les écouteurs
-  activityEvents.forEach(event => {
+  activityEvents.forEach((event) => {
     window.addEventListener(event, updateActivity);
   });
 
@@ -37,7 +37,7 @@ export const startActivityTracking = () => {
 
   // Nettoyage
   return () => {
-    activityEvents.forEach(event => {
+    activityEvents.forEach((event) => {
       window.removeEventListener(event, updateActivity);
     });
   };

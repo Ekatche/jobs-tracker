@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { getToken } from '@/lib/auth';
-import { authApi } from '@/lib/api';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getToken } from "@/lib/auth";
+import { authApi } from "@/lib/api";
 
 export default function DashboardLayout({
   children,
@@ -17,12 +17,12 @@ export default function DashboardLayout({
   useEffect(() => {
     const checkAuth = async () => {
       const token = getToken();
-      
+
       if (!token) {
-        router.push('/auth/login');
+        router.push("/auth/login");
         return;
       }
-      
+
       try {
         // Vérifier si l'utilisateur est authentifié
         const userData = await authApi.getCurrentUser();
@@ -30,11 +30,11 @@ export default function DashboardLayout({
           setAuthenticated(true);
           setLoading(false);
         } else {
-          router.push('/auth/login');
+          router.push("/auth/login");
         }
       } catch (error) {
-        console.error('Erreur d\'authentification:', error);
-        router.push('/auth/login');
+        console.error("Erreur d'authentification:", error);
+        router.push("/auth/login");
       } finally {
         setLoading(false);
       }

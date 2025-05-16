@@ -48,11 +48,11 @@ def log_and_queue(level, message, **extra_data):
 def archive_old_applications(mongo_uri=None, threshold_days=40):
     """
     Archive les candidatures rejetées ou envoyées datant de plus de X jours
-    
+
     Args:
         mongo_uri: URI de connexion MongoDB (optionnel)
         threshold_days: Nombre de jours avant archivage
-    
+
     Returns:
         int: Nombre de candidatures archivées, -1 en cas d'erreur
     """
@@ -61,21 +61,21 @@ def archive_old_applications(mongo_uri=None, threshold_days=40):
         # Utiliser l'URI fourni ou construire depuis les variables d'environnement
         if not mongo_uri:
             mongo_uri = f"mongodb://{os.getenv('MONGO_USER')}:{os.getenv('MONGO_PASSWORD')}@{os.getenv('MONGO_HOST')}:27017/{os.getenv('DATABASE_NAME')}?authSource=admin"
-            
+
         client = MongoClient(mongo_uri, serverSelectionTimeoutMS=6000)
-        db = client[os.getenv('DATABASE_NAME', 'job_tracker')]
-        
+        db = client[os.getenv("DATABASE_NAME", "job_tracker")]
+
         # Date limite unique en format naïve
         today = datetime.now()
         cutoff_date = (today - timedelta(days=threshold_days)).replace(tzinfo=None)
-        
+
         # Requête simplifiée
         query = {
             "application_date": {"$lt": cutoff_date},
             "status": {"$in": ["Refusée", "Candidature envoyée"]},
-            "archived": {"$ne": True}
+            "archived": {"$ne": True},
         }
-        
+
         # Log de la requête pour debug
         log_and_queue("INFO", f"Requête MongoDB: {str(query)}")
 

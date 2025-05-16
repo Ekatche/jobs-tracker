@@ -1,11 +1,15 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { getToken } from '@/lib/auth';
-import { authApi } from '@/lib/api';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getToken } from "@/lib/auth";
+import { authApi } from "@/lib/api";
 
-export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
+export default function ProtectedRoute({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
@@ -13,23 +17,23 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   useEffect(() => {
     const checkAuth = async () => {
       const token = getToken();
-      
+
       if (!token) {
-        router.push('/auth/login');
+        router.push("/auth/login");
         return;
       }
-      
+
       try {
         // Vérifier si l'utilisateur est authentifié
         const userData = await authApi.getCurrentUser();
         if (userData) {
           setAuthenticated(true);
         } else {
-          router.push('/auth/login');
+          router.push("/auth/login");
         }
       } catch (error) {
-        console.error('Erreur d\'authentification:', error);
-        router.push('/auth/login');
+        console.error("Erreur d'authentification:", error);
+        router.push("/auth/login");
       } finally {
         setLoading(false);
       }

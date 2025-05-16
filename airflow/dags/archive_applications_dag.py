@@ -26,7 +26,7 @@ dag = DAG(
 def run_archive_task():
     import sys
     import logging
-    
+
     # Configuration du logging pour Airflow
     logger = logging.getLogger("airflow.task")
 
@@ -46,6 +46,7 @@ def run_archive_task():
         # Vérifier si pymongo est disponible
         try:
             from pymongo import MongoClient
+
             logger.info("pymongo importé avec succès")
         except ImportError:
             logger.error("pymongo n'est pas installé !")
@@ -53,6 +54,7 @@ def run_archive_task():
 
         # Importer la fonction d'archivage
         from app.tasks.archive_old_applications import archive_old_applications
+
         logger.info("Module archive_old_applications importé avec succès")
 
         # Exécuter la fonction d'archivage

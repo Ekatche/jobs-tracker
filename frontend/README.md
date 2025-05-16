@@ -7,6 +7,7 @@ Job Tracker est une application web qui vous permet de suivre et de gérer effic
 ## Technologies utilisées
 
 **Frontend:**
+
 - Next.js - Framework React pour le développement web
 - TypeScript - Typage statique pour un code plus robuste
 - Tailwind CSS - Framework CSS utilitaire
@@ -16,6 +17,7 @@ Job Tracker est une application web qui vous permet de suivre et de gérer effic
 ## Structure de l'application
 
 ### Pages principales
+
 - `/` - Page d'accueil avec présentation de l'application
 - `/dashboard` - Tableau de bord avec statistiques et vue d'ensemble des candidatures
 - `/applications` - Vue Kanban des candidatures organisées par statut
@@ -23,6 +25,7 @@ Job Tracker est une application web qui vous permet de suivre et de gérer effic
 - `/register` - Page d'inscription
 
 ### Fonctionnalités clés
+
 - **Tableau de bord** - Visualisez vos statistiques de candidature avec des graphiques interactifs
 - **Vue Kanban** - Organisez vos candidatures par statut (envoyée, entretien, offre reçue, refusée)
 - **Édition en sidebar** - Modifiez vos candidatures rapidement sans changer de contexte
@@ -30,5 +33,6 @@ Job Tracker est une application web qui vous permet de suivre et de gérer effic
 - **Notifications** - Recevez des alertes pour les mises à jour importantes
 
 ## Prérequis
+
 - Node.js (version 16 ou supérieure)
 - Docker pour exécuter l'application complète

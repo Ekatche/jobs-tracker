@@ -80,3 +80,5 @@ airflow/*.db
 
 # ---------- DOCKER ----------
 docker-compose.override.yml
+
+backend/app/uploads/

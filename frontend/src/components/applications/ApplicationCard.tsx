@@ -1,27 +1,27 @@
-import React from 'react';
-import { 
-  Application, 
-  getStatusBackgroundColor, 
-  calculateProgress, 
-  calculateDays 
-} from '@/types/application'
+import React from "react";
+import {
+  Application,
+  getStatusBackgroundColor,
+  calculateProgress,
+  calculateDays,
+} from "@/types/application";
 
 interface ApplicationCardProps {
   application: Application;
   status: string;
   onClick: (application: Application) => void;
-  compact?: boolean; 
+  compact?: boolean;
 }
 
-export default function ApplicationCard({ 
-  application, 
-  status, 
+export default function ApplicationCard({
+  application,
+  status,
   onClick,
-  compact = false
+  compact = false,
 }: ApplicationCardProps) {
   return (
-    <div 
-      className={`${getStatusBackgroundColor(status)} rounded-md ${compact ? 'p-2' : 'p-4'} cursor-pointer hover:bg-opacity-80 transition-all`}
+    <div
+      className={`${getStatusBackgroundColor(status)} rounded-md ${compact ? "p-2" : "p-4"} cursor-pointer hover:bg-opacity-80 transition-all`}
       onClick={() => onClick(application)}
     >
       <div className="flex items-center mb-1">
@@ -39,20 +39,24 @@ export default function ApplicationCard({
           </p>
         </div>
       </div>
-      
-      <div className={`${compact ? 'mb-1' : 'mb-2'}`}>
+
+      <div className={`${compact ? "mb-1" : "mb-2"}`}>
         <div className="flex items-center justify-between mb-1">
-          <span className="text-xs">{calculateProgress(application.status)} %</span>
+          <span className="text-xs">
+            {calculateProgress(application.status)} %
+          </span>
         </div>
         <div className="w-full bg-gray-700 rounded-full h-1">
-          <div 
-            className="bg-green-500 h-1 rounded-full" 
+          <div
+            className="bg-green-500 h-1 rounded-full"
             style={{ width: `${calculateProgress(application.status)}%` }}
           ></div>
         </div>
       </div>
-      
-      <div className="text-xs text-gray-400">{calculateDays(application.application_date)} j</div>
+
+      <div className="text-xs text-gray-400">
+        {calculateDays(application.application_date)} j
+      </div>
     </div>
   );
 }

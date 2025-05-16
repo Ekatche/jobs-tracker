@@ -4,9 +4,11 @@ import pymongo
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
 
 from app.database import get_database
-from app.routers import auth_router, job_router, user_router
+from app.routers import auth_router, job_router, user_router, task_router
 
 
 @asynccontextmanager
@@ -51,6 +53,9 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(job_router)
+app.include_router(task_router)
+
+app.mount("/uploads", StaticFiles(directory="app/uploads"), name="uploads")
 
 
 @app.get("/")

@@ -32,8 +32,8 @@ body {
 
 /* Nouvelle couleur de fond bleu nuit */
 :root {
-  --color-blue-night: #0f172a;  /* Bleu nuit profond */
-  --color-blue-night-lighter: #1e293b;  /* Bleu nuit un peu plus clair pour les contrastes */
+  --color-blue-night: #0f172a; /* Bleu nuit profond */
+  --color-blue-night-lighter: #1e293b; /* Bleu nuit un peu plus clair pour les contrastes */
 }
 
 /* Remplacer les fonds gris par le bleu nuit */
@@ -73,7 +73,12 @@ body {
 }
 
 .bg-auth-gradient {
-  background: linear-gradient(45deg, #1e3c72 0%, #2a5298 50%, #7303c0 100%) !important;
+  background: linear-gradient(
+    45deg,
+    #1e3c72 0%,
+    #2a5298 50%,
+    #7303c0 100%
+  ) !important;
 }
 
 /* Dans globals.css, ajoutez à la fin */
@@ -104,7 +109,15 @@ nav {
 }
 
 /* Assurez-vous que le texte est lisible sur fond sombre */
-body, h1, h2, h3, h4, h5, h6, p, span {
+body,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+span {
   color: #f8fafc !important;
 }
 
