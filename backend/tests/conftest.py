@@ -9,8 +9,6 @@ from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 from main import app
 from app.database import get_database
-from app.auth import get_password_hash
-from bson import ObjectId
 
 dotenv_path = pathlib.Path(__file__).parent.parent.parent / ".env"
 load_dotenv(dotenv_path=dotenv_path)
