@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       mongo:
-        image: mongo:5.0
+        image: mongo:latest
         ports:
           - 27017:27017
         env:
@@ -46,7 +46,15 @@ jobs:
           DATABASE_NAME=jobtracker_test
           MONGO_HOST=localhost
           EOF
-          
+      
+      - name: Wait for MongoDB
+        run: |
+          for i in {1..30}; do
+            nc -z localhost 27017 && echo "MongoDB is up!" && break
+            echo "Waiting for MongoDB..."
+            sleep 2
+          done
+
       - name: Create uploads directory
         run: mkdir -p backend/app/uploads
 
