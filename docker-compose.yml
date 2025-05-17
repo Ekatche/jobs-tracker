@@ -101,10 +101,12 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=Europe/Paris
     command: >
       sh -c "
       apk add --no-cache docker-cli &&
-      echo '0 12 * * * /usr/bin/docker restart jobtracker-airflow' > /etc/crontabs/root &&
+      echo '0 18 * * * /usr/bin/docker restart jobtracker-airflow' > /etc/crontabs/root &&
       crond -f -l 2
       "
     networks:
@@ -126,6 +128,7 @@ services:
       - ./airflow/dags:/opt/airflow/dags
       - airflow_data:/opt/airflow
     environment:
+      - TZ=Europe/Paris
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW_HOME=/opt/airflow
       - AIRFLOW__CORE__DAG_FILE_PROCESSOR_TIMEOUT=300
