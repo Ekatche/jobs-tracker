@@ -70,8 +70,9 @@ def archive_old_applications(mongo_uri=None, threshold_days=40):
         cutoff_date = (today - timedelta(days=threshold_days)).replace(tzinfo=None)
 
         # Requête simplifiée
+        cutoff_date_str = cutoff_date.strftime("%Y-%m-%d")
         query = {
-            "application_date": {"$lt": cutoff_date},
+            "application_date": {"$lt": cutoff_date_str},
             "status": {"$in": ["Refusée", "Candidature envoyée"]},
             "archived": {"$ne": True},
         }

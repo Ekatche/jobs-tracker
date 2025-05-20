@@ -1,17 +1,68 @@
-research_task:
+convert_query_task:
   description: >
-    Conduct a thorough research about {topic}
-    Make sure you find any interesting and relevant information given
-    the current year is {current_year}.
+    Prendre la demande de l'utilisateur : {user_query} et la convertir en une requête optimisée pour un moteur de recherche.
+    
+    Tu es un expert en recherche d'offres d'emploi. Transforme la question en une requête de recherche
+    concise et efficace pour trouver des offres d'emploi. La requête doit être optimisée pour un moteur de recherche.
+    
+    Exemples:
+    - Question: "Je cherche un poste de data scientist à Lyon"
+      Requête: "offres emploi data scientist Lyon"
+    
+    Retourne UNIQUEMENT le texte, sans explications ni formatage supplémentaire.
   expected_output: >
-    A list with 10 bullet points of the most relevant information about {topic}
-  agent: researcher
+    Une requête concise et efficace, prête à être utilisée dans un moteur de recherche.
+  agent: query_converter
+  input_variables:
+    user_query: ${inputs.user_query}
 
-reporting_task:
+execute_search_task:
   description: >
-    Review the context you got and expand each topic into a full section for a report.
-    Make sure the report is detailed and contains any and all relevant information.
+    Utiliser la requête optimisée pour effectuer une recherche et récupérer les URLs des résultats pertinents.
+    
+    Tu dois utiliser l'outil "Recherche d'offres d'emploi sur job boards" en lui passant UNIQUEMENT la requête 
+    sous forme de texte simple. Assure-toi de ne pas envoyer d'objets ou de structures complexes.
+    
+    Exemple:
+    - Si tu reçois la requête: "offres emploi data scientist Lyon"
+    - Utilise l'outil en passant exactement cette chaîne de caractères
+    
+    Liste ensuite les URLs obtenues.
+
   expected_output: >
-    A fully fledged report with the main topics, each with a full section of information.
-    Formatted as markdown without '```'
-  agent: reporting_analyst
+    Une liste d'URLs au format texte brut, une par ligne, sans numérotation, sans puces, 
+    sans commentaires additionnels. Chaque URL doit être complète et commencer par http:// ou https://.
+    Exemple de format:
+    https://www.site1.com/offre-emploi/12345
+    https://www.site2.fr/jobs/56789
+    https://www.site3.fr/annonce-987654
+    [...]
+    La liste doit contenir entre 5 et 15 URLs. Si moins de 5 résultats pertinents sont trouvés, 
+    indiquer toutes les URLs disponibles.
+  agent: search_executor
+  input_variables:
+    query: ${convert_query_task.output}
+
+filter_urls_task:
+  description: >
+    Filtrer la liste d'URLs obtenue pour ne garder que les liens les plus pertinents et fiables par rapport à la demande initiale, et retirer les doublons.
+    Critères de filtrage:
+    - Pertinence: URLs qui correspondent bien à la requête originale (titre, description, entreprise)
+    - Fiabilité: Sites reconnus et officiels (priorité aux sites de recrutement français)
+    - Diversité: Garde une variété d'offres (différentes entreprises, différents sites)
+    - Pas de doublons: Élimine les URLs qui pointent vers la même offre
+    
+    Présente les résultats dans une liste classée par ordre de pertinence.
+  expected_output: >
+    Une liste numérotée de maximum 5 URLs, classées par ordre décroissant de pertinence.
+    Chaque entrée doit suivre strictement le format suivant:
+    1. [URL complète] - [Nom du site] - [Titre court de l'offre si disponible]
+    2. [URL complète] - [Nom du site] - [Titre court de l'offre si disponible]
+    [...]
+    
+    Aucune explication ou commentaire ne doit être ajouté avant ou après cette liste.
+    Si aucune URL pertinente n'est trouvée, répondre uniquement "Aucun résultat pertinent trouvé.
+  agent: url_filter
+  input_variables:
+    urls: ${execute_search_task.output}
+    original_query: ${convert_query_task.output}

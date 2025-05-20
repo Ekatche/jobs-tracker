@@ -439,6 +439,13 @@ async def create_application(
         for k, v in raw_data.items()
         if v is not None and (not isinstance(v, str) or v.strip() != "")
     }
+    # Standardiser l'entreprise et le poste avec capitalisation
+    if "company" in app_data and app_data["company"]:
+        app_data["company"] = capitalize_words(app_data["company"])
+
+    if "position" in app_data and app_data["position"]:
+        app_data["position"] = capitalize_words(app_data["position"])
+
     app_data["user_id"] = current_user.id
     app_data["created_at"] = datetime.now(timezone.utc)
     if not app_data.get("application_date"):
@@ -659,6 +666,18 @@ async def get_tasks(
     current_user: UserModel = Depends(get_current_user),
 ):
     tasks = await db["tasks"].find({"user_id": current_user.id}).to_list(length=100)
+    
+    # Normaliser les statuts pour correspondre à l'énumération TaskStatus
+    for task in tasks:
+        if "status" in task:
+            status_lower = task["status"].lower() if isinstance(task["status"], str) else ""
+            if status_lower == "à faire" or status_lower == "a faire":
+                task["status"] = "À faire"
+            elif status_lower == "en cours":
+                task["status"] = "En cours"
+            elif status_lower == "terminée" or status_lower == "terminee":
+                task["status"] = "Terminée"
+    
     return [serialize_mongodb_doc(task) for task in tasks]
 
 

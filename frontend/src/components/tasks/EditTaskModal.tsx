@@ -151,9 +151,9 @@ export default function EdittaskModal({
               className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Sélectionner un statut</option>
-              <option value="en attente">En attente</option>
-              <option value="en cours">En cours</option>
-              <option value="terminée">Terminée</option>
+              <option value={TaskStatus.TODO}>{TaskStatus.TODO}</option>
+              <option value={TaskStatus.IN_PROGRESS}>{TaskStatus.IN_PROGRESS}</option>
+              <option value={TaskStatus.DONE}>{TaskStatus.DONE}</option>
             </select>
           </div>
           <div className="flex justify-between space-x-3 pt-4 border-t border-gray-700">
