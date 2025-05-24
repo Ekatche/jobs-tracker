@@ -16,9 +16,11 @@ load_dotenv()
 
 class TavilySearchInput(BaseModel):
     query: Any = Field(
-        ..., description="Requête de recherche pour trouver des offres d'emploi."
+        None, description="Requête de recherche pour trouver des offres d'emploi."
     )
-    description: Any = Field(None, description="Alias pour la requête si jamais query n'est pas utilisé.")
+    description: Any = Field(
+        None, description="Alias pour la requête si jamais query n'est pas utilisé."
+    )
 
     @property
     def effective_query(self):

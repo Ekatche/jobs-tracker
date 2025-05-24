@@ -1,0 +1,494 @@
+{
+  "offers": [
+    {
+      "id": 1,
+      "poste": "Emploi Data scientist",
+      "entreprise": "Non spécifié",
+      "localisation": "Lyon",
+      "date": "Non spécifié",
+      "url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 2,
+      "poste": "Emploi Data scientist Rhône",
+      "entreprise": "Non spécifié",
+      "localisation": "Rhône",
+      "date": "Non spécifié",
+      "url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-departement_rhone-69.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 3,
+      "poste": "Emploi Data scientist Marcy-l'Étoile",
+      "entreprise": "Non spécifié",
+      "localisation": "Marcy-l'Étoile",
+      "date": "Non spécifié",
+      "url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_marcy-l-etoile-69280.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 4,
+      "poste": "Emploi Data scientist Pierre-Bénite",
+      "entreprise": "Non spécifié",
+      "localisation": "Pierre-Bénite",
+      "date": "Non spécifié",
+      "url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_pierre-benite-69310.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 5,
+      "poste": "Emploi Data scientist Saint-Cyr-au-Mont-d'Or",
+      "entreprise": "Non spécifié",
+      "localisation": "Saint-Cyr-au-Mont-d'Or",
+      "date": "Non spécifié",
+      "url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_saint-cyr-au-mont-d-or-69450.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 6,
+      "poste": "Emploi Data scientist Saint-Priest",
+      "entreprise": "Non spécifié",
+      "localisation": "Saint-Priest",
+      "date": "Non spécifié",
+      "url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_saint-priest-69800.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 7,
+      "poste": "Emploi Data scientist Villeurbanne",
+      "entreprise": "Non spécifié",
+      "localisation": "Villeurbanne",
+      "date": "Non spécifié",
+      "url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_villeurbanne-69100.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 1,
+      "poste": "Data Scientist H/F",
+      "entreprise": "ALTEN",
+      "localisation": "Lyon 1er - 69",
+      "date": "il y a 5 heures",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65857103.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 2,
+      "poste": "Alternance Bac +4 - 5 - Data Scientist Iot H/F",
+      "entreprise": "Volvo Group",
+      "localisation": "Lyon - 69",
+      "date": "il y a 3 jours",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65684969.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 3,
+      "poste": "Expert en IA et Data Scientist Industriel H/F",
+      "entreprise": "Framatome",
+      "localisation": "Lyon - 69",
+      "date": "il y a 3 jours",
+      "url": "https://www.hellowork.com/fr-fr/emplois/64523913.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 4,
+      "poste": "Data Scientist en Alternance H/F",
+      "entreprise": "Groupama Rhône Alpes Auvergne",
+      "localisation": "Lyon - 69",
+      "date": "il y a 6 jours",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65609688.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 5,
+      "poste": "Data Scientist - IA H/F",
+      "entreprise": "Amiltone",
+      "localisation": "Lyon - 69",
+      "date": "il y a 6 jours",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65597445.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 6,
+      "poste": "Data Scientist - IA H/F",
+      "entreprise": "Amiltone",
+      "localisation": "Lyon - 69",
+      "date": "il y a 6 jours",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65597466.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 7,
+      "poste": "Ingénieur Data Scientist Confirmé - Industrie - Lyon H/F",
+      "entreprise": "CS Group",
+      "localisation": "Lyon 7e - 69",
+      "date": "il y a 7 jours",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65577636.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 8,
+      "poste": "Data Scientist H/F",
+      "entreprise": "Proxima It",
+      "localisation": "Lyon 3e - 69",
+      "date": "il y a 6 jours",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65611961.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 9,
+      "poste": "Alternance - Data Scientist IA H/F",
+      "entreprise": "Framatome",
+      "localisation": "Lyon - 69",
+      "date": "il y a 9 jours",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65456091.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 10,
+      "poste": "Chef de Projet IT - Data Scientist - Maintenance Prédictive H/F",
+      "entreprise": "Activus Group",
+      "localisation": "Lyon - 69",
+      "date": "il y a 9 jours",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65465214.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 12,
+      "poste": "Chef de Projet IT - Data Scientist - Maintenance Prédictive H/F",
+      "entreprise": "Activus Group",
+      "localisation": "Lyon 3e - 69",
+      "date": "il y a 8 jours",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65495446.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 13,
+      "poste": "Chargé d'Études et de Statistiques - Data Scientist en Apprentissage H/F",
+      "entreprise": "Lasecurecrute.fr",
+      "localisation": "Lyon - 69",
+      "date": "il y a 17 jours",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65141897.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 14,
+      "poste": "Data Scientist H/F",
+      "entreprise": "APRIL",
+      "localisation": "Lyon 6e - 69",
+      "date": "il y a 27 jours",
+      "url": "https://www.hellowork.com/fr-fr/emplois/64749586.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 15,
+      "poste": "Ingénieur Data Bi H/F",
+      "entreprise": "Coexya",
+      "localisation": "Lyon - 69",
+      "date": "il y a 1 jour",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65821382.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 16,
+      "poste": "Alternance - Data Science Amélioration des Procédés H/F",
+      "entreprise": "Sanofi",
+      "localisation": "Marcy-l'Étoile - 69",
+      "date": "il y a 1 jour",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65798189.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 17,
+      "poste": "Chef de Projet Data & IA H/F",
+      "entreprise": "ALTEN",
+      "localisation": "Lyon 1er - 69",
+      "date": "il y a 5 heures",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65856666.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 18,
+      "poste": "Data Engineer H/F",
+      "entreprise": "Citech",
+      "localisation": "Lyon 9e - 69",
+      "date": "il y a 6 heures",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65855518.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 19,
+      "poste": "Data Engineer H/F",
+      "entreprise": "Kicklox",
+      "localisation": "Lyon - 69",
+      "date": "il y a 1 jour",
+      "url": "https://www.hellowork.com/fr-fr/emplois/64079336.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 20,
+      "poste": "Data Engineer Spark - Scala - Projet Datalake H/F",
+      "entreprise": "Viveris.",
+      "localisation": "Lyon 6e - 69",
+      "date": "il y a 2 jours",
+      "url": "https://www.hellowork.com/fr-fr/emplois/65766647.html",
+      "error": false,
+      "source_url": "https://www.hellowork.com/fr-fr/emploi/metier_data-scientist-ville_lyon-69000.html"
+    },
+    {
+      "id": 3,
+      "poste": "Ingénieur Data - MLOps H/F",
+      "entreprise": "Winside Technology",
+      "localisation": "Lyon",
+      "date": "il y a 1 semaine",
+      "url": "https://fr.linkedin.com/jobs/view/ing%C3%A9nieur-data-mlops-h-f-at-winside-technology-4226429659?position=54&pageNum=0&refId=61gSbmTA2ABBhKYaNZN%2BrQ%3D%3D&trackingId=PooDNO4U2di5kpHRFd71xQ%3D%3D",
+      "error": false,
+      "source_url": "https://fr.linkedin.com/jobs/search?keywords=data%20scientist&location=Lyon"
+    },
+    {
+      "id": 5,
+      "poste": "Chef de Projet IT - Data Scientist - Maintenance Prédictive H/F",
+      "entreprise": "ACTIVUS Group",
+      "localisation": "Lyon",
+      "date": "il y a 2 jours",
+      "url": "https://fr.linkedin.com/jobs/view/chef-de-projet-it-data-scientist-maintenance-pr%C3%A9dictive-h-f-at-activus-group-4231881288?position=56&pageNum=0&refId=61gSbmTA2ABBhKYaNZN%2BrQ%3D%3D&trackingId=vQv7u85XsqbGo0jfYNkJxg%3D%3D",
+      "error": false,
+      "source_url": "https://fr.linkedin.com/jobs/search?keywords=data%20scientist&location=Lyon"
+    },
+    {
+      "id": 10,
+      "poste": "Data Scientist H/F",
+      "entreprise": "Worldgrid",
+      "localisation": "Lyon",
+      "date": "il y a 1 jour",
+      "url": "https://fr.linkedin.com/jobs/view/data-scientist-h-f-at-worldgrid-4234096573?trk=public_jobs_topcard-title",
+      "error": false,
+      "source_url": "https://fr.linkedin.com/jobs/search?keywords=data%20scientist&location=Lyon"
+    },
+    {
+      "id": 1,
+      "poste": "Data Scientist H/F",
+      "entreprise": "Worldgrid",
+      "localisation": "Lyon",
+      "date": "il y a 1 jour",
+      "url": "https://fr.linkedin.com/jobs/view/data-scientist-h-f-at-worldgrid-4234096573?position=1&pageNum=0&refId=61gSbmTA2ABBhKYaNZN%2BrQ%3D%3D&trackingId=meuRx7Kk%2F60NSni7hGiAWA%3D%3D",
+      "error": false,
+      "source_url": "https://fr.linkedin.com/jobs/search?keywords=data%20scientist&location=Lyon"
+    },
+    {
+      "id": 2,
+      "poste": "Data Scientist F/H",
+      "entreprise": "ELCIA Groupe",
+      "localisation": "Brignais",
+      "date": "il y a 1 semaine",
+      "url": "https://fr.linkedin.com/jobs/view/data-scientist-f-h-at-elcia-group-4228421175?position=2&pageNum=0&refId=61gSbmTA2ABBhKYaNZN%2BrQ%3D%3D&trackingId=nhsqLFJ%2Fm1jM6rb4RJ6Keg%3D%3D",
+      "error": false,
+      "source_url": "https://fr.linkedin.com/jobs/search?keywords=data%20scientist&location=Lyon"
+    },
+    {
+      "id": 3,
+      "poste": "Data Scientist - IA H/F",
+      "entreprise": "Amiltone",
+      "localisation": "Lyon",
+      "date": "il y a 6 jours",
+      "url": "https://fr.linkedin.com/jobs/view/data-scientist-ia-h-f-at-amiltone-4228766686?position=3&pageNum=0&refId=61gSbmTA2ABBhKYaNZN%2BrQ%3D%3D&trackingId=wznc6N7lOhsTg6ZBlvjqpw%3D%3D",
+      "error": false,
+      "source_url": "https://fr.linkedin.com/jobs/search?keywords=data%20scientist&location=Lyon"
+    },
+    {
+      "id": 4,
+      "poste": "Data Scientist/IA (H/F)",
+      "entreprise": "Amiltone",
+      "localisation": "Lyon",
+      "date": "il y a 6 jours",
+      "url": "https://fr.linkedin.com/jobs/view/data-scientist-ia-h-f-at-amiltone-4231508767?position=4&pageNum=0&refId=61gSbmTA2ABBhKYaNZN%2BrQ%3D%3D&trackingId=sNXqb34KH%2F3FwQ6Pw7XQVQ%3D%3D",
+      "error": false,
+      "source_url": "https://fr.linkedin.com/jobs/search?keywords=data%20scientist&location=Lyon"
+    },
+    {
+      "id": 5,
+      "poste": "Data Scientist/IA (H/F)",
+      "entreprise": "Amiltone",
+      "localisation": "Lyon",
+      "date": "il y a 6 jours",
+      "url": "https://fr.linkedin.com/jobs/view/data-scientist-ia-h-f-at-amiltone-4231506916?position=5&pageNum=0&refId=61gSbmTA2ABBhKYaNZN%2BrQ%3D%3D&trackingId=wvgvzCyKA%2BrVYK0RBt%2FA2g%3D%3D",
+      "error": false,
+      "source_url": "https://fr.linkedin.com/jobs/search?keywords=data%20scientist&location=Lyon"
+    },
+    {
+      "id": 6,
+      "poste": "Data Scientist - IA Générative F/H",
+      "entreprise": "Devoteam",
+      "localisation": "Lyon",
+      "date": "il y a 3 semaines",
+      "url": "https://fr.linkedin.com/jobs/view/data-scientist-ia-g%C3%A9n%C3%A9rative-f-h-at-devoteam-4218886787?position=6&pageNum=0&refId=61gSbmTA2ABBhKYaNZN%2BrQ%3D%3D&trackingId=MyU%2FUmDPVT7ld9U4BFyBQQ%3D%3D",
+      "error": false,
+      "source_url": "https://fr.linkedin.com/jobs/search?keywords=data%20scientist&location=Lyon"
+    },
+    {
+      "id": 7,
+      "poste": "Data Scientist F/H",
+      "entreprise": "APRIL",
+      "localisation": "Lyon",
+      "date": "il y a 2 semaines",
+      "url": "https://fr.linkedin.com/jobs/view/data-scientist-f-h-at-april-4225150749?position=7&pageNum=0&refId=61gSbmTA2ABBhKYaNZN%2BrQ%3D%3D&trackingId=5sai1h4%2FB9jbW3RhvYQN6g%3D%3D",
+      "error": false,
+      "source_url": "https://fr.linkedin.com/jobs/search?keywords=data%20scientist&location=Lyon"
+    },
+    {
+      "id": 8,
+      "poste": "Apprenticeship BAC+4/5 Data Scientist for Learning H/F",
+      "entreprise": "Volvo Group",
+      "localisation": "Saint-Priest",
+      "date": "il y a 1 semaine",
+      "url": "https://fr.linkedin.com/jobs/view/apprenticeship-bac%2B4-5-data-scientist-for-learning-h-f-at-volvo-group-4229876208?position=8&pageNum=0&refId=61gSbmTA2ABBhKYaNZN%2BrQ%3D%3D&trackingId=90lMxZeIcZONrDmqwRIOiQ%3D%3D",
+      "error": false,
+      "source_url": "https://fr.linkedin.com/jobs/search?keywords=data%20scientist&location=Lyon"
+    },
+    {
+      "id": 9,
+      "poste": "Alternance - Data scientist IA F/H",
+      "entreprise": "Framatome",
+      "localisation": "Lyon",
+      "date": "il y a 1 semaine",
+      "url": "https://fr.linkedin.com/jobs/view/alternance-data-scientist-ia-f-h-at-framatome-4229183336?position=9&pageNum=0&refId=61gSbmTA2ABBhKYaNZN%2BrQ%3D%3D&trackingId=zX47somgjXsYyCnKq1zsLA%3D%3D",
+      "error": false,
+      "source_url": "https://fr.linkedin.com/jobs/search?keywords=data%20scientist&location=Lyon"
+    },
+    {
+      "id": 1,
+      "poste": "Scientist F/H",
+      "entreprise": "Non spécifié",
+      "localisation": "Paris 01 - 75",
+      "date": "28/04/2025",
+      "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi/detail-offre/176360731W?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne&typesConvention=143684&typesConvention=143685&typesConvention=143686&typesConvention=143687&typesConvention=143706&selectedIndex=19&page=0",
+      "error": false,
+      "source_url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne"
+    },
+    {
+      "id": 1,
+      "poste": "Data Scientist F/H",
+      "entreprise": "Adsearch",
+      "localisation": "Nice - 06",
+      "date": "22/05/2025",
+      "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi/detail-offre/176514190W?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne&typesConvention=143684&typesConvention=143685&typesConvention=143686&typesConvention=143687&typesConvention=143706&selectedIndex=0&page=0",
+      "error": false,
+      "source_url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne"
+    },
+    {
+      "id": 2,
+      "poste": "Data Scientist F/H",
+      "entreprise": "ALTEN",
+      "localisation": "Lyon 01 - 69",
+      "date": "21/05/2025",
+      "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi/detail-offre/176510948W?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne&typesConvention=143684&typesConvention=143685&typesConvention=143686&typesConvention=143687&typesConvention=143706&selectedIndex=1&page=0",
+      "error": false,
+      "source_url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne"
+    },
+    {
+      "id": 3,
+      "poste": "Data scientist F/H",
+      "entreprise": "CROSS DATA",
+      "localisation": "Angers - 49",
+      "date": "15/05/2025",
+      "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi/detail-offre/176467779W?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne&typesConvention=143684&typesConvention=143685&typesConvention=143686&typesConvention=143687&typesConvention=143706&selectedIndex=2&page=0",
+      "error": false,
+      "source_url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne"
+    },
+    {
+      "id": 4,
+      "poste": "DATA SCIENTIST F/H",
+      "entreprise": "PROXIMA IT",
+      "localisation": "Lyon 03 - 69",
+      "date": "15/05/2025",
+      "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi/detail-offre/176466885W?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne&typesConvention=143684&typesConvention=143685&typesConvention=143686&typesConvention=143687&typesConvention=143706&selectedIndex=3&page=0",
+      "error": false,
+      "source_url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne"
+    },
+    {
+      "id": 5,
+      "poste": "Data Scientist F/H",
+      "entreprise": "Crédit Agricole Lorraine",
+      "localisation": "Metz - 57",
+      "date": "25/04/2025",
+      "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi/detail-offre/176343513W?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne&typesConvention=143684&typesConvention=143685&typesConvention=143686&typesConvention=143687&typesConvention=143706&selectedIndex=4&page=0",
+      "error": false,
+      "source_url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne"
+    },
+    {
+      "id": 6,
+      "poste": "DATA SCIENTIST F/H",
+      "entreprise": "HELKINZ",
+      "localisation": "Puteaux - 92",
+      "date": "14/05/2025",
+      "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi/detail-offre/176459333W?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne&typesConvention=143684&typesConvention=143685&typesConvention=143686&typesConvention=143687&typesConvention=143706&selectedIndex=5&page=0",
+      "error": false,
+      "source_url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne"
+    },
+    {
+      "id": 7,
+      "poste": "Data scientist F/H",
+      "entreprise": "CLEEVEN SE",
+      "localisation": "Biot - 06",
+      "date": "30/04/2025",
+      "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi/detail-offre/176136585W?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne&typesConvention=143684&typesConvention=143685&typesConvention=143686&typesConvention=143687&typesConvention=143706&selectedIndex=6&page=0",
+      "error": false,
+      "source_url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne"
+    },
+    {
+      "id": 8,
+      "poste": "Data Scientist F/H",
+      "entreprise": "GSE Group",
+      "localisation": "Avignon - 84",
+      "date": "14/05/2025",
+      "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi/detail-offre/176460342W?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne&typesConvention=143684&typesConvention=143685&typesConvention=143686&typesConvention=143687&typesConvention=143706&selectedIndex=7&page=0",
+      "error": false,
+      "source_url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne"
+    },
+    {
+      "id": 9,
+      "poste": "Lead Data Scientist F/H",
+      "entreprise": "Kaino",
+      "localisation": "Poitiers - 86",
+      "date": "13/05/2025",
+      "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi/detail-offre/176451693W?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne&typesConvention=143684&typesConvention=143685&typesConvention=143686&typesConvention=143687&typesConvention=143706&selectedIndex=8&page=0",
+      "error": false,
+      "source_url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne"
+    },
+    {
+      "id": 10,
+      "poste": "Data Scientist Référent F/H",
+      "entreprise": "Natran",
+      "localisation": "Paris 08 - 75",
+      "date": "05/05/2025",
+      "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi/detail-offre/176386218W?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne&typesConvention=143684&typesConvention=143685&typesConvention=143686&typesConvention=143687&typesConvention=143706&selectedIndex=9&page=0",
+      "error": false,
+      "source_url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=DATA%20Scientist&localisation=69%20-%20Rh%C3%B4ne"
+    }
+  ]
+}

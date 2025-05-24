@@ -39,3 +39,23 @@ async def get_database():  # Changé de get_() à get_database
     Cette fonction est utilisée comme dépendance dans FastAPI.
     """
     return client[DATABASE_NAME]
+
+
+async def create_job_offers_indexes(db):
+    """Crée les index pour optimiser les requêtes sur les offres d'emploi"""
+    collection = db["job_offers"]
+
+    # Index sur l'URL (unique pour éviter les doublons)
+    await collection.create_index("url", unique=True)
+
+    # Index de recherche textuelle
+    await collection.create_index(
+        [("poste", "text"), ("entreprise", "text"), ("localisation", "text")]
+    )
+
+    # Index sur les dates
+    await collection.create_index("created_at")
+    await collection.create_index("updated_at")
+
+    # Index composé pour les filtres fréquents
+    await collection.create_index([("localisation", 1), ("created_at", -1)])

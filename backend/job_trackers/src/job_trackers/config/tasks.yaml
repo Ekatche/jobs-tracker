@@ -30,15 +30,11 @@ execute_search_task:
     Liste ensuite les URLs obtenues.
 
   expected_output: >
-    Une liste d'URLs au format texte brut, une par ligne, sans numérotation, sans puces, 
-    sans commentaires additionnels. Chaque URL doit être complète et commencer par http:// ou https://.
-    Exemple de format:
-    https://www.site1.com/offre-emploi/12345
-    https://www.site2.fr/jobs/56789
-    https://www.site3.fr/annonce-987654
-    [...]
-    La liste doit contenir entre 5 et 15 URLs. Si moins de 5 résultats pertinents sont trouvés, 
-    indiquer toutes les URLs disponibles.
+    Retourne uniquement un tableau JSON contenant les URLs trouvées, sans aucun commentaire ni texte additionnel.
+    Exemple :
+    ["https://www.site1.com/offre-emploi/12345", "https://www.site2.fr/jobs/56789"]
+    Si aucune URL pertinente n'est trouvée, retourne [].
+    
   agent: search_executor
   input_variables:
     query: ${convert_query_task.output}
@@ -53,12 +49,12 @@ filter_urls_task:
     - Pas de doublons: Élimine les URLs qui pointent vers la même offre
     
     Présente les résultats dans une liste classée par ordre de pertinence.
+
   expected_output: >
-    Une liste numérotée de maximum 5 URLs, classées par ordre décroissant de pertinence.
-    Chaque entrée doit suivre strictement le format suivant:
-    1. [URL complète] - [Nom du site] - [Titre court de l'offre si disponible]
-    2. [URL complète] - [Nom du site] - [Titre court de l'offre si disponible]
-    [...]
+    Retourne uniquement un tableau JSON contenant les URLs filtrées, sans aucun commentaire ni texte additionnel.
+    Exemple :
+    ["https://www.site1.com/offre-emploi/12345", "https://www.site2.fr/jobs/56789", "https://www.site3.fr/annonce-987654"]
+    Si aucune URL pertinente n'est trouvée, retourne [].
     
     Aucune explication ou commentaire ne doit être ajouté avant ou après cette liste.
     Si aucune URL pertinente n'est trouvée, répondre uniquement "Aucun résultat pertinent trouvé.

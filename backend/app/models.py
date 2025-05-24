@@ -250,3 +250,32 @@ class TaskCreate(BaseModel):
     due_date: Optional[datetime] = None
 
     model_config = ConfigDict(extra="forbid")
+
+
+class JobOfferCreate(BaseModel):
+    poste: str
+    entreprise: str
+    localisation: Optional[str] = None
+    date: Optional[str] = None
+    url: Optional[str] = None
+    source_url: Optional[str] = None  # URL de la page où l'offre a été trouvée
+
+
+class JobOfferResponse(BaseModel):
+    id: str
+    poste: str
+    entreprise: str
+    localisation: Optional[str] = None
+    date: Optional[str] = None
+    url: Optional[str] = None
+    source_url: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class JobOfferFilter(BaseModel):
+    keywords: Optional[List[str]] = None
+    locations: Optional[List[str]] = None
+    companies: Optional[List[str]] = None
+    limit: int = 50
+    skip: int = 0

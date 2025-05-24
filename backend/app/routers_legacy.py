@@ -48,7 +48,6 @@ from .utils import (
     capitalize_words,
     serialize_mongodb_doc,
 )
-
 from .llm.utils import fetch_documents, split_documents, summarize_chunks
 
 # Configure logger
@@ -68,6 +67,7 @@ auth_router = APIRouter(prefix="/auth", tags=["authentication"])
 user_router = APIRouter(prefix="/users", tags=["users"])
 job_router = APIRouter(prefix="/applications", tags=["applications"])
 task_router = APIRouter(prefix="/tasks", tags=["tasks"])
+job_offers_router = APIRouter(prefix="/job-offers", tags=["job-offers"])
 
 # ============ Routes d'authentification ============
 
@@ -666,18 +666,20 @@ async def get_tasks(
     current_user: UserModel = Depends(get_current_user),
 ):
     tasks = await db["tasks"].find({"user_id": current_user.id}).to_list(length=100)
-    
+
     # Normaliser les statuts pour correspondre à l'énumération TaskStatus
     for task in tasks:
         if "status" in task:
-            status_lower = task["status"].lower() if isinstance(task["status"], str) else ""
+            status_lower = (
+                task["status"].lower() if isinstance(task["status"], str) else ""
+            )
             if status_lower == "à faire" or status_lower == "a faire":
                 task["status"] = "À faire"
             elif status_lower == "en cours":
                 task["status"] = "En cours"
             elif status_lower == "terminée" or status_lower == "terminee":
                 task["status"] = "Terminée"
-    
+
     return [serialize_mongodb_doc(task) for task in tasks]
 
 

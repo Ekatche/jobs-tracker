@@ -1,7 +1,8 @@
-from langchain_community.document_loaders import PlaywrightURLLoader
-from langchain.text_splitter import CharacterTextSplitter
+from job_crawler.crawler1 import get_filtered_markdown
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
+from langchain_core.documents import Document
 import asyncio
 import logging
 import os
@@ -26,8 +27,8 @@ except Exception as e:
 
 async def fetch_documents(url: str):
     """
-    Récupère le contenu rendu de la page via PlaywrightURLLoader.
-    Renvoie une liste de Document (avec .page_content).
+    Récupère le contenu rendu de la page via Crawl4ai.
+    Renvoie mardown filtre au prealable.
     """
     if not url or not url.startswith(("http://", "https://")):
         logger.warning(f"URL invalide: {url}")
@@ -35,10 +36,27 @@ async def fetch_documents(url: str):
 
     try:
         logger.info(f"Chargement du contenu depuis: {url}")
-        loader = PlaywrightURLLoader(urls=[url], headless=True)
-        docs = await loader.aload()
-        logger.info(f"Contenu récupéré: {len(docs)} document(s)")
-        return docs
+        result = await get_filtered_markdown(url)
+        if result.get("status") == "success" and result.get("filtered_markdown"):
+            markdown_content = result["filtered_markdown"]
+            metadata = result.get("metadata", {})
+
+            logger.info(f"Contenu chargé: {markdown_content[:50]}...")
+
+            doc = Document(
+                page_content=markdown_content,
+                metadata={
+                    "source": url,
+                    "title": metadata.get("title", ""),
+                    "word_count": metadata.get("word_count", 0),
+                    "timestamp": metadata.get("timestamp", ""),
+                },
+            )
+
+            logger.info(
+                f"Contenu récupéré: 1 document avec {metadata.get('word_count', 0)} mots"
+            )
+            return [doc]
     except Exception as e:
         logger.error(f"Erreur lors de la récupération du contenu: {str(e)}")
         return []
@@ -76,7 +94,12 @@ def split_documents(docs, chunk_size: int = 2000, chunk_overlap: int = 200):
     logger.info(
         f"Découpage du contenu ({len(total_content)} caractères) en chunks de {chunk_size} caractères"
     )
-    splitter = CharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=["\n\n", "\n", " ", ""],  # Séparateurs hiérarchiques
+        length_function=len,
+    )
     chunks = splitter.split_documents(docs)
     logger.info(f"Contenu découpé en {len(chunks)} chunks")
     return chunks
@@ -137,7 +160,7 @@ async def summarize_chunks(chunks):
 
     try:
         # Utiliser l'API correcte pour initialiser le modèle
-        model = ChatOpenAI(model="gpt-4.1-nano", temperature=0.2)
+        model = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
 
         # Créer une chaîne de traitement en utilisant l'opérateur pipe
         chain = prompt | model
@@ -157,7 +180,7 @@ async def summarize_chunks(chunks):
 
     except Exception as e:
         logger.error(f"Erreur lors de la génération du résumé: {str(e)}")
-        return f"Erreur lors de la génération du résumé: {str(e)}"
+        return ""
 
 
 # Fonction pratique qui combine toutes les étapes

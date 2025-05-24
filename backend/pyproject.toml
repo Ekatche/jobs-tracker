@@ -1,20 +1,72 @@
-[tool.black]
-line-length = 88
-target-version = ['py310']
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | venv
-  | env
-  | _build
-  | buck-out
-  | build
-  | dist
-  | migrations
-)/
-'''
+[project]
+name = "job-tracker-backend"
+version = "0.1.0"
+description = "API pour suivre vos candidatures d'emploi"
+requires-python = ">=3.12"
+dependencies = [
+    # API Backend
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "python-multipart>=0.0.20",
+    # Authentification
+    "python-jose[cryptography]>=3.4.0",
+    "passlib[bcrypt]>=1.7.4",
+    "python-dotenv>=1.1.0",
+    # Base de données
+    "motor>=3.7.0",
+    "pymongo>=4.11.0",
+    "pydantic-settings>=2.9.0",
+    # IA pour génération descriptions
+    "openai>=1.75.0",
+    "langchain>=0.3.24",
+    "langchain-community>=0.3.22",
+    "langchain-core>=0.3.56",
+    "langchain-openai>=0.3.14",
+    "langchain-text-splitters>=0.3.8",
+    # Web scraping
+    "playwright>=1.52.0",
+    "beautifulsoup4>=4.13.0",
+    "crawl4ai>=0.6.0",
+    # Recherche emploi automatisée
+    "crewai>=0.120.0",
+    "tavily-python>=0.7.0",
+    "litellm>=1.68.0",
+    # Orchestration
+    "apache-airflow>=3.0.0",
+    # Utilitaires
+    "requests>=2.32.0",
+    "aiofiles>=24.1.0",
+    "rich>=13.9.0",
+    "nest-asyncio>=1.6.0",
+    "pydantic>=2.8.0,<3.0.0",
+    "pydantic-core>=2.20.0,<3.0.0",
+    "pytest>=8.3.5",
+    "flake8>=7.2.0",
+    "black>=25.1.0",
+    "pytest-asyncio>=0.26.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.26.0",
+    "black>=25.1.0",
+    "isort>=6.0.0",
+    "flake8>=7.2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# ✅ Configuration pour Hatchling - AJOUTER CETTE SECTION
+[tool.hatch.build.targets.wheel]
+packages = ["app"]  # Indique que le package principal est dans le dossier "app"
+
+# ✅ Ou si tu veux inclure tous les fichiers Python du projet
+# [tool.hatch.build.targets.wheel]
+# include = [
+#     "*.py",
+#     "app/**/*.py",
+#     "routers/**/*.py",
+# ]

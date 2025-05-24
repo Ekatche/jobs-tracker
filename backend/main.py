@@ -8,7 +8,13 @@ from fastapi.staticfiles import StaticFiles
 
 
 from app.database import get_database
-from app.routers import auth_router, job_router, user_router, task_router
+from app.routers import (
+    auth_router,
+    user_router,
+    job_router,
+    task_router,
+    job_offers_router,
+)
 
 
 @asynccontextmanager
@@ -54,6 +60,7 @@ app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(job_router)
 app.include_router(task_router)
+app.include_router(job_offers_router)
 
 app.mount("/uploads", StaticFiles(directory="app/uploads"), name="uploads")
 

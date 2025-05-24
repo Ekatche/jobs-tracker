@@ -1,0 +1,68 @@
+# ✅ Fichiers de développement et configuration
+.env*
+.git/
+.gitignore
+README.md
+*.md
+
+# ✅ Exclure pyproject.toml si vous utilisez requirements.txt
+pyproject.toml
+uv.lock
+
+# ✅ Cache et fichiers temporaires Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ✅ Environnements virtuels
+.venv/
+venv/
+env/
+ENV/
+
+# ✅ uv spécifique
+.uv/
+*.lock.bak
+
+# ✅ Cache uv
+.cache/
+.uv/
+
+# ✅ IDE et éditeurs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ✅ Logs et uploads
+logs/
+*.log
+app/uploads/
+uploads/
+
+# ✅ Tests et documentation
+tests/
+docs/
+*.pytest_cache
+
+# ✅ Fichiers OS
+.DS_Store
+Thumbs.db
+
+# ✅ Build et distribution
+build/
+dist/
+*.egg-info/
+
+# ✅ Fichiers spécifiques à ton projet
+crawl4ai/job_results.json
+job_trackers/.env
+hello.py
+setup.cfg

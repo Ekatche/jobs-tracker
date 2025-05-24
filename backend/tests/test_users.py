@@ -1,4 +1,3 @@
-
 def test_create_user(client):
     """
     Test de la création d'un utilisateur.
