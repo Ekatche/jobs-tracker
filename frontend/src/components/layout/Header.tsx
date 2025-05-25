@@ -16,7 +16,9 @@ import { useRouter } from "next/navigation";
 import { logout, getToken } from "@/lib/auth";
 import { authApi } from "@/lib/api";
 import type { User } from "@/lib/api";
-import NewApplicationModal from "@/components/dashboard/NewApplicationModal";
+import NewApplicationModal, {
+  PrefilledData,
+} from "@/components/dashboard/NewApplicationModal";
 
 // Définir le style de fond une seule fois
 const headerBackground = {
@@ -32,6 +34,9 @@ export default function Header() {
   const [loading, setLoading] = useState(true);
   const [isNewApplicationModalOpen, setIsNewApplicationModalOpen] =
     useState(false);
+  const [prefilledData, setPrefilledData] = useState<PrefilledData | undefined>(
+    undefined,
+  );
   const pathname = usePathname();
   const router = useRouter();
 
@@ -79,21 +84,46 @@ export default function Header() {
     setIsUserMenuOpen(false);
   };
 
+  // Écouter l'événement pour ouvrir la modal avec des données pré-remplies
+  useEffect(() => {
+    const handleOpenModalWithData = (event: CustomEvent<PrefilledData>) => {
+      setPrefilledData(event.detail);
+      setIsNewApplicationModalOpen(true);
+    };
+
+    window.addEventListener(
+      "open-application-modal",
+      handleOpenModalWithData as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "open-application-modal",
+        handleOpenModalWithData as EventListener,
+      );
+    };
+  }, []);
+
   // Modifiez la fonction handleApplicationSuccess
   const handleApplicationSuccess = async () => {
     // Fermer la modal après un délai pour montrer le message de succès
     setTimeout(() => {
       setIsNewApplicationModalOpen(false);
+      setPrefilledData(undefined); // Réinitialiser les données pré-remplies
 
       // Effectuer un rafraîchissement complet de la page
       window.location.reload();
     }, 1500);
 
     // Nous gardons aussi l'événement pour la compatibilité avec le code existant
-    // qui pourrait l'utiliser ailleurs
     if (pathname.includes("/applications") || pathname.includes("/dashboard")) {
       window.dispatchEvent(new Event("application-created"));
     }
+  };
+
+  const handleCloseModal = () => {
+    setIsNewApplicationModalOpen(false);
+    setPrefilledData(undefined); // Réinitialiser les données pré-remplies
   };
 
   // Fonction pour déterminer si le lien est actif
@@ -147,6 +177,16 @@ export default function Header() {
                   }`}
                 >
                   Mes demarches
+                </Link>
+                <Link
+                  href="/offers"
+                  className={`text-sm font-medium transition-colors ${
+                    isActive("/offers")
+                      ? "text-white border-b-2 border-blue-400"
+                      : "text-gray-300 hover:text-white"
+                  }`}
+                >
+                  Offres d'emploi
                 </Link>
               </>
             ) : (
@@ -334,8 +374,9 @@ export default function Header() {
       {/* Modal d'ajout de candidature */}
       <NewApplicationModal
         isOpen={isNewApplicationModalOpen}
-        onClose={() => setIsNewApplicationModalOpen(false)}
+        onClose={handleCloseModal}
         onSuccess={handleApplicationSuccess}
+        prefilledData={prefilledData}
       />
     </header>
   );

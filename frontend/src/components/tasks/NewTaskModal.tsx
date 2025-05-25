@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Task , TaskStatus} from "@/types/tasks";
+import { Task, TaskStatus } from "@/types/tasks";
 import { FiX, FiPlus, FiCheck } from "react-icons/fi";
 import { taskApi } from "@/lib/api";
 
@@ -123,9 +123,11 @@ export default function NewTaskModal({
               className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value={TaskStatus.TODO}>{TaskStatus.TODO}</option>
-              <option value={TaskStatus.IN_PROGRESS}>{TaskStatus.IN_PROGRESS}</option>
+              <option value={TaskStatus.IN_PROGRESS}>
+                {TaskStatus.IN_PROGRESS}
+              </option>
               <option value={TaskStatus.DONE}>{TaskStatus.DONE}</option>
-          </select>
+            </select>
           </div>
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700">
             <button

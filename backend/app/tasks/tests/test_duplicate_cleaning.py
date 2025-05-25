@@ -59,7 +59,11 @@ def test_duplicate_cleaning():
         },  # Doublon
     ]
 
-    cleaned = clean_job_offer_duplicates(test_offers, similarity_threshold=0.8)
+    cleaned = clean_job_offer_duplicates(
+        test_offers,
+        company_similarity_threshold=0.75,
+        position_similarity_threshold=0.8,
+    )
 
     print(f"Original: {len(test_offers)} offres")
     print(f"Nettoyé: {len(cleaned)} offres")

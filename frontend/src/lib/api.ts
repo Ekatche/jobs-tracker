@@ -17,7 +17,7 @@ const apiClient: AxiosInstance = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true, 
+  withCredentials: true,
 });
 
 // Intercepteur pour ajouter le token d'authentification à chaque requête
@@ -224,6 +224,42 @@ export interface Application {
   archived?: boolean;
 }
 
+// Ajouter ce type après les autres interfaces
+export interface JobOffer {
+  id: string;
+  poste: string;
+  entreprise: string;
+  localisation?: string;
+  date?: string;
+  url?: string;
+  source_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JobOfferFilter {
+  keywords?: string;
+  location?: string;
+  company?: string;
+  limit?: number;
+  skip?: number;
+}
+
+export interface JobOfferStats {
+  total_offers: number;
+  top_websites: Array<{
+    _id: string;
+    count: number;
+  }>;
+  top_companies: Array<{
+    _id: string;
+    count: number;
+  }>;
+  top_cities: Array<{
+    _id: string;
+    count: number;
+  }>;
+}
 
 // API Authentication
 export const authApi = {
@@ -323,7 +359,9 @@ export const taskApi = {
     return fetchApi<Task>(`/tasks/${taskId}`, "GET");
   },
 
-  create: async (taskData: Omit<Task, "_id" | "user_id" | "created_at" | "updated_at">) => {
+  create: async (
+    taskData: Omit<Task, "_id" | "user_id" | "created_at" | "updated_at">,
+  ) => {
     return fetchApi<Task>("/tasks/", "POST", taskData);
   },
 
@@ -404,13 +442,66 @@ export const applicationApi = {
   },
 };
 
+// Ajouter l'API des offres d'emploi après taskApi
+export const jobOffersApi = {
+  // Récupérer les offres d'emploi avec filtres
+  getAll: async (filters: JobOfferFilter = {}) => {
+    const params = new URLSearchParams();
+
+    if (filters.keywords) params.append("keywords", filters.keywords);
+    if (filters.location) params.append("location", filters.location);
+    if (filters.company) params.append("company", filters.company);
+    if (filters.limit) params.append("limit", filters.limit.toString());
+    if (filters.skip) params.append("skip", filters.skip.toString());
+
+    const endpoint = `/job-offers/?${params.toString()}`;
+    return fetchApi<JobOffer[]>(endpoint, "GET");
+  },
+
+  // Récupérer une offre par ID
+  getById: async (offerId: string) => {
+    return fetchApi<JobOffer>(`/job-offers/${offerId}`, "GET");
+  },
+
+  // Supprimer une offre
+  delete: async (offerId: string) => {
+    return fetchApi<{ message: string }>(`/job-offers/${offerId}`, "DELETE");
+  },
+
+  // Récupérer les statistiques
+  getStats: async () => {
+    return fetchApi<JobOfferStats>("/job-offers/stats/summary", "GET");
+  },
+
+  // Collecter des offres (si vous ajoutez cet endpoint plus tard)
+  collect: async (query: string) => {
+    return fetchApi<{ saved: number; updated: number }>(
+      "/job-offers/collect",
+      "POST",
+      { query },
+    );
+  },
+
+  // Ajouter cette méthode pour compter le total
+  getCount: async (filters: Omit<JobOfferFilter, "limit" | "skip"> = {}) => {
+    const params = new URLSearchParams();
+
+    if (filters.keywords) params.append("keywords", filters.keywords);
+    if (filters.location) params.append("location", filters.location);
+    if (filters.company) params.append("company", filters.company);
+
+    const endpoint = `/job-offers/count/?${params.toString()}`;
+    return fetchApi<{ total: number }>(endpoint, "GET");
+  },
+};
+
 // Exportations par défaut
 const api = {
   auth: authApi,
   users: userApi,
   applications: applicationApi,
   tasks: taskApi,
-
+  jobOffers: jobOffersApi, // Ajouter cette ligne
 };
 
 export default api;

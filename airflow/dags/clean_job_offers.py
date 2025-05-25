@@ -13,10 +13,10 @@ def cleanup_offers_task():
 
     logger = logging.getLogger("airflow.task")
     try:
-        from app.tasks.clean_job_offers import cleanup_old_offers
+        from app.tasks.clean_job_offers import cleanup_workflow
 
         logger.info("Début du nettoyage des anciennes offres")
-        result = asyncio.run(cleanup_old_offers(days=15))
+        result = asyncio.run(cleanup_workflow())
         logger.info(f"Nettoyage terminé: {result}")
         return result
 

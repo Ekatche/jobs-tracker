@@ -1,19 +1,19 @@
 export enum TaskStatus {
   TODO = "À faire",
   IN_PROGRESS = "En cours",
-  DONE = "Terminée"
+  DONE = "Terminée",
 }
 
 export interface ApiTask {
   _id?: string;
   title: string;
   description?: string;
-  status: string; 
+  status: string;
   user_id?: string; // Rendre optionnel pour correspondre à Task
   created_at?: string;
   updated_at?: string;
   due_date?: string;
-  archived?: boolean; 
+  archived?: boolean;
 }
 
 export interface Task {

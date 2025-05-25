@@ -44,7 +44,7 @@ class TavilyJobBoardSearchTool(BaseTool):
             # Lève une exception ou définis un drapeau d'erreur
         self.client = TavilyClient(api_key=tavily_key)
 
-    def _run(self, **kwargs) -> list:  # Changement du type d'entrée
+    def _run(self, **kwargs) -> list:
         # Extraire la requête selon différents formats possibles
         query = None
 
@@ -68,36 +68,65 @@ class TavilyJobBoardSearchTool(BaseTool):
             logger.error(f"Impossible de convertir en chaîne: {type(query)}")
             return []
 
-        french_boards = [
+        tavily_client = self.client
+        all_urls = []
+
+        # ✅ PASSE 1: Sites français fiables
+        french_sites = [
             "francetravail.fr",
             "hellowork.com",
             "apec.fr",
             "welcometothejungle.com",
+            "monster.fr",
+            "cadremploi.fr",
         ]
-        global_boards = ["linkedin.com", "indeed.com", "glassdoor.com"]
-        include_domains = french_boards + global_boards
-        tavily_client = self.client
+
+        # ✅ PASSE 2: Sites internationaux avec requête adaptée
+        international_query = f"{query} site:fr.linkedin.com/jobs OR site:fr.indeed.com"
 
         logger.info(f"Exécution de la recherche Tavily avec query: {query}")
 
         try:
-            response_w_domains = tavily_client.search(
+            # Recherche sites français
+            logger.info(f"🇫🇷 Recherche sites français: {query}")
+            response_fr = tavily_client.search(
                 query=query,
                 search_depth="advanced",
-                max_results=30,
-                include_domains=include_domains,
+                max_results=25,
+                include_domains=french_sites,
             )
-            return self._process_response(response_w_domains)
+
+            if response_fr.get("results"):
+                all_urls.extend([r["url"] for r in response_fr["results"]])
+                logger.info(f"📋 {len(response_fr['results'])} URLs sites français")
+
+            # Recherche LinkedIn/Indeed avec requête spécifique
+            logger.info(f"🌍 Recherche LinkedIn/Indeed: {international_query}")
+            response_intl = tavily_client.search(
+                query=international_query,
+                search_depth="basic",  # Plus rapide pour cette recherche
+                max_results=15,
+            )
+
+            if response_intl.get("results"):
+                # Filtrer pour garder seulement LinkedIn/Indeed
+                linkedin_indeed_urls = [
+                    r["url"]
+                    for r in response_intl["results"]
+                    if any(
+                        domain in r["url"]
+                        for domain in ["linkedin.com", "indeed.com", "indeed.fr"]
+                    )
+                ]
+                all_urls.extend(linkedin_indeed_urls)
+                logger.info(f"💼 {len(linkedin_indeed_urls)} URLs LinkedIn/Indeed")
+
+            # Dédoublonnage
+            unique_urls = list(set(all_urls))
+            logger.info(f"✅ Total: {len(unique_urls)} URLs uniques trouvées")
+
+            return unique_urls
 
         except Exception as e:
             logger.error(f"Erreur lors de la recherche: {str(e)}")
-            return ["ERREUR: L'outil de recherche n'a pas pu s'exécuter correctement."]
-
-    def _process_response(self, response: dict) -> list:
-        if not response.get("results"):
-            return "No results found."
-
-        urls = [result["url"] for result in response["results"]]
-        logger.info(f"Récupération de {len(urls)} URLs")
-
-        return urls
+            return []

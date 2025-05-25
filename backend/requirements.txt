@@ -91,6 +91,7 @@ beautifulsoup4==4.13.4
     # via
     #   job-tracker-backend (pyproject.toml)
     #   crawl4ai
+    #   deep-translator
 black==25.1.0
     # via job-tracker-backend (pyproject.toml)
 blinker==1.9.0
@@ -159,6 +160,8 @@ dataclasses-json==0.6.7
     # via langchain-community
 decorator==5.1.1
     # via ipython
+deep-translator==1.11.4
+    # via job-tracker-backend (pyproject.toml)
 deprecated==1.2.15
     # via
     #   apache-airflow-core
@@ -688,6 +691,7 @@ requests==2.32.3
     #   apache-airflow-core
     #   auth0-python
     #   crawl4ai
+    #   deep-translator
     #   huggingface-hub
     #   instructor
     #   kubernetes

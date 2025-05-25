@@ -44,6 +44,7 @@ dependencies = [
     "flake8>=7.2.0",
     "black>=25.1.0",
     "pytest-asyncio>=0.26.0",
+    "deep-translator>=1.11.4",
 ]
 
 [project.optional-dependencies]

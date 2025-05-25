@@ -9,7 +9,7 @@ from job_crawler.crawler1 import (
 import json
 from difflib import SequenceMatcher
 import re
-
+from deep_translator import GoogleTranslator
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,11 @@ async def get_job_offers_from_query(user_query: str) -> List[dict]:
         logger.info(f"Extraction terminée: {len(offers)} offres trouvées")
 
         # 4. Nettoyage des doublons
-        offers = clean_job_offer_duplicates(offers)
+        offers = clean_job_offer_duplicates(
+            offers,
+            company_similarity_threshold=0.75,
+            position_similarity_threshold=0.80,
+        )
 
         # Log détaillé seulement en mode debug
         if logger.isEnabledFor(logging.DEBUG):
@@ -116,13 +120,59 @@ async def get_job_offers_from_query(user_query: str) -> List[dict]:
         raise
 
 
+def translate_text(text: str) -> str:
+    """Traduction gratuite avec deep-translator"""
+    if not text or len(text.strip()) < 2:
+        return text.lower()
+    try:
+        translator = GoogleTranslator(source="auto", target="fr")
+        result = translator.translate(text.strip())
+        return result.lower() if result else text.lower()
+
+    except Exception as e:
+        logger.error(f"Erreur de traduction: {str(e)}")
+        return text
+
+
 def similarity(a: str, b: str) -> float:
     """Calcule la similarité entre deux chaînes (0-1)"""
+    if not a or not b:
+        return 0.0
     return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
 
 
+def similarity_with_translation(a: str, b: str) -> float:
+    """Calcule la similarité entre deux chaînes traduite (0-1)"""
+    if not a or not b:
+        return 0.0
+    direct_similarity = SequenceMatcher(
+        None, a.lower().strip(), b.lower().strip()
+    ).ratio()
+    # logger.info(f"Similarité directe: {direct_similarity:.2f} entre '{a}' et '{b}'")
+    # 2. Si déjà élevée, pas besoin de traduire
+    if direct_similarity >= 0.8:
+        return direct_similarity
+    try:
+        # Traduire les deux textes vers l'anglais
+        translated_a = translate_text(a)
+        translated_b = translate_text(b)
+        if translated_b and translated_a:
+            translation_similarity = SequenceMatcher(
+                None, translated_a, translated_b
+            ).ratio()
+            # logger.info(f"Similarité après traduction: {translation_similarity:.2f} entre '{translated_a.strip()}' et '{translated_b.strip()}'")
+            final_similarity = max(direct_similarity, translation_similarity)
+            return final_similarity
+    except Exception as e:
+        logger.error(f"Erreur de traduction pour similarité: {str(e)}")
+
+    return direct_similarity
+
+
 def clean_job_offer_duplicates(
-    offers: List[dict], similarity_threshold: float = 0.80
+    offers: List[dict],
+    company_similarity_threshold: float = 0.80,
+    position_similarity_threshold: float = 0.80,
 ) -> List[dict]:
     """
     Supprime les doublons basés sur la similarité entreprise + poste
@@ -154,19 +204,20 @@ def clean_job_offer_duplicates(
 
             # ✅ Calculer similarité entreprise ET poste
             company_similarity = similarity(current_company, existing_company)
-            position_similarity = similarity(current_position, existing_position)
-            # print(
-            #     f"Comparaison: {current_company} vs {existing_company} "
-            #     f"Comparaison: {current_position} vs {existing_position} "
-            #     f"(similarité entreprise={company_similarity:.2f}, poste={position_similarity:.2f})"
+            position_similarity = similarity_with_translation(
+                current_position, existing_position
+            )
+            # logger.info(
+            #     f"=====> Comparaison: {current_company} vs {existing_company} "
+            #     f"=====> (similarité entreprise={company_similarity:.2f}, poste={position_similarity:.2f})"
             # )
 
             # 1. Même entreprise (>85% similarité)
             # 2. Même poste (>85% similarité)
             # 3. URLs différentes (sources différentes)
             if (
-                company_similarity >= similarity_threshold
-                and position_similarity >= similarity_threshold
+                company_similarity >= company_similarity_threshold
+                and position_similarity >= position_similarity_threshold
                 and current_url != existing_url
                 and current_url
                 and existing_url

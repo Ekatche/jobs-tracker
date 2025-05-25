@@ -79,21 +79,21 @@ export default function EdittaskModal({
   };
 
   const handleDelete = async () => {
-  if (!task?._id) return;
-  const id = task._id; 
-  setIsSubmitting(true);
-  try {
-    await taskApi.delete(id);
-    if (onDelete) {
-      onDelete(id);
+    if (!task?._id) return;
+    const id = task._id;
+    setIsSubmitting(true);
+    try {
+      await taskApi.delete(id);
+      if (onDelete) {
+        onDelete(id);
+      }
+      onClose();
+    } catch (err) {
+      setError("Erreur lors de la suppression de la tâche.");
+    } finally {
+      setIsSubmitting(false);
     }
-    onClose();
-  } catch (err) {
-    setError("Erreur lors de la suppression de la tâche.");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
@@ -112,10 +112,10 @@ export default function EdittaskModal({
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
-  <div className="bg-red-900/40 border border-red-600 text-red-200 p-3 rounded-md mb-2">
-    {error}
-  </div>
-)}
+            <div className="bg-red-900/40 border border-red-600 text-red-200 p-3 rounded-md mb-2">
+              {error}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
               Titre *
@@ -152,7 +152,9 @@ export default function EdittaskModal({
             >
               <option value="">Sélectionner un statut</option>
               <option value={TaskStatus.TODO}>{TaskStatus.TODO}</option>
-              <option value={TaskStatus.IN_PROGRESS}>{TaskStatus.IN_PROGRESS}</option>
+              <option value={TaskStatus.IN_PROGRESS}>
+                {TaskStatus.IN_PROGRESS}
+              </option>
               <option value={TaskStatus.DONE}>{TaskStatus.DONE}</option>
             </select>
           </div>

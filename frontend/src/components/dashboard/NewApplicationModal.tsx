@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -8,7 +8,7 @@ import { FiX, FiPlus, FiCalendar, FiCheck } from "react-icons/fi";
 import { applicationApi } from "@/lib/api";
 import { format } from "date-fns";
 
-// Schéma de validation pour le formulaire (inchangé)
+// Schéma de validation pour le formulaire
 const applicationSchema = z.object({
   company: z.string().min(1, "Le nom de l'entreprise est requis"),
   position: z.string().min(1, "Le poste est requis"),
@@ -21,16 +21,26 @@ const applicationSchema = z.object({
 
 type ApplicationFormData = z.infer<typeof applicationSchema>;
 
+// Interface pour les données pré-remplies depuis une offre
+export interface PrefilledData {
+  company?: string;
+  position?: string;
+  location?: string;
+  url?: string;
+}
+
 interface NewApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  prefilledData?: PrefilledData; // Nouvelles données pré-remplies
 }
 
 export default function NewApplicationModal({
   isOpen,
   onClose,
   onSuccess,
+  prefilledData,
 }: NewApplicationModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +55,7 @@ export default function NewApplicationModal({
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<ApplicationFormData>({
     resolver: zodResolver(applicationSchema),
@@ -59,6 +70,42 @@ export default function NewApplicationModal({
       description: "",
     },
   });
+
+  // Effet pour pré-remplir le formulaire quand prefilledData change
+  useEffect(() => {
+    if (prefilledData && isOpen) {
+      if (prefilledData.company) setValue("company", prefilledData.company);
+      if (prefilledData.position) setValue("position", prefilledData.position);
+      if (prefilledData.location) setValue("location", prefilledData.location);
+      if (prefilledData.url) setValue("url", prefilledData.url);
+
+      // Réinitialiser les autres champs à leurs valeurs par défaut
+      setValue("status", "Candidature envoyée");
+      setValue("application_date", format(new Date(), "yyyy-MM-dd"));
+      setValue("description", "");
+
+      // Ajouter une note automatique si on vient d'une offre
+      if (prefilledData.company || prefilledData.position) {
+        const autoNote = `Candidature créée depuis une offre d'emploi le ${format(
+          new Date(),
+          "dd/MM/yyyy",
+        )}`;
+        setNotes([autoNote]);
+      }
+    }
+  }, [prefilledData, isOpen, setValue]);
+
+  // Réinitialiser le formulaire quand la modal se ferme
+  useEffect(() => {
+    if (!isOpen) {
+      reset();
+      setNotes([]);
+      setNewNote("");
+      setIsAddingNote(false);
+      setError(null);
+      setShowSuccessMessage(false);
+    }
+  }, [isOpen, reset]);
 
   // Fonction pour ajouter une note
   const handleAddNote = () => {
@@ -121,27 +168,38 @@ export default function NewApplicationModal({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-60 flex items-center justify-center">
-      <div className="relative bg-blue-night-lighter rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-blue-night-lighter rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto border border-gray-700">
         <div className="flex justify-between items-center px-6 py-4 border-b border-gray-700">
           <h2 className="text-xl font-semibold text-white flex items-center">
-            <FiPlus className="mr-2" /> Nouvelle candidature
+            <FiPlus className="mr-2" />
+            {prefilledData ? "Postuler à cette offre" : "Nouvelle candidature"}
           </h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-white transition-colors"
-            disabled={isSubmitting}
           >
-            <FiX className="text-xl" />
+            <FiX className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="px-6 py-4">
+          {/* Message de pré-remplissage */}
+          {prefilledData && (
+            <div className="bg-blue-900/40 border border-blue-600 text-blue-200 p-3 rounded-md mb-4 flex items-center">
+              <FiCheck className="mr-2" />
+              Informations pré-remplies depuis l'offre. Vérifiez et modifiez si
+              nécessaire.
+            </div>
+          )}
+
+          {/* Message d'erreur */}
           {error && (
             <div className="bg-red-900/40 border border-red-600 text-red-200 p-3 rounded-md mb-4">
               {error}
             </div>
           )}
 
+          {/* Message de succès */}
           {showSuccessMessage && (
             <div className="bg-green-900/40 border border-green-600 text-green-200 p-3 rounded-md mb-4 flex items-center">
               <FiCheck className="mr-2" /> Candidature enregistrée avec succès !
@@ -158,10 +216,10 @@ export default function NewApplicationModal({
                   {errors.company && <li>Le nom de l'entreprise est requis</li>}
                   {errors.position && <li>Le poste est requis</li>}
                   {errors.status && <li>Le statut est requis</li>}
+                  {errors.url && <li>L'URL doit être valide</li>}
                   {errors.application_date && (
                     <li>La date de candidature est requise</li>
                   )}
-                  {errors.url && <li>L'URL n'est pas valide</li>}
                 </ul>
               </div>
             )}
@@ -171,9 +229,7 @@ export default function NewApplicationModal({
               <div className="col-span-1">
                 <label
                   htmlFor="company"
-                  className={`block text-sm font-medium mb-1 ${
-                    errors.company ? "text-red-400" : "text-gray-300"
-                  }`}
+                  className="block text-sm font-medium text-gray-300 mb-1"
                 >
                   Entreprise *
                 </label>
@@ -181,11 +237,7 @@ export default function NewApplicationModal({
                   id="company"
                   type="text"
                   {...register("company")}
-                  className={`w-full rounded-md bg-blue-night border py-2 px-3 text-white focus:outline-none focus:ring-2 ${
-                    errors.company
-                      ? "border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)] focus:ring-red-500"
-                      : "border-gray-700 focus:ring-blue-500"
-                  }`}
+                  className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {errors.company && (
                   <p className="mt-1 text-sm text-red-400">
@@ -198,9 +250,7 @@ export default function NewApplicationModal({
               <div className="col-span-1">
                 <label
                   htmlFor="position"
-                  className={`block text-sm font-medium mb-1 ${
-                    errors.position ? "text-red-400" : "text-gray-300"
-                  }`}
+                  className="block text-sm font-medium text-gray-300 mb-1"
                 >
                   Poste *
                 </label>
@@ -208,11 +258,7 @@ export default function NewApplicationModal({
                   id="position"
                   type="text"
                   {...register("position")}
-                  className={`w-full rounded-md bg-blue-night border py-2 px-3 text-white focus:outline-none focus:ring-2 ${
-                    errors.position
-                      ? "border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)] focus:ring-red-500"
-                      : "border-gray-700 focus:ring-blue-500"
-                  }`}
+                  className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {errors.position && (
                   <p className="mt-1 text-sm text-red-400">
@@ -220,14 +266,14 @@ export default function NewApplicationModal({
                   </p>
                 )}
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Localisation */}
               <div className="col-span-1">
                 <label
                   htmlFor="location"
-                  className={`block text-sm font-medium mb-1 ${
-                    errors.location ? "text-red-400" : "text-gray-300"
-                  }`}
+                  className="block text-sm font-medium text-gray-300 mb-1"
                 >
                   Localisation
                 </label>
@@ -235,70 +281,22 @@ export default function NewApplicationModal({
                   id="location"
                   type="text"
                   {...register("location")}
-                  placeholder="Ex: Paris, Remote, etc."
-                  className={`w-full rounded-md bg-blue-night border py-2 px-3 text-white focus:outline-none focus:ring-2 ${
-                    errors.location
-                      ? "border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)] focus:ring-red-500"
-                      : "border-gray-700 focus:ring-blue-500"
-                  }`}
+                  className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                {errors.location && (
-                  <p className="mt-1 text-sm text-red-400">
-                    {errors.location.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Date de candidature */}
-              <div className="col-span-1">
-                <label
-                  htmlFor="application_date"
-                  className={`block text-sm font-medium mb-1 ${
-                    errors.application_date ? "text-red-400" : "text-gray-300"
-                  }`}
-                >
-                  Date de candidature *
-                </label>
-                <div className="relative">
-                  <input
-                    id="application_date"
-                    type="date"
-                    {...register("application_date")}
-                    className={`w-full rounded-md bg-blue-night border py-2 px-3 text-white focus:outline-none focus:ring-2 ${
-                      errors.application_date
-                        ? "border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)] focus:ring-red-500"
-                        : "border-gray-700 focus:ring-blue-500"
-                    }`}
-                  />
-                  <FiCalendar
-                    className={`absolute right-3 top-3 ${errors.application_date ? "text-red-400" : "text-gray-400"}`}
-                  />
-                </div>
-                {errors.application_date && (
-                  <p className="mt-1 text-sm text-red-400">
-                    {errors.application_date.message}
-                  </p>
-                )}
               </div>
 
               {/* Statut */}
               <div className="col-span-1">
                 <label
                   htmlFor="status"
-                  className={`block text-sm font-medium mb-1 ${
-                    errors.status ? "text-red-400" : "text-gray-300"
-                  }`}
+                  className="block text-sm font-medium text-gray-300 mb-1"
                 >
                   Statut *
                 </label>
                 <select
                   id="status"
                   {...register("status")}
-                  className={`w-full rounded-md bg-blue-night border py-2 px-3 text-white focus:outline-none focus:ring-2 ${
-                    errors.status
-                      ? "border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)] focus:ring-red-500"
-                      : "border-gray-700 focus:ring-blue-500"
-                  }`}
+                  className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="En étude">En étude</option>
                   <option value="Candidature envoyée">
@@ -306,10 +304,7 @@ export default function NewApplicationModal({
                   </option>
                   <option value="Première sélection">Première sélection</option>
                   <option value="Entretien">Entretien</option>
-                  {/* <option value="Test technique">Test technique</option> */}
-                  {/* <option value="Négociation">Négociation</option> */}
                   <option value="Offre reçue">Offre reçue</option>
-                  {/* <option value="Offre acceptée">Offre acceptée</option> */}
                   <option value="Refusée">Refusée</option>
                 </select>
                 {errors.status && (
@@ -318,94 +313,102 @@ export default function NewApplicationModal({
                   </p>
                 )}
               </div>
+            </div>
 
-              {/* URL de l'offre */}
-              <div className="col-span-1">
-                <label
-                  htmlFor="url"
-                  className={`block text-sm font-medium mb-1 ${
-                    errors.url ? "text-red-400" : "text-gray-300"
-                  }`}
-                >
-                  URL de l'offre
-                </label>
+            {/* URL de l'offre */}
+            <div>
+              <label
+                htmlFor="url"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
+                URL de l'offre
+              </label>
+              <input
+                id="url"
+                type="url"
+                {...register("url")}
+                className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="https://exemple.com/offre"
+              />
+              {errors.url && (
+                <p className="mt-1 text-sm text-red-400">
+                  {errors.url.message}
+                </p>
+              )}
+            </div>
+
+            {/* Date de candidature */}
+            <div>
+              <label
+                htmlFor="application_date"
+                className="block text-sm font-medium text-gray-300 mb-1"
+              >
+                Date de candidature *
+              </label>
+              <div className="relative">
                 <input
-                  id="url"
-                  type="url"
-                  {...register("url")}
-                  placeholder="https://example.com/job"
-                  className={`w-full rounded-md bg-blue-night border py-2 px-3 text-white focus:outline-none focus:ring-2 ${
-                    errors.url
-                      ? "border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)] focus:ring-red-500"
-                      : "border-gray-700 focus:ring-blue-500"
-                  }`}
+                  id="application_date"
+                  type="date"
+                  {...register("application_date")}
+                  className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                {errors.url && (
-                  <p className="mt-1 text-sm text-red-400">
-                    {errors.url.message}
-                  </p>
-                )}
+                <FiCalendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
+              {errors.application_date && (
+                <p className="mt-1 text-sm text-red-400">
+                  {errors.application_date.message}
+                </p>
+              )}
             </div>
 
             {/* Description */}
-            <div className="col-span-2">
+            <div>
               <label
                 htmlFor="description"
-                className={`block text-sm font-medium mb-1 ${
-                  errors.description ? "text-red-400" : "text-gray-300"
-                }`}
+                className="block text-sm font-medium text-gray-300 mb-1"
               >
                 Description
               </label>
               <textarea
                 id="description"
                 {...register("description")}
-                rows={4}
-                placeholder="Informations supplémentaires sur le poste, exigences, etc."
-                className={`w-full rounded-md bg-blue-night border py-2 px-3 text-white focus:outline-none focus:ring-2 ${
-                  errors.description
-                    ? "border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)] focus:ring-red-500"
-                    : "border-gray-700 focus:ring-blue-500"
-                }`}
-              ></textarea>
-              {errors.description && (
-                <p className="mt-1 text-sm text-red-400">
-                  {errors.description.message}
-                </p>
-              )}
+                rows={3}
+                className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Description du poste, compétences requises, etc."
+              />
             </div>
 
-            {/* Section des notes - à ajouter */}
-            <div className="mt-6">
-              <h3 className="text-lg font-semibold mb-2 text-white">Notes</h3>
+            {/* Section Notes */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Notes
+              </label>
 
               {/* Liste des notes existantes */}
-              <div className="space-y-2 mb-4">
+              <div className="mb-4">
                 {notes.length > 0 ? (
                   notes.map((note, index) => (
                     <div
                       key={index}
-                      className="p-3 bg-blue-night-light rounded-md relative group"
+                      className="bg-blue-night/50 border border-gray-700 rounded-md p-3 mb-2"
                     >
-                      <p className="text-gray-300 pr-12">{note}</p>
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex justify-between items-start">
+                        <p className="text-gray-200 flex-1">{note}</p>
                         <button
                           type="button"
                           onClick={() => handleDeleteNote(index)}
-                          className="p-1 rounded-full text-gray-400 hover:text-red-400 hover:bg-red-900/30"
+                          className="ml-2 text-red-400 hover:text-red-300 transition-colors"
                         >
                           <svg
-                            className="h-4 w-4"
+                            className="w-4 h-4"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg"
                           >
                             <path
                               strokeLinecap="round"
                               strokeLinejoin="round"
-                              strokeWidth="2"
+                              strokeWidth={2}
                               d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                             ></path>
                           </svg>
@@ -427,55 +430,32 @@ export default function NewApplicationModal({
                     <textarea
                       value={newNote}
                       onChange={(e) => setNewNote(e.target.value)}
-                      placeholder="Détails sur la candidature, contacts, préparation d'entretien..."
-                      className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      rows={3}
-                    ></textarea>
-                    <div className="flex space-x-2 mt-2">
-                      <button
-                        type="button"
-                        onClick={handleAddNote}
-                        className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-500 transition-colors flex items-center text-sm"
-                      >
-                        <svg
-                          className="w-4 h-4 mr-1"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M5 13l4 4L19 7"
-                          ></path>
-                        </svg>
-                        Ajouter
-                      </button>
+                      placeholder="Tapez votre note ici..."
+                      className="w-full px-3 py-2 rounded-md bg-blue-night border border-gray-700 focus:border-blue-500 focus:outline-none text-white"
+                      rows={2}
+                    />
+                    <div className="flex justify-end gap-2 mt-2">
                       <button
                         type="button"
                         onClick={() => {
                           setIsAddingNote(false);
                           setNewNote("");
                         }}
-                        className="px-3 py-1 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors flex items-center text-sm"
+                        className="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-500 text-white text-sm"
                       >
-                        <svg
-                          className="w-4 h-4 mr-1"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M6 18L18 6M6 6l12 12"
-                          ></path>
-                        </svg>
                         Annuler
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAddNote}
+                        disabled={!newNote.trim()}
+                        className={`px-3 py-1 rounded-md text-white text-sm ${
+                          !newNote.trim()
+                            ? "bg-gray-600 cursor-not-allowed"
+                            : "bg-blue-600 hover:bg-blue-500"
+                        }`}
+                      >
+                        Ajouter
                       </button>
                     </div>
                   </div>
@@ -483,68 +463,50 @@ export default function NewApplicationModal({
                   <button
                     type="button"
                     onClick={() => setIsAddingNote(true)}
-                    className="mt-2 px-3 py-1 bg-blue-900/50 hover:bg-blue-900 text-white rounded-md transition-colors flex items-center text-sm"
+                    className="flex items-center gap-2 px-3 py-2 rounded-md bg-blue-night border border-gray-700 hover:border-blue-500 text-gray-300 hover:text-white transition-colors"
                   >
-                    <svg
-                      className="w-4 h-4 mr-1"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                      ></path>
-                    </svg>
+                    <FiPlus className="w-4 h-4" />
                     Ajouter une note
                   </button>
                 )}
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700">
+            {/* Boutons d'action */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition-colors"
-                disabled={isSubmitting || showSuccessMessage}
+                disabled={isSubmitting}
+                className="px-4 py-2 text-sm font-medium text-gray-300 bg-transparent border border-gray-600 rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50"
               >
                 Annuler
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-500 transition-colors flex items-center"
-                disabled={isSubmitting || showSuccessMessage}
+                disabled={isSubmitting}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 flex items-center"
               >
                 {isSubmitting ? (
                   <>
-                    <svg
-                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white">
                       <circle
-                        className="opacity-25"
                         cx="12"
                         cy="12"
                         r="10"
                         stroke="currentColor"
                         strokeWidth="4"
-                      ></circle>
+                        fill="none"
+                      />
                       <path
-                        className="opacity-75"
                         fill="currentColor"
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
+                      />
                     </svg>
-                    Création en cours...
+                    Enregistrement...
                   </>
                 ) : (
-                  "Créer la candidature"
+                  "Enregistrer la candidature"
                 )}
               </button>
             </div>

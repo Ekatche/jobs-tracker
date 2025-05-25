@@ -5,10 +5,12 @@ import EdittaskModal from "@/components/tasks/EditTaskModal";
 import { Task, ApiTask, TaskStatus } from "@/types/tasks";
 import TabNavigation from "@/components/tasks/TabNavigation";
 import KanbanBoard from "@/components/tasks/KanbanBoard";
-import { taskApi, } from "@/lib/api";
+import { taskApi } from "@/lib/api";
 
 export default function TasksPage() {
-  const [activeTab, setActiveTab] = useState<"active" | "archived" | "dashboard">("active");
+  const [activeTab, setActiveTab] = useState<
+    "active" | "archived" | "dashboard"
+  >("active");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage] = useState<number>(8);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
@@ -27,12 +29,14 @@ export default function TasksPage() {
     setError(null);
     try {
       const apiTasks = await taskApi.getAll();
-      if (!Array.isArray(apiTasks)) throw new Error("Format de données inattendu");
+      if (!Array.isArray(apiTasks))
+        throw new Error("Format de données inattendu");
       const tasks: Task[] = apiTasks.map((apiTask: ApiTask) => ({
         ...apiTask,
         status: (apiTask.status as string).toLowerCase() as TaskStatus,
 
-        archived: typeof apiTask.archived === "boolean" ? apiTask.archived : false,
+        archived:
+          typeof apiTask.archived === "boolean" ? apiTask.archived : false,
       }));
       setActiveTasks(tasks.filter((task) => !task.archived));
       setArchivedTasks(tasks.filter((task) => task.archived));
@@ -92,7 +96,9 @@ export default function TasksPage() {
   if (loading) {
     content = (
       <div className="flex items-center justify-center min-h-[200px]">
-        <span className="text-blue-400 animate-pulse">Chargement des tâches...</span>
+        <span className="text-blue-400 animate-pulse">
+          Chargement des tâches...
+        </span>
       </div>
     );
   } else if (error) {
@@ -104,13 +110,19 @@ export default function TasksPage() {
   } else if (activeTab === "active") {
     content = (
       <div className="flex-grow overflow-x-auto overflow-y-hidden custom-scrollbar">
-        <KanbanBoard groupedTasks={groupedTasks} onCardClick={handleCardClick} />
+        <KanbanBoard
+          groupedTasks={groupedTasks}
+          onCardClick={handleCardClick}
+        />
       </div>
     );
   } else if (activeTab === "archived") {
     content = (
       <div className="flex-grow overflow-x-auto overflow-y-hidden custom-scrollbar">
-        <KanbanBoard groupedTasks={groupedArchivedTasks} onCardClick={handleCardClick} />
+        <KanbanBoard
+          groupedTasks={groupedArchivedTasks}
+          onCardClick={handleCardClick}
+        />
       </div>
     );
   } else if (activeTab === "dashboard") {

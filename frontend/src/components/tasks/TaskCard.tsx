@@ -47,8 +47,7 @@ export default function TaskCards({ task, status, onClick }: TaskCardProps) {
       </div>
 
       <div className="text-xs text-gray-400">
-          {task.created_at ? calculateDays(task.created_at) : 0} j
-
+        {task.created_at ? calculateDays(task.created_at) : 0} j
       </div>
     </div>
   );

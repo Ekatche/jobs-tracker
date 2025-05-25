@@ -25,15 +25,17 @@ export default function KanbanColumn({
         </span>
       </div>
       <div className="space-y-2 flex-grow overflow-y-auto max-h-[500px] pr-1 custom-scrollbar">
-        {tasks?.slice(0, 5).map((app) => (
-          <TaskCards
-            key={app._id}
-            task={app}
-            status={status}
-            onClick={onCardClick}
-            compact={false}
-          />
-        ))}
+        {tasks
+          ?.slice(0, 5)
+          .map((app) => (
+            <TaskCards
+              key={app._id}
+              task={app}
+              status={status}
+              onClick={onCardClick}
+              compact={false}
+            />
+          ))}
         {(!tasks || tasks.length === 0) && (
           <div className="text-gray-400 text-center p-4">Aucune Demarches</div>
         )}
