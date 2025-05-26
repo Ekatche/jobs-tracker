@@ -410,36 +410,6 @@ export const applicationApi = {
   delete: async (applicationId: string) => {
     return fetchApi<void>(`/applications/${applicationId}`, "DELETE");
   },
-
-  addNote: async (applicationId: string, note: string) => {
-    return fetchApi<Application>(
-      `/applications/${applicationId}/notes`,
-      "POST",
-      { note },
-    );
-  },
-
-  deleteNote: async (
-    applicationId: string,
-    noteIndex: number,
-  ): Promise<Application> => {
-    return fetchApi<Application>(
-      `/applications/${applicationId}/notes/${noteIndex}`,
-      "DELETE",
-    );
-  },
-
-  // Méthode pour mettre à jour toutes les notes d'une candidature
-  updateNotes: async (
-    applicationId: string,
-    notes: string[],
-  ): Promise<Application> => {
-    return fetchApi<Application>(
-      `/applications/${applicationId}/notes`,
-      "PUT",
-      { notes },
-    );
-  },
 };
 
 // Ajouter l'API des offres d'emploi après taskApi

@@ -1,7 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Application, formatDate, calculateDays } from "@/types/application";
-
-import ApplicationNotes from "./ApplicationNotes";
+import { applicationApi } from "@/lib/api";
 import StatusSelect from "./StatusSelect";
 import { FiExternalLink } from "react-icons/fi";
 
@@ -13,7 +12,7 @@ interface ApplicationDetailsProps {
   onSave: () => Promise<void>;
   onCancel: () => void;
   onDelete: () => Promise<void>;
-  onArchive: () => Promise<void>; // Ajouter cette prop
+  onArchive: () => Promise<void>;
   onAddNote: (note: string) => Promise<void>;
   onEditNote: (index: number, text: string) => Promise<void>;
   onDeleteNote: (index: number) => Promise<void>;
@@ -40,10 +39,61 @@ export default function ApplicationDetails({
   isDeletingNote,
   deletingNoteIndex,
 }: ApplicationDetailsProps) {
+  // Ajouter ces états pour la gestion locale des notes
+  const [localNotes, setLocalNotes] = useState<string[]>([]);
+  const [newNote, setNewNote] = useState<string>("");
+  const [isAddingLocalNote, setIsAddingLocalNote] = useState<boolean>(false);
+  const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
+  const [editedNoteText, setEditedNoteText] = useState<string>("");
+
+  // Synchroniser les notes locales avec l'application
+  useEffect(() => {
+    if (application?.notes) {
+      setLocalNotes([...application.notes]);
+    } else {
+      setLocalNotes([]);
+    }
+  }, [application]);
+
   if (!application) return null;
 
   const handleStatusChange = (newStatus: string) => {
     onChange("status", newStatus);
+  };
+
+  // Gestion locale des notes (comme dans EditApplicationModal)
+  const handleAddLocalNote = () => {
+    if (!newNote.trim()) return;
+    const updatedNotes = [...localNotes, newNote];
+    setLocalNotes(updatedNotes);
+    setNewNote("");
+    setIsAddingLocalNote(false);
+    // Déclencher le changement pour marquer comme modifié
+    onChange("notes", JSON.stringify(updatedNotes));
+  };
+
+  const handleEditLocalNote = (index: number, noteText: string) => {
+    setEditingNoteIndex(index);
+    setEditedNoteText(noteText);
+  };
+
+  const handleSaveEditNote = () => {
+    if (editingNoteIndex === null || !editedNoteText.trim()) return;
+    const updatedNotes = [...localNotes];
+    updatedNotes[editingNoteIndex] = editedNoteText;
+    setLocalNotes(updatedNotes);
+    setEditingNoteIndex(null);
+    setEditedNoteText("");
+    // Déclencher le changement pour marquer comme modifié
+    onChange("notes", JSON.stringify(updatedNotes));
+  };
+
+  const handleDeleteLocalNote = (index: number) => {
+    const updatedNotes = [...localNotes];
+    updatedNotes.splice(index, 1);
+    setLocalNotes(updatedNotes);
+    // Déclencher le changement pour marquer comme modifié
+    onChange("notes", JSON.stringify(updatedNotes));
   };
 
   return (
@@ -79,22 +129,6 @@ export default function ApplicationDetails({
               </svg>
               Fermer
             </button>
-            <button className="text-gray-400 hover:text-white">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"
-                ></path>
-              </svg>
-            </button>
           </div>
 
           <div className="flex items-center mb-6">
@@ -117,10 +151,21 @@ export default function ApplicationDetails({
             onChange={(e) => onChange("company", e.target.value)}
             className="text-gray-300 mb-6 w-full bg-transparent border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none"
           />
+
+          <div className="mb-6">
+            <input
+              type="text"
+              value={application.location || ""}
+              onChange={(e) => onChange("location", e.target.value)}
+              placeholder="Localisation"
+              className="w-full text-gray-300 bg-transparent border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none mb-4"
+            />
+          </div>
+
           <div className="mb-6 flex items-center">
             <input
               type="text"
-              value={application.url}
+              value={application.url || ""}
               onChange={(e) => onChange("url", e.target.value)}
               placeholder="Lien de l'offre"
               className="flex-1 text-gray-300 bg-transparent border-b border-transparent hover:border-gray-600 focus:border-blue-500 focus:outline-none"
@@ -136,11 +181,21 @@ export default function ApplicationDetails({
               </a>
             )}
           </div>
-          {/* Ajoutez un sélecteur pour le statut */}
+
           <div className="mb-6">
             <StatusSelect
               currentStatus={application.status}
               onChange={handleStatusChange}
+            />
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-gray-400 mb-2">Date de candidature</label>
+            <input
+              type="date"
+              value={application.application_date.substring(0, 10)}
+              onChange={(e) => onChange("application_date", e.target.value)}
+              className="w-full px-3 py-2 rounded-md bg-blue-night border border-gray-700 focus:border-blue-500 focus:outline-none text-white"
             />
           </div>
 
@@ -171,15 +226,128 @@ export default function ApplicationDetails({
             />
           </div>
 
-          <ApplicationNotes
-            notes={application.notes || []}
-            onAddNote={onAddNote}
-            onEditNote={onEditNote}
-            onDeleteNote={onDeleteNote}
-            isAddingNote={isAddingNote}
-            isDeletingNote={isDeletingNote}
-            deletingNoteIndex={deletingNoteIndex}
-          />
+          {/* Remplacer ApplicationNotes par une gestion locale */}
+          <div className="border-t border-gray-700 py-4">
+            <h3 className="text-lg font-semibold mb-4">Notes</h3>
+
+            {/* Liste des notes existantes */}
+            <div className="space-y-2 mb-4">
+              {localNotes.map((note, index) => (
+                <div key={index} className="p-3 bg-blue-night-light rounded-md relative group">
+                  {editingNoteIndex === index ? (
+                    <div>
+                      <textarea
+                        value={editedNoteText}
+                        onChange={(e) => setEditedNoteText(e.target.value)}
+                        className="w-full px-2 py-1 rounded-md bg-blue-night border border-gray-700 focus:border-blue-500 focus:outline-none text-white"
+                        rows={3}
+                      />
+                      <div className="flex justify-end mt-2 space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingNoteIndex(null);
+                            setEditedNoteText("");
+                          }}
+                          className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded-md text-sm"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveEditNote}
+                          disabled={!editedNoteText.trim()}
+                          className={`px-2 py-1 rounded-md text-sm text-white ${
+                            !editedNoteText.trim()
+                              ? "bg-gray-600 cursor-not-allowed"
+                              : "bg-blue-600 hover:bg-blue-500"
+                          }`}
+                        >
+                          Enregistrer
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-gray-300 pr-12">{note}</p>
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+                        <button
+                          type="button"
+                          onClick={() => handleEditLocalNote(index, note)}
+                          className="p-1 rounded-full text-gray-400 hover:text-blue-400 hover:bg-blue-900/30"
+                        >
+                          {/* Icône édition */}
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteLocalNote(index)}
+                          className="p-1 rounded-full text-gray-400 hover:text-red-400 hover:bg-red-900/30"
+                        >
+                          {/* Icône suppression */}
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                          </svg>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Formulaire d'ajout de note */}
+            <div>
+              {isAddingLocalNote ? (
+                <div className="mb-4">
+                  <textarea
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    placeholder="Tapez votre note ici..."
+                    className="w-full px-3 py-2 rounded-md bg-blue-night border border-gray-700 focus:border-blue-500 focus:outline-none text-white"
+                    rows={2}
+                  />
+                  <div className="flex justify-end gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingLocalNote(false);
+                        setNewNote("");
+                      }}
+                      className="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-500 text-white text-sm"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddLocalNote}
+                      disabled={!newNote.trim()}
+                      className={`px-3 py-1 rounded-md text-white text-sm ${
+                        !newNote.trim()
+                          ? "bg-gray-600 cursor-not-allowed"
+                          : "bg-blue-600 hover:bg-blue-500"
+                      }`}
+                    >
+                      Ajouter
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsAddingLocalNote(true)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-md bg-blue-night border border-gray-700 hover:border-blue-500 text-gray-300 hover:text-white transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                  </svg>
+                  Ajouter une note
+                </button>
+              )}
+            </div>
+          </div>
 
           <div className="border-t border-gray-700 py-4">
             <h3 className="text-lg font-semibold mb-4">Statistiques</h3>
@@ -274,10 +442,10 @@ export default function ApplicationDetails({
                   d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
                 ></path>
               </svg>
-              Archiver cette candidature
+              {application.archived ? "Désarchiver" : "Archiver"} cette candidature
             </button>
 
-            {/* Boutons d'enregistrement existants */}
+            {/* Boutons d'enregistrement */}
             <div className="flex justify-between space-x-3">
               <button
                 className="w-1/2 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md transition-colors"
@@ -299,7 +467,7 @@ export default function ApplicationDetails({
               </button>
             </div>
 
-            {/* Bouton de suppression existant */}
+            {/* Bouton de suppression */}
             <div className="mt-4">
               <button
                 onClick={onDelete}

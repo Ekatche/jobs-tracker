@@ -118,11 +118,24 @@ export default function ApplicationsPage() {
   const handleFieldChange = (field: string, value: string) => {
     if (!selectedApplication) return;
 
-    setSelectedApplication({
-      ...selectedApplication,
-      [field]: value,
-    });
-
+    // Gérer spécialement les notes
+    if (field === "notes") {
+      try {
+        const notes = JSON.parse(value);
+        setSelectedApplication({
+          ...selectedApplication,
+          notes: notes,
+        });
+      } catch {
+        // Si ce n'est pas du JSON valide, ignorer
+        return;
+      }
+    } else {
+      setSelectedApplication({
+        ...selectedApplication,
+        [field]: value,
+      });
+    }
     setHasUnsavedChanges(true);
   };
 
@@ -140,9 +153,7 @@ export default function ApplicationsPage() {
         notes: updatedNotes,
       });
 
-      // Puis envoyer à l'API
-      await applicationApi.addNote(selectedApplication._id, noteText);
-
+  
       // Rafraîchir en arrière-plan
       await fetchData(false);
 
@@ -170,7 +181,6 @@ export default function ApplicationsPage() {
       const updatedNotes = [...(selectedApplication.notes || [])];
       updatedNotes[noteIndex] = noteText;
 
-      await applicationApi.updateNotes(selectedApplication._id, updatedNotes);
       await fetchData();
       router.refresh(); // ← rafraîchit la page dès que la note est modifiée
       addNotification("success", "Note modifiée avec succès");
@@ -197,9 +207,6 @@ export default function ApplicationsPage() {
         ...selectedApplication,
         notes: updatedNotes,
       });
-
-      // 4. Puis envoyer la mise à jour à l'API
-      await applicationApi.updateNotes(selectedApplication._id!, updatedNotes);
 
       // 5. Rafraîchir les données en arrière-plan
       await fetchData(false); // silent refresh
