@@ -38,7 +38,14 @@ async def collect_and_save_offers(query: str):
         if missing_vars:
             raise ValueError(f"Variables manquantes: {', '.join(missing_vars)}")
 
-        offers = await get_job_offers_from_query(query)
+        # ✅ Timeout interne pour éviter les blocages
+        try:
+            offers = await asyncio.wait_for(
+                get_job_offers_from_query(query), timeout=900  # 15 minutes max
+            )
+        except asyncio.TimeoutError:
+            logger.error("⏰ Timeout lors de la collecte des offres")
+            raise Exception("Timeout de collecte dépassé")
 
         if not isinstance(offers, list):
             raise TypeError(f"Format invalide: {type(offers)}")
@@ -168,7 +175,18 @@ def collect_offers_sync(query: str):
     try:
         # ✅ Définir l'environnement pour Airflow
         os.environ.setdefault("ENVIRONMENT", "airflow")
-        return asyncio.run(collect_and_save_offers(query))
+        # ✅ Utiliser un event loop avec timeout
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            return loop.run_until_complete(
+                asyncio.wait_for(
+                    collect_and_save_offers(query), timeout=900  # 10 minutes max
+                )
+            )
+        finally:
+            loop.close()
     except Exception as e:
         logger.error(f"💥 Erreur sync: {e}")
         raise

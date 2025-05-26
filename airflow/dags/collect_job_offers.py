@@ -13,6 +13,7 @@ default_args = {
     "on_failure_callback": None,
     "email_on_failure": False,
     "email_on_retry": False,
+    "execution_timeout": timedelta(minutes=20),  # ✅ Timeout explicite pour la tâche
 }
 
 # Créer le DAG
@@ -24,10 +25,11 @@ dag = DAG(
     catchup=False,
     max_active_runs=1,  # ✅ Une seule exécution à la fois
     tags=["job-tracker", "collection"],
+    dagrun_timeout=timedelta(minutes=20),  # ✅ Timeout pour tout le DAG
 )
 
 
-def collect_offers_task():
+def collect_offers_task(**context):
     """Tâche de collecte d'offres"""
     import sys
     import logging
@@ -77,4 +79,5 @@ collect_task = PythonOperator(
     # ✅ Paramètres pour arrêter en cas d'erreur
     retries=0,
     retry_delay=timedelta(minutes=1),
+    execution_timeout=timedelta(minutes=20),  # ✅ Timeout spécifique à cette tâche
 )

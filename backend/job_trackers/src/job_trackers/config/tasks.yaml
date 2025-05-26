@@ -6,8 +6,8 @@ convert_query_task:
     concise et efficace pour trouver des offres d'emploi. La requête doit être optimisée pour un moteur de recherche.
     
     Exemples:
-    - Question: "Je cherche un poste de data scientist à Lyon"
-      Requête: "offres emploi data scientist Lyon"
+    - Question: "Je cherche un poste de data scientist à paris"
+      Requête: "offres d'emploi data scientist region parisienne"
     
     Retourne UNIQUEMENT le texte, sans explications ni formatage supplémentaire.
   expected_output: >
@@ -41,23 +41,46 @@ execute_search_task:
 
 filter_urls_task:
   description: >
-    Filtrer la liste d'URLs obtenue pour ne garder que les liens les plus pertinents et fiables par rapport à la demande initiale, et retirer les doublons.
-    Critères de filtrage:
-    - Pertinence: URLs qui correspondent bien à la requête originale (titre, description, entreprise)
-    - Fiabilité: Sites reconnus et officiels (priorité aux sites de recrutement français)
-    - Diversité: Garde une variété d'offres (différentes entreprises, différents sites)
-    - Pas de doublons: Élimine les URLs qui pointent vers la même offre
+    Filtrer la liste d'URLs obtenue pour ne garder que les liens les plus pertinents, fiables et crawlables par rapport à la demande initiale.
     
-    Présente les résultats dans une liste classée par ordre de pertinence.
+    Critères de filtrage (par ordre de priorité):
+    1. **Crawlabilité**: Privilégier les URLs de pages de recherche ou de listing d'offres qui contiennent plusieurs résultats
+       - Pages de recherche LinkedIn (/jobs/search/), Indeed (/jobs?q=), Welcome to the Jungle (/jobs?query=)
+       - Pages de listing d'offres sur sites français (France Travail, HelloWork, APEC)
+       - Éviter les URLs avec paramètres de session ou d'authentification
+    
+    2. **Pertinence**: URLs qui correspondent bien à la requête originale (mots-clés, localisation)
+       - Contiennent les termes de la recherche dans l'URL ou les paramètres
+       - Correspondent à la géolocalisation demandée
+    
+    3. **Fiabilité**: Sites reconnus et officiels
+       - Priorité 1: Sites français (francetravail.fr, hellowork.com, apec.fr, welcometothejungle.com)
+       - Priorité 2: Sites internationaux fiables (linkedin.com, indeed.com/indeed.fr)
+       - Éviter les sites douteux ou les redirections
+    
+    4. **Diversité**: Garder une variété de sources
+       - Maximum 2-3 URLs par domaine
+       - Différents types de sites (publics, privés, spécialisés)
+    
+    5. **Déduplication**: Éliminer les doublons
+       - URLs identiques ou très similaires
+       - Paramètres différents mais même contenu
+    
+    **Instructions spéciales**:
+    - Privilégier les URLs génériques de recherche plutôt que les offres individuelles
+    - Conserver les URLs de pages qui listent plusieurs offres d'emploi
+    - Retirer les URLs de pages d'accueil ou de navigation générale
 
   expected_output: >
-    Retourne uniquement un tableau JSON contenant les URLs filtrées, sans aucun commentaire ni texte additionnel.
+    Retourne uniquement un tableau JSON contenant les URLs filtrées et optimisées pour le crawling, sans aucun commentaire ni texte additionnel.
     Exemple :
-    ["https://www.site1.com/offre-emploi/12345", "https://www.site2.fr/jobs/56789", "https://www.site3.fr/annonce-987654"]
-    Si aucune URL pertinente n'est trouvée, retourne [].
+    ["https://www.linkedin.com/jobs/search/?keywords=data%20scientist&location=Lyon", "https://fr.indeed.com/jobs?q=data+scientist&l=Lyon", "https://candidat.francetravail.fr/offres/emploi/data-scientist/lyon"]
+    
+    Maximum 8-10 URLs dans la liste finale pour optimiser le temps de crawling.
+    Si aucune URL pertinente et crawlable n'est trouvée, retourne [].
     
     Aucune explication ou commentaire ne doit être ajouté avant ou après cette liste.
-    Si aucune URL pertinente n'est trouvée, répondre uniquement "Aucun résultat pertinent trouvé.
+    
   agent: url_filter
   input_variables:
     urls: ${execute_search_task.output}

@@ -16,26 +16,26 @@ def normalize_city(city: str) -> str:
         return "Non spécifié"
 
     # Supprimer les codes postaux complets (ex: "44000 Nantes" -> "Nantes")
-    city = re.sub(r'^\d{5}\s+', '', city)
-    
+    city = re.sub(r"^\d{5}\s+", "", city)
+
     # Supprimer les codes postaux avec tiret (ex: "Nantes - 44" -> "Nantes")
-    city = re.sub(r'\s*-\s*\d+.*$', '', city)
-    
+    city = re.sub(r"\s*-\s*\d+.*$", "", city)
+
     # Supprimer les arrondissements avec tiret (ex: "Lyon - 01" -> "Lyon")
-    city = re.sub(r'\s*-\s*\d{2}$', '', city)
-    
+    city = re.sub(r"\s*-\s*\d{2}$", "", city)
+
     # Supprimer les arrondissements avec espace (ex: "LYON 01" -> "LYON")
-    city = re.sub(r'\s+\d{2}$', '', city)
-    
+    city = re.sub(r"\s+\d{2}$", "", city)
+
     # Supprimer les arrondissements avec "er", "ème", etc. (ex: "Lyon 1er" -> "Lyon")
-    city = re.sub(r'\s+\d{1,2}(er|ème|e)?$', '', city, flags=re.IGNORECASE)
-    
+    city = re.sub(r"\s+\d{1,2}(er|ème|e)?$", "", city, flags=re.IGNORECASE)
+
     # Supprimer les parenthèses et leur contenu (ex: "Lyon (Rhône)" -> "Lyon")
-    city = re.sub(r'\s*\([^)]*\)', '', city)
-    
+    city = re.sub(r"\s*\([^)]*\)", "", city)
+
     # Nettoyer les espaces multiples
-    city = re.sub(r'\s+', ' ', city.strip())
-    
+    city = re.sub(r"\s+", " ", city.strip())
+
     # Capitaliser correctement (première lettre de chaque mot en majuscule)
     return city.title() if city else "Non spécifié"
 
@@ -145,7 +145,7 @@ async def delete_job_offer(offer_id: str, db=Depends(get_database)):
 @job_offers_router.get("/stats/summary")
 async def get_offers_stats(db=Depends(get_database)):
     """Récupère les statistiques des offres d'emploi"""
-    
+
     # Total des offres
     total_offers = await db["job_offers"].count_documents({})
 
@@ -200,43 +200,45 @@ async def get_offers_stats(db=Depends(get_database)):
     # TOP COMPANIES - Traitement côté Python
     # Récupérer toutes les entreprises
     companies_cursor = db["job_offers"].find(
-        {"entreprise": {"$exists": True, "$nin": [None, ""]}},
-        {"entreprise": 1}
+        {"entreprise": {"$exists": True, "$nin": [None, ""]}}, {"entreprise": 1}
     )
     companies_data = await companies_cursor.to_list(length=None)
-    
+
     # Normaliser côté Python
     company_counts = {}
     for doc in companies_data:
         if doc.get("entreprise"):
             normalized = normalize_company(doc["entreprise"])
             company_counts[normalized] = company_counts.get(normalized, 0) + 1
-    
+
     # Trier et limiter
     top_companies = [
         {"_id": company, "count": count}
-        for company, count in sorted(company_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+        for company, count in sorted(
+            company_counts.items(), key=lambda x: x[1], reverse=True
+        )[:10]
     ]
 
     # TOP CITIES - Traitement côté Python
     # Récupérer toutes les localisations
     cities_cursor = db["job_offers"].find(
-        {"localisation": {"$exists": True, "$nin": [None, ""]}},
-        {"localisation": 1}
+        {"localisation": {"$exists": True, "$nin": [None, ""]}}, {"localisation": 1}
     )
     cities_data = await cities_cursor.to_list(length=None)
-    
+
     # Normaliser côté Python
     city_counts = {}
     for doc in cities_data:
         if doc.get("localisation"):
             normalized = normalize_city(doc["localisation"])
             city_counts[normalized] = city_counts.get(normalized, 0) + 1
-    
+
     # Trier et limiter
     top_cities = [
         {"_id": city, "count": count}
-        for city, count in sorted(city_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+        for city, count in sorted(
+            city_counts.items(), key=lambda x: x[1], reverse=True
+        )[:10]
     ]
 
     # Exécuter le pipeline pour les websites

@@ -70,29 +70,24 @@ class TavilyJobBoardSearchTool(BaseTool):
 
         tavily_client = self.client
         all_urls = []
-
-        # ✅ PASSE 1: Sites français fiables
-        french_sites = [
-            "francetravail.fr",
-            "hellowork.com",
-            "apec.fr",
-            "welcometothejungle.com",
-            "monster.fr",
-            "cadremploi.fr",
-        ]
-
-        # ✅ PASSE 2: Sites internationaux avec requête adaptée
-        international_query = f"{query} site:fr.linkedin.com/jobs OR site:fr.indeed.com"
-
         logger.info(f"Exécution de la recherche Tavily avec query: {query}")
 
         try:
+
+            # ✅ PASSE 1: Sites français fiables
+            french_sites = [
+                "francetravail.fr",
+                "hellowork.com",
+                "apec.fr",
+                "welcometothejungle.com",
+            ]
+
             # Recherche sites français
             logger.info(f"🇫🇷 Recherche sites français: {query}")
             response_fr = tavily_client.search(
                 query=query,
                 search_depth="advanced",
-                max_results=25,
+                max_results=15,
                 include_domains=french_sites,
             )
 
@@ -100,26 +95,25 @@ class TavilyJobBoardSearchTool(BaseTool):
                 all_urls.extend([r["url"] for r in response_fr["results"]])
                 logger.info(f"📋 {len(response_fr['results'])} URLs sites français")
 
-            # Recherche LinkedIn/Indeed avec requête spécifique
-            logger.info(f"🌍 Recherche LinkedIn/Indeed: {international_query}")
-            response_intl = tavily_client.search(
-                query=international_query,
-                search_depth="basic",  # Plus rapide pour cette recherche
+            # ✅ PASSE 2: LinkedIn spécifiquement
+            linkedin_query = f"site:linkedin.com/jobs {query}"
+            logger.info(f"💼 Recherche LinkedIn: {linkedin_query}")
+
+            response_linkedin = tavily_client.search(
+                query=linkedin_query,
+                search_depth="advanced",
                 max_results=15,
             )
 
-            if response_intl.get("results"):
-                # Filtrer pour garder seulement LinkedIn/Indeed
-                linkedin_indeed_urls = [
-                    r["url"]
-                    for r in response_intl["results"]
-                    if any(
-                        domain in r["url"]
-                        for domain in ["linkedin.com", "indeed.com", "indeed.fr"]
-                    )
-                ]
-                all_urls.extend(linkedin_indeed_urls)
-                logger.info(f"💼 {len(linkedin_indeed_urls)} URLs LinkedIn/Indeed")
+            if response_linkedin.get("results"):
+                linkedin_urls = [r["url"] for r in response_linkedin["results"]]
+                all_urls.extend(linkedin_urls)
+                logger.info(f"💼 {len(linkedin_urls)} URLs LinkedIn")
+
+            # ✅ PASSE 3: LinkedIn - URL générique de recherche
+            linkedin_search_url = "https://www.linkedin.com/jobs/search/?currentJobId=4235097194&f_TPR=r86400&geoId=103623254&keywords=data%20scientist&origin=JOB_SEARCH_PAGE_LOCATION_AUTOCOMPLETE&refresh=true"
+            all_urls.append(linkedin_search_url)
+            logger.info("💼 Ajout URL de recherche LinkedIn générique")
 
             # Dédoublonnage
             unique_urls = list(set(all_urls))

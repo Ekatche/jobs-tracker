@@ -39,7 +39,7 @@ dag = DAG(
     "cleanup_job_offers",
     default_args=default_args,
     description="Nettoyage des anciennes offres d'emploi",
-    schedule="0 3 * * 0",
+    schedule="0 3 * * *",
     tags=["job-tracker", "maintenance"],
 )
 
