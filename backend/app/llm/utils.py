@@ -28,7 +28,7 @@ except Exception as e:
 async def fetch_documents(url: str):
     """
     Récupère le contenu rendu de la page via Crawl4ai.
-    Renvoie mardown filtre au prealable.
+    Renvoie markdown filtré au préalable.
     """
     if not url or not url.startswith(("http://", "https://")):
         logger.warning(f"URL invalide: {url}")
@@ -37,26 +37,91 @@ async def fetch_documents(url: str):
     try:
         logger.info(f"Chargement du contenu depuis: {url}")
         result = await get_filtered_markdown(url)
-        if result.get("status") == "success" and result.get("filtered_markdown"):
-            markdown_content = result["filtered_markdown"]
+
+        if result.get("status") == "success":
+            filtered_markdown = result.get("filtered_markdown")
             metadata = result.get("metadata", {})
 
-            logger.info(f"Contenu chargé: {markdown_content[:50]}...")
+            # ✅ Gestion correcte selon le type de retour
+            if metadata.get("fallback_used", False):
+                # Cas fallback : filtered_markdown est un CrawlResultContainer
+                logger.info("Utilisation du contenu brut (fallback activé)")
+
+                # Extraire le premier résultat du container
+                if (
+                    hasattr(filtered_markdown, "__getitem__")
+                    and len(filtered_markdown) > 0
+                ):
+                    crawl_result = filtered_markdown[0]  # Premier élément du container
+
+                    # Essayer différentes sources de contenu, par ordre de préférence
+                    if hasattr(crawl_result, "html") and crawl_result.html:
+                        content = crawl_result.html
+                        content_type = "html"
+                    elif (
+                        hasattr(crawl_result, "cleaned_html")
+                        and crawl_result.cleaned_html
+                    ):
+                        content = crawl_result.cleaned_html
+                        content_type = "cleaned_html"
+                    elif hasattr(crawl_result, "markdown") and crawl_result.markdown:
+                        content = crawl_result.markdown
+                        content_type = "markdown"
+                    else:
+                        logger.warning("Aucun contenu exploitable dans le CrawlResult")
+                        return []
+
+                    # Titre depuis le CrawlResult
+                    title = getattr(crawl_result, "title", None) or metadata.get(
+                        "title", ""
+                    )
+
+                else:
+                    logger.warning("CrawlResultContainer vide ou format inattendu")
+                    return []
+
+            else:
+                # Cas normal : filtered_markdown est une chaîne de markdown
+                logger.info("Utilisation du markdown filtré")
+                content = (
+                    filtered_markdown if isinstance(filtered_markdown, str) else ""
+                )
+                title = metadata.get("title", "")
+                content_type = "filtered_markdown"
+
+            # ✅ Vérification que le contenu n'est pas vide
+            if not content or len(content.strip()) < 10:
+                logger.warning("Contenu vide ou trop court après extraction")
+                return []
+
+            logger.info(f"Contenu chargé: {len(content)} caractères ({content_type})")
 
             doc = Document(
-                page_content=markdown_content,
+                page_content=content,
                 metadata={
                     "source": url,
-                    "title": metadata.get("title", ""),
-                    "word_count": metadata.get("word_count", 0),
+                    "title": title,
+                    "word_count": len(content.split()) if content else 0,
                     "timestamp": metadata.get("timestamp", ""),
+                    "fallback_used": metadata.get("fallback_used", False),
+                    "content_type": content_type,
                 },
             )
 
             logger.info(
-                f"Contenu récupéré: 1 document avec {metadata.get('word_count', 0)} mots"
+                f"Contenu récupéré: 1 document avec {doc.metadata.get('word_count', 0)} mots ({content_type})"
             )
             return [doc]
+
+        elif result.get("status") == "failed":
+            logger.error(f"Échec du crawl: {result.get('error')}")
+            return []
+        else:
+            logger.error(
+                f"Statut d'erreur: {result.get('status')} - {result.get('error')}"
+            )
+            return []
+
     except Exception as e:
         logger.error(f"Erreur lors de la récupération du contenu: {str(e)}")
         return []
@@ -140,21 +205,21 @@ async def summarize_chunks(chunks):
     prompt = PromptTemplate(
         input_variables=["text"],
         template="""
-        Tu es un assistant spécialisé dans l'analyse d'offres d'emploi. Ta tâche est de résumer l'offre d'emploi suivante de manière structurée.
+        Tu es un expert en recrutement et analyse d'offres d'emploi. Ta tâche est d'analyser le contenu de l'offre situé dans la balise <job_content> et d'en générer une synthèse claire et structurée.
 
-        Extrais et présente les informations suivantes:
-
-        1. RÉSUMÉ: Un paragraphe concis décrivant l'offre (entreprise, poste, contexte)
-        2. MISSIONS: Liste des principales responsabilités et tâches du poste
-        3. COMPÉTENCES REQUISES: Liste des compétences techniques et soft skills demandées
-        4. INFORMATIONS COMPLÉMENTAIRES: Tout élément notable (avantages, équipe, culture, télétravail)
-
-        Sois précis et factuel, en te basant uniquement sur le contenu fourni.
-
-        IMPORTANT: Si le contenu fourni ne contient pas suffisamment d'informations pour établir un résumé pertinent de l'offre d'emploi (par exemple, s'il s'agit d'une page d'accueil, d'une liste d'offres, ou de contenu non pertinent), réponds simplement par une chaîne vide "" sans aucune explication.
-
-        Contenu de l'offre:
+        <job_content>
         {text}
+        </job_content>
+
+        Présente les informations selon cette structure :
+        1. RÉSUMÉ : Présentation synthétique de l'entreprise, de l'intitulé du poste et du contexte global.
+        2. MISSIONS : Liste à puces des responsabilités et tâches principales confiées au candidat.
+        3. COMPÉTENCES REQUISES : Compétences techniques (hard skills), niveau d'expérience, formation et qualités personnelles (soft skills).
+        4. CONDITIONS & AVANTAGES : Type de contrat, localisation, télétravail/présentiel, salaire et avantages notables.
+
+        Règles d'extraction :
+        - Sois précis et factuel, en te basant exclusivement sur le texte fourni dans <job_content>.
+        - Si le texte ne contient pas d'offre d'emploi identifiable (ex: page d'erreur, simple menu ou page d'accueil générale), réponds UNIQUEMENT par une chaîne vide "".
         """,
     )
 

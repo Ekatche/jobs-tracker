@@ -1,26 +1,29 @@
-import asyncio
 import os
-import tempfile
 import json
 import logging
 from typing import List, Dict, Any, Optional
+from datetime import datetime, timezone
+
 from pydantic import BaseModel
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, LLMConfig
 from crawl4ai.async_configs import BrowserConfig, CacheMode
 from crawl4ai.extraction_strategy import LLMExtractionStrategy
-from crawl4ai.content_filter_strategy import LLMContentFilter
+from crawl4ai.content_filter_strategy import PruningContentFilter
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
 logger = logging.getLogger(__name__)
 
 
 class JobOffer(BaseModel):
-    id: int
     poste: str
     entreprise: str
-    localisation: str
-    date: str
-    url: str
+    localisation: Optional[str] = "Non spécifié"
+    date: Optional[str] = "Non spécifié"
+    type_contrat: Optional[str] = "Non spécifié"  # CDI, CDD, Alternance, Stage, Freelance
+    salaire: Optional[str] = "Non spécifié"       # ex: 45k€ - 55k€
+    mode_travail: Optional[str] = "Non spécifié"  # Télétravail, Hybride, Présentiel
+    competences_cles: Optional[List[str]] = []    # ex: ["Python", "Docker", "SQL"]
+    url: Optional[str] = None
 
 
 # ✅ Configurations globales réutilisables
@@ -30,273 +33,216 @@ _api_key_cache = None
 
 
 def get_shared_browser_config() -> BrowserConfig:
-    """Configuration navigateur partagée et réutilisable"""
+    """Configuration navigateur robuste pour éviter EPIPE"""
     global _browser_config
 
     if _browser_config is None:
-        # logger.info("🌐 Création configuration navigateur partagée")
-
-        user_data_dir = tempfile.mkdtemp()
         _browser_config = BrowserConfig(
+            browser_type="chromium",
             headless=True,
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             viewport_width=1920,
             viewport_height=1080,
             verbose=False,
-            user_data_dir=user_data_dir,
         )
-        # logger.debug("✅ Configuration navigateur partagée créée")
 
     return _browser_config
 
 
 def get_shared_crawl_config(api_key: str) -> CrawlerRunConfig:
-    """Configuration crawl partagée et réutilisable"""
+    """Configuration crawl optimisée pour stabilité et coût minimal"""
     global _crawl_config, _api_key_cache
 
-    # ✅ Réutiliser la config si même clé API
     if _crawl_config is None or _api_key_cache != api_key:
-        # logger.info("⚙️ Création configuration crawl partagée")
-
         _api_key_cache = api_key
 
-        # Content filter
-        content_filter = LLMContentFilter(
-            llm_config=LLMConfig(provider="openai/gpt-4o-mini", api_token=api_key),
-            instruction="""
-Concentre-toi sur l'extraction des blocs HTML contenant des informations d'offres d'emploi :
-- Titre de poste
-- Nom de l'entreprise
-- Les informations sur le poste (si disponibles)
-- Description du poste (si disponible)
-- Localisation
-- Date ou lien de l'offre
+        # ✅ Filtre déterministe ultra-rapide (0 token consommé)
+        job_content_filter = PruningContentFilter(
+            threshold=0.45,
+            threshold_type="fixed",
+            min_word_threshold=5,
+        )
 
-Ignore et supprime tout le reste (menus, filtres, publicités, suggestions, pied de page, etc.).
-Retourne uniquement le HTML minimal des offres détectées.
-""",
-            chunk_token_threshold=4096,
+        # ✅ Markdown generator avec le filtre déterministe
+        md_generator = DefaultMarkdownGenerator(
+            content_filter=job_content_filter,
+            options={
+                "ignore_links": False,
+                "strip_whitespace": True,
+            },
+        )
+
+        # ✅ Détection automatique du provider LLM
+        gemini_key = os.getenv("GEMINI_API_KEY")
+        if gemini_key:
+            llm_provider = "gemini/gemini-flash-latest"
+            llm_token = gemini_key
+        else:
+            llm_provider = "openai/gpt-4o-mini"
+            llm_token = api_key
+
+        # ✅ Extraction strategy avec LLM unique
+        extraction_strategy = LLMExtractionStrategy(
+            llm_config=LLMConfig(
+                provider=llm_provider,
+                api_token=llm_token,
+            ),
+            schema=json.dumps(JobOffer.model_json_schema()),
+            extraction_type="schema",
+            instruction=f"""
+            Extrait toutes les offres d'emploi de cette page web.
+            Pour chaque offre, identifie et extrait précisément :
+            - poste : le titre du poste/métier
+            - entreprise : nom de l'entreprise qui recrute
+            - localisation : ville, région ou lieu de travail
+            - date : convertir la date en format ISO (YYYY-MM-DD) basée sur la date actuelle {datetime.now().strftime('%Y-%m-%d')}
+            - type_contrat : type de contrat si mentionné (ex: CDI, CDD, Alternance, Stage, Freelance, ou "Non spécifié")
+            - salaire : rémunération ou fourchette salariale (ou "Non spécifié")
+            - mode_travail : Télétravail total, Hybride, Présentiel (ou "Non spécifié")
+            - competences_cles : liste des technologies, compétences ou outils demandés
+            - url : lien direct vers l'offre complète (si disponible)
+            
+            Ignore tout contenu qui n'est pas une offre d'emploi (menus, publicités, etc.).
+            Si une information manque, utilise "Non spécifié" ou [] pour les compétences.
+            Retourne une liste d'offres au format JSON.
+            """,
+            extra_args={"temperature": 0.1, "max_tokens": 3000},
+            apply_chunking=True,
+            input_format="fit_markdown",
             verbose=False,
         )
 
-        # Markdown generator
-        md_generator = DefaultMarkdownGenerator(
-            content_filter=content_filter,
-            options={
-                "ignore_links": False,
-                "body_width": 0,
-                "unicode_snob": True,
-                "escape_all": False,
-            },
-        )
-
-        # Extraction strategy
-        extraction_strategy = LLMExtractionStrategy(
-            llm_config=LLMConfig(provider="openai/gpt-4o-mini", api_token=api_key),
-            schema=json.dumps(JobOffer.model_json_schema()),
-            extraction_type="schema",
-            instruction="""
-Extrait toutes les offres d'emploi de cette page web.
-Pour chaque offre, identifie et extrait :
-- id : génère un ID unique (numéro séquentiel)
-- poste : le titre du poste/métier
-- entreprise : nom de l'entreprise qui recrute
-- localisation : ville, région ou lieu de travail
-- date : date de publication ou depuis quand l'offre est en ligne
-- url : lien vers l'offre complète (si disponible)
-Ignore tout contenu qui n'est pas une offre d'emploi (menus, publicités, etc.).
-Si une information manque, utilise "Non spécifié" ou "" selon le cas.
-Retourne une liste d'offres au format JSON.
-""",
-            Verbose=False,
-            apply_chunking=True,
-            input_format="markdown",
-            extra_args={
-                "temperature": 0.1,
-                "max_tokens": 4000,
-            },
-        )
+        # Script JS pour faire défiler la page et charger le contenu dynamique
+        scroll_js = """
+        window.scrollTo(0, document.body.scrollHeight / 2);
+        await new Promise(r => setTimeout(r, 600));
+        window.scrollTo(0, document.body.scrollHeight);
+        await new Promise(r => setTimeout(r, 600));
+        """
 
         _crawl_config = CrawlerRunConfig(
-            word_count_threshold=50,
+            word_count_threshold=30,
             cache_mode=CacheMode.BYPASS,
             screenshot=False,
             verbose=False,
-            stream=True,
-            locale="fr-FR",
-            timezone_id="Europe/Paris",
-            prettiify=True,
-            remove_overlay_elements=True,
+            ignore_body_visibility=True,
             extraction_strategy=extraction_strategy,
             markdown_generator=md_generator,
+            js_code=scroll_js,
+            magic=True,
+            simulate_user=False,
+            override_navigator=True,
+            remove_overlay_elements=True,
         )
-
-        # logger.debug("✅ Configuration crawl partagée créée")
-
     return _crawl_config
 
 
-async def crawl_single_job_url_optimized(
-    url: str, crawler: AsyncWebCrawler, config: CrawlerRunConfig
-) -> Dict[str, Any]:
-    """Version optimisée qui réutilise un crawler et une config existants"""
-    # logger.debug(f"🕷️ Crawl optimisé de: {url}")
-
-    try:
-        result = await crawler.arun(url=url, config=config)
-
-        logger.debug(f"📊 Crawl terminé - Success: {result.success}")
-
-        if result.success and result.extracted_content:
-            logger.debug("✅ Contenu extrait, parsing JSON...")
-
-            try:
-                offers = json.loads(result.extracted_content)
-
-                if isinstance(offers, dict):
-                    offers = [offers]
-                elif not isinstance(offers, list):
-                    offers = []
-
-                logger.info(f"🎯 {len(offers)} offres extraites de {url}")
-
-                return {
-                    "url": url,
-                    "status": "success",
-                    "offers_count": len(offers),
-                    "offers": offers,
-                }
-
-            except json.JSONDecodeError as e:
-                logger.error(f"❌ Erreur JSON pour {url}: {e}")
-                return {
-                    "url": url,
-                    "status": "json_error",
-                    "error": str(e),
-                    "raw_content": result.extracted_content[:200] + "...",
-                }
-        else:
-            error_msg = result.error_message or "Aucun contenu extrait"
-            logger.warning(f"⚠️ Crawl de {url} sans succès: {error_msg}")
-            return {
-                "url": url,
-                "status": "failed",
-                "error": error_msg,
-            }
-
-    except Exception as e:
-        logger.error(f"💥 Exception lors du crawl de {url}: {e}")
-        return {"url": url, "status": "exception", "error": str(e)}
-
-
 # =====================================================================
-# ======== Crawl wensite and get fit markdown result ==================
+# ======== Crawl website and get filtered markdown result ============
 # =====================================================================
 
 
 async def get_filtered_markdown(
-    url: str, api_key: Optional[str] = None, include_raw_markdown: bool = False
+    url: str,
+    api_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Récupère le markdown filtré d'une URL avec le filtre LLM
-
-    Args:
-        url: URL à crawler
-        api_key: Clé API OpenAI (optionnelle)
-        include_raw_markdown: Inclure aussi le markdown non filtré
-
-    Returns:
-        Dict contenant le markdown filtré et les métadonnées
+    Récupère le markdown filtré d'une URL avec un filtre d'élagage déterministe
+    pour la création de description d'offres d'emploi.
     """
-    # logger.info(f"📄 Récupération markdown filtré pour: {url}")
-
     if not api_key:
         api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY manquante")
 
     try:
-        # ✅ Configurations
         browser_config = get_shared_browser_config()
 
-        # ✅ Content filter spécialisé pour le markdown
-        content_filter = LLMContentFilter(
-            llm_config=LLMConfig(provider="openai/gpt-4o-mini", api_token=api_key),
-            instruction="""
-            Filtre cette page web pour ne garder que le contenu pertinent lié aux offres d'emploi.
-
-            GARDE:
-            - Titres de postes
-            - Noms d'entreprises
-            - Informations sur les postes (salaire, type de contrat, etc.)
-            - Descriptions de postes
-            - Localisations/lieux de travail
-            - Dates de publication
-            - Liens vers les offres détaillées
-            - Critères de candidature/compétences requises
-
-            SUPPRIME:
-            - Menus de navigation
-            - Barres latérales
-            - Publicités
-            - Pied de page
-            - Formulaires de recherche/filtres
-            - Contenus promotionnels
-            - Widgets sociaux
-            - Cookies/RGPD banners
-
-            Retourne uniquement le HTML nettoyé focalisé sur les offres d'emploi.
-            """,
-            chunk_token_threshold=6000,  # Plus large pour le markdown
-            verbose=False,
+        # 📋 Filtre d'élagage déterministe (0 token)
+        markdown_filter = PruningContentFilter(
+            threshold=0.48,
+            threshold_type="fixed",
+            min_word_threshold=5,
         )
 
-        #  Markdown generator avec filtre
+        # 📄 Générateur Markdown
         md_generator = DefaultMarkdownGenerator(
-            content_filter=content_filter,
+            content_filter=markdown_filter,
             options={
-                "ignore_links": False,  # Garder les liens
-                "body_width": 0,  # Pas de limite de largeur
-                "unicode_snob": True,
-                "escape_all": False,
-                "mark_code": True,  # Marquer le code
-                "wrap_links": False,
-                "protect_links": True,
+                "ignore_links": False,
                 "strip_whitespace": True,
             },
         )
 
-        # Configuration crawl pour markdown uniquement
+        # 🕷️ Configuration du crawl avec scroll JS
+        scroll_js = """
+        window.scrollTo(0, document.body.scrollHeight / 2);
+        await new Promise(r => setTimeout(r, 500));
+        window.scrollTo(0, document.body.scrollHeight);
+        """
+
         crawl_config = CrawlerRunConfig(
             word_count_threshold=10,
+            stream=True,
             cache_mode=CacheMode.BYPASS,
             screenshot=False,
-            verbose=True,
-            locale="fr-FR",
-            timezone_id="Europe/Paris",
-            prettiify=True,
+            verbose=False,
             remove_overlay_elements=True,
             markdown_generator=md_generator,
+            js_code=scroll_js,
         )
 
-        # ✅ Crawler
+        # 🔍 Lancement du crawl
         async with AsyncWebCrawler(config=browser_config) as crawler:
             logger.debug("📱 Crawler initialisé pour extraction markdown")
             result = await crawler.arun(url=url, config=crawl_config)
             logger.info(f"📊 Crawl terminé - Success: {result.success}")
 
             if result.success:
-                filtered_markdown = result.markdown
+                # ✅ Récupération du markdown filtré (fit_markdown)
+                md_obj = result.markdown
+                if hasattr(md_obj, "fit_markdown") and md_obj.fit_markdown:
+                    filtered_markdown = md_obj.fit_markdown
+                elif hasattr(md_obj, "raw_markdown") and md_obj.raw_markdown:
+                    filtered_markdown = md_obj.raw_markdown
+                elif isinstance(md_obj, str):
+                    filtered_markdown = md_obj
+                else:
+                    filtered_markdown = str(md_obj or "")
 
-                # Métadonnées
+                # ✅ Vérification si filtered_markdown est vide ou None
+                if not filtered_markdown or len(filtered_markdown.strip()) == 0:
+                    logger.warning(
+                        "⚠️ Markdown filtré vide ou None, retour de result complet"
+                    )
+                    return {
+                        "status": "success",
+                        "url": url,
+                        "filtered_markdown": result,  # ✅ Retourner result complet
+                        "metadata": {
+                            "url": url,
+                            "title": getattr(result, "title", None),
+                            "timestamp": getattr(result, "timestamp", None)
+                            or datetime.now(timezone.utc).isoformat(),
+                            "word_count": 0,
+                            "char_count": 0,
+                            "fallback_used": True,  # ✅ Indicateur de fallback
+                        },
+                    }
+
+                # ✅ Si markdown filtré existe, log en debug
+                logger.debug(f"📄 Markdown filtré: {filtered_markdown[:200]}...")
+
+                # Construction des métadonnées
+                meta = result.metadata or {}
                 metadata = {
                     "url": url,
-                    "title": getattr(result, "title", None),
-                    "timestamp": getattr(result, "timestamp", None),
-                    "word_count": (
-                        len(filtered_markdown.split()) if filtered_markdown else 0
-                    ),
-                    "char_count": len(filtered_markdown) if filtered_markdown else 0,
+                    "title": meta.get("title"),
+                    "timestamp": meta.get("timestamp")
+                    or datetime.now(timezone.utc).isoformat(),
+                    "word_count": len(filtered_markdown.split()),
+                    "char_count": len(filtered_markdown),
+                    "fallback_used": False,
                 }
 
                 return {
@@ -309,21 +255,20 @@ async def get_filtered_markdown(
             else:
                 error_msg = result.error_message or "Échec du crawl"
                 logger.error(f"❌ Crawl échoué pour {url}: {error_msg}")
-
                 return {
-                    "url": url,
                     "status": "failed",
+                    "url": url,
                     "error": error_msg,
-                    "fit_markdown": None,
+                    "filtered_markdown": None,
                 }
+
     except Exception as e:
         logger.error(f"💥 Exception lors du crawl markdown de {url}: {e}")
-
         return {
-            "url": url,
             "status": "exception",
+            "url": url,
             "error": str(e),
-            "fit_markdown": None,
+            "filtered_markdown": None,
         }
 
 
@@ -335,12 +280,9 @@ async def get_filtered_markdown(
 async def crawl_and_extract_jobs_optimized(
     urls: List[str],
     api_key: Optional[str] = None,
-    max_concurrent: int = 3,
-    filter_keywords: Optional[List[str]] = None,
-    filter_locations: Optional[List[str]] = None,
-    filter_companies: Optional[List[str]] = None,
+    **kwargs,
 ) -> Dict[str, Any]:
-    """Version optimisée qui réutilise les configurations"""
+    """Version ultra-simple avec arun_many direct"""
 
     if not api_key:
         api_key = os.getenv("OPENAI_API_KEY")
@@ -348,56 +290,59 @@ async def crawl_and_extract_jobs_optimized(
         raise ValueError("OPENAI_API_KEY manquante")
 
     try:
-        #  Créer les configurations une seule fois
         browser_config = get_shared_browser_config()
         crawl_config = get_shared_crawl_config(api_key)
 
-        logger.info("📶 Lancement crawl optimisé...")
+        logger.info(f"🚀 Crawl ultra-simple de {len(urls)} URLs")
 
-        #  Un seul crawler partagé pour toutes les URLs
-        async with AsyncWebCrawler(config=browser_config) as crawler:
-            # logger.debug("📱 Crawler unique initialisé")
-
-            #  Contrôle de concurrence
-            semaphore = asyncio.Semaphore(max_concurrent)
-
-            async def crawl_with_semaphore(url: str):
-                async with semaphore:
-                    return await crawl_single_job_url_optimized(
-                        url, crawler, crawl_config
-                    )
-
-            #  Exécution parallèle avec crawler partagé
-            tasks = [crawl_with_semaphore(url) for url in urls]
-            crawl_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Traitement des résultats
         processed_results = []
         all_offers = []
 
-        for i, result in enumerate(crawl_results):
-            if isinstance(result, Exception):
-                logger.error(f"❌ Exception pour URL {urls[i]}: {result}")
-                processed_results.append(
-                    {"url": urls[i], "status": "exception", "error": str(result)}
-                )
-            else:
-                processed_results.append(result)
-
-                # Extraire les offres
-                if result.get("status") == "success" and result.get("offers"):
-                    for offer in result["offers"]:
-                        offer["source_url"] = result["url"]
-                        all_offers.append(offer)
-
-        # ✅ Filtrage si nécessaire
-        if filter_keywords or filter_locations or filter_companies:
-            logger.info("🔍 Application des filtres...")
-            all_offers = filter_offers(
-                all_offers, filter_keywords, filter_locations, filter_companies
+        # ✅ Utilisation directe d'arun_many selon la doc
+        async with AsyncWebCrawler(config=browser_config) as crawler:
+            results = await crawler.arun_many(
+                urls=urls,
+                config=crawl_config,
             )
+            for result in results:
+                logger.info(f"📊 Résultat reçu pour: {result.url}")
 
-        # ✅ Résumé
+                if result.success and result.extracted_content:
+                    try:
+                        offers = json.loads(result.extracted_content)
+
+                        if isinstance(offers, dict):
+                            offers = [offers]
+                        elif not isinstance(offers, list):
+                            offers = []
+
+                        # Ajouter source_url
+                        for offer in offers:
+                            offer["source_url"] = result.url
+                            all_offers.append(offer)
+
+                        processed_results.append(
+                            {
+                                "url": result.url,
+                                "status": "success",
+                                "offers_count": len(offers),
+                            }
+                        )
+
+                        logger.info(f"✅ {len(offers)} offres de {result.url}")
+
+                    except json.JSONDecodeError as e:
+                        logger.error(f"❌ Erreur JSON pour {result.url}: {e}")
+                        processed_results.append(
+                            {"url": result.url, "status": "json_error", "error": str(e)}
+                        )
+                else:
+                    error_msg = result.error_message or "Aucun contenu"
+                    logger.warning(f"⚠️ Échec pour {result.url}: {error_msg}")
+                    processed_results.append(
+                        {"url": result.url, "status": "failed", "error": error_msg}
+                    )
+
         summary = {
             "total_urls": len(urls),
             "successful_crawls": sum(
@@ -406,10 +351,7 @@ async def crawl_and_extract_jobs_optimized(
             "total_offers": len(all_offers),
         }
 
-        logger.info("🎯 Pipeline optimisé terminé:")
-        logger.info(f"  📊 URLs: {summary['total_urls']}")
-        logger.info(f"  ✅ Succès: {summary['successful_crawls']}")
-        logger.info(f"  📋 Offres: {summary['total_offers']}")
+        logger.info(f"🎯 Ultra-simple terminé: {summary}")
 
         return {
             "crawl_results": processed_results,
@@ -418,7 +360,8 @@ async def crawl_and_extract_jobs_optimized(
         }
 
     except Exception as e:
-        logger.error(f"💥 Erreur pipeline optimisé: {e}")
+        logger.error(f"💥 Erreur pipeline ultra: {e}")
+        await cleanup_shared_configs()
         raise
 
 
@@ -475,11 +418,22 @@ def filter_offers(
     return filtered_offers
 
 
-#  Fonction de nettoyage pour libérer les ressources
-def cleanup_shared_configs():
-    """Nettoie les configurations partagées"""
+async def cleanup_shared_configs():
+    """Nettoyage simplifié des configurations"""
     global _browser_config, _crawl_config, _api_key_cache
-    _browser_config = None
-    _crawl_config = None
-    _api_key_cache = None
-    logger.info("🧹 Configurations partagées nettoyées")
+
+    try:
+        # ✅ Reset uniquement (pas de user_data_dir dans votre config)
+        _browser_config = None
+        _crawl_config = None
+        _api_key_cache = None
+
+        # ✅ Forcer le garbage collection
+        import gc
+
+        gc.collect()
+
+        logger.info("🧹 Nettoyage simplifié terminé")
+
+    except Exception as e:
+        logger.warning(f"Erreur lors du nettoyage: {e}")

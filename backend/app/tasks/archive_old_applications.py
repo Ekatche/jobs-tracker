@@ -22,7 +22,7 @@ DATABASE_NAME = os.getenv("DATABASE_NAME")
 MONGO_HOST = os.getenv("MONGO_HOST")
 
 # Nombre de jours après lesquels une candidature est considérée comme "vieille"
-DAYS_THRESHOLD = 40  # au lieu de 45 jours
+DAYS_THRESHOLD = 39  # au lieu de 45 jours
 
 
 def log_message(message):
@@ -45,13 +45,13 @@ def log_and_queue(level, message, **extra_data):
         logger.error(full_message)
 
 
-def archive_old_applications(mongo_uri=None, threshold_days=40):
+def archive_old_applications(mongo_uri=None, threshold_days=DAYS_THRESHOLD):
     """
     Archive les candidatures rejetées ou envoyées datant de plus de X jours
 
     Args:
         mongo_uri: URI de connexion MongoDB (optionnel)
-        threshold_days: Nombre de jours avant archivage
+        threshold_days: Nombre de jours avant archivage (défaut: DAYS_THRESHOLD = 39)
 
     Returns:
         int: Nombre de candidatures archivées, -1 en cas d'erreur
@@ -65,14 +65,16 @@ def archive_old_applications(mongo_uri=None, threshold_days=40):
         client = MongoClient(mongo_uri, serverSelectionTimeoutMS=6000)
         db = client[os.getenv("DATABASE_NAME", "job_tracker")]
 
-        # Date limite unique en format naïve
-        today = datetime.now()
-        cutoff_date = (today - timedelta(days=threshold_days)).replace(tzinfo=None)
+        # Date limite UTC
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=threshold_days)
 
-        # Requête simplifiée
-        cutoff_date_str = cutoff_date.strftime("%Y-%m-%d")
+        # Requête robuste gérant BSON Date et représentations String
         query = {
-            "application_date": {"$lt": cutoff_date_str},
+            "$or": [
+                {"application_date": {"$lt": cutoff_date}},
+                {"application_date": {"$lt": cutoff_date.isoformat()}},
+                {"application_date": {"$lt": cutoff_date.strftime("%Y-%m-%d")}},
+            ],
             "status": {"$in": ["Refusée", "Candidature envoyée"]},
             "archived": {"$ne": True},
         }

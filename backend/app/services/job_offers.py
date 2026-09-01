@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import List
+from typing import List, Dict, Any
 from job_trackers.src.job_trackers.main import run_crew
 from job_crawler.crawler1 import (
     crawl_and_extract_jobs_optimized,
@@ -9,9 +9,161 @@ from job_crawler.crawler1 import (
 import json
 from difflib import SequenceMatcher
 import re
-from deep_translator import GoogleTranslator
+import hashlib
+from functools import lru_cache
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_text_for_comparison(text: str) -> str:
+    """Normalise une chaîne pour comparaison rapide (minuscules, sans ponctuation, stopwords)"""
+    if not text:
+        return ""
+    # Minuscules et suppression caractères spéciaux
+    text = re.sub(r"[^\w\s]", " ", text.lower().strip())
+    # Remplacement des espaces multiples
+    words = [w for w in text.split() if len(w) > 1 and w not in {"de", "du", "des", "le", "la", "les", "un", "une", "en", "pour", "et", "ou"}]
+    return " ".join(words)
+
+
+@lru_cache(maxsize=4000)
+def cached_similarity(a: str, b: str) -> float:
+    """Version mise en cache du calcul de similarité"""
+    if not a or not b:
+        return 0.0
+    norm_a = normalize_text_for_comparison(a)
+    norm_b = normalize_text_for_comparison(b)
+    if norm_a == norm_b:
+        return 1.0
+    return SequenceMatcher(None, norm_a, norm_b).ratio()
+
+
+def fast_similarity_check(text1: str, text2: str, threshold: float = 0.75) -> bool:
+    """Vérification rapide de similarité sans requête réseau externe"""
+    if not text1 or not text2:
+        return False
+
+    # 1. Vérification exacte (le plus rapide)
+    if text1.lower().strip() == text2.lower().strip():
+        return True
+
+    # 2. Différence de longueur trop importante
+    len1, len2 = len(text1), len(text2)
+    len_diff = abs(len1 - len2) / max(len1, len2)
+    if len_diff > 0.5:  # Plus de 50% de différence de longueur
+        return False
+
+    # 3. Mots communs (Jaccard)
+    words1 = set(text1.lower().split())
+    words2 = set(text2.lower().split())
+    if words1 and words2:
+        jaccard = len(words1.intersection(words2)) / len(words1.union(words2))
+        if jaccard < 0.25:  # Moins de 25% de mots communs
+            return False
+
+    # 4. Calcul de similarité
+    return cached_similarity(text1, text2) >= threshold
+
+
+from app.services.normalization import normalize_company, normalize_position
+
+
+def create_offer_hash(company: str, position: str) -> str:
+    """Crée un hash normalisé pour grouper les offres potentiellement similaires"""
+    norm_c = normalize_company(company).lower()
+    norm_p = normalize_position(position).lower()
+
+    company_words = [w for w in norm_c.split() if len(w) > 1][:2]
+    position_words = [w for w in norm_p.split() if len(w) > 1][:3]
+
+    hash_string = f"{'_'.join(company_words)}|{'_'.join(position_words)}"
+    return hashlib.md5(hash_string.encode()).hexdigest()[:8]
+
+
+def clean_job_offer_duplicates_optimized(
+    offers: List[dict],
+    company_similarity_threshold: float = 0.75,
+    position_similarity_threshold: float = 0.80,
+) -> List[dict]:
+    """
+    Nettoyage optimisé des doublons 100% en local et sans appels externes
+    """
+    if not offers:
+        return []
+
+    logger.info(f"🧹 Nettoyage optimisé de {len(offers)} offres")
+
+    # Étape 1: Groupement rapide par hash
+    hash_groups: Dict[str, List[dict]] = {}
+    for offer in offers:
+        company = str(offer.get("entreprise", "")).strip()
+        position = str(offer.get("poste", "")).strip()
+
+        if not company or not position:
+            continue
+
+        offer_hash = create_offer_hash(company, position)
+        if offer_hash not in hash_groups:
+            hash_groups[offer_hash] = []
+        hash_groups[offer_hash].append(offer)
+
+    # Étape 2: Traitement par groupe
+    cleaned_offers = []
+    total_removed = 0
+
+    for group_hash, group_offers in hash_groups.items():
+        if len(group_offers) == 1:
+            cleaned_offers.extend(group_offers)
+            continue
+
+        group_cleaned = []
+
+        for current_offer in group_offers:
+            current_company = str(current_offer.get("entreprise", "")).strip()
+            current_position = str(current_offer.get("poste", "")).strip()
+            current_url = current_offer.get("url", "")
+
+            is_duplicate = False
+
+            for existing_offer in group_cleaned:
+                existing_company = str(existing_offer.get("entreprise", "")).strip()
+                existing_position = str(existing_offer.get("poste", "")).strip()
+                existing_url = existing_offer.get("url", "")
+
+                # 1. URLs identiques
+                if current_url and existing_url and current_url == existing_url:
+                    is_duplicate = True
+                    break
+
+                # 2. Similarité entreprise + poste
+                if fast_similarity_check(current_company, existing_company, company_similarity_threshold):
+                    if fast_similarity_check(current_position, existing_position, position_similarity_threshold):
+                        logger.debug(f"🔄 Doublon détecté: {current_company[:25]} - {current_position[:25]}")
+                        is_duplicate = True
+                        break
+
+            if not is_duplicate:
+                group_cleaned.append(current_offer)
+            else:
+                total_removed += 1
+
+        cleaned_offers.extend(group_cleaned)
+
+    logger.info(
+        f"✅ Nettoyage terminé: {total_removed} doublons supprimés, {len(cleaned_offers)} conservées"
+    )
+    return cleaned_offers
+
+
+def clean_job_offer_duplicates(
+    offers: List[dict],
+    company_similarity_threshold: float = 0.75,
+    position_similarity_threshold: float = 0.80,
+) -> List[dict]:
+    """Wrapper pour la fonction de nettoyage optimisée"""
+    return clean_job_offer_duplicates_optimized(
+        offers, company_similarity_threshold, position_similarity_threshold
+    )
 
 
 def extract_urls_from_crew(crew_result) -> List[str]:
@@ -45,18 +197,15 @@ def extract_urls_from_crew(crew_result) -> List[str]:
     return []
 
 
-async def get_job_offers_from_query(user_query: str) -> List[dict]:
+async def get_urls(user_query: str) -> List[str]:
+    """Obtenir les URLs à partir de la requête utilisateur"""
     try:
         # 1. CrewAI : obtenir la liste d'URLs
         crew_result = run_crew(user_query)
-
-        # Log seulement le type, pas le contenu complet
-        # logger.debug(f"CrewAI result type: {type(crew_result)}")
         urls = extract_urls_from_crew(crew_result)
         if not urls:
             logger.error("❌ Aucune URL extraite du crew")
             raise ValueError("Aucune URL trouvée")
-
         clean_urls = []
         for url in urls:
             if url and len(url) > 10:  # URLs trop courtes = invalides
@@ -67,17 +216,24 @@ async def get_job_offers_from_query(user_query: str) -> List[dict]:
         clean_urls = list(set(clean_urls))
         logger.info(f"📋 {len(clean_urls)} URLs à crawler")
 
-        # 2. Crawler : extraire les offres
+        return clean_urls
+
+    except Exception as e:
+        logger.error(f"Erreur dans l'extraction des urls: {str(e)[:200]}")
+        raise
+
+
+async def get_job_offers_from_query(clean_urls: str) -> List[dict]:
+    try:
+        # 1. Vérifier les URLs
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY manquante")
 
-        #  crawler
+        # 2. Crawler
         crawl_result = await crawl_and_extract_jobs_optimized(
             clean_urls,
             api_key=api_key,
-            max_concurrent=2,  # Réduire pour être plus gentil avec les sites
-            # filter_keywords=extract_keywords_from_query(user_query)  #  Filtrage intelligent
         )
 
         # 3. Vérifier le résultat du crawler
@@ -91,15 +247,7 @@ async def get_job_offers_from_query(user_query: str) -> List[dict]:
             logger.error(f"Les offres ne sont pas une liste: {type(offers)}")
             raise ValueError(f"Les offres ne sont pas une liste: {type(offers)}")
 
-        # Log optimisé : seulement le nombre d'offres
-        logger.info(f"Extraction terminée: {len(offers)} offres trouvées")
-
-        # 4. Nettoyage des doublons
-        offers = clean_job_offer_duplicates(
-            offers,
-            company_similarity_threshold=0.75,
-            position_similarity_threshold=0.80,
-        )
+        logger.info(f"📊 Extraction terminée: {len(offers)} offres brutes trouvées")
 
         # Log détaillé seulement en mode debug
         if logger.isEnabledFor(logging.DEBUG):
@@ -107,6 +255,7 @@ async def get_job_offers_from_query(user_query: str) -> List[dict]:
                 f"Détail des offres: {[offer.get('title', 'Sans titre') for offer in offers[:5]]}"
             )
 
+        # ✅ Garder seulement la normalisation des URLs
         for offer in offers:
             if not offer.get("url") and offer.get("source_url"):
                 offer["url"] = offer["source_url"]
@@ -115,157 +264,10 @@ async def get_job_offers_from_query(user_query: str) -> List[dict]:
 
     except Exception as e:
         logger.error(f"Erreur dans get_job_offers_from_query: {str(e)[:200]}")
-        # ✅ Nettoyer en cas d'erreur
-        cleanup_shared_configs()
+        await cleanup_shared_configs()
         raise
 
 
-def translate_text(text: str) -> str:
-    """Traduction gratuite avec deep-translator"""
-    if not text or len(text.strip()) < 2:
-        return text.lower()
-    try:
-        translator = GoogleTranslator(source="auto", target="fr")
-        result = translator.translate(text.strip())
-        return result.lower() if result else text.lower()
-
-    except Exception as e:
-        logger.error(f"Erreur de traduction: {str(e)}")
-        return text
-
-
 def similarity(a: str, b: str) -> float:
-    """Calcule la similarité entre deux chaînes (0-1)"""
-    if not a or not b:
-        return 0.0
-    return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
-
-
-def similarity_with_translation(a: str, b: str) -> float:
-    """Calcule la similarité entre deux chaînes traduite (0-1)"""
-    if not a or not b:
-        return 0.0
-    direct_similarity = SequenceMatcher(
-        None, a.lower().strip(), b.lower().strip()
-    ).ratio()
-    # logger.info(f"Similarité directe: {direct_similarity:.2f} entre '{a}' et '{b}'")
-    # 2. Si déjà élevée, pas besoin de traduire
-    if direct_similarity >= 0.8:
-        return direct_similarity
-    try:
-        # Traduire les deux textes vers l'anglais
-        translated_a = translate_text(a)
-        translated_b = translate_text(b)
-        if translated_b and translated_a:
-            translation_similarity = SequenceMatcher(
-                None, translated_a, translated_b
-            ).ratio()
-            # logger.info(f"Similarité après traduction: {translation_similarity:.2f} entre '{translated_a.strip()}' et '{translated_b.strip()}'")
-            final_similarity = max(direct_similarity, translation_similarity)
-            return final_similarity
-    except Exception as e:
-        logger.error(f"Erreur de traduction pour similarité: {str(e)}")
-
-    return direct_similarity
-
-
-def clean_job_offer_duplicates(
-    offers: List[dict],
-    company_similarity_threshold: float = 0.80,
-    position_similarity_threshold: float = 0.80,
-) -> List[dict]:
-    """
-    Supprime les doublons basés sur la similarité entreprise + poste
-
-    Args:
-        offers: Liste des offres d'emploi
-        similarity_threshold: Seuil de similarité (0.80 = 80% de similarité)
-
-    Returns:
-        Liste nettoyée sans doublons
-    """
-    if not offers:
-        return []
-
-    cleaned_offers = []
-
-    for current_offer in offers:
-        current_company = str(current_offer.get("entreprise", "")).strip()
-        current_position = str(current_offer.get("poste", "")).strip()
-        current_url = current_offer.get("url", "")
-
-        # Vérifier si cette offre est similaire à une offre déjà ajoutée
-        is_duplicate = False
-
-        for existing_offer in cleaned_offers:
-            existing_company = str(existing_offer.get("entreprise", "")).strip()
-            existing_position = str(existing_offer.get("poste", "")).strip()
-            existing_url = existing_offer.get("url", "")
-
-            # ✅ Calculer similarité entreprise ET poste
-            company_similarity = similarity(current_company, existing_company)
-            position_similarity = similarity_with_translation(
-                current_position, existing_position
-            )
-            # logger.info(
-            #     f"=====> Comparaison: {current_company} vs {existing_company} "
-            #     f"=====> (similarité entreprise={company_similarity:.2f}, poste={position_similarity:.2f})"
-            # )
-
-            # 1. Même entreprise (>85% similarité)
-            # 2. Même poste (>85% similarité)
-            # 3. URLs différentes (sources différentes)
-            if (
-                company_similarity >= company_similarity_threshold
-                and position_similarity >= position_similarity_threshold
-                and current_url != existing_url
-                and current_url
-                and existing_url
-            ):
-
-                logger.info(
-                    f"🔄 Doublon détecté: {current_company} - {current_position} "
-                    f"(similarité: entreprise={company_similarity:.2f}, poste={position_similarity:.2f})"
-                )
-                is_duplicate = True
-                break
-
-        # ✅ Ajouter seulement si ce n'est pas un doublon
-        if not is_duplicate:
-            cleaned_offers.append(current_offer)
-
-    removed_count = len(offers) - len(cleaned_offers)
-    if removed_count > 0:
-        logger.info(
-            f"🧹 Nettoyage: {removed_count} doublons supprimés ({len(cleaned_offers)} offres conservées)"
-        )
-
-    return cleaned_offers
-
-
-def extract_keywords_from_query(query: str) -> List[str]:
-    """Extrait des mots-clés pertinents de la requête utilisateur"""
-    keywords = []
-    query_lower = query.lower()
-
-    # Mots-clés techniques courants
-    tech_keywords = [
-        "python",
-        "java",
-        "javascript",
-        "react",
-        "node",
-        "sql",
-        "docker",
-        "aws",
-        "data",
-        "scientist",
-        "développeur",
-        "ingénieur",
-    ]
-
-    for keyword in tech_keywords:
-        if keyword in query_lower:
-            keywords.append(keyword)
-
-    return keywords if keywords else None
+    """Calcule la similarité entre deux chaînes (0-1) de manière optimisée"""
+    return cached_similarity(a, b)

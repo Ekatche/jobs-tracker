@@ -31,6 +31,7 @@ async def _generate_description_bg(application_id: ObjectId, url: str, db):
             return
 
         chunks = split_documents(docs)
+
         description = await summarize_chunks(chunks)
 
         if description:

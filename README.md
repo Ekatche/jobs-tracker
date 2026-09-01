@@ -40,8 +40,10 @@ MONGO_EXPRESS_PASSWORD=admin_password
 # Configuration Airflow
 AIRFLOW_SECRET_KEY=votre_clé_airflow
 
-# Configuration OpenAI (si utilisé)
+# Configuration IA et Extraction
 OPENAI_API_KEY=votre_clé_api_openai
+GEMINI_API_KEY=votre_clé_api_gemini
+TAVILY_API_KEY=votre_clé_api_tavily
 ```
 
 Pour générer une clé secrète sécurisée, exécutez :

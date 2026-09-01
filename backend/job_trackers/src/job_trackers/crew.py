@@ -1,9 +1,9 @@
-from crewai import Agent, Crew, Process, Task
+from crewai import Agent, Crew, Process, Task, LLM
 from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
 from typing import List
 from tools.custom_tool import TavilyJobBoardSearchTool
-
+import os
 import logging
 
 # Configurer le logging
@@ -15,9 +15,13 @@ logger = logging.getLogger(__name__)
 tavily_search = TavilyJobBoardSearchTool()
 
 
-# If you want to run a snippet of code before or after the crew starts,
-# you can use the @before_kickoff and @after_kickoff decorators
-# https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
+def get_crew_llm():
+    """Sélectionne le LLM optimal selon les clés API disponibles"""
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if gemini_key:
+        return LLM(model="gemini/gemini-flash-latest", api_key=gemini_key, temperature=0.1)
+    openai_key = os.getenv("OPENAI_API_KEY")
+    return LLM(model="gpt-4o-mini", api_key=openai_key, temperature=0.1)
 
 
 @CrewBase
@@ -27,23 +31,15 @@ class JobTrackers:
     agents: List[BaseAgent]
     tasks: List[Task]
 
-    # Learn more about YAML configuration files here:
-    # Agents: https://docs.crewai.com/concepts/agents#yaml-configuration-recommended
-    # Tasks: https://docs.crewai.com/concepts/tasks#yaml-configuration-recommended
-
-    # If you would like to add tools to your agents, you can learn more about it here:
-    # https://docs.crewai.com/concepts/agents#agent-tools
-
-    # Ajouter cette méthode pour intercepter les inputs avant chaque tâche
     def on_task_start(self, task, inputs):
         """Callback qui s'exécute avant chaque tâche"""
-        # logger.info(f"[TASK START] {task.name} - Inputs reçus: {inputs}")
         return inputs
 
     @agent
     def query_converter(self) -> Agent:
         return Agent(
             config=self.agents_config["query_converter"],
+            llm=get_crew_llm(),
             verbose=False,
         )
 
@@ -51,6 +47,7 @@ class JobTrackers:
     def search_executor(self) -> Agent:
         return Agent(
             config=self.agents_config["search_executor"],
+            llm=get_crew_llm(),
             verbose=False,
             tools=[tavily_search],
         )
@@ -59,6 +56,7 @@ class JobTrackers:
     def url_filter(self) -> Agent:
         return Agent(
             config=self.agents_config["url_filter"],
+            llm=get_crew_llm(),
             verbose=False,
         )
 

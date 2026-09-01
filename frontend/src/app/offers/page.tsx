@@ -80,7 +80,7 @@ export default function OffersPage() {
       setOffers(data);
     } catch (err) {
       setError("Erreur lors du chargement des offres d'emploi");
-      console.error("Erreur:", err);
+      console.error("💥 Erreur:", err);
     } finally {
       setLoading(false);
     }
@@ -99,16 +99,22 @@ export default function OffersPage() {
     }
   }, []);
 
-  // Fonction pour supprimer une offre
+  // ✅ NOUVELLE FONCTION: handleDeleteOffer (qui fait du soft delete en interne)
   const handleDeleteOffer = async (offerId: string) => {
     if (!confirm("Êtes-vous sûr de vouloir supprimer cette offre ?")) return;
 
     try {
-      await jobOffersApi.delete(offerId);
-      // Recharger les offres et le total
-      await Promise.all([fetchOffers(), fetchTotalCount()]);
+      await jobOffersApi.softDelete(offerId);
+
+      // Supprimer l'offre de la liste locale immédiatement pour un feedback instantané
+      setOffers((prevOffers) =>
+        prevOffers.filter((offer) => offer.id !== offerId)
+      );
+
+      // Recharger le total pour avoir le bon compte
+      await fetchTotalCount();
     } catch (err) {
-      console.error("Erreur lors de la suppression:", err);
+      console.error("💥 Erreur lors de la suppression:", err);
       alert("Erreur lors de la suppression de l'offre");
     }
   };
@@ -153,7 +159,6 @@ export default function OffersPage() {
     if (dateString.includes("il y a") || dateString.includes("ago")) {
       return dateString;
     }
-
     try {
       // Essayer de parser comme date ISO
       const date = new Date(dateString);
@@ -167,10 +172,10 @@ export default function OffersPage() {
     }
   };
 
-  // Composant carte d'offre (modifié)
+  // ✅ MODIFICATION: Composant carte d'offre avec soft delete (même icône poubelle)
   const OfferCard = ({ offer }: { offer: JobOffer }) => (
     <div className="bg-blue-night-lighter rounded-lg p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-700 hover:border-blue-500 relative group">
-      {/* Bouton supprimer */}
+      {/* ✅ MODIFICATION: Garder l'icône poubelle mais utiliser soft delete */}
       <button
         onClick={() => handleDeleteOffer(offer.id)}
         className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-600 hover:bg-red-500 text-white p-2 rounded-lg"
@@ -268,7 +273,7 @@ export default function OffersPage() {
     );
   };
 
-  // Composant statistiques
+  // Composant statistiques (inchangé)
   const StatsContent = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6">
       {/* Carte total d'offres */}
@@ -534,7 +539,10 @@ export default function OffersPage() {
                 {/* Grille des offres 4x4 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {offers.map((offer) => (
-                    <OfferCard key={offer.id} offer={offer} />
+                    <OfferCard
+                      key={offer.id}
+                      offer={offer}
+                    />
                   ))}
                 </div>
 

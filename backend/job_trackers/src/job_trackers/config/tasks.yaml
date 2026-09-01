@@ -41,45 +41,29 @@ execute_search_task:
 
 filter_urls_task:
   description: >
-    Filtrer la liste d'URLs obtenue pour ne garder que les liens les plus pertinents, fiables et crawlables par rapport à la demande initiale.
+    Filtrer la liste d'URLs obtenue pour ne garder que les liens les plus pertinents, fiables et directement exploitables pour l'extraction d'offres d'emploi.
     
-    Critères de filtrage (par ordre de priorité):
-    1. **Crawlabilité**: Privilégier les URLs de pages de recherche ou de listing d'offres qui contiennent plusieurs résultats
-       - Pages de recherche LinkedIn (/jobs/search/), Indeed (/jobs?q=), Welcome to the Jungle (/jobs?query=)
-       - Pages de listing d'offres sur sites français (France Travail, HelloWork, APEC)
-       - Éviter les URLs avec paramètres de session ou d'authentification
+    Critères de sélection :
+    1. **Types d'URLs acceptées** :
+       - Liens directs vers des offres d'emploi individuelles (ex: /offres/1234, /jobs/view/..., /companies/.../jobs/...)
+       - Pages de résultats de recherche ciblées contenant plusieurs offres (LinkedIn, HelloWork, APEC, Welcome to the Jungle, France Travail)
     
-    2. **Pertinence**: URLs qui correspondent bien à la requête originale (mots-clés, localisation)
-       - Contiennent les termes de la recherche dans l'URL ou les paramètres
-       - Correspondent à la géolocalisation demandée
+    2. **Pertinence & Géolocalisation** :
+       - L'URL ou ses paramètres doivent correspondre au métier et à la localisation demandés dans la requête initiale.
     
-    3. **Fiabilité**: Sites reconnus et officiels
-       - Priorité 1: Sites français (francetravail.fr, hellowork.com, apec.fr, welcometothejungle.com)
-       - Priorité 2: Sites internationaux fiables (linkedin.com, indeed.com/indeed.fr)
-       - Éviter les sites douteux ou les redirections
+    3. **Fiabilité des sources** :
+       - Privilégier les plateformes d'emploi reconnues (francetravail.fr, hellowork.com, apec.fr, welcometothejungle.com, linkedin.com/jobs, indeed.com).
     
-    4. **Diversité**: Garder une variété de sources
-       - Maximum 2-3 URLs par domaine
-       - Différents types de sites (publics, privés, spécialisés)
-    
-    5. **Déduplication**: Éliminer les doublons
-       - URLs identiques ou très similaires
-       - Paramètres différents mais même contenu
-    
-    **Instructions spéciales**:
-    - Privilégier les URLs génériques de recherche plutôt que les offres individuelles
-    - Conserver les URLs de pages qui listent plusieurs offres d'emploi
-    - Retirer les URLs de pages d'accueil ou de navigation générale
+    4. **Exclusions strictes** :
+       - Éliminer les pages d'accueil génériques, pages d'authentification/login, formulaires d'inscription ou flux RSS bruts.
+       - Éliminer les doublons d'URLs.
 
   expected_output: >
-    Retourne uniquement un tableau JSON contenant les URLs filtrées et optimisées pour le crawling, sans aucun commentaire ni texte additionnel.
+    Retourne uniquement un tableau JSON contenant la liste des URLs retenues (maximum 8 à 10 URLs), sans aucun commentaire ni texte avant ou après.
     Exemple :
-    ["https://www.linkedin.com/jobs/search/?keywords=data%20scientist&location=Lyon", "https://fr.indeed.com/jobs?q=data+scientist&l=Lyon", "https://candidat.francetravail.fr/offres/emploi/data-scientist/lyon"]
+    ["https://www.welcometothejungle.com/fr/companies/abc/jobs/data-scientist_paris", "https://www.hellowork.com/fr-fr/emplois/12345.html", "https://candidat.francetravail.fr/offres/emploi/data-scientist/lyon"]
     
-    Maximum 8-10 URLs dans la liste finale pour optimiser le temps de crawling.
-    Si aucune URL pertinente et crawlable n'est trouvée, retourne [].
-    
-    Aucune explication ou commentaire ne doit être ajouté avant ou après cette liste.
+    Si aucune URL pertinente n'est trouvée, retourne [].
     
   agent: url_filter
   input_variables:

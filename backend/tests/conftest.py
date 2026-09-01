@@ -57,9 +57,12 @@ def override_dependencies():
 def cleanup_database():
     """Nettoie la base de données de test après tous les tests."""
     yield
-    client = pymongo.MongoClient(MONGO_URI)
-    client.drop_database(DATABASE_NAME)
-    client.close()
+    try:
+        client = pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
+        client.drop_database(DATABASE_NAME)
+        client.close()
+    except Exception:
+        pass
 
 
 @pytest.fixture

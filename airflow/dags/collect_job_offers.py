@@ -1,83 +1,83 @@
 from datetime import datetime, timedelta
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.decorators import task
+import logging
 
 # Arguments par défaut pour le DAG
 default_args = {
     "owner": "job-tracker",
-    "retries": 0,  # ✅ Pas de retry pour arrêter immédiatement
+    "retries": 0,
     "retry_delay": timedelta(minutes=5),
     "depends_on_past": False,
     "start_date": datetime(2024, 1, 1),
-    # ✅ Ajouter pour arrêter en cas d'erreur
-    "on_failure_callback": None,
-    "email_on_failure": False,
-    "email_on_retry": False,
-    "execution_timeout": timedelta(minutes=20),  # ✅ Timeout explicite pour la tâche
 }
 
 # Créer le DAG
 dag = DAG(
-    "collect_job_offers",
+    "collect_job_offers_granular",
     default_args=default_args,
-    description="Collecte automatique d'offres d'emploi",
-    schedule="0 5 * * 1,4",  # ✅ Lundi et Jeudi à 9h00 (2 fois par semaine)
+    description="Collecte automatique d'offres d'emploi - Version granulaire",
+    schedule="0 5 * * 1,3,5",
     catchup=False,
-    max_active_runs=1,  # ✅ Une seule exécution à la fois
-    tags=["job-tracker", "collection"],
-    dagrun_timeout=timedelta(minutes=20),  # ✅ Timeout pour tout le DAG
+    max_active_runs=1,
+    tags=["job-tracker", "collection", "granular"],
+    dagrun_timeout=timedelta(minutes=90),  # Augmenté pour le nettoyage
 )
 
 
-def collect_offers_task(**context):
-    """Tâche de collecte d'offres"""
-    import sys
-    import logging
-
+@task(dag=dag, execution_timeout=timedelta(minutes=5))
+def validate_queries() -> list:
+    """Tâche 1: Validation des requêtes de recherche"""
     logger = logging.getLogger("airflow.task")
+    logger.info("📋 Validation des requêtes")
+
+    queries = ["Je recherche un poste de data scientist proche de Lyon"]
+    valid_queries = [q.strip() for q in queries if len(q.strip()) > 5]
+
+    if not valid_queries:
+        raise Exception("Aucune requête valide définie pour la collecte")
+
+    logger.info(f"✅ {len(valid_queries)} requêtes validées: {valid_queries}")
+    return valid_queries
+
+
+@task(dag=dag, execution_timeout=timedelta(minutes=45))
+def execute_collection_pipeline(validated_queries: list) -> dict:
+    """Tâche 2: Exécution complète du pipeline de collecte, déduplication et stockage"""
+    import sys
     sys.path.append("/app")
 
-    try:
-        from app.tasks.job_offers_collectors import collect_offers_sync
+    logger = logging.getLogger("airflow.task")
+    from app.tasks.job_offers_collectors import collect_offers_sync
 
-        # Requêtes de test
-        queries = [
-            "Je recherche un poste de data scientist proche de Lyon",
-        ]
+    total_saved = 0
+    total_updated = 0
+    query_results = []
 
-        total_results = {"saved": 0, "updated": 0}
+    for query in validated_queries:
+        logger.info(f"🚀 Lancement de la collecte pour: '{query}'")
+        try:
+            result = collect_offers_sync(query)
+            saved = result.get("saved", 0)
+            updated = result.get("updated", 0)
+            total_saved += saved
+            total_updated += updated
+            query_results.append({"query": query, "status": "success", "saved": saved, "updated": updated})
+            logger.info(f"✅ Succès pour '{query}': {saved} créées, {updated} mises à jour")
+        except Exception as e:
+            logger.error(f"💥 Erreur lors de la collecte pour '{query}': {e}")
+            query_results.append({"query": query, "status": "error", "error": str(e)})
 
-        for query in queries:
-            logger.info(f"Collecte pour la requête: {query}")
-
-            # ✅ Gestion d'erreur stricte
-            try:
-                result = collect_offers_sync(query)
-                total_results["saved"] += result["saved"]
-                total_results["updated"] += result["updated"]
-                logger.info(f"Résultat pour '{query}': {result}")
-
-            except Exception as e:
-                logger.error(f"Erreur pour la requête '{query}': {e}")
-                # ✅ Arrêter complètement le DAG
-                raise Exception(f"Échec de collecte pour '{query}': {e}")
-
-        logger.info(f"Collecte totale terminée: {total_results}")
-        return total_results
-
-    except Exception as e:
-        logger.error(f"Erreur critique dans collect_offers_task: {e}")
-        # ✅ Re-raise pour faire échouer le DAG
-        raise
+    summary = {
+        "status": "completed",
+        "total_saved": total_saved,
+        "total_updated": total_updated,
+        "results": query_results,
+    }
+    logger.info(f"🏁 Pipeline de collecte terminé: {summary}")
+    return summary
 
 
-# ✅ Configuration stricte de la tâche
-collect_task = PythonOperator(
-    task_id="collect_job_offers",
-    python_callable=collect_offers_task,
-    dag=dag,
-    # ✅ Paramètres pour arrêter en cas d'erreur
-    retries=0,
-    retry_delay=timedelta(minutes=1),
-    execution_timeout=timedelta(minutes=20),  # ✅ Timeout spécifique à cette tâche
-)
+# Définition du flux
+queries = validate_queries()
+collection_summary = execute_collection_pipeline(queries)

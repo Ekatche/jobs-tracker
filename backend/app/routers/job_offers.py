@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 from bson import ObjectId
+from datetime import datetime, timezone
 import re
 
 from ..models import JobOfferResponse
@@ -81,37 +82,100 @@ def extract_domain(url: str) -> str:
 
 @job_offers_router.get("/", response_model=List[JobOfferResponse])
 async def get_job_offers(
-    keywords: Optional[str] = Query(None, description="Mots-clés à rechercher"),
-    location: Optional[str] = Query(None, description="Localisation"),
-    company: Optional[str] = Query(None, description="Entreprise"),
-    limit: int = Query(50, le=100),
+    keywords: Optional[str] = Query(None),
+    location: Optional[str] = Query(None),
+    company: Optional[str] = Query(None),
+    limit: int = Query(16, ge=1, le=100),
     skip: int = Query(0, ge=0),
     db=Depends(get_database),
 ):
-    """Récupère les offres d'emploi avec filtres optionnels"""
-    query_filter = {}
+    """Récupère les offres d'emploi avec pagination et déduplication"""
+    try:
+        collection = db["job_offers"]
 
-    if keywords:
-        query_filter["poste"] = {"$regex": keywords, "$options": "i"}
-    if location:
-        query_filter["localisation"] = {"$regex": location, "$options": "i"}
-    if company:
-        query_filter["entreprise"] = {"$regex": company, "$options": "i"}
+        # ✅ ÉTAPE 1: Construire le filtre de base (exclure les supprimées)
+        match_filter = {
+            "$or": [{"is_deleted": {"$exists": False}}, {"is_deleted": False}]
+        }
 
-    cursor = (
-        db["job_offers"]
-        .find(query_filter)
-        .skip(skip)
-        .limit(limit)
-        .sort("created_at", -1)
-    )
-    offers = await cursor.to_list(length=limit)
+        # Ajouter les filtres de recherche
+        if keywords:
+            match_filter["$and"] = match_filter.get("$and", [])
+            match_filter["$and"].append(
+                {
+                    "$or": [
+                        {"poste": {"$regex": keywords, "$options": "i"}},
+                        {"description": {"$regex": keywords, "$options": "i"}},
+                        {"entreprise": {"$regex": keywords, "$options": "i"}},
+                    ]
+                }
+            )
 
-    for offer in offers:
-        offer["id"] = str(offer["_id"])
-        del offer["_id"]
+        if location:
+            match_filter["localisation"] = {"$regex": location, "$options": "i"}
 
-    return offers
+        if company:
+            match_filter["entreprise"] = {"$regex": company, "$options": "i"}
+
+        # ✅ ÉTAPE 2: Pipeline d'agrégation avec déduplication
+        pipeline = [
+            # Filtrer selon les critères
+            {"$match": match_filter},
+            # Trier d'abord par date de création descendante pour que $first prenne le plus récent
+            {"$sort": {"created_at": -1}},
+            # ✅ DÉDUPLICATION par groupe d'entreprise + poste + localisation
+            {
+                "$addFields": {
+                    "dedup_key": {
+                        "$ifNull": [
+                            "$unique_key",
+                            {
+                                "$concat": [
+                                    {"$toLower": {"$ifNull": ["$entreprise", ""]}},
+                                    "|||",
+                                    {"$toLower": {"$ifNull": ["$poste", ""]}},
+                                    "|||",
+                                    {"$toLower": {"$ifNull": ["$localisation", ""]}},
+                                ]
+                            },
+                        ]
+                    }
+                }
+            },
+            # Grouper par clé de déduplication et garder le plus récent
+            {
+                "$group": {
+                    "_id": "$dedup_key",
+                    "offer": {"$first": "$$ROOT"},
+                    "count": {"$sum": 1},
+                }
+            },
+            # Récupérer l'offre originale
+            {"$replaceRoot": {"newRoot": "$offer"}},
+            # Supprimer le champ temporaire
+            {"$unset": "dedup_key"},
+            # ✅ ÉTAPE 3: Trier par date de création pour l'ordre final de pagination
+            {"$sort": {"created_at": -1}},
+            # ✅ ÉTAPE 4: Appliquer la pagination APRÈS déduplication
+            {"$skip": skip},
+            {"$limit": limit},
+        ]
+
+        # Exécuter la requête
+        cursor = collection.aggregate(pipeline)
+        offers = await cursor.to_list(length=None)
+
+        # Formatter les résultats
+        formatted_offers = []
+        for offer in offers:
+            offer["id"] = str(offer["_id"])
+            del offer["_id"]
+            formatted_offers.append(offer)
+
+        return formatted_offers
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur serveur: {e}")
 
 
 @job_offers_router.get("/{offer_id}", response_model=JobOfferResponse)
@@ -127,6 +191,44 @@ async def get_job_offer(offer_id: str, db=Depends(get_database)):
     offer["id"] = str(offer["_id"])
     del offer["_id"]
     return offer
+
+
+@job_offers_router.patch("/{offer_id}/soft-delete")
+async def soft_delete_job_offer(offer_id: str, db=Depends(get_database)):
+    """Effectue un soft delete d'une offre d'emploi (marque comme supprimée)"""
+    if not ObjectId.is_valid(offer_id):
+        raise HTTPException(status_code=400, detail="ID invalide")
+
+    offer = await db["job_offers"].find_one({"_id": ObjectId(offer_id)})
+
+    # Vérifier que l'offre existe
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offre non trouvée")
+
+    # Vérifier si l'offre n'est pas déjà supprimée
+    if offer.get("is_deleted", False):
+        raise HTTPException(status_code=400, detail="Offre déjà supprimée")
+
+    # Mettre à jour l'offre avec le soft delete
+    update_fields = {
+        "is_deleted": True,
+        "deleted_date": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    }
+
+    result = await db["job_offers"].update_one(
+        {"_id": ObjectId(offer_id)}, {"$set": update_fields}
+    )
+
+    if result.modified_count == 0:
+        raise HTTPException(status_code=500, detail="Erreur lors de la suppression")
+
+    # Récupérer l'offre mise à jour
+    updated_offer = await db["job_offers"].find_one({"_id": ObjectId(offer_id)})
+    updated_offer["id"] = str(updated_offer["_id"])
+    del updated_offer["_id"]
+
+    return {"message": "Offre marquée comme supprimée", "offer": updated_offer}
 
 
 @job_offers_router.delete("/{offer_id}")
@@ -253,35 +355,69 @@ async def get_offers_stats(db=Depends(get_database)):
 
 
 @job_offers_router.get("/count/")
-async def count_job_offers(
-    keywords: str = Query(None, description="Mots-clés de recherche"),
-    location: str = Query(None, description="Localisation"),
-    company: str = Query(None, description="Entreprise"),
+async def get_job_offers_count(
+    keywords: Optional[str] = Query(None),
+    location: Optional[str] = Query(None),
+    company: Optional[str] = Query(None),
     db=Depends(get_database),
 ):
-    """Compter le nombre total d'offres d'emploi avec filtres"""
+    """Compte les offres d'emploi dédupliquées"""
     try:
-        filter_dict = {}
+        collection = db["job_offers"]
 
-        # Construction des filtres de recherche
+        # ✅ MÊME LOGIQUE: Construire le filtre de base
+        match_filter = {
+            "$or": [{"is_deleted": {"$exists": False}}, {"is_deleted": False}]
+        }
+
+        # Ajouter les filtres de recherche
         if keywords:
-            filter_dict["$or"] = [
-                {"poste": {"$regex": keywords, "$options": "i"}},
-                {"entreprise": {"$regex": keywords, "$options": "i"}},
-            ]
+            match_filter["$and"] = match_filter.get("$and", [])
+            match_filter["$and"].append(
+                {
+                    "$or": [
+                        {"poste": {"$regex": keywords, "$options": "i"}},
+                        {"description": {"$regex": keywords, "$options": "i"}},
+                        {"entreprise": {"$regex": keywords, "$options": "i"}},
+                    ]
+                }
+            )
 
         if location:
-            filter_dict["localisation"] = {"$regex": location, "$options": "i"}
+            match_filter["localisation"] = {"$regex": location, "$options": "i"}
 
         if company:
-            filter_dict["entreprise"] = {"$regex": company, "$options": "i"}
+            match_filter["entreprise"] = {"$regex": company, "$options": "i"}
 
-        # Compter les documents
-        total = await db["job_offers"].count_documents(filter_dict)
+        # ✅ PIPELINE pour compter les offres dédupliquées
+        count_pipeline = [
+            {"$match": match_filter},
+            # Déduplication
+            {
+                "$addFields": {
+                    "dedup_key": {
+                        "$concat": [
+                            {"$toLower": {"$ifNull": ["$entreprise", ""]}},
+                            "|||",
+                            {"$toLower": {"$ifNull": ["$poste", ""]}},
+                            "|||",
+                            {"$toLower": {"$ifNull": ["$localisation", ""]}},
+                        ]
+                    }
+                }
+            },
+            # Grouper par clé de déduplication
+            {"$group": {"_id": "$dedup_key", "count": {"$sum": 1}}},
+            # Compter le nombre de groupes uniques
+            {"$count": "total"},
+        ]
+
+        cursor = collection.aggregate(count_pipeline)
+        result = await cursor.to_list(length=1)
+
+        total = result[0]["total"] if result else 0
 
         return {"total": total}
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Erreur lors du comptage: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Erreur serveur: {e}")

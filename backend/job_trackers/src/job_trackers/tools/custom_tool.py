@@ -110,11 +110,6 @@ class TavilyJobBoardSearchTool(BaseTool):
                 all_urls.extend(linkedin_urls)
                 logger.info(f"💼 {len(linkedin_urls)} URLs LinkedIn")
 
-            # ✅ PASSE 3: LinkedIn - URL générique de recherche
-            linkedin_search_url = "https://www.linkedin.com/jobs/search/?currentJobId=4235097194&f_TPR=r86400&geoId=103623254&keywords=data%20scientist&origin=JOB_SEARCH_PAGE_LOCATION_AUTOCOMPLETE&refresh=true"
-            all_urls.append(linkedin_search_url)
-            logger.info("💼 Ajout URL de recherche LinkedIn générique")
-
             # Dédoublonnage
             unique_urls = list(set(all_urls))
             logger.info(f"✅ Total: {len(unique_urls)} URLs uniques trouvées")

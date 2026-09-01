@@ -248,7 +248,6 @@ class TaskCreate(BaseModel):
     description: Optional[str] = None
     status: Optional[str] = None
     due_date: Optional[datetime] = None
-
     model_config = ConfigDict(extra="forbid")
 
 
@@ -257,6 +256,12 @@ class JobOfferCreate(BaseModel):
     entreprise: str
     localisation: Optional[str] = None
     date: Optional[str] = None
+    type_contrat: Optional[str] = None  # Ex: CDI, CDD, Freelance, Stage, Alternance
+    salaire: Optional[str] = None       # Ex: 45k€ - 55k€
+    mode_travail: Optional[str] = None  # Ex: Télétravail, Hybride, Présentiel
+    competences_cles: Optional[List[str]] = None
+    is_deleted: Optional[bool] = False  # Indique si l'offre a été supprimée
+    deleted_date: Optional[datetime] = None  # Date de suppression
     url: Optional[str] = None
     source_url: Optional[str] = None  # URL de la page où l'offre a été trouvée
 
@@ -267,7 +272,13 @@ class JobOfferResponse(BaseModel):
     entreprise: str
     localisation: Optional[str] = None
     date: Optional[str] = None
+    type_contrat: Optional[str] = None
+    salaire: Optional[str] = None
+    mode_travail: Optional[str] = None
+    competences_cles: Optional[List[str]] = None
     url: Optional[str] = None
+    is_deleted: Optional[bool] = False  # Indique si l'offre a été supprimée
+    deleted_date: Optional[datetime] = None  # Date de suppression
     source_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime

@@ -51,7 +51,7 @@ interface RequestOptions {
 // Fonction utilitaire pour les requêtes API
 async function fetchApi<T, D = Record<string, unknown>>(
   endpoint: string,
-  method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
+  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" = "GET",
   data?: D,
   options: RequestOptions = {},
 ): Promise<T> {
@@ -235,6 +235,8 @@ export interface JobOffer {
   source_url?: string;
   created_at: string;
   updated_at: string;
+  is_deleted?: boolean;
+  deleted_date?: string;
 }
 
 export interface JobOfferFilter {
@@ -433,8 +435,16 @@ export const jobOffersApi = {
     return fetchApi<JobOffer>(`/job-offers/${offerId}`, "GET");
   },
 
-  // Supprimer une offre
-  delete: async (offerId: string) => {
+  // ✅ Soft delete au lieu de la suppression définitive
+  softDelete: async (offerId: string) => {
+    return fetchApi<{ message: string; offer: JobOffer }>(
+      `/job-offers/${offerId}/soft-delete`,
+      "PATCH"
+    );
+  },
+
+  // ✅ OPTIONNEL: Supprimer ou renommer la méthode delete pour éviter toute confusion
+  permanentDelete: async (offerId: string) => {
     return fetchApi<{ message: string }>(`/job-offers/${offerId}`, "DELETE");
   },
 

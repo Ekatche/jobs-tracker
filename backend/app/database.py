@@ -45,8 +45,19 @@ async def create_job_offers_indexes(db):
     """Crée les index pour optimiser les requêtes sur les offres d'emploi"""
     collection = db["job_offers"]
 
-    # Index sur l'URL (unique pour éviter les doublons)
-    await collection.create_index("url", unique=True)
+    # Index sur l'URL unique partiel (évite les conflits sur les offres sans URL)
+    await collection.create_index(
+        "url",
+        unique=True,
+        partialFilterExpression={"url": {"$type": "string"}},
+    )
+
+    # Index unique sur la clé de déduplication calculée
+    await collection.create_index(
+        "unique_key",
+        unique=True,
+        sparse=True,
+    )
 
     # Index de recherche textuelle
     await collection.create_index(
@@ -57,5 +68,6 @@ async def create_job_offers_indexes(db):
     await collection.create_index("created_at")
     await collection.create_index("updated_at")
 
-    # Index composé pour les filtres fréquents
+    # Index composé pour les filtres fréquents et soft-delete
+    await collection.create_index([("is_deleted", 1), ("created_at", -1)])
     await collection.create_index([("localisation", 1), ("created_at", -1)])
