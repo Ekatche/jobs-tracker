@@ -167,8 +167,38 @@ def clean_job_offer_duplicates(
 
 
 def extract_urls_from_crew(crew_result) -> List[str]:
-    """Extraction simple - attend un JSON array d'URLs"""
+    """Extraction robuste des URLs d'offres d'emploi à partir du résultat CrewAI (Pydantic, dict ou string)."""
+    # 1. Vérifier si l'objet Pydantic est directement accessible
+    pydantic_output = getattr(crew_result, "pydantic", None)
+    if pydantic_output and hasattr(pydantic_output, "urls"):
+        urls = [u for u in pydantic_output.urls if isinstance(u, str) and u.startswith("http")]
+        if urls:
+            logger.info(f"✅ {len(urls)} URLs extraites directement depuis le modèle Pydantic du Crew")
+            return urls
 
+    # 2. Vérifier les outputs des tâches individuelles (tasks_output)
+    tasks_output = getattr(crew_result, "tasks_output", None)
+    if tasks_output and isinstance(tasks_output, list) and len(tasks_output) > 0:
+        for task_out in reversed(tasks_output):
+            t_pydantic = getattr(task_out, "pydantic", None)
+            if t_pydantic and hasattr(t_pydantic, "urls"):
+                urls = [u for u in t_pydantic.urls if isinstance(u, str) and u.startswith("http")]
+                if urls:
+                    logger.info(f"✅ {len(urls)} URLs extraites depuis task_output.pydantic")
+                    return urls
+
+    # 3. Si l'objet est directement un modèle Pydantic ou un dict
+    if hasattr(crew_result, "urls"):
+        urls = getattr(crew_result, "urls")
+        if isinstance(urls, list):
+            return [u for u in urls if isinstance(u, str) and u.startswith("http")]
+
+    if isinstance(crew_result, dict) and "urls" in crew_result:
+        urls = crew_result["urls"]
+        if isinstance(urls, list):
+            return [u for u in urls if isinstance(u, str) and u.startswith("http")]
+
+    # 4. Fallback texte / JSON / Regex
     raw = getattr(crew_result, "raw", str(crew_result))
 
     if isinstance(raw, list):
@@ -176,22 +206,20 @@ def extract_urls_from_crew(crew_result) -> List[str]:
 
     if isinstance(raw, str):
         try:
-            # Nettoyer les markdown potentiels
             clean_raw = raw.strip()
             if clean_raw.startswith("```json"):
                 clean_raw = clean_raw.replace("```json", "").replace("```", "").strip()
+            elif clean_raw.startswith("```"):
+                clean_raw = clean_raw.replace("```", "").strip()
 
-            urls = json.loads(clean_raw)
-            if isinstance(urls, list):
-                return [
-                    url
-                    for url in urls
-                    if isinstance(url, str) and url.startswith("http")
-                ]
+            data = json.loads(clean_raw)
+            if isinstance(data, list):
+                return [u for u in data if isinstance(u, str) and u.startswith("http")]
+            elif isinstance(data, dict) and "urls" in data and isinstance(data["urls"], list):
+                return [u for u in data["urls"] if isinstance(u, str) and u.startswith("http")]
 
-        except json.JSONDecodeError:
-            logger.warning("⚠️ JSON invalide du crew, fallback regex")
-            # Fallback: extraction par regex
+        except (json.JSONDecodeError, Exception):
+            logger.warning("⚠️ Parsing JSON impossible, utilisation du fallback Regex")
             return re.findall(r'https?://[^\s\]\)\'"<>\n]+', raw)
 
     return []

@@ -107,6 +107,7 @@ async def enrich_offers(offers: list, query: str) -> list:
                     # Nettoyage des champs texte de base
                     poste = str(offer.get("poste", "")).strip()
                     entreprise = str(offer.get("entreprise", "")).strip()
+                    description = str(offer.get("description", "")).strip() or "Non spécifié"
                     localisation = str(offer.get("localisation", "")).strip()
                     date = str(offer.get("date", "")).strip()
                     type_contrat = str(offer.get("type_contrat", "")).strip()
@@ -121,8 +122,17 @@ async def enrich_offers(offers: list, query: str) -> list:
                     url = str(offer.get("url", "")).strip() or None
                     source_url = str(offer.get("source_url", "")).strip() or None
 
-                    if not poste or not entreprise:
-                        logger.warning(f"⚠️ Offre avec champs vides: {offer}")
+                    # Rejet strict des offres avec champs obligatoires vides ou factices ("Non spécifié", 404, etc.)
+                    invalid_placeholders = {"non spécifié", "non disponible", "inconnu", "none", "null", "undefined", ""}
+                    if (
+                        not poste
+                        or not entreprise
+                        or poste.lower() in invalid_placeholders
+                        or entreprise.lower() in invalid_placeholders
+                    ):
+                        logger.warning(
+                            f"⚠️ Offre rejetée (poste ou entreprise invalide/non spécifié): poste='{poste}', entreprise='{entreprise}'"
+                        )
                         invalid_count += 1
                         continue
 
@@ -139,6 +149,7 @@ async def enrich_offers(offers: list, query: str) -> list:
                         # ===== CHAMPS PRINCIPAUX =====
                         "poste": poste,
                         "entreprise": entreprise,
+                        "description": description,
                         "localisation": (
                             localisation if localisation else "Non spécifié"
                         ),
@@ -254,6 +265,7 @@ async def save_offers_to_database(offers: list) -> dict:
 
                     # Isoler created_at pour ne jamais écraser la date de création d'une offre existante
                     offer_set_fields = {k: v for k, v in offer.items() if k not in {"created_at", "date_creation"}}
+                    offer_set_fields["unique_key"] = unique_key
                     offer_set_fields["updated_at"] = datetime.now(timezone.utc)
 
                     operation = UpdateOne(
@@ -262,7 +274,6 @@ async def save_offers_to_database(offers: list) -> dict:
                             "$set": offer_set_fields,
                             "$setOnInsert": {
                                 "created_at": offer.get("created_at") or datetime.now(timezone.utc),
-                                "unique_key": unique_key,
                             },
                         },
                         upsert=True,

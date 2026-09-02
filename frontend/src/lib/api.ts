@@ -1,5 +1,14 @@
 import axios, { AxiosRequestConfig, AxiosResponse, AxiosInstance } from "axios";
-import { getToken, setToken, removeToken } from "./auth";
+import {
+  getToken,
+  setToken,
+  removeToken,
+  getRefreshToken,
+  setRefreshToken,
+  removeRefreshToken,
+  getRememberMe,
+  setRememberMe,
+} from "./auth";
 import { Task } from "@/types/tasks";
 import Cookies from "js-cookie";
 // Ajoutez cet import au début du fichier
@@ -10,6 +19,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 // Ajouter cette constante au début du fichier, après les imports
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes en millisecondes
 const REFRESH_THRESHOLD = 5 * 60 * 1000; // 5 min avant exp
+const REMEMBERED_SESSION_DAYS = 7; // "Se souvenir de moi" - aligne sur REFRESH_TOKEN_EXPIRE_DAYS backend
+const DEFAULT_SESSION_DAYS = 1;
 
 // Création d'une instance Axios avec la configuration de base
 const apiClient: AxiosInstance = axios.create({
@@ -28,19 +39,6 @@ apiClient.interceptors.request.use((config) => {
   }
   return config;
 });
-
-// Ajoutez une fonction pour stocker le refresh token
-export const setRefreshToken = (token: string) => {
-  localStorage.setItem("refreshToken", token);
-};
-
-export const getRefreshToken = () => {
-  return localStorage.getItem("refreshToken");
-};
-
-export const removeRefreshToken = () => {
-  localStorage.removeItem("refreshToken");
-};
 
 // Type pour les options de requête avancées
 interface RequestOptions {
@@ -79,36 +77,34 @@ async function fetchApi<T, D = Record<string, unknown>>(
 
   try {
     const response: AxiosResponse<T> = await apiClient(config);
-
-    if (response.status === 401) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        // Retenter la requête avec le nouveau token
-        const newToken = getToken();
-        config.headers = {
-          ...config.headers,
-          Authorization: `Bearer ${newToken}`,
-        };
-
-        const newResponse: AxiosResponse<T> = await apiClient(config);
-        return newResponse.data;
-      } else {
-        // redirige vers la page login
-        removeToken();
-        removeRefreshToken();
-        window.location.href = "/auth/login?session=expired";
-        throw new Error("Session expirée");
-      }
-    }
-
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
-      // Si on reçoit une 401 hors du cas précédent
+      // Axios rejette la promesse sur un statut non-2xx : c'est ici, pas
+      // dans le bloc try, que les 401 sont réellement interceptés.
       if (error.response.status === 401) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          // Retenter la requête une seule fois avec le nouveau token
+          const newToken = getToken();
+          config.headers = {
+            ...config.headers,
+            Authorization: `Bearer ${newToken}`,
+          };
+          try {
+            const retryResponse: AxiosResponse<T> = await apiClient(config);
+            return retryResponse.data;
+          } catch {
+            removeToken();
+            removeRefreshToken();
+            window.location.href = "/auth/login?session=expired";
+            throw new Error("Session expirée");
+          }
+        }
+
         removeToken();
         removeRefreshToken();
-        window.location.href = "/auth/login";
+        window.location.href = "/auth/login?session=expired";
         throw new Error("Session expirée");
       }
       const message =
@@ -122,26 +118,38 @@ async function fetchApi<T, D = Record<string, unknown>>(
 // Ajouter cette fonction de rafraîchissement proactif
 export const setupTokenRefresh = () => {
   const token = getToken();
-  if (!token) return;
+  if (!token) {
+    // Le cookie d'acces a disparu (expiration, nettoyage navigateur...) mais
+    // un refresh token valide peut encore exister : on tente de restaurer la
+    // session au lieu de laisser l'utilisateur bloque sur /auth/login.
+    if (getRefreshToken()) {
+      refreshAccessToken().then((ok) => {
+        if (ok) setupTokenRefresh();
+      });
+    }
+    return;
+  }
 
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
     const expiryTime = payload.exp * 1000;
     const now = Date.now();
     const msToExpiry = expiryTime - now;
-    if (msToExpiry <= 0) return; // déjà expiré
+    if (msToExpiry <= 0) return; // deja expire
 
-    // Planifier la tentative de refresh msToExpiry - REFRESH_THRESHOLD à partir de maintenant
+    // Planifier la tentative de refresh msToExpiry - REFRESH_THRESHOLD a partir de maintenant
     const delay = Math.max(msToExpiry - REFRESH_THRESHOLD, 0);
     setTimeout(async () => {
+      // "Se souvenir de moi" : la session doit survivre a une inactivite
+      // prolongee (c'est tout le but des 7 jours), donc pas de coupure idle.
       const idle = Date.now() - getLastActivityTime();
-      if (idle < INACTIVITY_TIMEOUT) {
+      if (getRememberMe() || idle < INACTIVITY_TIMEOUT) {
         const ok = await refreshAccessToken();
         if (ok) {
-          setupTokenRefresh(); // re‑planifier
+          setupTokenRefresh(); // re-planifier
         }
       } else {
-        // Inactif > 30 min → forcer logout
+        // Inactif > 30 min -> forcer logout
         removeToken();
         removeRefreshToken();
         window.location.href = "/auth/login?session=expired";
@@ -179,7 +187,10 @@ const refreshAccessToken = async (): Promise<boolean> => {
     // Vérifiez le contenu de la réponse
     console.log("Réponse refresh:", response.data);
 
-    setToken(response.data.access_token);
+    setToken(
+      response.data.access_token,
+      getRememberMe() ? REMEMBERED_SESSION_DAYS : DEFAULT_SESSION_DAYS,
+    );
     setRefreshToken(response.data.refresh_token);
 
     // Re-planifier le prochain refresh
@@ -224,13 +235,17 @@ export interface Application {
   archived?: boolean;
 }
 
-// Ajouter ce type après les autres interfaces
 export interface JobOffer {
   id: string;
   poste: string;
   entreprise: string;
+  description?: string;
   localisation?: string;
   date?: string;
+  type_contrat?: string;
+  salaire?: string;
+  mode_travail?: string;
+  competences_cles?: string[];
   url?: string;
   source_url?: string;
   created_at: string;
@@ -265,7 +280,7 @@ export interface JobOfferStats {
 
 // API Authentication
 export const authApi = {
-  login: async (username: string, password: string) => {
+  login: async (username: string, password: string, rememberMe: boolean = false) => {
     try {
       const formData = new FormData();
       formData.append("username", username);
@@ -277,8 +292,12 @@ export const authApi = {
         },
       });
 
-      // Enregistrer le token dans les cookies
-      setToken(response.data.access_token);
+      // setRememberMe avant setRefreshToken : détermine où le refresh token est stocké
+      setRememberMe(rememberMe);
+      setToken(
+        response.data.access_token,
+        rememberMe ? REMEMBERED_SESSION_DAYS : DEFAULT_SESSION_DAYS,
+      );
       setRefreshToken(response.data.refresh_token);
 
       return response.data;

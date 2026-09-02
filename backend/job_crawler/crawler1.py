@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 class JobOffer(BaseModel):
     poste: str
     entreprise: str
+    description: Optional[str] = "Non spécifié"
     localisation: Optional[str] = "Non spécifié"
     date: Optional[str] = "Non spécifié"
     type_contrat: Optional[str] = "Non spécifié"  # CDI, CDD, Alternance, Stage, Freelance
@@ -72,9 +73,14 @@ def get_shared_crawl_config(api_key: str) -> CrawlerRunConfig:
             },
         )
 
-        # ✅ Détection automatique du provider LLM
+        # ✅ Détection automatique et robuste du provider LLM
+        prefer_gemini = os.getenv("PREFER_GEMINI", "").lower() in ("true", "1")
         gemini_key = os.getenv("GEMINI_API_KEY")
-        if gemini_key:
+
+        if api_key and not prefer_gemini:
+            llm_provider = "openai/gpt-4o-mini"
+            llm_token = api_key
+        elif gemini_key:
             llm_provider = "gemini/gemini-flash-latest"
             llm_token = gemini_key
         else:
@@ -90,20 +96,24 @@ def get_shared_crawl_config(api_key: str) -> CrawlerRunConfig:
             schema=json.dumps(JobOffer.model_json_schema()),
             extraction_type="schema",
             instruction=f"""
-            Extrait toutes les offres d'emploi de cette page web.
-            Pour chaque offre, identifie et extrait précisément :
-            - poste : le titre du poste/métier
-            - entreprise : nom de l'entreprise qui recrute
-            - localisation : ville, région ou lieu de travail
-            - date : convertir la date en format ISO (YYYY-MM-DD) basée sur la date actuelle {datetime.now().strftime('%Y-%m-%d')}
-            - type_contrat : type de contrat si mentionné (ex: CDI, CDD, Alternance, Stage, Freelance, ou "Non spécifié")
-            - salaire : rémunération ou fourchette salariale (ou "Non spécifié")
+            Extrait toutes les offres d'emploi RÉELLES et ACTIVES de cette page web.
+
+            RÈGLE CRITIQUE D'EXPIRATION :
+            - Si la page indique que l'offre n'est plus disponible (ex: "L'offre que vous souhaitez afficher n'est plus disponible", "Offre expirée", "Offre introuvable", page d'erreur 404, page de connexion), NE RETOURNE AUCUNE OFFRE (tableau vide []).
+
+            Pour chaque offre active, identifie et extrait précisément :
+            - poste : le titre exact du poste/métier (ne jamais mettre "Non spécifié" si une offre est présente)
+            - entreprise : le nom réel de l'entreprise ou du cabinet employeur (cherche attentivement dans l'en-tête, le titre, le texte d'introduction ou la signature)
+            - description : un résumé clair, synthétique et informatif des missions principales, du contexte du poste et du profil recherché (2 à 5 phrases pertinentes)
+            - localisation : ville, département ou région du poste
+            - date : date de publication au format ISO (YYYY-MM-DD), basée sur la date d'aujourd'hui {datetime.now().strftime('%Y-%m-%d')}
+            - type_contrat : type de contrat (CDI, CDD, Alternance, Stage, Freelance, ou "Non spécifié")
+            - salaire : rémunération ou fourchette salariale indiquée (ou "Non spécifié")
             - mode_travail : Télétravail total, Hybride, Présentiel (ou "Non spécifié")
-            - competences_cles : liste des technologies, compétences ou outils demandés
-            - url : lien direct vers l'offre complète (si disponible)
-            
-            Ignore tout contenu qui n'est pas une offre d'emploi (menus, publicités, etc.).
-            Si une information manque, utilise "Non spécifié" ou [] pour les compétences.
+            - competences_cles : liste des technologies, outils, langages ou compétences clés exigées
+            - url : lien direct vers l'offre (si disponible)
+
+            Ignore les menus, bannières, pied de page et publicités.
             Retourne une liste d'offres au format JSON.
             """,
             extra_args={"temperature": 0.1, "max_tokens": 3000},
@@ -112,8 +122,20 @@ def get_shared_crawl_config(api_key: str) -> CrawlerRunConfig:
             verbose=False,
         )
 
-        # Script JS pour faire défiler la page et charger le contenu dynamique
+        # Script JS pour masquer les bannières cookies et faire défiler la page pour charger le contenu dynamique
         scroll_js = """
+        const cookieSelectors = [
+            '#tarteaucitronPersonalize2',
+            '#axeptio_btn_acceptAll',
+            '#onetrust-accept-btn-handler',
+            'button[id*="accept"]',
+            'button[class*="cookie-accept"]',
+            'button[class*="consent-accept"]'
+        ];
+        for (const sel of cookieSelectors) {
+            const btn = document.querySelector(sel);
+            if (btn) { try { btn.click(); } catch(e){} break; }
+        }
         window.scrollTo(0, document.body.scrollHeight / 2);
         await new Promise(r => setTimeout(r, 600));
         window.scrollTo(0, document.body.scrollHeight);
@@ -129,6 +151,12 @@ def get_shared_crawl_config(api_key: str) -> CrawlerRunConfig:
             extraction_strategy=extraction_strategy,
             markdown_generator=md_generator,
             js_code=scroll_js,
+            # Les SPA (France Travail, etc.) chargent l'offre via XHR après le
+            # rendu initial : attendre la fin de l'activité réseau plutôt qu'un
+            # délai fixe, sinon on capture parfois un fragment générique du shell.
+            wait_until="networkidle",
+            page_timeout=45000,
+            delay_before_return_html=2.5,
             magic=True,
             simulate_user=False,
             override_navigator=True,
@@ -316,6 +344,21 @@ async def crawl_and_extract_jobs_optimized(
                         elif not isinstance(offers, list):
                             offers = []
 
+                        # Filet de sécurité : rejeter les offres non ancrées dans la
+                        # page réellement crawlée (pages SPA mal chargées, contenu
+                        # générique du shell au lieu de l'offre ciblée)
+                        page_text = _get_page_text(result)
+                        grounded_offers = []
+                        for offer in offers:
+                            if _offer_grounded_in_page(offer, page_text):
+                                grounded_offers.append(offer)
+                            else:
+                                logger.warning(
+                                    f"⚠️ Offre rejetée (non retrouvée dans la page crawlée): "
+                                    f"'{offer.get('poste')}' chez '{offer.get('entreprise')}' — {result.url}"
+                                )
+                        offers = grounded_offers
+
                         # Ajouter source_url
                         for offer in offers:
                             offer["source_url"] = result.url
@@ -363,6 +406,42 @@ async def crawl_and_extract_jobs_optimized(
         logger.error(f"💥 Erreur pipeline ultra: {e}")
         await cleanup_shared_configs()
         raise
+
+
+def _get_page_text(result) -> str:
+    """Récupère le texte markdown effectivement crawlé pour une page (fit ou raw)"""
+    md_obj = getattr(result, "markdown", None)
+    if md_obj is None:
+        return ""
+    if hasattr(md_obj, "fit_markdown") and md_obj.fit_markdown:
+        return md_obj.fit_markdown
+    if hasattr(md_obj, "raw_markdown") and md_obj.raw_markdown:
+        return md_obj.raw_markdown
+    if isinstance(md_obj, str):
+        return md_obj
+    return ""
+
+
+def _offer_grounded_in_page(offer: Dict[str, Any], page_text: str) -> bool:
+    """
+    Vérifie que l'offre extraite par le LLM correspond réellement au contenu
+    de la page crawlée (poste ou entreprise retrouvés dans le texte).
+    Filet de sécurité contre les pages SPA mal chargées où le LLM extrait
+    des offres génériques sans rapport avec l'URL demandée.
+    """
+    if not page_text:
+        return True  # Pas de texte à comparer : ne pas rejeter à l'aveugle
+
+    page_text_lower = page_text.lower()
+    poste = (offer.get("poste") or "").strip().lower()
+    entreprise = (offer.get("entreprise") or "").strip().lower()
+
+    poste_found = bool(poste) and poste not in ("non spécifié",) and poste in page_text_lower
+    entreprise_found = (
+        bool(entreprise) and entreprise not in ("non spécifié",) and entreprise in page_text_lower
+    )
+
+    return poste_found or entreprise_found
 
 
 def filter_offers(

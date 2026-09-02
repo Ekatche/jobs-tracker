@@ -63,6 +63,7 @@ export async function register(credentials: RegisterCredentials) {
 
 export async function logout() {
   Cookies.remove("token");
+  removeRefreshToken();
 }
 
 export function getToken() {
@@ -115,16 +116,41 @@ export function removeToken() {
   Cookies.remove("token");
 }
 
+const REFRESH_TOKEN_KEY = "refreshToken";
+const REMEMBER_ME_KEY = "rememberMe";
+
+/**
+ * "Se souvenir de moi" : le refresh token va dans localStorage (survit à la
+ * fermeture du navigateur) plutôt que sessionStorage (effacé à la fermeture).
+ */
+export function setRememberMe(remember: boolean) {
+  if (remember) {
+    localStorage.setItem(REMEMBER_ME_KEY, "1");
+  } else {
+    localStorage.removeItem(REMEMBER_ME_KEY);
+  }
+}
+
+export function getRememberMe(): boolean {
+  return localStorage.getItem(REMEMBER_ME_KEY) === "1";
+}
+
+function getRefreshTokenStorage(): Storage {
+  return getRememberMe() ? localStorage : sessionStorage;
+}
+
 export function removeRefreshToken() {
-  localStorage.removeItem("refreshToken");
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(REMEMBER_ME_KEY);
 }
 
 export function setRefreshToken(token: string) {
-  localStorage.setItem("refreshToken", token);
+  getRefreshTokenStorage().setItem(REFRESH_TOKEN_KEY, token);
 }
 
 export function getRefreshToken() {
-  return localStorage.getItem("refreshToken");
+  return getRefreshTokenStorage().getItem(REFRESH_TOKEN_KEY);
 }
 
 /**

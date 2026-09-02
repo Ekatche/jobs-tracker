@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 
-from app.database import get_database
+from app.database import get_database, create_job_offers_indexes
 from app.routers import (
     auth_router,
     user_router,
@@ -29,6 +29,7 @@ async def lifespan(app):
         # Créer les index nécessaires
         await db["users"].create_index([("username", pymongo.ASCENDING)], unique=True)
         await db["users"].create_index([("email", pymongo.ASCENDING)], unique=True)
+        await create_job_offers_indexes(db)
     except Exception as e:
         print(f"Erreur de connexion à la base de données: {e}")
 

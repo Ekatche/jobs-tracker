@@ -27,6 +27,7 @@ export interface PrefilledData {
   position?: string;
   location?: string;
   url?: string;
+  description?: string;
 }
 
 interface NewApplicationModalProps {
@@ -42,7 +43,7 @@ export default function NewApplicationModal({
   onSuccess,
   prefilledData,
 }: NewApplicationModalProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
@@ -78,11 +79,11 @@ export default function NewApplicationModal({
       if (prefilledData.position) setValue("position", prefilledData.position);
       if (prefilledData.location) setValue("location", prefilledData.location);
       if (prefilledData.url) setValue("url", prefilledData.url);
+      setValue("description", prefilledData.description || "");
 
       // Réinitialiser les autres champs à leurs valeurs par défaut
       setValue("status", "Candidature envoyée");
       setValue("application_date", format(new Date(), "yyyy-MM-dd"));
-      setValue("description", "");
 
       // Ajouter une note automatique si on vient d'une offre
       if (prefilledData.company || prefilledData.position) {

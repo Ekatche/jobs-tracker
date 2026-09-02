@@ -2,82 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 from bson import ObjectId
 from datetime import datetime, timezone
-import re
-
 from ..models import JobOfferResponse
 from ..database import get_database
+from ..services.normalization import normalize_city, normalize_company, extract_domain
 
 job_offers_router = APIRouter(prefix="/job-offers", tags=["job-offers"])
-
-
-# Fonctions utilitaires pour le formatage
-def normalize_city(city: str) -> str:
-    """Normalise les noms de villes pour éviter les doublons"""
-    if not city:
-        return "Non spécifié"
-
-    # Supprimer les codes postaux complets (ex: "44000 Nantes" -> "Nantes")
-    city = re.sub(r"^\d{5}\s+", "", city)
-
-    # Supprimer les codes postaux avec tiret (ex: "Nantes - 44" -> "Nantes")
-    city = re.sub(r"\s*-\s*\d+.*$", "", city)
-
-    # Supprimer les arrondissements avec tiret (ex: "Lyon - 01" -> "Lyon")
-    city = re.sub(r"\s*-\s*\d{2}$", "", city)
-
-    # Supprimer les arrondissements avec espace (ex: "LYON 01" -> "LYON")
-    city = re.sub(r"\s+\d{2}$", "", city)
-
-    # Supprimer les arrondissements avec "er", "ème", etc. (ex: "Lyon 1er" -> "Lyon")
-    city = re.sub(r"\s+\d{1,2}(er|ème|e)?$", "", city, flags=re.IGNORECASE)
-
-    # Supprimer les parenthèses et leur contenu (ex: "Lyon (Rhône)" -> "Lyon")
-    city = re.sub(r"\s*\([^)]*\)", "", city)
-
-    # Nettoyer les espaces multiples
-    city = re.sub(r"\s+", " ", city.strip())
-
-    # Capitaliser correctement (première lettre de chaque mot en majuscule)
-    return city.title() if city else "Non spécifié"
-
-
-def normalize_company(company: str) -> str:
-    """Normalise les noms d'entreprises pour éviter les doublons"""
-    if not company:
-        return "Non spécifié"
-
-    # Convertir en majuscules pour comparaison
-    normalized = company.upper()
-
-    # Supprimer les suffixes courants
-    suffixes = [" SAS", " SA", " SARL", " EURL", " SNC", " SCOP", " SASU", " SCIC"]
-    for suffix in suffixes:
-        if normalized.endswith(suffix):
-            normalized = normalized[: -len(suffix)]
-            break
-
-    # Nettoyer les espaces multiples
-    normalized = re.sub(r"\s+", " ", normalized.strip())
-
-    return normalized if normalized else "Non spécifié"
-
-
-def extract_domain(url: str) -> str:
-    """Extrait et normalise le domaine d'une URL"""
-    if not url:
-        return "Non spécifié"
-
-    # Extraire le domaine
-    if "://" in url:
-        domain = url.split("://")[1].split("/")[0]
-    else:
-        domain = url.split("/")[0]
-
-    # Supprimer www.
-    if domain.startswith("www."):
-        domain = domain[4:]
-
-    return domain.lower()
 
 
 @job_offers_router.get("/", response_model=List[JobOfferResponse])

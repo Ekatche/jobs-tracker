@@ -95,3 +95,61 @@ def test_defensive_date_sorting_exact_duplicates():
     assert sorted_docs[0]["id"] == 2
     assert sorted_docs[1]["id"] == 1
     assert sorted_docs[2]["id"] == 3
+
+
+def test_enrich_job_offer_data_valid_and_rejected():
+    from app.tasks.job_offers_collectors import enrich_offers_sync
+
+    raw_offers = [
+        {
+            "poste": "Data Scientist",
+            "entreprise": "FIDUCIAL",
+            "description": "Nous recrutons un Data Scientist pour piloter nos projets IA et machine learning à Lyon.",
+            "localisation": "Lyon",
+            "type_contrat": "CDI",
+            "salaire": "45k€ - 55k€",
+            "mode_travail": "Hybride",
+            "competences_cles": ["Python", "PyTorch", "SQL"],
+            "url": "https://fiducial.fr/jobs/123",
+        },
+        {
+            # Expired / Dummy offer that must be rejected
+            "poste": "Non spécifié",
+            "entreprise": "Non spécifié",
+            "description": "Non spécifié",
+            "localisation": "Non spécifié",
+            "url": "https://apec.fr/expired",
+        },
+        {
+            # Missing company offer that must be rejected
+            "poste": "Lead Data Engineer",
+            "entreprise": "",
+            "description": "Description...",
+        },
+    ]
+
+    enriched = enrich_offers_sync(raw_offers, "query test")
+    assert len(enriched) == 1
+    valid = enriched[0]
+    assert valid["poste"] == "Data Scientist"
+    assert valid["entreprise"] == "FIDUCIAL"
+    assert "piloter nos projets IA" in valid["description"]
+    assert valid["type_contrat"] == "CDI"
+    assert valid["competences_cles"] == ["Python", "PyTorch", "SQL"]
+    assert valid["is_deleted"] is False
+
+
+def test_crawler_job_offer_pydantic_model():
+    from job_crawler.crawler1 import JobOffer
+
+    offer = JobOffer(
+        poste="MLOps Engineer",
+        entreprise="Sanofi",
+        description="Gestion du cycle de vie des modèles ML et monitoring de production.",
+        localisation="Lyon",
+        competences_cles=["Kubernetes", "MLflow", "Python"],
+    )
+    assert offer.poste == "MLOps Engineer"
+    assert offer.entreprise == "Sanofi"
+    assert "Gestion du cycle de vie" in offer.description
+    assert offer.salaire == "Non spécifié"

@@ -1,70 +1,55 @@
 convert_query_task:
   description: >
-    Prendre la demande de l'utilisateur : {user_query} et la convertir en une requête optimisée pour un moteur de recherche.
+    Analyse la demande utilisateur suivante : '{user_query}'
     
-    Tu es un expert en recherche d'offres d'emploi. Transforme la question en une requête de recherche
-    concise et efficace pour trouver des offres d'emploi. La requête doit être optimisée pour un moteur de recherche.
-    
-    Exemples:
-    - Question: "Je cherche un poste de data scientist à paris"
-      Requête: "offres d'emploi data scientist region parisienne"
-    
-    Retourne UNIQUEMENT le texte, sans explications ni formatage supplémentaire.
+    1. Identifie l'intitulé de poste clé (ex: 'Data Scientist', 'Développeur Fullstack').
+    2. Identifie la localisation géographique (ex: 'Lyon', 'Paris', 'Télétravail').
+    3. Détecte le type de contrat si spécifié (ex: 'CDI', 'Freelance', 'Stage', 'Alternance').
+    4. Formule une requête principale percutante et optimisée pour les job boards (ex: 'offres emploi Data Scientist Lyon CDI').
+    5. Propose 2 variantes de requêtes ciblées (ex: 'recrutement Data Scientist Lyon', 'offres emploi "Data Science" Auvergne-Rhône-Alpes').
+
   expected_output: >
-    Une requête concise et efficace, prête à être utilisée dans un moteur de recherche.
+    Un objet structuré conforme au schéma OptimizedQueries contenant la requête principale, les alternatives et les entités extraites.
   agent: query_converter
   input_variables:
     user_query: ${inputs.user_query}
 
 execute_search_task:
   description: >
-    Utiliser la requête optimisée pour effectuer une recherche et récupérer les URLs des résultats pertinents.
+    À partir de la requête optimisée générée par la tâche précédente, utilise l'outil "Recherche d'offres d'emploi sur job boards".
     
-    Tu dois utiliser l'outil "Recherche d'offres d'emploi sur job boards" en lui passant UNIQUEMENT la requête 
-    sous forme de texte simple. Assure-toi de ne pas envoyer d'objets ou de structures complexes.
-    
-    Exemple:
-    - Si tu reçois la requête: "offres emploi data scientist Lyon"
-    - Utilise l'outil en passant exactement cette chaîne de caractères
-    
-    Liste ensuite les URLs obtenues.
+    Passe la requête principale sous forme de chaîne de caractères simple à l'outil pour interroger les job boards et LinkedIn.
+    Récupère l'ensemble des URLs brutes retournées par la recherche.
 
   expected_output: >
-    Retourne uniquement un tableau JSON contenant les URLs trouvées, sans aucun commentaire ni texte additionnel.
-    Exemple :
-    ["https://www.site1.com/offre-emploi/12345", "https://www.site2.fr/jobs/56789"]
-    Si aucune URL pertinente n'est trouvée, retourne [].
-    
+    Une liste d'URLs d'offres d'emploi issues des résultats de recherche.
   agent: search_executor
   input_variables:
     query: ${convert_query_task.output}
 
 filter_urls_task:
   description: >
-    Filtrer la liste d'URLs obtenue pour ne garder que les liens les plus pertinents, fiables et directement exploitables pour l'extraction d'offres d'emploi.
+    Examine attentivement l'ensemble des URLs collectées par la tâche de recherche et sélectionne UNIQUEMENT les liens les plus qualifiés, fiables et pertinents.
     
-    Critères de sélection :
-    1. **Types d'URLs acceptées** :
-       - Liens directs vers des offres d'emploi individuelles (ex: /offres/1234, /jobs/view/..., /companies/.../jobs/...)
-       - Pages de résultats de recherche ciblées contenant plusieurs offres (LinkedIn, HelloWork, APEC, Welcome to the Jungle, France Travail)
+    Règles de qualification et de sélection :
+    1. **Priorité absolue aux offres directes** :
+       - Liens vers des offres individuelles spécifiques (ex: welcometothejungle.com/fr/companies/.../jobs/..., candidat.francetravail.fr/offres/recherche/detail/..., apec.fr/candidat/recherche-emploi.html/offre/..., hellowork.com/fr-fr/emplois/..., linkedin.com/jobs/view/...).
+       - Pages de résultats ciblées avec offres multiples si très pertinentes.
     
-    2. **Pertinence & Géolocalisation** :
-       - L'URL ou ses paramètres doivent correspondre au métier et à la localisation demandés dans la requête initiale.
+    2. **Adéquation poste & zone géographique** :
+       - Vérifie que l'intitulé ou le chemin de l'URL concorde avec le métier recherché et la localisation demandée.
     
-    3. **Fiabilité des sources** :
-       - Privilégier les plateformes d'emploi reconnues (francetravail.fr, hellowork.com, apec.fr, welcometothejungle.com, linkedin.com/jobs, indeed.com).
+    3. **Exclusions obligatoires** :
+       - Exclure les pages de connexion, formulaires de candidature génériques, flux RSS ou blogs.
+       - Exclure les agrégateurs spam (Jooble, Neuvoo, Talent.com, Jobrapido).
+       - Éliminer tous les doublons.
     
-    4. **Exclusions strictes** :
-       - Éliminer les pages d'accueil génériques, pages d'authentification/login, formulaires d'inscription ou flux RSS bruts.
-       - Éliminer les doublons d'URLs.
+    4. **Sélection finale** :
+       - Retenir entre 6 et 12 URLs optimales.
+       - Attribuer à chaque URL une note de pertinence (1 à 10) et la plateforme source identifiée.
 
   expected_output: >
-    Retourne uniquement un tableau JSON contenant la liste des URLs retenues (maximum 8 à 10 URLs), sans aucun commentaire ni texte avant ou après.
-    Exemple :
-    ["https://www.welcometothejungle.com/fr/companies/abc/jobs/data-scientist_paris", "https://www.hellowork.com/fr-fr/emplois/12345.html", "https://candidat.francetravail.fr/offres/emploi/data-scientist/lyon"]
-    
-    Si aucune URL pertinente n'est trouvée, retourne [].
-    
+    Un objet structuré conforme au schéma FilteredJobOffersResult listant les URLs finales retenues et le détail de chaque offre qualifiée.
   agent: url_filter
   input_variables:
     urls: ${execute_search_task.output}

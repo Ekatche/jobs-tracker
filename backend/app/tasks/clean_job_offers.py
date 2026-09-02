@@ -233,7 +233,6 @@ async def cleanup_old_offers(days: int = 40):
     except Exception as e:
         logger.error(f"💥 Erreur lors du nettoyage: {e}")
         return {"deleted": 0, "error": str(e)}
-        return {"deleted": 0, "error": str(e)}
 
 
 async def cleanup_invalid_offers():
@@ -659,7 +658,7 @@ async def remove_similarity_duplicates_global(
 
             # ✅ AMÉLIORATION 5: Logique de priorité - Les tombstones gagnent toujours
             def priority_sort_key(offer):
-                is_tombstone = bool(offer.get("is_deleted") or offer.get("is_deleted"))
+                is_tombstone = bool(offer.get("is_deleted"))
                 # Gérer les dates correctement
                 created_date = offer.get("created_at")
                 if isinstance(created_date, datetime):
@@ -680,7 +679,7 @@ async def remove_similarity_duplicates_global(
             to_delete = sorted_group[1:]
 
             keep_date_display = format_date_for_display(to_keep["created_at"])
-            is_group_tombstone = bool(to_keep.get("is_deleted") or to_keep.get("is_deleted"))
+            is_group_tombstone = bool(to_keep.get("is_deleted"))
 
             logger.info(
                 f"✅ GARDÉ: {to_keep['company']} | {to_keep['position']} | "

@@ -30,92 +30,121 @@ class TavilySearchInput(BaseModel):
 class TavilyJobBoardSearchTool(BaseTool):
     name: str = "Recherche d'offres d'emploi sur job boards"
     description: str = (
-        "Utiliser l'API Tavily pour effectuer une recherche web et obtenir des résultats organisés par IA."
+        "Effectue des recherches web ciblées sur les principaux job boards avec filtrage temporel récent (dernier mois) et exclusion des agrégateurs spam."
     )
     args_schema: Type[BaseModel] = TavilySearchInput
-    client: Optional[TavilyClient] = None  # Déclare l'attribut ici
+    client: Optional[TavilyClient] = None
 
     def __init__(self, **data):
         super().__init__(**data)
-        print(f"DEBUG TAVILY INPUT: {data}")  # Affiche ce que reçoit Pydantic
         tavily_key = os.environ.get("TAVILY_API_KEY")
         if not tavily_key:
-            logger.error("Clé Tavily non trouvée dans les variables d'environnement")
-            # Lève une exception ou définis un drapeau d'erreur
+            logger.error("Clé TAVILY_API_KEY non trouvée dans l'environnement")
         self.client = TavilyClient(api_key=tavily_key)
 
     def _run(self, **kwargs) -> list:
-        # Extraire la requête selon différents formats possibles
-        query = None
-
-        # Si on reçoit directement un argument 'query'
+        # Extraire la requête de recherche de façon robuste
         query = kwargs.get("query") or kwargs.get("description")
 
-        # Cas où CrewAI envoie la requête dans un format imbriqué
-        if isinstance(query, dict) and "description" in query:
-            query = query["description"]
+        if isinstance(query, dict):
+            query = query.get("primary_query") or query.get("query") or query.get("description")
 
-        # Si on n'a pas encore trouvé la requête, rechercher dans kwargs
         if not query and len(kwargs) > 0:
-            # Chercher dans n'importe quel champ qui pourrait contenir la requête
             for k, v in kwargs.items():
-                if isinstance(v, dict) and "description" in v:
-                    query = v["description"]
+                if isinstance(v, str) and len(v.strip()) > 3:
+                    query = v
                     break
+                elif isinstance(v, dict):
+                    query = v.get("primary_query") or v.get("query") or v.get("description")
+                    if query:
+                        break
 
-        # Deuxième vérification de type après extraction
-        if not isinstance(query, str):
-            logger.error(f"Impossible de convertir en chaîne: {type(query)}")
+        if not isinstance(query, str) or not query.strip():
+            logger.error(f"Requête de recherche invalide: {query}")
             return []
 
+        clean_query = query.strip()
         tavily_client = self.client
+        if not tavily_client:
+            tavily_key = os.environ.get("TAVILY_API_KEY")
+            tavily_client = TavilyClient(api_key=tavily_key)
+
         all_urls = []
-        logger.info(f"Exécution de la recherche Tavily avec query: {query}")
+        logger.info(f"🔍 Exécution de la recherche Tavily optimisée pour: '{clean_query}'")
+
+        # Domaines exclus (fermes à clics, agrégateurs spammant des redirections mortes)
+        spam_aggregators = [
+            "jooble.org",
+            "fr.jooble.org",
+            "talent.com",
+            "neuvoo.com",
+            "adzuna.fr",
+            "jobrapido.com",
+            "fr.jobrapido.com",
+            "optioncarriere.com",
+        ]
+
+        # Job boards français qualifiés et prioritaires
+        french_job_boards = [
+            "welcometothejungle.com",
+            "apec.fr",
+            "francetravail.fr",
+            "hellowork.com",
+            "indeed.fr",
+            "cadremploi.fr",
+            "free-work.com",
+            "lesjeudis.com",
+        ]
 
         try:
-
-            # ✅ PASSE 1: Sites français fiables
-            french_sites = [
-                "francetravail.fr",
-                "hellowork.com",
-                "apec.fr",
-                "welcometothejungle.com",
-            ]
-
-            # Recherche sites français
-            logger.info(f"🇫🇷 Recherche sites français: {query}")
+            # ✅ PASSE 1: Recherche sur les job boards français qualifiés avec filtre temporel (mois)
+            logger.info(f"🇫🇷 Passe 1 - Job boards qualifiés (offres récentes): {clean_query}")
             response_fr = tavily_client.search(
-                query=query,
+                query=clean_query,
                 search_depth="advanced",
+                time_range="month",
                 max_results=15,
-                include_domains=french_sites,
+                include_domains=french_job_boards,
+                exclude_domains=spam_aggregators,
             )
 
-            if response_fr.get("results"):
-                all_urls.extend([r["url"] for r in response_fr["results"]])
-                logger.info(f"📋 {len(response_fr['results'])} URLs sites français")
+            if response_fr and response_fr.get("results"):
+                for r in response_fr["results"]:
+                    url = r.get("url")
+                    if url and not any(spam in url.lower() for spam in spam_aggregators):
+                        all_urls.append(url)
+                logger.info(f"📋 {len(response_fr['results'])} résultats trouvés sur job boards")
 
-            # ✅ PASSE 2: LinkedIn spécifiquement
-            linkedin_query = f"site:linkedin.com/jobs {query}"
-            logger.info(f"💼 Recherche LinkedIn: {linkedin_query}")
-
+            # ✅ PASSE 2: Recherche ciblée LinkedIn Jobs
+            linkedin_query = f"site:linkedin.com/jobs {clean_query}"
+            logger.info(f"💼 Passe 2 - LinkedIn Jobs récents: {linkedin_query}")
             response_linkedin = tavily_client.search(
                 query=linkedin_query,
                 search_depth="advanced",
-                max_results=15,
+                time_range="month",
+                max_results=10,
+                exclude_domains=spam_aggregators,
             )
 
-            if response_linkedin.get("results"):
-                linkedin_urls = [r["url"] for r in response_linkedin["results"]]
-                all_urls.extend(linkedin_urls)
-                logger.info(f"💼 {len(linkedin_urls)} URLs LinkedIn")
+            if response_linkedin and response_linkedin.get("results"):
+                for r in response_linkedin["results"]:
+                    url = r.get("url")
+                    if url and "linkedin.com/jobs" in url:
+                        all_urls.append(url)
+                logger.info(f"💼 {len(response_linkedin['results'])} résultats trouvés sur LinkedIn")
 
-            # Dédoublonnage
-            unique_urls = list(set(all_urls))
-            logger.info(f"✅ Total: {len(unique_urls)} URLs uniques trouvées")
+            # Dédoublonnage en conservant l'ordre
+            seen = set()
+            unique_urls = []
+            for u in all_urls:
+                u_clean = u.strip()
+                if u_clean not in seen:
+                    seen.add(u_clean)
+                    unique_urls.append(u_clean)
 
+            logger.info(f"✅ Total: {len(unique_urls)} URLs d'offres uniques et récentes retenues")
             return unique_urls
 
         except Exception as e:
-            logger.error(f"Erreur lors de la recherche: {str(e)}")
+            logger.error(f"Erreur lors de la recherche Tavily: {str(e)}")
             return []

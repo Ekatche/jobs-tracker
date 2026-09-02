@@ -12,6 +12,7 @@ import { FiEye, FiEyeOff } from "react-icons/fi";
 const loginSchema = z.object({
   username: z.string().min(1, "Le nom d'utilisateur est requis"),
   password: z.string().min(1, "Le mot de passe est requis"),
+  rememberMe: z.boolean().optional(),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -39,7 +40,7 @@ export default function LoginForm() {
     setError(null);
 
     try {
-      await authApi.login(data.username, data.password);
+      await authApi.login(data.username, data.password, data.rememberMe);
       router.push("/applications");
     } catch (err: unknown) {
       setError(
@@ -114,6 +115,22 @@ export default function LoginForm() {
               {errors.password.message}
             </p>
           )}
+        </div>
+
+        <div className="flex items-center">
+          <input
+            id="rememberMe"
+            type="checkbox"
+            {...register("rememberMe")}
+            className="h-4 w-4 rounded border-gray-600 bg-blue-night text-blue-600 focus:ring-2 focus:ring-blue-400"
+            disabled={isLoading}
+          />
+          <label
+            htmlFor="rememberMe"
+            className="ml-2 block text-sm text-gray-300"
+          >
+            Se souvenir de moi (rester connecté 7 jours)
+          </label>
         </div>
 
         <button

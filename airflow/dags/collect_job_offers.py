@@ -31,7 +31,14 @@ def validate_queries() -> list:
     logger = logging.getLogger("airflow.task")
     logger.info("📋 Validation des requêtes")
 
-    queries = ["Je recherche un poste de data scientist proche de Lyon"]
+    queries = [
+        "Je recherche un poste de data scientist proche de Lyon",
+        "Je recherche un poste d'ingénieur IA (AI engineer) proche de Lyon",
+        "Je recherche un poste de data engineer proche de Lyon",
+        "Je recherche un poste de machine learning engineer proche de Lyon",
+        "Je recherche un poste d'ingénieur MLOps proche de Lyon",
+        "Je recherche un poste de LLM engineer / ingénieur IA générative proche de Lyon",
+    ]
     valid_queries = [q.strip() for q in queries if len(q.strip()) > 5]
 
     if not valid_queries:

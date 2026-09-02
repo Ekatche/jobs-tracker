@@ -254,6 +254,7 @@ class TaskCreate(BaseModel):
 class JobOfferCreate(BaseModel):
     poste: str
     entreprise: str
+    description: Optional[str] = None
     localisation: Optional[str] = None
     date: Optional[str] = None
     type_contrat: Optional[str] = None  # Ex: CDI, CDD, Freelance, Stage, Alternance
@@ -270,6 +271,7 @@ class JobOfferResponse(BaseModel):
     id: str
     poste: str
     entreprise: str
+    description: Optional[str] = None
     localisation: Optional[str] = None
     date: Optional[str] = None
     type_contrat: Optional[str] = None
