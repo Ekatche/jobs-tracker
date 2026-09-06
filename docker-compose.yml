@@ -73,11 +73,13 @@ services:
       - app-network
 
   frontend:
+    container_name: jobtracker-frontend
+    image: job-tracker-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "3875:3875"
     volumes:
       - ./frontend:/app
       - /app/node_modules

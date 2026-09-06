@@ -18,7 +18,7 @@ RUN npm run lint
 RUN npm run build
 
 # Exposer le port
-EXPOSE 3000
+EXPOSE 3875
 
 # Commande pour exécuter l'application
 CMD ["npm", "run", "start"]

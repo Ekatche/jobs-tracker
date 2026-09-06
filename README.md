@@ -76,7 +76,7 @@ docker compose up -d
 ```
 
 Cette commande démarre les 6 services :
-1. `frontend` : Interface utilisateur ([http://localhost:3000](http://localhost:3000))
+1. `frontend` : Interface utilisateur ([http://localhost:3875](http://localhost:3875))
 2. `backend` : API REST FastAPI ([http://localhost:8000](http://localhost:8000), docs sur [/docs](http://localhost:8000/docs))
 3. `airflow` : Orchestrateur et planificateur de tâches ([http://localhost:8080](http://localhost:8080))
 4. `mongodb` : Base de données NoSQL
