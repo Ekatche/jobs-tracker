@@ -92,10 +92,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3875:3875"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
