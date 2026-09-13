@@ -54,19 +54,30 @@ async def fetch_documents(url: str):
                 ):
                     crawl_result = filtered_markdown[0]  # Premier élément du container
 
-                    # Essayer différentes sources de contenu, par ordre de préférence
-                    if hasattr(crawl_result, "html") and crawl_result.html:
-                        content = crawl_result.html
-                        content_type = "html"
+                    # Essayer différentes sources de contenu, par ordre de préférence : markdown > cleaned_html > html
+                    md_candidate = getattr(crawl_result, "markdown", None)
+                    if md_candidate:
+                        if hasattr(md_candidate, "raw_markdown") and md_candidate.raw_markdown:
+                            content = str(md_candidate.raw_markdown)
+                        else:
+                            content = str(md_candidate)
+                        content_type = "markdown"
                     elif (
                         hasattr(crawl_result, "cleaned_html")
                         and crawl_result.cleaned_html
                     ):
                         content = crawl_result.cleaned_html
                         content_type = "cleaned_html"
-                    elif hasattr(crawl_result, "markdown") and crawl_result.markdown:
-                        content = crawl_result.markdown
-                        content_type = "markdown"
+                    elif hasattr(crawl_result, "html") and crawl_result.html:
+                        try:
+                            from bs4 import BeautifulSoup
+                            soup = BeautifulSoup(crawl_result.html, "html.parser")
+                            for tag in soup(["script", "style", "nav", "footer", "header", "noscript"]):
+                                tag.decompose()
+                            content = soup.get_text(separator="\n", strip=True)
+                        except Exception:
+                            content = crawl_result.html
+                        content_type = "html_clean"
                     else:
                         logger.warning("Aucun contenu exploitable dans le CrawlResult")
                         return []
@@ -186,21 +197,44 @@ async def summarize_chunks(chunks):
     # Combiner les chunks en un seul texte
     combined_text = "\n\n".join([chunk.page_content for chunk in chunks])
 
+    # Nettoyage des motifs récurrents de bannières de cookies / consentement
+    import re
+    cookie_patterns = [
+        r"(?i)blah blah blah cookie.*?(?=\n\n|\Z)",
+        r"(?i)bon ok, ces cookies ne sont ni sucrés.*?(?=\n\n|\Z)",
+        r"(?i)nous utilisons des cookies.*?(?=\n\n|\Z)",
+        r"(?i)gérer vos préférences de cookies.*?(?=\n\n|\Z)",
+        r"(?i)politique de cookies.*?(?=\n\n|\Z)",
+    ]
+    for cp in cookie_patterns:
+        combined_text = re.sub(cp, "", combined_text, flags=re.DOTALL)
+
     # Vérifier la taille estimée du texte pour le LLM
     estimated_tokens = estimate_token_count(combined_text)
     logger.info(f"Taille estimée du texte: ~{estimated_tokens:.0f} tokens")
 
-    # Si le texte est trop long, le tronquer
-    max_tokens = 8000  # Limite conservative pour le modèle de résumé
+    # Si le texte est trop long, le tronquer intelligemment
+    max_tokens = 16000  # Limite sécurisée pour le modèle de résumé
     if estimated_tokens > max_tokens:
         logger.warning(
             f"Texte trop long ({estimated_tokens:.0f} tokens), troncature appliquée"
         )
         words = combined_text.split()
-        # On garde environ 75% de la limite max pour laisser de la place à la réponse
         safe_word_count = int(max_tokens * 0.75 / 1.33)
-        combined_text = " ".join(words[:safe_word_count])
-        logger.info(f"Texte tronqué à environ {safe_word_count} mots")
+        
+        # Tenter d'ancrer la découpe à partir de la première section d'offre
+        anchor_match = re.search(
+            r"(?i)(descriptif du poste|missions|profil recherché|à propos|responsabilités|job description|about the job)",
+            combined_text,
+        )
+        if anchor_match and anchor_match.start() > 200:
+            head_words = words[:500]
+            remaining_text = combined_text[anchor_match.start():]
+            remaining_words = remaining_text.split()[:max(0, safe_word_count - 500)]
+            combined_text = " ".join(head_words + remaining_words)
+        else:
+            combined_text = " ".join(words[:safe_word_count])
+        logger.info(f"Texte tronqué à environ {len(combined_text.split())} mots")
 
     prompt = PromptTemplate(
         input_variables=["text"],

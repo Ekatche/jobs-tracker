@@ -7,6 +7,7 @@ import { z } from "zod";
 import { authApi, userApi } from "@/lib/api";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { FiEdit, FiUser, FiMail, FiSave, FiKey } from "react-icons/fi";
+import CandidateProfileSection from "@/components/profile/CandidateProfileSection";
 
 // Ajoutez ceci après les imports et avant les schémas de validation
 interface User {
@@ -197,6 +198,9 @@ function ProfileContent() {
     <div className="min-h-screen bg-blue-night p-6">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-2xl font-bold text-white mb-8">Mon Profil</h1>
+
+        {/* Section Profil Candidat & IA (CV, Website, Compétences, Lettres) */}
+        <CandidateProfileSection />
 
         <div className="bg-blue-night-lighter rounded-lg shadow-lg p-6 mb-8">
           <div className="flex justify-between items-center mb-6">

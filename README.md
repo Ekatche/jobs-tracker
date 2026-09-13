@@ -10,14 +10,14 @@ Job Tracker est une application web moderne et automatisée pour centraliser vos
 - **Backend API** : FastAPI, Pydantic v2, Motor / PyMongo, JWT Auth (Access + Refresh Tokens avec "Se souvenir de moi").
 - **Automatisation & Scheduling** : Apache Airflow (DAGs de collecte quotidienne, nettoyage des doublons et soft-delete).
 - **Génération de Lettres de Motivation (Multi-Agents CrewAI)** :
-  - Pipeline à 4 rôles : Analyste de cadrage (Google Gemini), Rédacteur de premier jet (OpenAI / Mistral), Critique de style multi-fournisseur obligatoire (fournisseur croisé) et Réviseur conditionnel.
+  - Pipeline à 4 rôles : Analyste de cadrage (GPT-5.6 Luna), Rédacteur de premier jet (GPT-5.6 Sol), Critique de style multi-fournisseur obligatoire (Gemini 3.8 Flash, cross-provider) et Réviseur conditionnel (GPT-5.6 Sol).
   - Garde-fous déterministes stricts (longueur, connecteurs, ponctuation, entités autorisées, anti-hallucination).
   - Déclenchement automatique non-bloquant lors du passage d'une candidature au statut "En étude".
   - Gestion résiliente des quotas et crédits API avec détection d'erreurs conviviale.
 - **Intelligence Artificielle & Scraping** :
   - **CrewAI (v1.x)** : Multi-agents coordonnés pour convertir une intention de recherche en requêtes ciblées et filtrer les URLs pertinentes avec typage Pydantic structuré.
   - **Tavily Search API** : Moteur de recherche web avec fraîcheur mensuelle et ciblage de job boards qualifiés.
-  - **Crawl4AI** : Web scraper asynchrone Chromium capable d'exécuter du JS (SPAs type APEC, HelloWork, WTTJ), de contourner les bandeaux cookies et d'extraire les données structurées via LLM (`gpt-4o-mini` ou `gemini-flash`).
+  - **Crawl4AI** : Web scraper asynchrone Chromium capable d'exécuter du JS (SPAs type APEC, HelloWork, WTTJ), de contourner les bandeaux cookies et d'extraire les données structurées via LLM (`gpt-5.6-luna` ou `gemini-3.8-flash`).
 - **Base de données** : MongoDB avec persistance des tombstones (soft-delete pour ne pas réimporter les offres supprimées).
 
 ---
@@ -27,9 +27,9 @@ Job Tracker est une application web moderne et automatisée pour centraliser vos
 - **Docker** et **Docker Compose**
 - **Git**
 - Clés API :
-  - `OPENAI_API_KEY` (recommandé pour une extraction rapide et stable)
+  - `OPENAI_API_KEY` (requis — GPT-5.6 Sol pour la rédaction, Luna pour l'extraction)
   - `TAVILY_API_KEY` (pour la recherche d'offres ciblées)
-  - `GEMINI_API_KEY` (optionnel)
+  - `GEMINI_API_KEY` (requis — Gemini 3.8 Flash pour le critique cross-provider)
 
 ---
 
@@ -160,14 +160,14 @@ Le scraper intègre plusieurs mécanismes intelligents pour garantir un taux d'e
 ### 5. Configuration des modèles et des clés pour les Lettres de Motivation
 
 Le générateur de lettres s'appuie sur une critique inter-fournisseurs obligatoire :
-- **Clés nécessaires** : Définissez `GEMINI_API_KEY`, `OPENAI_API_KEY` (et optionnellement `MISTRAL_API_KEY`) dans votre `.env`.
-- **Règle multi-fournisseur** : Le critique évalue le style sans voir le profil candidat et doit obligatoirement provenir d'un fournisseur différent du rédacteur (ex: Rédacteur OpenAI + Critique Gemini).
+- **Clés nécessaires** : Définissez `OPENAI_API_KEY` et `GEMINI_API_KEY` dans votre `.env`. `MISTRAL_API_KEY` est optionnelle (fallback).
+- **Règle multi-fournisseur** : Le critique évalue le style sans voir le profil candidat et doit obligatoirement provenir d'un fournisseur différent du rédacteur (ex: Rédacteur OpenAI GPT-5.6 Sol + Critique Google Gemini 3.8 Flash).
 - **Vérification des crédits & quotas** : Les API d'OpenAI, Google AI Studio et Mistral ne proposent pas de point d'accès public sécurisé pour interroger le solde de crédit restant avec une clé API standard. L'application surveille automatiquement les erreurs d'appels et remonte immédiatement dans l'interface un message clair invitant à recharger son compte (ou à utiliser le palier gratuit Gemini).
 - **Modèles configurables** via variables d'environnement :
-  - `LETTER_MODEL_ANALYST` (défaut : `gemini/gemini-3.8-flash`)
-  - `LETTER_MODEL_WRITER` (défaut : `openai/gpt-5.6-sol`)
-  - `LETTER_MODEL_CRITIC` (défaut automatique croisé : `gemini/gemini-3.8-flash`)
-  - `LETTER_MODEL_REVISER` (défaut : `openai/gpt-5.6-sol`)
+  - `LETTER_MODEL_ANALYST` (défaut : `openai/gpt-5.6-luna` — extraction JSON rapide et économique)
+  - `LETTER_MODEL_WRITER` (défaut : `openai/gpt-5.6-sol` — qualité rédactionnelle maximale)
+  - `LETTER_MODEL_CRITIC` (défaut : `gemini/gemini-3.8-flash` — critique cross-provider gratuit)
+  - `LETTER_MODEL_REVISER` (défaut : `openai/gpt-5.6-sol` — révision au même niveau que le rédacteur)
 
 ---
 

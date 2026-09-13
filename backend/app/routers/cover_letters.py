@@ -96,6 +96,8 @@ async def update_candidate_profile(
     db=Depends(get_database),
     current_user: UserModel = Depends(get_current_user),
 ):
+    profile_data.pop("_id", None)
+    profile_data.pop("id", None)
     profile_data["user_id"] = ObjectId(current_user.id)
     profile_data["updated_at"] = datetime.now(timezone.utc)
     await db["candidate_profile"].update_one(

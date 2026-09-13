@@ -227,7 +227,7 @@ async def get_filtered_markdown(
 
         # 📋 Filtre d'élagage déterministe (0 token)
         markdown_filter = PruningContentFilter(
-            threshold=0.48,
+            threshold=0.38,
             threshold_type="fixed",
             min_word_threshold=5,
         )
@@ -266,19 +266,18 @@ async def get_filtered_markdown(
             logger.info(f"📊 Crawl terminé - Success: {result.success}")
 
             if result.success:
-                # ✅ Récupération du markdown filtré (fit_markdown)
+                # ✅ Récupération du markdown : fit_markdown en priorité, sinon raw_markdown
                 md_obj = result.markdown
-                if hasattr(md_obj, "fit_markdown") and md_obj.fit_markdown:
-                    filtered_markdown = md_obj.fit_markdown
-                elif hasattr(md_obj, "raw_markdown") and md_obj.raw_markdown:
-                    filtered_markdown = md_obj.raw_markdown
-                elif isinstance(md_obj, str):
-                    filtered_markdown = md_obj
-                else:
-                    filtered_markdown = str(md_obj or "")
+                filtered_markdown = ""
+                if hasattr(md_obj, "fit_markdown") and md_obj.fit_markdown and len(md_obj.fit_markdown.strip()) > 100:
+                    filtered_markdown = md_obj.fit_markdown.strip()
+                elif hasattr(md_obj, "raw_markdown") and md_obj.raw_markdown and len(md_obj.raw_markdown.strip()) > 100:
+                    filtered_markdown = md_obj.raw_markdown.strip()
+                elif isinstance(md_obj, str) and len(md_obj.strip()) > 100:
+                    filtered_markdown = md_obj.strip()
 
                 # ✅ Vérification si filtered_markdown est vide ou None
-                if not filtered_markdown or len(filtered_markdown.strip()) == 0:
+                if not filtered_markdown:
                     logger.warning(
                         "⚠️ Markdown filtré vide ou None, retour de result complet"
                     )

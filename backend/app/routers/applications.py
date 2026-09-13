@@ -407,8 +407,8 @@ async def regenerate_application_description(
         description = await summarize_chunks(chunks)
         if not description:
             raise HTTPException(
-                status_code=500,
-                detail="Échec de la génération du résumé de l'offre",
+                status_code=422,
+                detail="Impossible d'extraire une description exploitable depuis cette offre (contenu protégé ou non identifiable)",
             )
 
         await db["applications"].update_one(
@@ -425,6 +425,6 @@ async def regenerate_application_description(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"[regenerate_description] Erreur: {e}")
+        logger.error(f"[regenerate_description] Erreur: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Erreur lors de la régénération : {str(e)}")
 

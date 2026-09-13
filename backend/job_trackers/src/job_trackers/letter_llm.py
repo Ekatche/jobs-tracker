@@ -4,7 +4,7 @@ from crewai import LLM
 
 # Modèles épinglés par défaut selon la spec
 DEFAULT_MODELS = {
-    "offer_analyst": "gemini/gemini-3.8-flash",
+    "offer_analyst": "openai/gpt-5.6-luna",
     "writer": "openai/gpt-5.6-sol",
     "critic": "gemini/gemini-3.8-flash",
     "reviser": "openai/gpt-5.6-sol",
@@ -43,8 +43,10 @@ def validate_cross_provider(writer_model: str, critic_model: Optional[str] = Non
     # Résolution automatique basée sur la spec
     if writer_prov == "openai":
         return "gemini/gemini-3.8-flash"
+    elif writer_prov == "google":
+        return "openai/gpt-5.6-terra"
     else:
-        return "openai/gpt-5.6-sol"
+        return "gemini/gemini-3.8-flash"
 
 def get_letter_llm(role: str, model_override: Optional[str] = None) -> LLM:
     env_var_map = {
