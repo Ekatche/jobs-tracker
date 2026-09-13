@@ -115,15 +115,33 @@ export default function CoverLetterPanel({ applicationId, isEtudeStatus }: Cover
   }
 
   if (letterData?.status === "failed") {
+    const isCreditOrQuotaError =
+      letterData.error?.includes("Crédits épuisés") ||
+      letterData.error?.includes("quota") ||
+      letterData.error?.includes("Rate Limit");
+
     return (
-      <div className="mt-4 p-4 rounded-lg bg-red-900/20 border border-red-800 text-red-300 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <FiAlertCircle />
-          <span>Échec de la génération : {letterData.error || "Erreur inconnue"}</span>
+      <div className="mt-4 p-4 rounded-lg bg-red-900/20 border border-red-800 text-red-300 flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2">
+            <FiAlertCircle className="mt-1 flex-shrink-0" />
+            <div>
+              <p className="font-medium text-sm">Échec de la génération :</p>
+              <p className="text-xs text-red-200 mt-0.5">{letterData.error || "Erreur inconnue"}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleRegenerate}
+            className="px-3 py-1 bg-red-800 rounded hover:bg-red-700 text-white text-xs whitespace-nowrap"
+          >
+            Relancer
+          </button>
         </div>
-        <button onClick={handleRegenerate} className="px-3 py-1 bg-red-800 rounded hover:bg-red-700 text-white text-sm">
-          Relancer
-        </button>
+        {isCreditOrQuotaError && (
+          <div className="text-xs text-amber-300/90 bg-amber-950/30 p-2 rounded border border-amber-800/40 mt-1">
+            💡 Astuce : Vérifiez votre solde sur la console de facturation (OpenAI / Mistral) ou utilisez le modèle Gemini qui dispose d'un palier gratuit.
+          </div>
+        )}
       </div>
     );
   }

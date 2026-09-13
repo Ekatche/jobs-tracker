@@ -71,3 +71,50 @@ def get_letter_llm(role: str, model_override: Optional[str] = None) -> LLM:
 
     temp = ROLE_TEMPERATURES.get(role, 0.5)
     return LLM(model=model, api_key=api_key, temperature=temp)
+
+def format_llm_error(error: Exception, provider: Optional[str] = None) -> str:
+    """Format and diagnose raw LLM errors into helpful, actionable messages."""
+    err_str = str(error).lower()
+    prov_str = provider.upper() if provider else "DU FOURNISSEUR"
+
+    if any(term in err_str for term in ["insufficient_quota", "quota", "credit", "exceeded your current quota", "billing", "402", "payment_required"]):
+        return (
+            f"Crédits épuisés ou quota dépassé sur votre compte API {prov_str}. "
+            "Veuillez recharger votre solde ou vérifier votre compte sur la console du fournisseur."
+        )
+    if any(term in err_str for term in ["invalid_api_key", "incorrect api key", "unauthorized", "401", "authentication"]):
+        return (
+            f"Clé API {prov_str} invalide ou expirée. "
+            "Veuillez vérifier vos clés API dans le fichier .env."
+        )
+    if any(term in err_str for term in ["rate_limit", "ratelimit", "429", "resource_exhausted"]):
+        return (
+            f"Limite de requêtes par minute (Rate Limit) atteinte pour {prov_str}. "
+            "Veuillez patienter quelques instants avant de relancer la génération."
+        )
+    return f"Erreur lors de l'appel LLM ({prov_str}) : {str(error)}"
+
+def get_api_status() -> dict:
+    """
+    Retourne le statut des clés API configurées et des liens d'administration.
+    Note : OpenAI, Google AI Studio et Mistral ne fournissent pas d'endpoint public
+    sécurisé permettant d'interroger le solde de crédit restant avec une clé d'API standard.
+    """
+    return {
+        "google": {
+            "configured": bool(os.getenv("GEMINI_API_KEY")),
+            "note": "Palier gratuit standard disponible sur Gemini 3.8 Flash (limité en requêtes par minute).",
+            "billing_url": "https://aistudio.google.com/",
+        },
+        "openai": {
+            "configured": bool(os.getenv("OPENAI_API_KEY")),
+            "note": "Facturation prépayée. Les crédits restants sont consultables sur platform.openai.com/billing.",
+            "billing_url": "https://platform.openai.com/billing",
+        },
+        "mistral": {
+            "configured": bool(os.getenv("MISTRAL_API_KEY")),
+            "note": "Compte à crédits. Solde consultable sur console.mistral.ai/billing.",
+            "billing_url": "https://console.mistral.ai/billing",
+        },
+    }
+

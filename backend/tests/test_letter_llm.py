@@ -32,3 +32,23 @@ def test_valid_cross_provider_resolution():
 
     critic_model_mistral = validate_cross_provider("mistral/mistral-large-3-0", None)
     assert get_model_provider(critic_model_mistral) == "openai"
+
+def test_format_llm_error_quota_and_key():
+    from letter_llm import format_llm_error
+    quota_err = Exception("Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details.'}}")
+    msg = format_llm_error(quota_err, "openai")
+    assert "Crédits épuisés ou quota" in msg
+    assert "OPENAI" in msg
+
+    auth_err = Exception("Error code: 401 - Incorrect API key provided")
+    msg_auth = format_llm_error(auth_err, "mistral")
+    assert "Clé API MISTRAL invalide" in msg_auth
+
+def test_get_api_status_structure():
+    from letter_llm import get_api_status
+    status = get_api_status()
+    assert "google" in status
+    assert "openai" in status
+    assert "mistral" in status
+    assert "billing_url" in status["openai"]
+

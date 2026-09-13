@@ -105,3 +105,20 @@ async def update_candidate_profile(
     )
     prof = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)})
     return serialize_mongodb_doc(prof)
+
+@cover_letters_router.get("/profile/api-status")
+async def check_api_accounts_status(
+    current_user: UserModel = Depends(get_current_user),
+):
+    """
+    Retourne le statut de configuration des clés API (OpenAI, Gemini, Mistral)
+    et les informations d'accès aux soldes/crédits sur les consoles fournisseurs.
+    """
+    import sys
+    from pathlib import Path
+    job_trackers_path = Path(__file__).parent.parent.parent / "job_trackers" / "src" / "job_trackers"
+    if str(job_trackers_path) not in sys.path:
+        sys.path.insert(0, str(job_trackers_path))
+    from letter_llm import get_api_status
+    return get_api_status()
+

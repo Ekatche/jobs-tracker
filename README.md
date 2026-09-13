@@ -9,6 +9,11 @@ Job Tracker est une application web moderne et automatisée pour centraliser vos
 - **Frontend** : Next.js (App Router), React, TailwindCSS, Axios, React Icons, Cookies de session proactifs.
 - **Backend API** : FastAPI, Pydantic v2, Motor / PyMongo, JWT Auth (Access + Refresh Tokens avec "Se souvenir de moi").
 - **Automatisation & Scheduling** : Apache Airflow (DAGs de collecte quotidienne, nettoyage des doublons et soft-delete).
+- **Génération de Lettres de Motivation (Multi-Agents CrewAI)** :
+  - Pipeline à 4 rôles : Analyste de cadrage (Google Gemini), Rédacteur de premier jet (OpenAI / Mistral), Critique de style multi-fournisseur obligatoire (fournisseur croisé) et Réviseur conditionnel.
+  - Garde-fous déterministes stricts (longueur, connecteurs, ponctuation, entités autorisées, anti-hallucination).
+  - Déclenchement automatique non-bloquant lors du passage d'une candidature au statut "En étude".
+  - Gestion résiliente des quotas et crédits API avec détection d'erreurs conviviale.
 - **Intelligence Artificielle & Scraping** :
   - **CrewAI (v1.x)** : Multi-agents coordonnés pour convertir une intention de recherche en requêtes ciblées et filtrer les URLs pertinentes avec typage Pydantic structuré.
   - **Tavily Search API** : Moteur de recherche web avec fraîcheur mensuelle et ciblage de job boards qualifiés.
@@ -135,16 +140,32 @@ Fichier : [`backend/job_trackers/src/job_trackers/tools/custom_tool.py`](file://
 - **Agrégateurs exclus** (`spam_domains`) : Élimine automatiquement les sites de spam ou faux agrégateurs (`jooble`, `talent.com`, `neuvoo`, `adzuna`, `jobrapido`).
 - **Fraîcheur des offres** : `time_range="month"` (ou `"week"` / `"day"` selon vos besoins).
 
+### 4. Configuration des modèles et des clés pour les Lettres de Motivation
+Le générateur de lettres s'appuie sur une critique inter-fournisseurs obligatoire :
+- **Clés nécessaires** : Définissez `GEMINI_API_KEY`, `OPENAI_API_KEY` (et optionnellement `MISTRAL_API_KEY`) dans votre `.env`.
+- **Règle multi-fournisseur** : Le critique évalue le style sans voir le profil candidat et doit obligatoirement provenir d'un fournisseur différent du rédacteur (ex: Rédacteur OpenAI + Critique Gemini).
+- **Vérification des crédits & quotas** : Les API d'OpenAI, Google AI Studio et Mistral ne proposent pas de point d'accès public sécurisé pour interroger le solde de crédit restant avec une clé API standard. L'application surveille automatiquement les erreurs d'appels et remonte immédiatement dans l'interface un message clair invitant à recharger son compte (ou à utiliser le palier gratuit Gemini).
+- **Modèles configurables** via variables d'environnement :
+  - `LETTER_MODEL_ANALYST` (défaut : `gemini/gemini-3.8-flash`)
+  - `LETTER_MODEL_WRITER` (défaut : `openai/gpt-5.6-sol`)
+  - `LETTER_MODEL_CRITIC` (défaut automatique croisé : `gemini/gemini-3.8-flash`)
+  - `LETTER_MODEL_REVISER` (défaut : `openai/gpt-5.6-sol`)
+
 ---
 
 ## 🧪 Tests
 
-Les tests du backend s'exécutent avec `uv` ou `pytest` :
+Les tests du backend s'exécutent avec `uv` :
 
 ```bash
 cd backend
-uv run pytest tests/test_normalization.py tests/test_job_offers_pipeline.py tests/test_crew_models_and_tools.py
+# Tests de génération de lettres de motivation
+uv run --no-sync pytest tests/test_letter_guards.py tests/test_cover_letter_models.py tests/test_profile_seed.py tests/test_letter_llm.py tests/test_cover_letter_crew.py tests/test_cover_letter_trigger.py tests/test_cover_letters_api.py -v
+
+# Tests de normalisation et scraping
+uv run --no-sync pytest tests/test_normalization.py tests/test_job_offers_pipeline.py tests/test_crew_models_and_tools.py -v
 ```
+
 
 ---
 

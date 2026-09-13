@@ -147,9 +147,15 @@ async def _generate_cover_letter_bg(application_id: ObjectId, user_id: ObjectId,
         )
     except Exception as e:
         logger.error(f"[cover_letter_bg] Erreur lors de la génération pour {application_id}: {e}")
+        try:
+            from letter_llm import format_llm_error
+            err_message = format_llm_error(e)
+        except Exception:
+            err_message = str(e)
+
         await db["cover_letters"].update_one(
             {"application_id": ObjectId(application_id)},
-            {"$set": {"status": "failed", "error": str(e), "updated_at": datetime.now(timezone.utc)}}
+            {"$set": {"status": "failed", "error": err_message, "updated_at": datetime.now(timezone.utc)}}
         )
 
 
