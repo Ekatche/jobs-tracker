@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Application, formatDate, calculateDays } from "@/types/application";
 import { applicationApi } from "@/lib/api";
 import StatusSelect from "./StatusSelect";
+import CoverLetterPanel from "./CoverLetterPanel";
 import { FiExternalLink } from "react-icons/fi";
 
 interface ApplicationDetailsProps {
@@ -348,6 +349,12 @@ export default function ApplicationDetails({
               )}
             </div>
           </div>
+
+          {/* Section Lettre de motivation générée */}
+          <CoverLetterPanel
+            applicationId={application._id}
+            isEtudeStatus={application.status === "En étude"}
+          />
 
           <div className="border-t border-gray-700 py-4">
             <h3 className="text-lg font-semibold mb-4">Statistiques</h3>
