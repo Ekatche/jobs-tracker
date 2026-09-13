@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from bson import ObjectId
 from pydantic import BaseModel, Field, GetCoreSchemaHandler, HttpUrl, ConfigDict
 from pydantic_core import core_schema
@@ -292,3 +292,94 @@ class JobOfferFilter(BaseModel):
     companies: Optional[List[str]] = None
     limit: int = 50
     skip: int = 0
+
+
+# Modèles pour le profil candidat et la génération de lettres de motivation
+class CandidateAchievement(BaseModel):
+    text: str
+    metric: Optional[str] = None
+
+
+class CandidateExperience(BaseModel):
+    company: str
+    role: str
+    location: Optional[str] = None
+    contract: Optional[str] = None
+    start: str
+    end: Optional[str] = None
+    sector: Optional[str] = None
+    missions: List[str] = Field(default_factory=list)
+    achievements: List[CandidateAchievement] = Field(default_factory=list)
+    stack: List[str] = Field(default_factory=list)
+
+
+class CandidateProject(BaseModel):
+    name: str
+    description: str
+    stack: List[str] = Field(default_factory=list)
+    url: Optional[str] = None
+    year: Optional[str] = None
+    context: Literal["perso", "client", "recherche", "consortium"]
+
+
+class CandidateEducation(BaseModel):
+    school: str
+    degree: str
+    years: Optional[str] = None
+    topics: List[str] = Field(default_factory=list)
+
+
+class CandidateCertification(BaseModel):
+    name: str
+    issuer: str
+    year: Optional[str] = None
+    topics: List[str] = Field(default_factory=list)
+
+
+class CandidateProvenance(BaseModel):
+    field_path: str
+    source: Literal["cv", "site", "saisie"]
+
+
+class CandidateProfile(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    user_id: PyObjectId
+    headline: str = ""
+    summary: str = ""
+    contact: Dict[str, Optional[str]] = Field(default_factory=dict)
+    experiences: List[CandidateExperience] = Field(default_factory=list)
+    projects: List[CandidateProject] = Field(default_factory=list)
+    education: List[CandidateEducation] = Field(default_factory=list)
+    certifications: List[CandidateCertification] = Field(default_factory=list)
+    languages: List[str] = Field(default_factory=list)
+    skills: Dict[str, List[str]] = Field(default_factory=dict)
+    provenance: List[CandidateProvenance] = Field(default_factory=list)
+    updated_at: datetime = Field(default_factory=utcnow_with_timezone)
+
+    model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
+
+
+class CoverLetterVersion(BaseModel):
+    n: int
+    body: str
+    origin: Literal["generated", "edited"]
+    models: Dict[str, str] = Field(default_factory=dict)
+    prompt_version: str = "1.0"
+    guard_report: Dict[str, Any] = Field(default_factory=dict)
+    critic_verdict: Optional[Dict[str, Any]] = None
+    revised: bool = False
+    created_at: datetime = Field(default_factory=utcnow_with_timezone)
+
+
+class CoverLetter(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    user_id: PyObjectId
+    application_id: PyObjectId
+    status: Literal["pending", "ready", "failed"] = "pending"
+    versions: List[CoverLetterVersion] = Field(default_factory=list)
+    current_version: int = 1
+    error: Optional[str] = None
+    created_at: datetime = Field(default_factory=utcnow_with_timezone)
+    updated_at: datetime = Field(default_factory=utcnow_with_timezone)
+
+    model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
