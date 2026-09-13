@@ -367,3 +367,64 @@ async def add_note(
     )
 
     return serialize_mongodb_doc(updated_application)
+
+
+@job_router.post(
+    "/{application_id}/regenerate-description",
+    response_model=JobApplicationResponse,
+)
+async def regenerate_application_description(
+    application_id: str,
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """
+    Régénère la synthèse/description de l'offre d'emploi à partir de son URL.
+    """
+    application = await db["applications"].find_one({"_id": ObjectId(application_id)})
+    if not application:
+        raise HTTPException(status_code=404, detail="Candidature non trouvée")
+
+    if str(application["user_id"]) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+
+    url = application.get("url")
+    if not url or not str(url).strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Aucune URL d'offre associée à cette candidature pour régénérer la description",
+        )
+
+    try:
+        docs = await fetch_documents(str(url).strip())
+        if not docs:
+            raise HTTPException(
+                status_code=400,
+                detail="Impossible d'extraire le contenu depuis l'URL de l'offre",
+            )
+
+        chunks = split_documents(docs)
+        description = await summarize_chunks(chunks)
+        if not description:
+            raise HTTPException(
+                status_code=500,
+                detail="Échec de la génération du résumé de l'offre",
+            )
+
+        await db["applications"].update_one(
+            {"_id": ObjectId(application_id)},
+            {
+                "$set": {
+                    "description": description,
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            },
+        )
+        updated = await db["applications"].find_one({"_id": ObjectId(application_id)})
+        return serialize_mongodb_doc(updated)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[regenerate_description] Erreur: {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la régénération : {str(e)}")
+

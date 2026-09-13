@@ -93,8 +93,27 @@ export default function CoverLetterPanel({ applicationId, isEtudeStatus }: Cover
     return <div className="p-4 text-sm text-gray-400">Chargement de la lettre de motivation...</div>;
   }
 
-  if (!isEtudeStatus && (!letterData || letterData.status === "none")) {
-    return null;
+  if (!letterData || letterData.status === "none") {
+    return (
+      <div className="mt-6 border border-gray-700 rounded-lg p-4 bg-gray-800/60">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-white">Lettre de motivation</h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Génération sur-mesure multi-modèles (CrewAI) adaptée à l'offre.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleRegenerate}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium flex items-center gap-1.5 transition-colors shadow-sm whitespace-nowrap"
+          >
+            <FiRefreshCw />
+            <span>Rédiger une lettre</span>
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (letterData?.status === "pending") {

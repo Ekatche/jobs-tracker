@@ -469,6 +469,13 @@ export const applicationApi = {
   delete: async (applicationId: string) => {
     return fetchApi<void>(`/applications/${applicationId}`, "DELETE");
   },
+
+  regenerateDescription: async (applicationId: string) => {
+    return fetchApi<Application>(
+      `/applications/${applicationId}/regenerate-description`,
+      "POST"
+    );
+  },
 };
 
 // Ajouter l'API des offres d'emploi après taskApi

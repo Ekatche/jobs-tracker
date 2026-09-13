@@ -3,7 +3,7 @@ import { Application, formatDate, calculateDays } from "@/types/application";
 import { applicationApi } from "@/lib/api";
 import StatusSelect from "./StatusSelect";
 import CoverLetterPanel from "./CoverLetterPanel";
-import { FiExternalLink } from "react-icons/fi";
+import { FiExternalLink, FiRefreshCw } from "react-icons/fi";
 
 interface ApplicationDetailsProps {
   application: Application | null;
@@ -46,6 +46,7 @@ export default function ApplicationDetails({
   const [isAddingLocalNote, setIsAddingLocalNote] = useState<boolean>(false);
   const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
   const [editedNoteText, setEditedNoteText] = useState<string>("");
+  const [isRegeneratingDesc, setIsRegeneratingDesc] = useState<boolean>(false);
 
   // Synchroniser les notes locales avec l'application
   useEffect(() => {
@@ -95,6 +96,21 @@ export default function ApplicationDetails({
     setLocalNotes(updatedNotes);
     // Déclencher le changement pour marquer comme modifié
     onChange("notes", JSON.stringify(updatedNotes));
+  };
+
+  const handleRegenerateDescription = async () => {
+    if (!application?._id || !application.url) return;
+    try {
+      setIsRegeneratingDesc(true);
+      const updated = await applicationApi.regenerateDescription(application._id);
+      if (updated?.description) {
+        onChange("description", updated.description);
+      }
+    } catch (err) {
+      console.error("Erreur régénération description:", err);
+    } finally {
+      setIsRegeneratingDesc(false);
+    }
   };
 
   return (
@@ -201,23 +217,37 @@ export default function ApplicationDetails({
           </div>
 
           <div className="mb-6">
-            <p className="text-gray-400 mb-2 flex items-center">
-              <svg
-                className="w-5 h-5 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M4 6h16M4 12h16M4 18h7"
-                ></path>
-              </svg>
-              Description
-            </p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-gray-400 flex items-center">
+                <svg
+                  className="w-5 h-5 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M4 6h16M4 12h16M4 18h7"
+                  ></path>
+                </svg>
+                Description
+              </p>
+              {application.url && (
+                <button
+                  type="button"
+                  onClick={handleRegenerateDescription}
+                  disabled={isRegeneratingDesc}
+                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-900/30 hover:bg-blue-900/50 border border-blue-800/50 transition-colors disabled:opacity-50 font-medium"
+                  title="Régénérer le résumé de l'offre depuis son URL"
+                >
+                  <FiRefreshCw className={`w-3 h-3 ${isRegeneratingDesc ? "animate-spin" : ""}`} />
+                  <span>{isRegeneratingDesc ? "Génération..." : "Régénérer la description"}</span>
+                </button>
+              )}
+            </div>
             <textarea
               value={application.description || ""}
               onChange={(e) => onChange("description", e.target.value)}
