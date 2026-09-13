@@ -1,0 +1,23 @@
+analyze_offer_task:
+  description: >
+    Analyser l'offre {offer_description} et le profil {candidate_profile}. Produire un JSON avec missions et sélection factuelle.
+  expected_output: >
+    JSON contenant missions, selected_experiences, stacks, companies.
+
+write_letter_task:
+  description: >
+    Rédiger la lettre de motivation à partir du JSON {analyst_json} sans rien inventer d'autre.
+  expected_output: >
+    Texte brut de la lettre entre 250 et 400 mots.
+
+criticize_letter_task:
+  description: >
+    Évaluer la lettre {letter_text} au regard des missions {offer_missions}.
+  expected_output: >
+    JSON avec verdict pass/revise et liste des défauts flaws.
+
+revise_letter_task:
+  description: >
+    Corriger la lettre {letter_text} d'après les défauts {critic_flaws} et le rapport {guard_report}.
+  expected_output: >
+    Texte final de la lettre corrigée.
