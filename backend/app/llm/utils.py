@@ -191,7 +191,7 @@ async def summarize_chunks(chunks):
     logger.info(f"Taille estimée du texte: ~{estimated_tokens:.0f} tokens")
 
     # Si le texte est trop long, le tronquer
-    max_tokens = 8000  # Limite conservative pour gpt-4o-mini
+    max_tokens = 8000  # Limite conservative pour le modèle de résumé
     if estimated_tokens > max_tokens:
         logger.warning(
             f"Texte trop long ({estimated_tokens:.0f} tokens), troncature appliquée"
@@ -207,6 +207,8 @@ async def summarize_chunks(chunks):
         template="""
         Tu es un expert en recrutement et analyse d'offres d'emploi. Ta tâche est d'analyser le contenu de l'offre situé dans la balise <job_content> et d'en générer une synthèse claire et structurée.
 
+        RÈGLE PRIORITAIRE : si le contenu ne contient pas d'offre d'emploi identifiable (page d'erreur, offre supprimée ou expirée, simple menu, page d'accueil, bandeau cookies), réponds UNIQUEMENT par le mot AUCUNE_OFFRE et rien d'autre. N'invente jamais de synthèse dans ce cas.
+
         <job_content>
         {text}
         </job_content>
@@ -219,13 +221,18 @@ async def summarize_chunks(chunks):
 
         Règles d'extraction :
         - Sois précis et factuel, en te basant exclusivement sur le texte fourni dans <job_content>.
-        - Si le texte ne contient pas d'offre d'emploi identifiable (ex: page d'erreur, simple menu ou page d'accueil générale), réponds UNIQUEMENT par une chaîne vide "".
         """,
     )
 
     try:
         # Utiliser l'API correcte pour initialiser le modèle
-        model = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
+        # Les modèles gpt-5 n'acceptent que temperature=1 : on ne la passe pas
+        # et on désactive le raisonnement, inutile pour un résumé structuré.
+        model_name = os.getenv("SUMMARY_MODEL", "gpt-5-nano")
+        if model_name.startswith("gpt-5"):
+            model = ChatOpenAI(model=model_name, reasoning_effort="minimal")
+        else:
+            model = ChatOpenAI(model=model_name, temperature=0.2)
 
         # Créer une chaîne de traitement en utilisant l'opérateur pipe
         chain = prompt | model
@@ -239,6 +246,13 @@ async def summarize_chunks(chunks):
             content = result.content
         else:
             content = str(result)
+
+        content = content.strip()
+
+        # Page sans offre exploitable : sentinelle ou chaîne vide littérale
+        if content.upper().startswith("AUCUNE_OFFRE") or content in ('""', "''"):
+            logger.info("Aucune offre identifiable dans le contenu, résumé vide")
+            return ""
 
         logger.info(f"Résumé généré: {len(content)} caractères")
         return content

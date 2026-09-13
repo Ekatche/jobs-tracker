@@ -136,7 +136,7 @@ export function getRememberMe(): boolean {
 }
 
 function getRefreshTokenStorage(): Storage {
-  return getRememberMe() ? localStorage : sessionStorage;
+  return localStorage;
 }
 
 export function removeRefreshToken() {
@@ -159,5 +159,5 @@ export function getRefreshToken() {
  * @param expireInDays Durée de validité du cookie en jours (par défaut: 1 jour)
  */
 export function setToken(token: string, expireInDays: number = 1) {
-  Cookies.set("token", token, { expires: expireInDays });
+  Cookies.set("token", token, { expires: expireInDays, path: "/", sameSite: "lax" });
 }

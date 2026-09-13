@@ -34,14 +34,14 @@ filter_urls_task:
     Règles de qualification et de sélection :
     1. **Priorité absolue aux offres directes** :
        - Liens vers des offres individuelles spécifiques (ex: welcometothejungle.com/fr/companies/.../jobs/..., candidat.francetravail.fr/offres/recherche/detail/..., apec.fr/candidat/recherche-emploi.html/offre/..., hellowork.com/fr-fr/emplois/..., linkedin.com/jobs/view/...).
-       - Pages de résultats ciblées avec offres multiples si très pertinentes.
-    
+
     2. **Adéquation poste & zone géographique** :
        - Vérifie que l'intitulé ou le chemin de l'URL concorde avec le métier recherché et la localisation demandée.
-    
+
     3. **Exclusions obligatoires** :
        - Exclure les pages de connexion, formulaires de candidature génériques, flux RSS ou blogs.
        - Exclure les agrégateurs spam (Jooble, Neuvoo, Talent.com, Jobrapido).
+       - Exclure toute page de résultats (listing) dont le slug métier dans le chemin de l'URL ne correspond pas au poste recherché, même si le domaine ou d'autres mots-clés de la requête semblent concorder. Contre-exemple réel : pour une requête "ingénieur MLOps proche de Lyon", l'URL candidat.francetravail.fr/offres/emploi/ingenieur-structures/lyon/... a été retenue à tort — elle pointe vers le métier "ingénieur structures" (structures métalliques, génie civil), qui n'a aucun rapport avec MLOps, malgré la présence de "ingénieur" et "lyon" dans l'URL et la requête.
        - Éliminer tous les doublons.
     
     4. **Sélection finale** :

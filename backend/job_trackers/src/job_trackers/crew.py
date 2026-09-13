@@ -18,6 +18,13 @@ logger = logging.getLogger(__name__)
 tavily_search = TavilyJobBoardSearchTool()
 
 
+def _openai_llm(api_key: str) -> LLM:
+    """LLM OpenAI pour CrewAI. Les modèles gpt-5 n'acceptent que temperature=1."""
+    model = os.getenv("CREW_LLM_MODEL", "gpt-4o-mini")
+    temperature = 1 if model.startswith("gpt-5") else 0.1
+    return LLM(model=model, api_key=api_key, temperature=temperature)
+
+
 @lru_cache(maxsize=1)
 def get_crew_llm() -> LLM:
     """Sélectionne et met en cache le LLM optimal selon les clés API disponibles."""
@@ -26,8 +33,8 @@ def get_crew_llm() -> LLM:
 
     # Préférer OpenAI si disponible ou si Gemini n'a pas de crédits prépayés
     if openai_key and not os.getenv("PREFER_GEMINI", "").lower() in ("true", "1"):
-        logger.info("Utilisation d'OpenAI gpt-4o-mini comme moteur LLM pour CrewAI")
-        return LLM(model="gpt-4o-mini", api_key=openai_key, temperature=0.1)
+        logger.info("Utilisation d'OpenAI comme moteur LLM pour CrewAI")
+        return _openai_llm(openai_key)
 
     if gemini_key:
         logger.info("Utilisation de Gemini comme moteur LLM pour CrewAI")
@@ -38,7 +45,7 @@ def get_crew_llm() -> LLM:
         )
 
     if openai_key:
-        return LLM(model="gpt-4o-mini", api_key=openai_key, temperature=0.1)
+        return _openai_llm(openai_key)
 
     raise ValueError("Aucune clé API LLM (OPENAI_API_KEY ou GEMINI_API_KEY) trouvée.")
 

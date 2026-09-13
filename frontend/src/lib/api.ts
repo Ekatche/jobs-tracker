@@ -1,4 +1,10 @@
-import axios, { AxiosRequestConfig, AxiosResponse, AxiosInstance } from "axios";
+import axios, {
+  AxiosRequestConfig,
+  AxiosResponse,
+  AxiosInstance,
+  InternalAxiosRequestConfig,
+} from "axios";
+import { jwtDecode } from "jwt-decode";
 import {
   getToken,
   setToken,
@@ -81,33 +87,6 @@ async function fetchApi<T, D = Record<string, unknown>>(
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
-      // Axios rejette la promesse sur un statut non-2xx : c'est ici, pas
-      // dans le bloc try, que les 401 sont réellement interceptés.
-      if (error.response.status === 401) {
-        const refreshed = await refreshAccessToken();
-        if (refreshed) {
-          // Retenter la requête une seule fois avec le nouveau token
-          const newToken = getToken();
-          config.headers = {
-            ...config.headers,
-            Authorization: `Bearer ${newToken}`,
-          };
-          try {
-            const retryResponse: AxiosResponse<T> = await apiClient(config);
-            return retryResponse.data;
-          } catch {
-            removeToken();
-            removeRefreshToken();
-            window.location.href = "/auth/login?session=expired";
-            throw new Error("Session expirée");
-          }
-        }
-
-        removeToken();
-        removeRefreshToken();
-        window.location.href = "/auth/login?session=expired";
-        throw new Error("Session expirée");
-      }
       const message =
         error.response.data.detail || "Erreur communication serveur";
       throw new Error(message);
@@ -132,7 +111,7 @@ export const setupTokenRefresh = () => {
   }
 
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
+    const payload = jwtDecode<{ exp: number }>(token);
     const expiryTime = payload.exp * 1000;
     const now = Date.now();
     const msToExpiry = expiryTime - now;
@@ -162,7 +141,7 @@ export const setupTokenRefresh = () => {
 };
 
 // Fonction pour rafraîchir le token - corrigée
-const refreshAccessToken = async (): Promise<boolean> => {
+export const refreshAccessToken = async (): Promise<boolean> => {
   const refreshToken = getRefreshToken();
 
   if (!refreshToken) {
@@ -211,6 +190,62 @@ const refreshAccessToken = async (): Promise<boolean> => {
   }
 };
 
+// Module-level single-flight promise for refresh token requests
+let refreshPromise: Promise<boolean> | null = null;
+
+function runRefresh(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = refreshAccessToken().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
+function failSession(): void {
+  removeToken();
+  removeRefreshToken();
+  if (typeof window !== "undefined") {
+    window.location.href = "/auth/login?session=expired";
+  }
+}
+
+interface CustomRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config as CustomRequestConfig | undefined;
+
+    if (error.response?.status === 401 && originalRequest) {
+      if (originalRequest._retry) {
+        failSession();
+        return Promise.reject(error);
+      }
+
+      originalRequest._retry = true;
+
+      const ok = await runRefresh();
+      if (!ok) {
+        failSession();
+        return Promise.reject(error);
+      }
+
+      const newToken = getToken();
+      if (newToken && originalRequest.headers) {
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+      }
+
+      return apiClient(originalRequest);
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+
 // Types pour les modèles d'API
 export interface User {
   id: string;
@@ -253,6 +288,8 @@ export interface JobOffer {
   updated_at: string;
   is_deleted?: boolean;
   deleted_date?: string;
+  is_active?: boolean;
+  description_updated_at?: string;
 }
 
 export interface JobOfferFilter {
@@ -461,6 +498,17 @@ export const jobOffersApi = {
       `/job-offers/${offerId}/soft-delete`,
       "PATCH"
     );
+  },
+
+  // 🔄 Régénérer la description d'une offre (avec gestion des liens morts/expirés)
+  regenerateDescription: async (offerId: string) => {
+    return fetchApi<{
+      message: string;
+      is_active: boolean;
+      status: string;
+      description: string;
+      offer?: JobOffer;
+    }>(`/job-offers/${offerId}/regenerate-description`, "POST");
   },
 
   // ✅ OPTIONNEL: Supprimer ou renommer la méthode delete pour éviter toute confusion

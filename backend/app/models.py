@@ -263,6 +263,7 @@ class JobOfferCreate(BaseModel):
     competences_cles: Optional[List[str]] = None
     is_deleted: Optional[bool] = False  # Indique si l'offre a été supprimée
     deleted_date: Optional[datetime] = None  # Date de suppression
+    deletion_reason: Optional[str] = None  # Raison de suppression / expiration
     url: Optional[str] = None
     source_url: Optional[str] = None  # URL de la page où l'offre a été trouvée
 
@@ -281,6 +282,7 @@ class JobOfferResponse(BaseModel):
     url: Optional[str] = None
     is_deleted: Optional[bool] = False  # Indique si l'offre a été supprimée
     deleted_date: Optional[datetime] = None  # Date de suppression
+    deletion_reason: Optional[str] = None  # Raison de suppression / expiration
     source_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime

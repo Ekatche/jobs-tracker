@@ -166,10 +166,16 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 - Collecte périodique d'offres d'emploi
 - Nettoyage de base de données
 
-### 🔍 Web Scraping intelligent
-- Module `job_crawler` personnalisé
-- Support Playwright pour sites dynamiques
-- Gestion des erreurs et retry automatique
+### 🔍 Web Scraping intelligent (Crawl4AI & Playwright)
+- Module `job_crawler` (`crawler1.py`) asynchrone et hautement résilient.
+- **Bypasses anti-bot intégrés** :
+  - **LinkedIn** : réécriture transparente vers l'endpoint public guest SEO (`/jobs-guest/jobs/api/jobPosting/<id>`) évitant les redirections `/authwall` et les captchas.
+  - **Indeed** : réécriture vers la vue mobile (`/m/viewjob?jk=<id>`) éliminant les timeouts de 45 secondes et challenges Cloudflare Turnstile de la vue bureau.
+  - **Restitution canonique** : conservation des URLs bureau cliquables pour l'interface candidat.
+- **Détection des liens morts & expirés** : fast-exit immédiat sur HTTP 404/410 ou motifs d'expiration textuels, sans gaspillage de retries ni de tokens LLM.
+- **Fallback ATS & normalisation** : extraction automatique du nom d'entreprise depuis l'URL pour Workday, Greenhouse, Lever, SmartRecruiters, WTTJ, etc.
+- **Ancrage anti-hallucination** : vérification stricte de la présence du poste ou de l'entreprise dans le DOM avant toute persistance.
+
 
 ### 🔐 Sécurité
 - Authentification JWT avec refresh tokens

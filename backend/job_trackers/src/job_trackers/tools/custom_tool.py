@@ -84,7 +84,7 @@ class TavilyJobBoardSearchTool(BaseTool):
             "optioncarriere.com",
         ]
 
-        # Job boards français qualifiés et prioritaires
+        # Job boards français qualifiés et ATS directs d'entreprises
         french_job_boards = [
             "welcometothejungle.com",
             "apec.fr",
@@ -94,7 +94,15 @@ class TavilyJobBoardSearchTool(BaseTool):
             "cadremploi.fr",
             "free-work.com",
             "lesjeudis.com",
+            # ATS directs d'entreprises (0 anti-bot, données pures)
+            "myworkdayjobs.com",
+            "greenhouse.io",
+            "smartrecruiters.com",
+            "lever.co",
+            "teamtailor.com",
+            "recruitee.com",
         ]
+
 
         try:
             # ✅ PASSE 1: Recherche sur les job boards français qualifiés avec filtre temporel (mois)

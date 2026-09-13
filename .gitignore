@@ -6,6 +6,7 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+.worktrees/
 
 # Fichiers d'environnement
 .env
@@ -82,3 +83,7 @@ airflow/*.db
 docker-compose.override.yml
 
 backend/app/uploads/
+
+# ---------- DONNÉES PERSONNELLES ----------
+# CV et profil candidat : jamais committé
+data/profile/

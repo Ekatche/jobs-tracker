@@ -121,26 +121,44 @@ Dossier : [`backend/job_trackers/src/job_trackers/config/`](file:///Users/elielk
   - Technologies, compétences obligatoires ou mots-clés éliminatoires.
 
 ### 3. Cibler ou exclure des sites d'emploi (Tavily & Crawler)
-Fichier : [`backend/job_trackers/src/job_trackers/tools/custom_tool.py`](file:///Users/elielkatche/job-tracker/backend/job_trackers/src/job_trackers/tools/custom_tool.py)
+Fichier : [`backend/job_trackers/src/job_trackers/tools/custom_tool.py`](backend/job_trackers/src/job_trackers/tools/custom_tool.py)
 
 - **Plateformes vérifiées** (`verified_domains`) :
   ```python
   verified_domains = [
+      # Job boards qualifiés (France & Cadres)
       "welcometothejungle.com",
       "apec.fr",
       "francetravail.fr",
       "hellowork.com",
-      "linkedin.com",
       "cadremploi.fr",
       "free-work.com",
-      "lesjeudis.com",
+      "linkedin.com",
       "indeed.fr",
+
+      # ATS directs d'entreprises (0 anti-bot, données pures)
+      "myworkdayjobs.com",
+      "greenhouse.io",
+      "smartrecruiters.com",
+      "lever.co",
+      "teamtailor.com",
+      "recruitee.com",
   ]
   ```
-- **Agrégateurs exclus** (`spam_domains`) : Élimine automatiquement les sites de spam ou faux agrégateurs (`jooble`, `talent.com`, `neuvoo`, `adzuna`, `jobrapido`).
+- **Agrégateurs exclus** (`spam_domains`) : Élimine automatiquement les fermes à clics et faux agrégateurs (`jooble`, `talent.com`, `neuvoo`, `adzuna`, `jobrapido`).
 - **Fraîcheur des offres** : `time_range="month"` (ou `"week"` / `"day"` selon vos besoins).
 
-### 4. Configuration des modèles et des clés pour les Lettres de Motivation
+### 4. Optimisations & Robustesse du Scraping (Crawl4AI)
+
+Le scraper intègre plusieurs mécanismes intelligents pour garantir un taux d'extraction maximal :
+* **Bypass Anti-bot LinkedIn (Guest API)** : Les URLs `linkedin.com/jobs/view/<id>` sont automatiquement converties vers l'endpoint public SEO `linkedin.com/jobs-guest/jobs/api/jobPosting/<id>`, garantissant l'accès complet sans aucun mur d'authentification (`/authwall`) ni compte requis.
+* **Bypass Anti-bot Indeed (Mobile View)** : Les URLs bureau `indeed.com/viewjob?jk=<id>` sont automatiquement réécrites en vue mobile `indeed.com/m/viewjob?jk=<id>`, évitant les timeouts et challenges Cloudflare Turnstile de 45 secondes.
+* **Conservation des URLs utilisateur** : Tout en crawlant les endpoints légers/non bloqués, le pipeline préserve et restitue les URLs canoniques cliquables pour la consultation par le candidat.
+* **Détection instantanée des liens morts** : Les codes 404/410, pages expirées ou coquilles vides sont détectés dès la première passe (`_is_dead_or_expired`), supprimant plus de 2,5 minutes de retries inutiles par lien mort.
+* **Fallback Entreprise déterministe** : Si le nom de l'entreprise est absent du DOM textuel (ex. carrières Workday), il est automatiquement extrait depuis l'URL (`extract_company_from_url`), sauvant ainsi les offres légitimes tout en prévenant les hallucinations LLM grâce à un ancrage strict du poste.
+
+### 5. Configuration des modèles et des clés pour les Lettres de Motivation
+
 Le générateur de lettres s'appuie sur une critique inter-fournisseurs obligatoire :
 - **Clés nécessaires** : Définissez `GEMINI_API_KEY`, `OPENAI_API_KEY` (et optionnellement `MISTRAL_API_KEY`) dans votre `.env`.
 - **Règle multi-fournisseur** : Le critique évalue le style sans voir le profil candidat et doit obligatoirement provenir d'un fournisseur différent du rédacteur (ex: Rédacteur OpenAI + Critique Gemini).
@@ -152,6 +170,7 @@ Le générateur de lettres s'appuie sur une critique inter-fournisseurs obligato
   - `LETTER_MODEL_REVISER` (défaut : `openai/gpt-5.6-sol`)
 
 ---
+
 
 ## 🧪 Tests
 

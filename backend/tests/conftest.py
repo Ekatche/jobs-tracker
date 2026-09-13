@@ -1,5 +1,4 @@
 import pytest
-import asyncio
 import os
 import uuid
 import pathlib
@@ -31,12 +30,10 @@ else:
 MONGO_URI = f"mongodb://{MONGO_USER}:{MONGO_PASSWORD}@{MONGO_HOST}:{MONGO_PORT}/{DATABASE_NAME}?authSource=admin"
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for each test case."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
+# Pas de fixture event_loop maison : dépréciée depuis pytest-asyncio 0.23, elle
+# fait échouer le setup du premier test async ("OSError: could not get source
+# code" dans plugin.py lors de l'inspection de la fixture). Avec
+# asyncio_mode = auto (pytest.ini), pytest-asyncio fournit la boucle lui-même.
 
 
 async def get_test_database():

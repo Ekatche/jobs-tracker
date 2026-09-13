@@ -173,6 +173,37 @@ async def delete_job_offer(offer_id: str, db=Depends(get_database)):
     return {"message": "Offre supprimée"}
 
 
+@job_offers_router.post("/{offer_id}/regenerate-description")
+async def regenerate_offer_description_endpoint(offer_id: str, db=Depends(get_database)):
+    """Régénère la description d'une offre d'emploi (et gère les liens morts/expirés)"""
+    if not ObjectId.is_valid(offer_id):
+        raise HTTPException(status_code=400, detail="ID invalide")
+
+    offer = await db["job_offers"].find_one({"_id": ObjectId(offer_id)})
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offre non trouvée")
+
+    from ..tasks.regenerate_descriptions import regenerate_single_offer
+
+    res = await regenerate_single_offer(offer, db=db)
+    if not res.get("success"):
+        raise HTTPException(status_code=500, detail=res.get("error", "Erreur de régénération"))
+
+    # Récupérer l'offre mise à jour
+    updated_offer = await db["job_offers"].find_one({"_id": ObjectId(offer_id)})
+    if updated_offer:
+        updated_offer["id"] = str(updated_offer["_id"])
+        del updated_offer["_id"]
+
+    return {
+        "message": "Description régénérée avec succès",
+        "is_active": res.get("is_active", True),
+        "status": res.get("status"),
+        "description": res.get("description"),
+        "offer": updated_offer,
+    }
+
+
 @job_offers_router.get("/stats/summary")
 async def get_offers_stats(db=Depends(get_database)):
     """Récupère les statistiques des offres d'emploi"""

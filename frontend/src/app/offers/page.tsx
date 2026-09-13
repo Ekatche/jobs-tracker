@@ -18,6 +18,7 @@ import {
   FiGrid,
   FiTrash2,
   FiPlus,
+  FiRefreshCw,
 } from "react-icons/fi";
 import { PrefilledData } from "@/components/dashboard/NewApplicationModal";
 
@@ -40,6 +41,7 @@ export default function OffersPage() {
   // UI
   const [showFilters, setShowFilters] = useState(false);
   const [activeTab, setActiveTab] = useState<"offers" | "stats">("offers");
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   // Stats
   const [stats, setStats] = useState<JobOfferStats | null>(null);
@@ -119,6 +121,36 @@ export default function OffersPage() {
     }
   };
 
+  // 🔄 Régénération de description sur demande
+  const handleRegenerateDescription = async (offerId: string) => {
+    try {
+      setRegeneratingId(offerId);
+      const res = await jobOffersApi.regenerateDescription(offerId);
+      setOffers((prevOffers) =>
+        prevOffers.map((offer) => {
+          if (offer.id === offerId) {
+            return {
+              ...offer,
+              ...(res.offer || {}),
+              description: res.description || offer.description,
+              is_active: res.is_active,
+            };
+          }
+          return offer;
+        })
+      );
+    } catch (err: unknown) {
+      console.error("💥 Erreur lors de la régénération:", err);
+      const msg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : null;
+      alert(msg || "Erreur lors de la régénération de la description");
+    } finally {
+      setRegeneratingId(null);
+    }
+  };
+
   // Fonction pour ouvrir la modal de candidature avec des données pré-remplies
   const handleApplyToOffer = (offer: JobOffer) => {
     const prefilledData: PrefilledData = {
@@ -174,116 +206,164 @@ export default function OffersPage() {
   };
 
   // ✅ Composant carte d'offre enrichie avec description, tags et soft delete
-  const OfferCard = ({ offer }: { offer: JobOffer }) => (
-    <div className="bg-blue-night-lighter rounded-lg p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-700 hover:border-blue-500 relative group flex flex-col justify-between">
-      <button
-        onClick={() => handleDeleteOffer(offer.id)}
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-600 hover:bg-red-500 text-white p-2 rounded-lg"
-        title="Supprimer cette offre"
-      >
-        <FiTrash2 className="w-4 h-4" />
-      </button>
+  const OfferCard = ({ offer }: { offer: JobOffer }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
 
-      <div className="flex flex-col h-full">
-        {/* En-tête de la carte */}
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-white mb-2 line-clamp-2 pr-8">
-            {offer.poste}
-          </h3>
+    return (
+      <div className="bg-blue-night-lighter rounded-lg p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-700 hover:border-blue-500 relative group flex flex-col justify-between">
+        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => handleRegenerateDescription(offer.id)}
+            disabled={regeneratingId === offer.id}
+            className="bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white p-2 rounded-lg transition-colors"
+            title="Régénérer la description (vérifie aussi la validité du lien)"
+          >
+            <FiRefreshCw className={`w-4 h-4 ${regeneratingId === offer.id ? "animate-spin" : ""}`} />
+          </button>
+          <button
+            onClick={() => handleDeleteOffer(offer.id)}
+            className="bg-red-600 hover:bg-red-500 text-white p-2 rounded-lg transition-colors"
+            title="Supprimer cette offre"
+          >
+            <FiTrash2 className="w-4 h-4" />
+          </button>
+        </div>
 
-          <div className="flex items-center gap-2 mb-2">
-            <FiBriefcase className="text-blue-400 flex-shrink-0" />
-            <span className="text-gray-300 font-medium truncate">{offer.entreprise}</span>
-          </div>
+        <div className="flex flex-col h-full">
+          {/* En-tête de la carte */}
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-white mb-2 line-clamp-2 pr-8">
+              {offer.poste}
+            </h3>
 
-          {offer.localisation && offer.localisation !== "Non spécifié" && (
             <div className="flex items-center gap-2 mb-2">
-              <FiMapPin className="text-blue-400 flex-shrink-0" />
-              <span className="text-gray-300 text-sm truncate">
-                {offer.localisation}
-              </span>
+              <FiBriefcase className="text-blue-400 flex-shrink-0" />
+              <span className="text-gray-300 font-medium truncate">{offer.entreprise}</span>
             </div>
-          )}
 
-          {/* Badges contrat & salaire */}
-          <div className="flex flex-wrap gap-2 mb-3">
-            {offer.type_contrat && offer.type_contrat !== "Non spécifié" && (
-              <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-xs rounded border border-blue-500/30">
-                {offer.type_contrat}
-              </span>
-            )}
-            {offer.salaire && offer.salaire !== "Non spécifié" && (
-              <span className="px-2 py-0.5 bg-green-500/20 text-green-300 text-xs rounded border border-green-500/30">
-                {offer.salaire}
-              </span>
-            )}
-            {offer.mode_travail && offer.mode_travail !== "Non spécifié" && (
-              <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 text-xs rounded border border-purple-500/30">
-                {offer.mode_travail}
-              </span>
-            )}
-          </div>
-
-          {/* Description / Résumé de l'offre */}
-          {offer.description && offer.description !== "Non spécifié" && (
-            <p className="text-gray-300 text-xs mb-3 line-clamp-3 bg-blue-night/60 p-2.5 rounded border border-gray-700/50 leading-relaxed">
-              {offer.description}
-            </p>
-          )}
-
-          {/* Compétences clés (max 3) */}
-          {offer.competences_cles && offer.competences_cles.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {offer.competences_cles.slice(0, 3).map((comp, idx) => (
-                <span
-                  key={idx}
-                  className="px-2 py-0.5 bg-gray-700/60 text-gray-300 text-[11px] rounded"
-                >
-                  {comp}
+            {offer.localisation && offer.localisation !== "Non spécifié" && (
+              <div className="flex items-center gap-2 mb-2">
+                <FiMapPin className="text-blue-400 flex-shrink-0" />
+                <span className="text-gray-300 text-sm truncate">
+                  {offer.localisation}
                 </span>
-              ))}
-              {offer.competences_cles.length > 3 && (
-                <span className="text-[11px] text-gray-400 self-center">
-                  +{offer.competences_cles.length - 3}
+              </div>
+            )}
+
+            {/* Badges contrat & salaire */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              {offer.is_active === false && (
+                <span className="px-2 py-0.5 bg-red-500/20 text-red-300 text-xs rounded border border-red-500/30">
+                  Inactive / Expirée
+                </span>
+              )}
+              {offer.type_contrat && offer.type_contrat !== "Non spécifié" && (
+                <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 text-xs rounded border border-blue-500/30">
+                  {offer.type_contrat}
+                </span>
+              )}
+              {offer.salaire && offer.salaire !== "Non spécifié" && (
+                <span className="px-2 py-0.5 bg-green-500/20 text-green-300 text-xs rounded border border-green-500/30">
+                  {offer.salaire}
+                </span>
+              )}
+              {offer.mode_travail && offer.mode_travail !== "Non spécifié" && (
+                <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 text-xs rounded border border-purple-500/30">
+                  {offer.mode_travail}
                 </span>
               )}
             </div>
-          )}
 
-          <div className="flex items-center gap-2 mb-4">
-            <FiCalendar className="text-blue-400 flex-shrink-0 text-xs" />
-            <span className="text-gray-400 text-xs">
-              {formatDate(offer.date || "")}
-            </span>
+            {/* Description / Résumé de l'offre structuré */}
+            {!offer.description || offer.description === "Non spécifié" ? (
+              <div className="mb-3 bg-blue-night/60 p-2.5 rounded border border-dashed border-gray-600/70 flex items-center justify-between">
+                <span className="text-gray-400 text-xs italic">Description non générée</span>
+                <button
+                  type="button"
+                  onClick={() => handleRegenerateDescription(offer.id)}
+                  disabled={regeneratingId === offer.id}
+                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium disabled:opacity-50"
+                >
+                  <FiRefreshCw className={`w-3 h-3 ${regeneratingId === offer.id ? "animate-spin" : ""}`} />
+                  {regeneratingId === offer.id ? "Génération..." : "Régénérer"}
+                </button>
+              </div>
+            ) : (
+              <div className="mb-3 bg-blue-night/60 p-2.5 rounded border border-gray-700/50">
+                <p
+                  className={`text-gray-300 text-xs leading-relaxed whitespace-pre-line ${
+                    !isExpanded ? "line-clamp-3" : ""
+                  }`}
+                >
+                  {offer.description}
+                </p>
+                {offer.description.length > 150 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="mt-1.5 text-[11px] text-blue-400 hover:text-blue-300 font-medium focus:outline-none flex items-center gap-1 transition-colors"
+                  >
+                    {isExpanded ? "Voir moins ▲" : "Voir plus ▼"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Compétences clés (max 3) */}
+            {offer.competences_cles && offer.competences_cles.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {offer.competences_cles.slice(0, 3).map((comp, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2 py-0.5 bg-gray-700/60 text-gray-300 text-[11px] rounded"
+                  >
+                    {comp}
+                  </span>
+                ))}
+                {offer.competences_cles.length > 3 && (
+                  <span className="text-[11px] text-gray-400 self-center">
+                    +{offer.competences_cles.length - 3}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 mb-4">
+              <FiCalendar className="text-blue-400 flex-shrink-0 text-xs" />
+              <span className="text-gray-400 text-xs">
+                {formatDate(offer.date || "")}
+              </span>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-4 border-t border-gray-600">
+            {offer.url && (
+              <a
+                href={offer.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <FiExternalLink className="w-4 h-4" />
+                Voir l'offre
+              </a>
+            )}
+
+            <button
+              onClick={() => handleApplyToOffer(offer)}
+              className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              title="Postuler à cette offre"
+            >
+              <FiPlus className="w-4 h-4" />
+              Postuler
+            </button>
           </div>
         </div>
-
-        {/* Actions */}
-        <div className="flex gap-2 pt-4 border-t border-gray-600">
-          {offer.url && (
-            <a
-              href={offer.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-            >
-              <FiExternalLink className="w-4 h-4" />
-              Voir l'offre
-            </a>
-          )}
-
-          <button
-            onClick={() => handleApplyToOffer(offer)}
-            className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-            title="Postuler à cette offre"
-          >
-            <FiPlus className="w-4 h-4" />
-            Postuler
-          </button>
-        </div>
       </div>
-    </div>
-  );
+    );
+  };
+
 
   // Composant pagination
   const Pagination = () => {

@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { authApi, userApi } from "@/lib/api";
-import { getToken } from "@/lib/auth";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { FiEdit, FiUser, FiMail, FiSave, FiKey } from "react-icons/fi";
 
 // Ajoutez ceci après les imports et avant les schémas de validation
@@ -48,8 +47,7 @@ const passwordSchema = z
 type ProfileFormData = z.infer<typeof profileSchema>;
 type PasswordFormData = z.infer<typeof passwordSchema>;
 
-export default function ProfilePage() {
-  const router = useRouter();
+function ProfileContent() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [updateSuccess, setUpdateSuccess] = useState(false);
@@ -94,12 +92,6 @@ export default function ProfilePage() {
     const fetchUserProfile = async () => {
       setLoading(true);
 
-      const token = getToken();
-      if (!token) {
-        router.push("/auth/login");
-        return;
-      }
-
       try {
         const userData = await authApi.getCurrentUser();
         if (userData) {
@@ -110,22 +102,19 @@ export default function ProfilePage() {
             email: userData.email,
             full_name: userData.full_name || "",
           });
-        } else {
-          router.push("/auth/login");
         }
       } catch (error) {
         console.error(
           "Erreur lors de la récupération du profil utilisateur",
           error,
         );
-        router.push("/auth/login");
       } finally {
         setLoading(false);
       }
     };
 
     fetchUserProfile();
-  }, [router, resetProfile]);
+  }, [resetProfile]);
 
   // Gérer la soumission du formulaire de profil
   const onSubmitProfile = async (data: ProfileFormData) => {
@@ -503,5 +492,13 @@ export default function ProfilePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <ProtectedRoute>
+      <ProfileContent />
+    </ProtectedRoute>
   );
 }

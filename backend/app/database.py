@@ -1,3 +1,4 @@
+import asyncio
 import os
 import pathlib
 
@@ -28,8 +29,27 @@ else:
 
 print(f"Connexion à: {MONGO_URI.replace(MONGO_PASSWORD or '', '****')}")
 
-# Client MongoDB
-client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
+_client = None
+_client_loop = None
+
+
+def _get_client() -> motor.motor_asyncio.AsyncIOMotorClient:
+    """Client Motor lié à la boucle d'événements courante.
+
+    Motor capture la boucle active à sa première I/O. Airflow ouvre puis
+    ferme une boucle neuve par étape : un client mis en cache au niveau
+    module lève "Event loop is closed" dès la deuxième requête. On le
+    reconstruit quand la boucle change, et on ferme l'ancien pour ne pas
+    laisser fuir ses sockets et ses threads de fond.
+    """
+    global _client, _client_loop
+    loop = asyncio.get_running_loop()
+    if _client is None or _client_loop is not loop or _client_loop.is_closed():
+        if _client is not None:
+            _client.close()
+        _client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
+        _client_loop = loop
+    return _client
 
 
 # Fonction pour obtenir une instance de la base de données
@@ -38,7 +58,7 @@ async def get_database():  # Changé de get_() à get_database
     Retourne une instance de la base de données MongoDB.
     Cette fonction est utilisée comme dépendance dans FastAPI.
     """
-    return client[DATABASE_NAME]
+    return _get_client()[DATABASE_NAME]
 
 
 async def create_job_offers_indexes(db):

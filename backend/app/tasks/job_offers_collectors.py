@@ -10,7 +10,17 @@ from app.services.job_offers import (
 from app.database import get_database
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
-from app.services.normalization import compute_unique_key
+from app.services.normalization import compute_unique_key, extract_company_from_url
+from app.services.relevance import (
+    RELEVANCE_FILTER_ENABLED,
+    is_off_domain_url,
+    is_relevant_position,
+)
+
+# Borne par requête pour collect_offers_sync : 6 requêtes × 7 min = 42 min,
+# sous l'execution_timeout de 45 min de la tâche Airflow. Sans cette borne,
+# une requête qui pend consomme tout le budget et tue les 5 autres.
+COLLECT_QUERY_TIMEOUT = 420
 
 
 def setup_logger():
@@ -51,6 +61,23 @@ async def get_urls_for_query(query: str) -> list:
     try:
         urls = await get_urls(query)
         logger.info(f"✅ {len(urls)} URLs trouvées")
+
+        if RELEVANCE_FILTER_ENABLED:
+            kept_urls = []
+            rejected_count = 0
+            for url in urls:
+                if is_off_domain_url(url):
+                    logger.warning(
+                        f"🚫 URL hors-domaine écartée: {url} (requête: '{query}')"
+                    )
+                    rejected_count += 1
+                else:
+                    kept_urls.append(url)
+            logger.info(
+                f"🚫 {rejected_count} URLs hors-domaine écartées, {len(kept_urls)} conservées"
+            )
+            urls = kept_urls
+
         return urls
     except Exception as e:
         logger.error(f"💥 Erreur récupération URLs: {e}")
@@ -89,6 +116,7 @@ async def enrich_offers(offers: list, query: str) -> list:
     try:
         enriched_offers = []
         invalid_count = 0
+        off_domain_count = 0
         current_time = datetime.now(timezone.utc)
 
         # Traitement par batch
@@ -122,8 +150,17 @@ async def enrich_offers(offers: list, query: str) -> list:
                     url = str(offer.get("url", "")).strip() or None
                     source_url = str(offer.get("source_url", "")).strip() or None
 
-                    # Rejet strict des offres avec champs obligatoires vides ou factices ("Non spécifié", 404, etc.)
+                    # Fallback nom d'entreprise depuis l'URL si manquant ou non spécifié
                     invalid_placeholders = {"non spécifié", "non disponible", "inconnu", "none", "null", "undefined", ""}
+                    if (not entreprise or entreprise.lower() in invalid_placeholders) and (url or source_url):
+                        fallback_company = extract_company_from_url(url or source_url)
+                        if fallback_company:
+                            logger.info(
+                                f"🏢 Entreprise enrichie via fallback URL: '{fallback_company}' (était '{entreprise}')"
+                            )
+                            entreprise = fallback_company
+
+                    # Rejet strict des offres avec champs obligatoires vides ou factices ("Non spécifié", 404, etc.)
                     if (
                         not poste
                         or not entreprise
@@ -134,6 +171,13 @@ async def enrich_offers(offers: list, query: str) -> list:
                             f"⚠️ Offre rejetée (poste ou entreprise invalide/non spécifié): poste='{poste}', entreprise='{entreprise}'"
                         )
                         invalid_count += 1
+                        continue
+
+                    if RELEVANCE_FILTER_ENABLED and not is_relevant_position(poste):
+                        logger.warning(
+                            f"🚫 Offre hors-domaine rejetée: poste='{poste}' (requête: '{query}')"
+                        )
+                        off_domain_count += 1
                         continue
 
                     # Clé d'unicité normalisée
@@ -187,7 +231,8 @@ async def enrich_offers(offers: list, query: str) -> list:
                     continue
 
         logger.info(
-            f"✅ {len(enriched_offers)} offres enrichies selon le modèle MongoDB ({invalid_count} invalides)"
+            f"✅ {len(enriched_offers)} offres enrichies selon le modèle MongoDB "
+            f"({invalid_count} invalides, {off_domain_count} hors-domaine)"
         )
 
         return enriched_offers
@@ -308,6 +353,10 @@ async def save_offers_to_database(offers: list) -> dict:
 
         if error_count > 0:
             logger.warning(f"⚠️ {error_count} erreurs lors de la sauvegarde")
+            if saved_count == 0 and updated_count == 0:
+                raise RuntimeError(
+                    f"Sauvegarde totalement échouée: {error_count}/{len(offers)} offres perdues"
+                )
 
         return {"saved": saved_count, "updated": updated_count}
 
@@ -334,32 +383,6 @@ async def cleanup_resources():
 # ========================================
 
 
-def get_urls_sync(query: str) -> list:
-    """Version sync pour Airflow - Étape 1"""
-    os.environ.setdefault("ENVIRONMENT", "airflow")
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        return loop.run_until_complete(
-            asyncio.wait_for(get_urls_for_query(query), timeout=300)
-        )
-    finally:
-        loop.close()
-
-
-def crawl_urls_sync(urls: list) -> list:
-    """Version sync pour Airflow - Étape 2"""
-    os.environ.setdefault("ENVIRONMENT", "airflow")
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        return loop.run_until_complete(
-            asyncio.wait_for(crawl_urls_for_offers(urls), timeout=900)
-        )
-    finally:
-        loop.close()
 
 
 def enrich_offers_sync(offers: list, query: str) -> list:
@@ -376,80 +399,33 @@ def enrich_offers_sync(offers: list, query: str) -> list:
         loop.close()
 
 
-def clean_duplicate_offers_sync(offers: list) -> list:
-    """Version sync pour Airflow - Étape 4 (processus optimisé)"""
-    os.environ.setdefault("ENVIRONMENT", "airflow")
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        return loop.run_until_complete(
-            asyncio.wait_for(
-                clean_duplicate_offers(offers), timeout=300
-            )  # ✅ Réduit à 5 minutes
-        )
-    finally:
-        loop.close()
-
-
-def save_offers_sync(offers: list) -> dict:
-    """Version sync pour Airflow - Étape 6"""
-    os.environ.setdefault("ENVIRONMENT", "airflow")
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        return loop.run_until_complete(
-            asyncio.wait_for(save_offers_to_database(offers), timeout=600)
-        )
-    finally:
-        loop.close()
-
-
-def cleanup_sync():
-    """Version sync pour Airflow - Étape 7"""
-    os.environ.setdefault("ENVIRONMENT", "airflow")
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        loop.run_until_complete(asyncio.wait_for(cleanup_resources(), timeout=60))
-    finally:
-        loop.close()
 
 
 async def collect_and_save_offers(query: str) -> dict:
     """Version asynchrone complète pour collecter, nettoyer et enregistrer les offres"""
     logger.info(f"🚀 Collecte async démarrée: {query}")
-    urls = await get_urls_for_query(query)
-    offers = await crawl_urls_for_offers(urls)
-    enriched = await enrich_offers(offers, query)
-    cleaned = await clean_duplicate_offers(enriched)
-    result = await save_offers_to_database(cleaned)
-    await cleanup_resources()
-    return result
+    try:
+        urls = await get_urls_for_query(query)
+        offers = await crawl_urls_for_offers(urls)
+        enriched = await enrich_offers(offers, query)
+        cleaned = await clean_duplicate_offers(enriched)
+        return await save_offers_to_database(cleaned)
+    finally:
+        await cleanup_resources()
 
 
 def collect_offers_sync(query: str) -> dict:
-    """Version complète pour compatibilité - utilise les nouvelles fonctions"""
+    """Version sync pour Airflow — une seule boucle d'événements par requête."""
+    os.environ.setdefault("ENVIRONMENT", "airflow")
     try:
         logger.info(f"🚀 Collecte complète démarrée: {query}")
-
-        # Étapes séquentielles
-        urls = get_urls_sync(query)
-        offers = crawl_urls_sync(urls)
-        enriched_offers = enrich_offers_sync(offers, query)
-        cleaned_offers = clean_duplicate_offers_sync(enriched_offers)
-        result = save_offers_sync(cleaned_offers)
-        cleanup_sync()
-
+        # 6 requêtes × 7 min = 42 min, sous l'execution_timeout de 45 min du DAG.
+        # Sans cette borne, une requête qui pend consomme tout le budget de la tâche.
+        result = asyncio.run(
+            asyncio.wait_for(collect_and_save_offers(query), timeout=COLLECT_QUERY_TIMEOUT)
+        )
         logger.info(f"🎯 Collecte terminée: {result}")
         return result
-
     except Exception as e:
         logger.error(f"💥 Erreur collecte complète: {e}")
-        try:
-            cleanup_sync()
-        except Exception:
-            pass
         raise
