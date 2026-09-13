@@ -10,6 +10,7 @@ import {
   setRememberMe,
 } from "./auth";
 import { Task } from "@/types/tasks";
+import { CoverLetter, CandidateProfile } from "@/types/coverLetter";
 import Cookies from "js-cookie";
 // Ajoutez cet import au début du fichier
 import { getLastActivityTime } from "./activityTracker";
@@ -494,13 +495,33 @@ export const jobOffersApi = {
   },
 };
 
+// API Cover Letters
+export const coverLetterApi = {
+  getByApplicationId: async (applicationId: string): Promise<CoverLetter> => {
+    return fetchApi<CoverLetter>(`/applications/${applicationId}/cover-letter`, "GET");
+  },
+  regenerate: async (applicationId: string): Promise<{ status: string }> => {
+    return fetchApi<{ status: string }>(`/applications/${applicationId}/cover-letter/regenerate`, "POST");
+  },
+  edit: async (applicationId: string, body: string): Promise<CoverLetter> => {
+    return fetchApi<CoverLetter>(`/applications/${applicationId}/cover-letter`, "PATCH", { body });
+  },
+  getCandidateProfile: async (): Promise<CandidateProfile> => {
+    return fetchApi<CandidateProfile>("/profile/candidate", "GET");
+  },
+  updateCandidateProfile: async (profile: Partial<CandidateProfile>): Promise<CandidateProfile> => {
+    return fetchApi<CandidateProfile>("/profile/candidate", "PUT", profile);
+  },
+};
+
 // Exportations par défaut
 const api = {
   auth: authApi,
   users: userApi,
   applications: applicationApi,
   tasks: taskApi,
-  jobOffers: jobOffersApi, // Ajouter cette ligne
+  jobOffers: jobOffersApi,
+  coverLetters: coverLetterApi,
 };
 
 export default api;
