@@ -30,12 +30,20 @@ def _dedup_preserving_order(values: List[str]) -> List[str]:
     return result
 
 
-def _first_non_empty(field: str, contributions: List[Tuple[str, Dict[str, Any]]]):
-    for _source, payload in contributions:
+def _first_non_empty(
+    field: str, contributions: List[Tuple[str, Dict[str, Any]]]
+) -> Tuple[str | None, Any]:
+    """Returns the (source, value) of the first contribution with a truthy value.
+
+    Returning the source alongside the value lets callers attribute a conflict
+    to the source that actually supplied the kept value — which is not always
+    `contributions[0]` when the highest-priority source is silent on this field.
+    """
+    for source, payload in contributions:
         value = payload.get(field)
         if value:
-            return value
-    return None
+            return source, value
+    return None, None
 
 
 def _merge_one_experience(
@@ -50,16 +58,19 @@ def _merge_one_experience(
     }
 
     for field in _SCALAR_FIELDS:
-        merged[field] = _first_non_empty(field, contributions)
-        for source, payload in contributions[1:]:
+        kept_source, kept_value = _first_non_empty(field, contributions)
+        merged[field] = kept_value
+        for source, payload in contributions:
+            if source == kept_source:
+                continue
             other = payload.get(field)
-            if other and merged[field] and other != merged[field]:
+            if other and kept_value and other != kept_value:
                 conflicts.append(
                     {
                         "company": merged["company"],
                         "field": field,
-                        "kept": merged[field],
-                        "kept_source": winner_source,
+                        "kept": kept_value,
+                        "kept_source": kept_source,
                         "discarded": other,
                         "discarded_source": source,
                     }
@@ -197,22 +208,6 @@ def build_profile_from_sources(
     order = _ordered_sources(sources)
     conflicts: List[Dict[str, Any]] = []
 
-    if not order:
-        return (
-            {
-                "headline": "",
-                "summary": "",
-                "contact": {},
-                "experiences": [],
-                "projects": [],
-                "education": [],
-                "certifications": [],
-                "languages": [],
-                "skills": {},
-            },
-            conflicts,
-        )
-
     contributions = [(source, sources[source]) for source in order]
 
     contact: Dict[str, Any] = {}
@@ -223,9 +218,12 @@ def build_profile_from_sources(
     for source in order:
         languages.extend(sources[source].get("languages") or [])
 
+    _, headline = _first_non_empty("headline", contributions)
+    _, summary = _first_non_empty("summary", contributions)
+
     profile = {
-        "headline": _first_non_empty("headline", contributions) or "",
-        "summary": _first_non_empty("summary", contributions) or "",
+        "headline": headline or "",
+        "summary": summary or "",
         "contact": contact,
         "experiences": _merge_experiences(sources, order, conflicts),
         "projects": _merge_projects(sources, order),

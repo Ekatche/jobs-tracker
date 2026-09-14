@@ -139,3 +139,78 @@ def test_empty_sources_yield_empty_profile():
     profile, conflicts = build_profile_from_sources({})
     assert profile["experiences"] == []
     assert conflicts == []
+
+
+def test_conflict_attributes_kept_source_correctly_when_top_priority_lacks_the_field():
+    """cv is silent on `role` for this post; the value actually came from website,
+    not from cv just because cv ranks first in SOURCE_PRIORITY."""
+    cv_no_role = {
+        "experiences": [
+            {"company": "Agence Nile", "start": "Août 2025", "end": "PRESENT"}
+        ]
+    }
+    website = {
+        "experiences": [
+            {
+                "company": "Agence Nile",
+                "role": "B",
+                "start": "Août 2025",
+                "end": "PRESENT",
+            }
+        ]
+    }
+    github = {
+        "experiences": [
+            {
+                "company": "Agence Nile",
+                "role": "C",
+                "start": "Août 2025",
+                "end": "PRESENT",
+            }
+        ]
+    }
+    profile, conflicts = build_profile_from_sources(
+        {"cv": cv_no_role, "website": website, "github": github}
+    )
+    assert profile["experiences"][0]["role"] == "B"
+    role_conflict = next(c for c in conflicts if c["field"] == "role")
+    assert role_conflict["kept_source"] == "website"
+    assert role_conflict["discarded_source"] == "github"
+
+
+def test_education_entry_only_in_one_source_survives_merge():
+    cv_education = {"education": [{"school": "Ecole X", "degree": "Master"}]}
+    website_education = {"education": [{"school": "Ecole Y", "degree": "Licence"}]}
+    profile, _ = build_profile_from_sources(
+        {"cv": cv_education, "website": website_education}
+    )
+    schools = {e["school"] for e in profile["education"]}
+    assert schools == {"Ecole X", "Ecole Y"}
+
+
+def test_certification_entry_only_in_one_source_survives_merge():
+    cv_certifications = {"certifications": [{"name": "AWS Certified"}]}
+    website_certifications = {"certifications": [{"name": "Azure Fundamentals"}]}
+    profile, _ = build_profile_from_sources(
+        {"cv": cv_certifications, "website": website_certifications}
+    )
+    names = {c["name"] for c in profile["certifications"]}
+    assert names == {"AWS Certified", "Azure Fundamentals"}
+
+
+def test_contact_field_resolves_by_source_priority():
+    cv_contact = {"contact": {"email": "cv@example.com", "phone": "0102030405"}}
+    website_contact = {"contact": {"email": "website@example.com"}}
+    profile, _ = build_profile_from_sources(
+        {"cv": cv_contact, "website": website_contact}
+    )
+    assert profile["contact"]["email"] == "cv@example.com"  # cv > website
+    assert profile["contact"]["phone"] == "0102030405"  # only cv has it
+
+
+def test_skills_are_unioned_by_category_across_sources():
+    cv_skills = {"skills": {"languages": ["Python"]}}
+    website_skills = {"skills": {"languages": ["SQL"], "tools": ["Docker"]}}
+    profile, _ = build_profile_from_sources({"cv": cv_skills, "website": website_skills})
+    assert profile["skills"]["languages"] == ["Python", "SQL"]
+    assert profile["skills"]["tools"] == ["Docker"]
