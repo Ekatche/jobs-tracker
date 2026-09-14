@@ -258,7 +258,7 @@ def _fake_async_client_factory(responses_by_url, calls=None):
         async def __aexit__(self, *exc_info):
             return False
 
-        async def get(self, url):
+        async def get(self, url, **kwargs):
             if calls is not None:
                 calls.append(url)
             if url not in responses_by_url:
@@ -330,3 +330,69 @@ async def test_default_fetch_stops_after_max_redirects(monkeypatch):
 
     result = await _default_fetch("https://example.com/a")
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_default_fetch_enforces_total_time_budget_across_redirect_chain(monkeypatch):
+    """Le budget de temps doit courir sur toute la chaîne, pas requête par
+    requête : `httpx.AsyncClient(timeout=10.0)` ne borne que chaque `get()`
+    pris isolément, donc une chaîne de redirections individuellement rapides
+    (sous la limite par requête) pouvait auparavant accumuler jusqu'à
+    `(MAX_REDIRECTS + 1) x 10s`, six fois le budget prévu.
+
+    Une horloge factice avance de 4s "simulées" à chaque requête (au lieu
+    d'un vrai `asyncio.sleep`, pour que le test reste instantané et
+    déterministe). Avec un budget total de 10s, la boucle doit s'arrêter
+    après 3 requêtes (temps simulé : 0s, 4s, 8s -> la 4e tentative voit un
+    temps restant négatif et retourne `None` immédiatement) plutôt que
+    d'exécuter les 6 sauts que `MAX_REDIRECTS` autoriserait à lui seul.
+    """
+
+    class _FakeClock:
+        def __init__(self):
+            self.now = 0.0
+
+        def monotonic(self):
+            return self.now
+
+        def advance(self, seconds):
+            self.now += seconds
+
+    clock = _FakeClock()
+    monkeypatch.setattr(website.time, "monotonic", clock.monotonic)
+
+    calls: list[str] = []
+    # Boucle A -> B -> A -> ... qui ne se résout jamais : sans le budget de
+    # temps, seul MAX_REDIRECTS (5) bornerait la boucle, soit 6 requêtes.
+    responses = {
+        "https://example.com/a": _FakeResponse(
+            302, headers={"location": "https://example.com/b"}
+        ),
+        "https://example.com/b": _FakeResponse(
+            302, headers={"location": "https://example.com/a"}
+        ),
+    }
+
+    class _SlowFakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+        async def get(self, url, **kwargs):
+            calls.append(url)
+            clock.advance(4.0)  # chaque saut "coûte" 4s de temps simulé
+            return responses[url]
+
+    monkeypatch.setattr(website.httpx, "AsyncClient", _SlowFakeAsyncClient)
+
+    result = await _default_fetch("https://example.com/a", total_timeout=10.0)
+
+    assert result is None
+    # Sans budget total, la boucle irait jusqu'à MAX_REDIRECTS + 1 = 6
+    # requêtes ; avec le budget, le temps simulé dépasse 10s dès la 3e.
+    assert len(calls) == 3

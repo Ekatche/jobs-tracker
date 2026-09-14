@@ -15,6 +15,7 @@ l'utilisateur n'a jamais donné.
 import json
 import logging
 import re
+import time
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 from urllib.parse import urljoin, urlparse
 
@@ -27,12 +28,13 @@ logger = logging.getLogger(__name__)
 
 MAX_PAGES = 12
 MAX_REDIRECTS = 5
+FETCH_TIMEOUT = 10.0
 FALLBACK_PATHS = ("", "/experience", "/work", "/projects", "/formation", "/competences", "/about")
 SKIP_PATTERNS = ("/contact", "/mentions", "/legal", "/privacy", "/blog/tag")
 MODEL = "gemini/gemini-3.8-flash"
 
 
-async def _default_fetch(url: str) -> Optional[str]:
+async def _default_fetch(url: str, total_timeout: float = FETCH_TIMEOUT) -> Optional[str]:
     """Récupère `url`, en validant manuellement chaque redirection.
 
     `follow_redirects=True` d'httpx suivrait une redirection transparente vers
@@ -45,12 +47,27 @@ async def _default_fetch(url: str) -> Optional[str]:
     rejetée ou une boucle trop longue rend `None` (échec de fetch, pas une
     exception) : le sitemap est optionnel, `discover_pages` doit pouvoir
     retomber sur ses chemins par défaut.
+
+    `total_timeout` borne la durée de la chaîne entière, pas chaque requête
+    isolément : passer `timeout=10.0` à `httpx.AsyncClient` ne borne que
+    chaque `get()` pris séparément, donc une chaîne de `MAX_REDIRECTS` sauts
+    lents-mais-sous-la-limite pouvait auparavant prendre jusqu'à
+    `(MAX_REDIRECTS + 1) × 10s` — six fois le budget prévu. Un budget total
+    (`deadline`) est donc calculé une fois avant la boucle, et le temps
+    restant est reporté comme timeout de chaque requête individuelle ; le
+    budget épuisé avant même de tenter un saut supplémentaire coupe court
+    immédiatement plutôt que de laisser la boucle continuer.
     """
     current = url
+    deadline = time.monotonic() + total_timeout
     try:
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
+        async with httpx.AsyncClient(follow_redirects=False) as client:
             for _ in range(MAX_REDIRECTS + 1):
-                response = await client.get(current)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    logger.info("budget de temps épuisé pour %s", url)
+                    return None
+                response = await client.get(current, timeout=remaining)
                 if response.status_code == 200:
                     return response.text
                 if response.status_code in (301, 302, 303, 307, 308):
