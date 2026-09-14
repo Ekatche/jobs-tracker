@@ -170,6 +170,7 @@ async def import_cv_source(
             buffer.write(content)
         text = await asyncio.to_thread(extract_text_from_pdf, file_path)
         payload = await parse_cv_with_llm(text)
+        return await _store_source(db, str(current_user.id), "cv", payload)
     except HTTPException:
         raise
     except Exception:
@@ -180,8 +181,6 @@ async def import_cv_source(
         if os.path.exists(file_path):
             os.remove(file_path)
 
-    return await _store_source(db, str(current_user.id), "cv", payload)
-
 
 @cover_letters_router.post("/profile/candidate/sources/github")
 async def import_github_source(
@@ -191,13 +190,14 @@ async def import_github_source(
 ):
     try:
         payload = await collect_github(payload_in.get("url", ""))
+        return await _store_source(db, str(current_user.id), "github", payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Échec de l'import GitHub pour %s", current_user.id)
         raise HTTPException(status_code=502, detail="L'import GitHub a échoué")
-
-    return await _store_source(db, str(current_user.id), "github", payload)
 
 
 @cover_letters_router.post("/profile/candidate/sources/website")
@@ -209,13 +209,14 @@ async def import_website_source(
     try:
         url = validate_public_url(payload_in.get("url", ""))
         payload = await collect_website(url)
+        return await _store_source(db, str(current_user.id), "website", payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Échec de l'import du site pour %s", current_user.id)
         raise HTTPException(status_code=502, detail="L'import du site a échoué")
-
-    return await _store_source(db, str(current_user.id), "website", payload)
 
 
 @cover_letters_router.put("/profile/candidate")
@@ -226,7 +227,13 @@ async def update_candidate_profile(
 ):
     for key in ("_id", "id", "user_id", "sources", "conflicts", "updated_at"):
         profile_data.pop(key, None)
-    return await _store_source(db, str(current_user.id), "manual", profile_data)
+    try:
+        return await _store_source(db, str(current_user.id), "manual", profile_data)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Échec de la mise à jour manuelle du profil pour %s", current_user.id)
+        raise HTTPException(status_code=502, detail="La mise à jour du profil a échoué")
 
 
 @cover_letters_router.get("/profile/api-status")

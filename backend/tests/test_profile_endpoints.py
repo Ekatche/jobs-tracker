@@ -163,3 +163,37 @@ def test_website_import_with_invalid_project_context_returns_502(client, profile
     )
     assert res.status_code == 502
     assert "stage" not in res.json()["detail"].lower()
+
+
+def test_store_source_non_validation_failure_returns_502_not_500(
+    client, profile_db, monkeypatch, caplog
+):
+    """Une exception dans `_store_source` qui n'est PAS une `ValidationError`
+    (panne DB, bug dans `build_profile_from_sources`, données `sources`
+    malformées) doit être attrapée par le `except Exception` du handler —
+    pas remonter en 500 brut sans passer par `logger.exception`.
+    """
+    import logging
+
+    import app.routers.cover_letters as router
+
+    async def fake_collect(url, client=None):
+        return {"projects": [], "experiences": []}
+
+    def boom(_sources):
+        raise RuntimeError("panne inattendue dans la fusion")
+
+    monkeypatch.setattr(router, "collect_github", fake_collect)
+    monkeypatch.setattr(router, "build_profile_from_sources", boom)
+
+    with caplog.at_level(logging.ERROR, logger="app.routers.cover_letters"):
+        res = client.post(
+            "/profile/candidate/sources/github", json={"url": "https://github.com/Ekatche"}
+        )
+
+    assert res.status_code == 502
+    assert "panne inattendue" not in res.json()["detail"]
+    assert any(
+        record.levelno == logging.ERROR and record.exc_info
+        for record in caplog.records
+    )
