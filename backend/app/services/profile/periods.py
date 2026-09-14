@@ -58,12 +58,20 @@ def normalize_month(raw: str | None) -> str | None:
     # 2021-03 ou 2021/03
     iso = re.match(r"^(\d{4})[-/](\d{1,2})$", text)
     if iso:
-        return f"{iso.group(1)}-{int(iso.group(2)):02d}"
+        month = int(iso.group(2))
+        if 1 <= month <= 12:
+            return f"{iso.group(1)}-{month:02d}"
+        else:
+            return None
 
     # 03/2021 ou 03-2021
     reverse = re.match(r"^(\d{1,2})[-/](\d{4})$", text)
     if reverse:
-        return f"{reverse.group(2)}-{int(reverse.group(1)):02d}"
+        month = int(reverse.group(1))
+        if 1 <= month <= 12:
+            return f"{reverse.group(2)}-{month:02d}"
+        else:
+            return None
 
     year_match = re.search(r"(19|20)\d{2}", text)
     if not year_match:
@@ -89,5 +97,8 @@ def company_slug(raw: str) -> str:
     text = _strip_accents(raw).lower()
     text = re.split(r"[(,|]", text)[0]
     text = re.sub(r"[^a-z0-9&\s-]", " ", text)
-    tokens = [t for t in text.split() if t and t not in _LEGAL_SUFFIXES]
+    tokens = [t for t in text.split() if t]
+    # Strip legal suffixes only from the end
+    while tokens and tokens[-1] in _LEGAL_SUFFIXES:
+        tokens.pop()
     return " ".join(tokens).strip()
