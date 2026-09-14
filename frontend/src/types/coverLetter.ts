@@ -9,6 +9,7 @@ export interface CandidateExperience {
   missions?: string[];
   achievements?: Array<{ text: string; metric?: string | null }>;
   stack?: string[];
+  sources?: string[];
 }
 
 export interface CandidateProject {
@@ -33,7 +34,17 @@ export interface CandidateProfile {
   certifications?: Array<{ name: string; issuer: string; year?: string; topics?: string[] }>;
   languages?: string[];
   skills?: Record<string, string[]>;
+  conflicts?: CandidateConflict[];
   updated_at?: string;
+}
+
+export interface CandidateConflict {
+  company: string;
+  field: string;
+  kept: unknown;
+  kept_source: string;
+  discarded: unknown;
+  discarded_source: string;
 }
 
 export interface GuardReport {

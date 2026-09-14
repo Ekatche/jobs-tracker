@@ -17,7 +17,7 @@ import {
   FiCode,
 } from "react-icons/fi";
 import { coverLetterApi } from "@/lib/api";
-import { CandidateProfile, CandidateExperience, CandidateProject } from "@/types/coverLetter";
+import { CandidateProfile, CandidateExperience, CandidateProject, CandidateConflict } from "@/types/coverLetter";
 
 export default function CandidateProfileSection() {
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
@@ -84,49 +84,32 @@ export default function CandidateProfileSection() {
     loadProfile();
   }, []);
 
-  const [isUploading, setIsUploading] = useState(false);
-  const [isEnriching, setIsEnriching] = useState(false);
+  type SourceName = "cv" | "github" | "website";
+
+  const [busySource, setBusySource] = useState<SourceName | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const runImport = async (source: SourceName, call: () => Promise<CandidateProfile>) => {
+    setBusySource(source);
+    setSaveError(null);
+    try {
+      const updated = await call();
+      setProfile(updated);
+      populateForm(updated);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 4000);
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : `Échec de l'import ${source}`);
+    } finally {
+      setBusySource(null);
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    setIsUploading(true);
-    setSaveError(null);
-    try {
-      const updatedProfile = await coverLetterApi.uploadCV(file);
-      setProfile(updatedProfile);
-      populateForm(updatedProfile);
-      setSaveSuccess(true);
-      setIsEditing(true);
-      setTimeout(() => setSaveSuccess(false), 4000);
-    } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : "Erreur lors de l'upload du CV");
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const handleEnrich = async () => {
-    setIsEnriching(true);
-    setSaveError(null);
-    try {
-      const updatedProfile = await coverLetterApi.enrichProfile({
-        github,
-        linkedin,
-        portfolio: website,
-      });
-      setProfile(updatedProfile);
-      populateForm(updatedProfile);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 4000);
-    } catch (err: unknown) {
-      setSaveError(err instanceof Error ? err.message : "Erreur lors de l'enrichissement");
-    } finally {
-      setIsEnriching(false);
-    }
+    await runImport("cv", () => coverLetterApi.importCv(file));
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -238,17 +221,17 @@ export default function CandidateProfileSection() {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
+            disabled={busySource !== null}
             className="flex items-center px-3.5 py-1.5 rounded-md text-sm font-medium bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600/30 transition-colors disabled:opacity-50"
           >
-            {isUploading ? (
+            {busySource === "cv" ? (
               <span className="w-4 h-4 mr-1.5 border-2 border-emerald-300 border-t-transparent rounded-full animate-spin"></span>
             ) : (
               <FiFileText className="mr-1.5" />
             )}
             Importer mon CV
           </button>
-          
+
           <button
             type="button"
             onClick={() => setIsEditing(!isEditing)}
@@ -390,6 +373,21 @@ export default function CandidateProfileSection() {
               <h3 className="text-xs uppercase tracking-wider font-semibold text-gray-400 mb-3 flex items-center">
                 <FiBriefcase className="mr-2 text-blue-400" /> Expériences clés ({profile.experiences.length})
               </h3>
+              {profile?.conflicts && profile.conflicts.length > 0 && (
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200 mb-3">
+                  <p className="font-medium mb-1">
+                    Divergences entre vos sources ({profile.conflicts.length})
+                  </p>
+                  <ul className="space-y-1">
+                    {profile.conflicts.map((c: CandidateConflict, i) => (
+                      <li key={i}>
+                        {c.company} — {c.field} : « {String(c.kept)} » retenu depuis {c.kept_source},
+                        « {String(c.discarded)} » écarté depuis {c.discarded_source}.
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div className="space-y-3">
                 {profile.experiences.map((exp, idx) => (
                   <div key={idx} className="bg-blue-night-lighter/50 p-3 rounded border border-gray-800">
@@ -414,6 +412,15 @@ export default function CandidateProfileSection() {
                       <div className="flex flex-wrap gap-1 mt-2">
                         {exp.stack.map((s, sIdx) => (
                           <span key={sIdx} className="text-[10px] bg-blue-900/30 text-blue-300 border border-blue-700/30 px-1.5 py-0.5 rounded">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {exp.sources && exp.sources.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {exp.sources.map((s, sIdx) => (
+                          <span key={sIdx} className="text-[10px] bg-emerald-900/30 text-emerald-300 border border-emerald-700/30 px-1.5 py-0.5 rounded">
                             {s}
                           </span>
                         ))}
@@ -474,14 +481,28 @@ export default function CandidateProfileSection() {
               <label htmlFor="candidate_website" className="block text-xs font-semibold text-gray-300 uppercase mb-1 flex items-center">
                 <FiGlobe className="mr-1.5 text-blue-400" /> Site Web / Portfolio
               </label>
-              <input
-                id="candidate_website"
-                type="text"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                placeholder="https://mon-portfolio.dev"
-                className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="flex gap-2">
+                <input
+                  id="candidate_website"
+                  type="text"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="https://mon-portfolio.dev"
+                  className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => runImport("website", () => coverLetterApi.importWebsite(website))}
+                  disabled={busySource !== null || !website}
+                  className="flex items-center shrink-0 px-3 py-1.5 rounded-md text-xs font-medium bg-purple-600/20 text-purple-300 border border-purple-500/30 hover:bg-purple-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {busySource === "website" ? (
+                    <span className="w-3.5 h-3.5 border-2 border-purple-300 border-t-transparent rounded-full animate-spin"></span>
+                  ) : (
+                    "Importer"
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -504,19 +525,36 @@ export default function CandidateProfileSection() {
               <label htmlFor="candidate_github" className="block text-xs font-medium text-gray-300 mb-1 flex items-center">
                 <FiGithub className="mr-1.5" /> GitHub
               </label>
-              <input
-                id="candidate_github"
-                type="text"
-                value={github}
-                onChange={(e) => setGithub(e.target.value)}
-                placeholder="https://github.com/moncompte"
-                className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="flex gap-2">
+                <input
+                  id="candidate_github"
+                  type="text"
+                  value={github}
+                  onChange={(e) => setGithub(e.target.value)}
+                  placeholder="https://github.com/moncompte"
+                  className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => runImport("github", () => coverLetterApi.importGithub(github))}
+                  disabled={busySource !== null || !github}
+                  className="flex items-center shrink-0 px-3 py-1.5 rounded-md text-xs font-medium bg-purple-600/20 text-purple-300 border border-purple-500/30 hover:bg-purple-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {busySource === "github" ? (
+                    <span className="w-3.5 h-3.5 border-2 border-purple-300 border-t-transparent rounded-full animate-spin"></span>
+                  ) : (
+                    "Importer"
+                  )}
+                </button>
+              </div>
             </div>
 
             <div>
-              <label htmlFor="candidate_linkedin" className="block text-xs font-medium text-gray-300 mb-1 flex items-center">
-                <FiLinkedin className="mr-1.5 text-blue-400" /> LinkedIn
+              <label htmlFor="candidate_linkedin" className="block text-xs font-medium text-gray-300 mb-1 flex items-center justify-between">
+                <span className="flex items-center">
+                  <FiLinkedin className="mr-1.5 text-blue-400" /> LinkedIn
+                </span>
+                <span className="text-[10px] normal-case text-gray-500 italic">affiché sur votre profil, non importé</span>
               </label>
               <input
                 id="candidate_linkedin"
@@ -555,22 +593,6 @@ export default function CandidateProfileSection() {
                 className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-          </div>
-
-          <div className="flex justify-end -mt-2 mb-4">
-            <button
-              type="button"
-              onClick={handleEnrich}
-              disabled={isEnriching || (!github && !linkedin && !website)}
-              className="flex items-center px-3 py-1.5 rounded text-xs font-medium bg-purple-600/20 text-purple-300 border border-purple-500/30 hover:bg-purple-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isEnriching ? (
-                <span className="w-3.5 h-3.5 mr-1.5 border-2 border-purple-300 border-t-transparent rounded-full animate-spin"></span>
-              ) : (
-                <FiLayers className="mr-1.5" />
-              )}
-              Enrichir depuis mes liens avec l'IA
-            </button>
           </div>
 
           <div>
