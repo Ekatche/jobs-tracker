@@ -46,6 +46,13 @@ def fake_resolver(monkeypatch):
         except ValueError:
             pass
 
+        # Un label DNS de plus de 63 caractères échoue l'encodage IDNA : le
+        # vrai `socket.getaddrinfo` lève `UnicodeError` dans ce cas, pas
+        # `gaierror`. Reproduit ici pour tester le traitement de cette
+        # exception sans dépendre du réseau.
+        if any(len(label) > 63 for label in host.split(".")):
+            raise UnicodeError("label empty or too long")
+
         if host in _FAKE_DNS:
             ips = _FAKE_DNS[host]
             if isinstance(ips, str):
@@ -94,6 +101,38 @@ def test_public_https_urls_are_accepted(url):
 def test_dangerous_urls_are_rejected(url):
     with pytest.raises(ValueError):
         validate_public_url(url)
+
+
+@pytest.mark.parametrize(
+    "url,reason",
+    [
+        ("http://10.0.0.5/", "private (RFC 1918)"),
+        ("http://127.0.0.1/", "loopback"),
+        ("http://169.254.169.254/", "link-local"),
+        ("http://0.0.0.0/", "unspecified"),
+        ("http://240.0.0.1/", "reserved (Class E)"),
+        ("http://224.0.0.1/", "multicast"),
+        ("http://100.64.0.5/", "RFC 6598 shared address space (CGNAT / cloud interne)"),
+    ],
+)
+def test_iana_special_purpose_addresses_are_rejected(url, reason):
+    with pytest.raises(ValueError):
+        validate_public_url(url)
+
+
+def test_oversized_hostname_raises_value_error_not_unicode_error():
+    # Un label DNS trop long fait échouer l'encodage IDNA dans le vrai
+    # socket.getaddrinfo (UnicodeError) : ça doit rester une ValueError pour
+    # l'appelant, qui ne catch que ValueError.
+    url = "http://" + "a" * 300 + ".com/"
+    with pytest.raises(ValueError):
+        validate_public_url(url)
+
+
+def test_allowed_hosts_comparison_is_case_insensitive():
+    assert validate_public_url(
+        "https://github.com/Ekatche", allowed_hosts={"GitHub.com"}
+    )
 
 
 def test_allowed_hosts_restricts_further():

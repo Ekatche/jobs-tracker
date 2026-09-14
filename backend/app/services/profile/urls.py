@@ -22,14 +22,19 @@ _ALLOWED_SCHEMES = ("http", "https")
 
 
 def _is_public_address(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    return not (
-        address.is_private
-        or address.is_loopback
-        or address.is_link_local
-        or address.is_reserved
-        or address.is_multicast
-        or address.is_unspecified
-    )
+    # `is_global` remplace l'énumération manuelle (`is_private`, `is_loopback`,
+    # `is_link_local`, `is_reserved`, `is_unspecified`) : il couvre le RFC 1918,
+    # le loopback, le link-local, le non spécifié, le réservé, *et* le RFC 6598
+    # « shared address space » 100.64.0.0/10 (NAT opérateur / réseau interne de
+    # nombreux fournisseurs cloud) qu'une énumération de drapeaux manuelle avait
+    # oublié — `is_private` seul est `False` pour 100.64.0.0/10.
+    #
+    # Vérifié empiriquement (cpython 3.12) : `is_global` ne couvre PAS le
+    # multicast (`ipaddress.ip_address("224.0.0.1").is_global` vaut `True`),
+    # parce que la plage multicast (224.0.0.0/4, ff00::/8) n'appartient pas à
+    # la liste `_private_networks` que `is_global`/`is_private` consultent.
+    # `is_multicast` reste donc une vérification indépendante à conserver.
+    return address.is_global and not address.is_multicast
 
 
 def _resolves_to_public_ip(hostname: str) -> bool:
@@ -40,7 +45,7 @@ def _resolves_to_public_ip(hostname: str) -> bool:
     """
     try:
         infos = socket.getaddrinfo(hostname, None)
-    except socket.gaierror as exc:
+    except (socket.gaierror, UnicodeError) as exc:
         raise ValueError(f"Hôte introuvable : {hostname}") from exc
 
     if not infos:
@@ -76,7 +81,8 @@ def validate_public_url(raw: str, allowed_hosts: Iterable[str] | None = None) ->
 
     if allowed_hosts is not None:
         if not any(
-            host == allowed or host.endswith(f".{allowed}") for allowed in allowed_hosts
+            host == allowed.lower() or host.endswith(f".{allowed.lower()}")
+            for allowed in allowed_hosts
         ):
             raise ValueError(f"Hôte non autorisé : {host}")
 
