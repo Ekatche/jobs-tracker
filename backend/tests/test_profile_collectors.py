@@ -14,6 +14,7 @@ from types import SimpleNamespace
 import pytest
 
 import app.services.profile.collectors.website as website
+from app.services.profile.collectors.github import collect_github, parse_github_username
 from app.services.profile.collectors.website import (
     _default_fetch,
     collect_website,
@@ -396,3 +397,83 @@ async def test_default_fetch_enforces_total_time_budget_across_redirect_chain(mo
     # Sans budget total, la boucle irait jusqu'à MAX_REDIRECTS + 1 = 6
     # requêtes ; avec le budget, le temps simulé dépasse 10s dès la 3e.
     assert len(calls) == 3
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("https://github.com/Ekatche", "Ekatche"),
+        ("https://github.com/Ekatche/", "Ekatche"),
+        ("github.com/Ekatche", "Ekatche"),
+        ("Ekatche", "Ekatche"),
+    ],
+)
+def test_parse_github_username(raw, expected):
+    assert parse_github_username(raw) == expected
+
+
+@pytest.mark.parametrize("raw", ["https://github.com/", "", "https://gitlab.com/x"])
+def test_parse_github_username_rejects_invalid(raw):
+    with pytest.raises(ValueError):
+        parse_github_username(raw)
+
+
+class FakeGitHubClient:
+    """Répond comme l'API REST GitHub, sans réseau."""
+
+    def __init__(self):
+        self.calls = []
+
+    async def get_repos(self, username):
+        self.calls.append(("repos", username))
+        return [
+            {
+                "name": "WideDocs",
+                "description": "Plateforme documentaire pour avocats",
+                "language": "Python",
+                "topics": ["fastapi", "ocr"],
+                "html_url": "https://github.com/Ekatche/WideDocs",
+                "fork": False,
+                "archived": False,
+                "pushed_at": "2026-09-01T00:00:00Z",
+                "stargazers_count": 3,
+            },
+            {
+                "name": "transformerlab-app",
+                "description": "Fork amont",
+                "language": "TypeScript",
+                "topics": [],
+                "html_url": "https://github.com/Ekatche/transformerlab-app",
+                "fork": True,
+                "archived": False,
+                "pushed_at": "2026-01-01T00:00:00Z",
+                "stargazers_count": 0,
+            },
+        ]
+
+    async def get_readme(self, username, repo):
+        self.calls.append(("readme", repo))
+        return "# WideDocs\n\nImport et OCR de dossiers, anonymisation RGPD."
+
+
+@pytest.mark.asyncio
+async def test_forks_are_excluded():
+    payload = await collect_github("https://github.com/Ekatche", client=FakeGitHubClient())
+    names = {p["name"] for p in payload["projects"]}
+    assert names == {"WideDocs"}
+
+
+@pytest.mark.asyncio
+async def test_readme_feeds_the_description_and_language_feeds_the_stack():
+    payload = await collect_github("Ekatche", client=FakeGitHubClient())
+    project = payload["projects"][0]
+    assert "OCR" in project["description"]
+    assert "Python" in project["stack"]
+    assert project["url"] == "https://github.com/Ekatche/WideDocs"
+
+
+@pytest.mark.asyncio
+async def test_github_never_produces_experiences():
+    """GitHub documente des projets, pas des emplois : ne pas inventer d'expérience."""
+    payload = await collect_github("Ekatche", client=FakeGitHubClient())
+    assert payload.get("experiences", []) == []
