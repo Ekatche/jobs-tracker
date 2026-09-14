@@ -37,3 +37,38 @@ def test_pipeline_executes_revision_when_critic_requests():
         assert result["body"] == mock_revised_letter
         assert result["revised"] is True
         assert result["critic_verdict"]["verdict"] == "revise"
+
+def test_completion_uses_max_completion_tokens():
+    from cover_letter_crew import _call_analyst, _call_writer, _call_critic, _call_reviser
+
+    mock_resp = MagicMock()
+    mock_resp.choices = [MagicMock(message=MagicMock(content='{"missions": ["M1"], "verdict": "pass", "flaws": []}'))]
+
+    with patch("cover_letter_crew.completion", return_value=mock_resp) as mock_comp:
+        _call_analyst("Description", {"experiences": []})
+        assert mock_comp.called
+        assert "max_completion_tokens" in mock_comp.call_args.kwargs
+        assert "max_tokens" not in mock_comp.call_args.kwargs
+        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 600
+
+    with patch("cover_letter_crew.completion", return_value=mock_resp) as mock_comp:
+        _call_writer({"missions": []}, "Company")
+        assert mock_comp.called
+        assert "max_completion_tokens" in mock_comp.call_args.kwargs
+        assert "max_tokens" not in mock_comp.call_args.kwargs
+        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 900
+
+    with patch("cover_letter_crew.completion", return_value=mock_resp) as mock_comp:
+        _call_critic("Lettre...", ["M1"])
+        assert mock_comp.called
+        assert "max_completion_tokens" in mock_comp.call_args.kwargs
+        assert "max_tokens" not in mock_comp.call_args.kwargs
+        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 400
+
+    with patch("cover_letter_crew.completion", return_value=mock_resp) as mock_comp:
+        _call_reviser("Lettre...", {"missions": []}, ["Flaw 1"], {"violations": ["V1"]})
+        assert mock_comp.called
+        assert "max_completion_tokens" in mock_comp.call_args.kwargs
+        assert "max_tokens" not in mock_comp.call_args.kwargs
+        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 900
+

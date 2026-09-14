@@ -4,7 +4,11 @@ from typing import Dict, Any
 from app.services.letter_guards import evaluate_letter_guards
 from letter_llm import get_letter_llm, validate_cross_provider
 
+import litellm
 from litellm import completion
+
+# Drop unsupported params automatically across providers
+litellm.drop_params = True
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +47,7 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
-            max_tokens=600,
+            max_completion_tokens=600,
             response_format={"type": "json_object"} if "gpt" in llm.model else None,
         )
         data = json.loads(resp.choices[0].message.content.strip())
@@ -101,7 +105,7 @@ Rédige directement le corps de la lettre en commençant par "Madame, Monsieur,"
         api_key=llm.api_key,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.6,
-        max_tokens=900,
+        max_completion_tokens=900,
     )
     content = resp.choices[0].message.content.strip()
     if content.startswith("```"):
@@ -131,7 +135,7 @@ Critères :
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
-            max_tokens=400,
+            max_completion_tokens=400,
         )
         clean = resp.choices[0].message.content.strip()
         if "{" in clean:
@@ -168,7 +172,7 @@ Renvoie uniquement le texte corrigé de la lettre."""
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.4,
-            max_tokens=900,
+            max_completion_tokens=900,
         )
         content = resp.choices[0].message.content.strip()
         if content.startswith("```"):

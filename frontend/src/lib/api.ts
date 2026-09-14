@@ -567,6 +567,16 @@ export const coverLetterApi = {
   updateCandidateProfile: async (profile: Partial<CandidateProfile>): Promise<CandidateProfile> => {
     return fetchApi<CandidateProfile>("/profile/candidate", "PUT", profile);
   },
+  uploadCV: async (file: File): Promise<CandidateProfile> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return fetchApi<CandidateProfile>("/profile/candidate/upload-cv", "POST", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  enrichProfile: async (urls: { github?: string; linkedin?: string; portfolio?: string }): Promise<CandidateProfile> => {
+    return fetchApi<CandidateProfile>("/profile/candidate/enrich", "POST", urls);
+  },
 };
 
 // Exportations par défaut
