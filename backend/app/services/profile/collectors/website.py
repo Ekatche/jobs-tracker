@@ -26,19 +26,54 @@ from app.services.profile.urls import validate_public_url
 logger = logging.getLogger(__name__)
 
 MAX_PAGES = 12
+MAX_REDIRECTS = 5
 FALLBACK_PATHS = ("", "/experience", "/work", "/projects", "/formation", "/competences", "/about")
 SKIP_PATTERNS = ("/contact", "/mentions", "/legal", "/privacy", "/blog/tag")
 MODEL = "gemini/gemini-3.8-flash"
 
 
 async def _default_fetch(url: str) -> Optional[str]:
+    """Récupère `url`, en validant manuellement chaque redirection.
+
+    `follow_redirects=True` d'httpx suivrait une redirection transparente vers
+    n'importe quelle adresse — y compris une IP privée ou l'endpoint de
+    métadonnées cloud — avant que ce code n'ait la moindre chance de la
+    contrôler. `validate_public_url` n'aurait alors servi qu'à valider
+    `base_url`, pas la destination réelle de la requête. On suit donc les
+    redirections nous-mêmes, en revalidant l'hôte à chaque saut, plafonné à
+    `MAX_REDIRECTS` pour ne jamais boucler indéfiniment. Une redirection
+    rejetée ou une boucle trop longue rend `None` (échec de fetch, pas une
+    exception) : le sitemap est optionnel, `discover_pages` doit pouvoir
+    retomber sur ses chemins par défaut.
+    """
+    current = url
     try:
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            response = await client.get(url)
-            if response.status_code == 200:
-                return response.text
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
+            for _ in range(MAX_REDIRECTS + 1):
+                response = await client.get(current)
+                if response.status_code == 200:
+                    return response.text
+                if response.status_code in (301, 302, 303, 307, 308):
+                    location = response.headers.get("location")
+                    if not location:
+                        return None
+                    next_url = urljoin(current, location)
+                    try:
+                        current = validate_public_url(next_url)
+                    except ValueError as exc:
+                        logger.info(
+                            "redirection refusée depuis %s vers %s : %s",
+                            current,
+                            next_url,
+                            exc,
+                        )
+                        return None
+                    continue
+                return None
     except httpx.HTTPError as exc:
         logger.info("sitemap indisponible sur %s: %s", url, exc)
+        return None
+    logger.info("trop de redirections depuis %s (plafond %s)", url, MAX_REDIRECTS)
     return None
 
 
@@ -142,5 +177,15 @@ async def collect_website(
         raise ValueError("Aucune page exploitable sur ce site")
 
     payload = await extract(markdown_by_url)
+
+    # Le prompt LLM niche "headline"/"summary" sous "identity" (forme
+    # d'extraction raisonnable), mais `build_profile_from_sources` (merge.py)
+    # les lit à la racine du dict de source via `_first_non_empty("headline",
+    # ...)` / `_first_non_empty("summary", ...)`. Sans cet aplatissement, les
+    # deux champs seraient silencieusement perdus pour la source "website".
+    identity = payload.pop("identity", {}) or {}
+    payload["headline"] = identity.get("headline", "")
+    payload["summary"] = identity.get("summary", "")
+
     payload["_pages"] = list(markdown_by_url)
     return payload

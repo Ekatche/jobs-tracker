@@ -13,7 +13,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.services.profile.collectors.website import collect_website, discover_pages
+import app.services.profile.collectors.website as website
+from app.services.profile.collectors.website import (
+    _default_fetch,
+    collect_website,
+    discover_pages,
+)
 
 SITEMAP = """<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -164,11 +169,44 @@ async def test_collect_website_passes_extracted_markdown_and_adds_pages(monkeypa
         "https://example.com/experience": "# Expérience",
     }
     for key, value in expected_payload.items():
+        if key == "identity":
+            continue  # aplati à la racine, voir assertions ci-dessous
         assert payload[key] == value
     assert payload["_pages"] == [
         "https://example.com",
         "https://example.com/experience",
     ]
+
+    # headline/summary doivent être aplatis à la racine du payload : c'est ce
+    # que `build_profile_from_sources` (merge.py) lit réellement — un
+    # "identity" niché serait silencieusement ignoré en aval.
+    assert "identity" not in payload
+    assert payload["headline"] == "Développeur"
+    assert payload["summary"] == "Résumé factuel"
+
+
+@pytest.mark.asyncio
+async def test_collect_website_flattens_identity_even_without_other_fields(monkeypatch):
+    """Régression : le payload de `extract` peut ne contenir que `identity`."""
+
+    async def fake_fetch(url):
+        return None
+
+    monkeypatch.setattr(website, "_default_fetch", fake_fetch)
+
+    results = [SimpleNamespace(url="https://example.com", markdown="# Accueil")]
+    crawler = FakeCrawler(results)
+
+    async def fake_extract(markdown_by_url):
+        return {"identity": {"headline": "X", "summary": "Y"}}
+
+    payload = await collect_website(
+        "https://example.com", crawler=crawler, extract=fake_extract
+    )
+
+    assert payload["headline"] == "X"
+    assert payload["summary"] == "Y"
+    assert "identity" not in payload
 
 
 @pytest.mark.asyncio
@@ -193,3 +231,102 @@ async def test_collect_website_raises_when_no_page_has_markdown(monkeypatch):
         await collect_website(
             "https://example.com", crawler=crawler, extract=fake_extract
         )
+
+
+class _FakeResponse:
+    def __init__(self, status_code, headers=None, text=""):
+        self.status_code = status_code
+        self.headers = headers or {}
+        self.text = text
+
+
+def _fake_async_client_factory(responses_by_url, calls=None):
+    """Fabrique un faux `httpx.AsyncClient` piloté par une table URL -> réponse.
+
+    `calls`, si fourni, accumule chaque URL réellement demandée : ça permet à
+    un test d'affirmer qu'une URL n'a *jamais* été atteinte, pas seulement que
+    le résultat final est `None`.
+    """
+
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+        async def get(self, url):
+            if calls is not None:
+                calls.append(url)
+            if url not in responses_by_url:
+                raise AssertionError(f"URL inattendue demandée : {url}")
+            return responses_by_url[url]
+
+    return _FakeAsyncClient
+
+
+@pytest.mark.asyncio
+async def test_default_fetch_follows_redirect_to_public_url(monkeypatch):
+    responses = {
+        "https://example.com/sitemap.xml": _FakeResponse(
+            302, headers={"location": "https://example.com/sitemap-final.xml"}
+        ),
+        "https://example.com/sitemap-final.xml": _FakeResponse(
+            200, text="<urlset></urlset>"
+        ),
+    }
+    monkeypatch.setattr(website.httpx, "AsyncClient", _fake_async_client_factory(responses))
+
+    result = await _default_fetch("https://example.com/sitemap.xml")
+    assert result == "<urlset></urlset>"
+
+
+@pytest.mark.asyncio
+async def test_default_fetch_rejects_redirect_to_private_ip(monkeypatch):
+    """Une redirection vers une IP privée/loopback ne doit jamais être suivie
+    ni faire fuiter la réponse finale : c'est exactement le cas SSRF que
+    `validate_public_url` doit bloquer, y compris au milieu d'une chaîne de
+    redirections initiée par un hôte par ailleurs public."""
+
+    calls: list[str] = []
+    responses = {
+        "https://example.com/sitemap.xml": _FakeResponse(
+            302, headers={"location": "http://169.254.169.254/latest/meta-data/"}
+        ),
+        # Si le code suivait la redirection, il demanderait cette URL et
+        # obtiendrait ces "métadonnées" : la présence de cette entrée sert à
+        # prouver qu'elle n'est jamais consultée, pas juste que le retour est vide.
+        "http://169.254.169.254/latest/meta-data/": _FakeResponse(
+            200, text="secret-metadata"
+        ),
+    }
+    monkeypatch.setattr(
+        website.httpx, "AsyncClient", _fake_async_client_factory(responses, calls)
+    )
+
+    result = await _default_fetch("https://example.com/sitemap.xml")
+
+    assert result is None
+    assert "http://169.254.169.254/latest/meta-data/" not in calls
+
+
+@pytest.mark.asyncio
+async def test_default_fetch_stops_after_max_redirects(monkeypatch):
+    """Une boucle de redirection ne doit ni bloquer indéfiniment ni lever,
+    juste échouer proprement (le sitemap est optionnel)."""
+
+    responses = {
+        "https://example.com/a": _FakeResponse(
+            302, headers={"location": "https://example.com/b"}
+        ),
+        "https://example.com/b": _FakeResponse(
+            302, headers={"location": "https://example.com/a"}
+        ),
+    }
+    monkeypatch.setattr(website.httpx, "AsyncClient", _fake_async_client_factory(responses))
+
+    result = await _default_fetch("https://example.com/a")
+    assert result is None
