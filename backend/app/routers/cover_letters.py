@@ -1,13 +1,32 @@
+import asyncio
+import logging
+import os
 from datetime import datetime, timezone
+from pathlib import Path
+from uuid import uuid4
+
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Body, UploadFile, File
+from pydantic import ValidationError
+
 from app.database import get_database
 from app.auth import get_current_user
-from app.models import UserModel
+from app.models import CandidateProfile, UserModel
 from app.utils import serialize_mongodb_doc
 from app.routers.applications import _generate_cover_letter_bg
+from app.services.cv_parser import extract_text_from_pdf, parse_cv_with_llm
+from app.services.profile.collectors.github import collect_github
+from app.services.profile.collectors.website import collect_website
+from app.services.profile.merge import build_profile_from_sources
+from app.services.profile.urls import validate_public_url
+
+logger = logging.getLogger(__name__)
 
 cover_letters_router = APIRouter(tags=["cover_letters"])
+
+UPLOAD_DIR = str(Path(__file__).resolve().parent.parent / "uploads")
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+PDF_MAGIC = b"%PDF"
 
 @cover_letters_router.get("/applications/{application_id}/cover-letter")
 async def get_cover_letter(
@@ -90,104 +109,124 @@ async def get_candidate_profile(
         raise HTTPException(status_code=404, detail="Profil non initialisé")
     return serialize_mongodb_doc(prof)
 
+
+async def _read_upload(file: UploadFile, magic: bytes) -> bytes:
+    """Lit un upload en plafonnant la taille et en vérifiant la signature."""
+    chunks: list[bytes] = []
+    total = 0
+    while chunk := await file.read(1024 * 1024):
+        total += len(chunk)
+        if total > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="Fichier trop volumineux (10 Mo maximum)")
+        chunks.append(chunk)
+    content = b"".join(chunks)
+    if not content.startswith(magic):
+        raise HTTPException(status_code=400, detail="Le contenu du fichier n'est pas un PDF valide")
+    return content
+
+
+async def _store_source(db, user_id: str, name: str, payload: dict) -> dict:
+    """Range une source, recalcule le profil dérivé, retourne le profil à jour."""
+    existing = await db["candidate_profile"].find_one({"user_id": ObjectId(user_id)}) or {}
+    sources = dict(existing.get("sources") or {})
+    sources[name] = payload
+
+    derived, conflicts = build_profile_from_sources(sources)
+    document = {
+        **derived,
+        "sources": sources,
+        "conflicts": conflicts,
+        "user_id": ObjectId(user_id),
+        "updated_at": datetime.now(timezone.utc),
+    }
+    # La validation refuse d'écrire une sortie de LLM malformée en base.
+    try:
+        CandidateProfile.model_validate({**document, "user_id": str(user_id)})
+    except ValidationError:
+        logger.exception(
+            "Le profil dérivé après import de la source %s est invalide pour %s", name, user_id
+        )
+        raise HTTPException(status_code=502, detail="Le profil obtenu n'a pas pu être validé")
+
+    await db["candidate_profile"].update_one(
+        {"user_id": ObjectId(user_id)}, {"$set": document}, upsert=True
+    )
+    stored = await db["candidate_profile"].find_one({"user_id": ObjectId(user_id)})
+    return serialize_mongodb_doc(stored)
+
+
+@cover_letters_router.post("/profile/candidate/sources/cv")
+async def import_cv_source(
+    file: UploadFile = File(...),
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    content = await _read_upload(file, PDF_MAGIC)
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    file_path = os.path.join(UPLOAD_DIR, f"cv_{current_user.id}_{uuid4().hex}.pdf")
+
+    try:
+        with open(file_path, "wb") as buffer:
+            buffer.write(content)
+        text = await asyncio.to_thread(extract_text_from_pdf, file_path)
+        payload = await parse_cv_with_llm(text)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Échec du parsing de CV pour %s", current_user.id)
+        raise HTTPException(status_code=502, detail="Le CV n'a pas pu être analysé")
+    finally:
+        # Donnée personnelle : le PDF ne survit pas à la requête.
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+    return await _store_source(db, str(current_user.id), "cv", payload)
+
+
+@cover_letters_router.post("/profile/candidate/sources/github")
+async def import_github_source(
+    payload_in: dict = Body(...),
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    try:
+        payload = await collect_github(payload_in.get("url", ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        logger.exception("Échec de l'import GitHub pour %s", current_user.id)
+        raise HTTPException(status_code=502, detail="L'import GitHub a échoué")
+
+    return await _store_source(db, str(current_user.id), "github", payload)
+
+
+@cover_letters_router.post("/profile/candidate/sources/website")
+async def import_website_source(
+    payload_in: dict = Body(...),
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    try:
+        url = validate_public_url(payload_in.get("url", ""))
+        payload = await collect_website(url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception:
+        logger.exception("Échec de l'import du site pour %s", current_user.id)
+        raise HTTPException(status_code=502, detail="L'import du site a échoué")
+
+    return await _store_source(db, str(current_user.id), "website", payload)
+
+
 @cover_letters_router.put("/profile/candidate")
 async def update_candidate_profile(
     profile_data: dict = Body(...),
     db=Depends(get_database),
     current_user: UserModel = Depends(get_current_user),
 ):
-    profile_data.pop("_id", None)
-    profile_data.pop("id", None)
-    profile_data["user_id"] = ObjectId(current_user.id)
-    profile_data["updated_at"] = datetime.now(timezone.utc)
-    await db["candidate_profile"].update_one(
-        {"user_id": ObjectId(current_user.id)},
-        {"$set": profile_data},
-        upsert=True
-    )
-    prof = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)})
-    return serialize_mongodb_doc(prof)
-
-import os
-from uuid import uuid4
-from app.services.cv_parser import extract_text_from_pdf, parse_cv_with_llm
-from app.services.web_enricher import enrich_profile_from_urls
-from app.utils import merge_profile_sources
-
-UPLOAD_DIR = "app/uploads"
-if not os.path.exists(UPLOAD_DIR):
-    os.makedirs(UPLOAD_DIR)
-
-@cover_letters_router.post("/profile/candidate/upload-cv")
-async def upload_and_parse_cv(
-    file: UploadFile = File(...),
-    db=Depends(get_database),
-    current_user: UserModel = Depends(get_current_user),
-):
-    allowed_types = ["application/pdf"]
-    if file.content_type not in allowed_types:
-        raise HTTPException(status_code=400, detail="Seuls les fichiers PDF sont autorisés")
-
-    ext = os.path.splitext(file.filename)[1]
-    filename = f"cv_{current_user.id}_{uuid4().hex}{ext}"
-    file_path = os.path.join(UPLOAD_DIR, filename)
-
-    with open(file_path, "wb") as buffer:
-        buffer.write(await file.read())
-
-    # Extraire et parser
-    try:
-        text = extract_text_from_pdf(file_path)
-        cv_data = parse_cv_with_llm(text)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur d'extraction CV: {e}")
-
-    # Merge avec profil existant
-    prof = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)}) or {}
-    
-    merged_profile, _ = merge_profile_sources(cv_data, prof)
-    merged_profile["user_id"] = ObjectId(current_user.id)
-    merged_profile["updated_at"] = datetime.now(timezone.utc)
-
-    await db["candidate_profile"].update_one(
-        {"user_id": ObjectId(current_user.id)},
-        {"$set": merged_profile},
-        upsert=True
-    )
-    
-    new_prof = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)})
-    return serialize_mongodb_doc(new_prof)
-
-@cover_letters_router.post("/profile/candidate/enrich")
-async def enrich_candidate_profile(
-    urls: dict = Body(...), # {"github": "...", "linkedin": "...", "portfolio": "..."}
-    db=Depends(get_database),
-    current_user: UserModel = Depends(get_current_user),
-):
-    github_url = urls.get("github")
-    linkedin_url = urls.get("linkedin")
-    portfolio_url = urls.get("portfolio")
-
-    try:
-        site_data = await enrich_profile_from_urls(github_url, linkedin_url, portfolio_url)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur d'enrichissement web: {e}")
-
-    # Merge avec profil existant
-    prof = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)}) or {}
-    
-    merged_profile, _ = merge_profile_sources(prof, site_data)
-    merged_profile["user_id"] = ObjectId(current_user.id)
-    merged_profile["updated_at"] = datetime.now(timezone.utc)
-
-    await db["candidate_profile"].update_one(
-        {"user_id": ObjectId(current_user.id)},
-        {"$set": merged_profile},
-        upsert=True
-    )
-    
-    new_prof = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)})
-    return serialize_mongodb_doc(new_prof)
+    for key in ("_id", "id", "user_id", "sources", "conflicts", "updated_at"):
+        profile_data.pop(key, None)
+    return await _store_source(db, str(current_user.id), "manual", profile_data)
 
 
 @cover_letters_router.get("/profile/api-status")
@@ -199,10 +238,9 @@ async def check_api_accounts_status(
     et les informations d'accès aux soldes/crédits sur les consoles fournisseurs.
     """
     import sys
-    from pathlib import Path
-    job_trackers_path = Path(__file__).parent.parent.parent / "job_trackers" / "src" / "job_trackers"
+    from pathlib import Path as _Path
+    job_trackers_path = _Path(__file__).parent.parent.parent / "job_trackers" / "src" / "job_trackers"
     if str(job_trackers_path) not in sys.path:
         sys.path.insert(0, str(job_trackers_path))
     from letter_llm import get_api_status
     return get_api_status()
-

@@ -1,6 +1,11 @@
 import json
-from litellm import completion
-from typing import Dict, Any
+import logging
+import re
+from typing import Any, Dict
+
+from litellm import acompletion
+
+logger = logging.getLogger(__name__)
 
 # Définition du schéma attendu
 PROFILE_JSON_SCHEMA = {
@@ -76,8 +81,8 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     finally:
         doc.close()
 
-def parse_cv_with_llm(cv_text: str, model: str = "gemini/gemini-3.8-flash") -> Dict[str, Any]:
-    """Parse le texte du CV avec le LLM pour extraire les données structurées."""
+async def parse_cv_with_llm(cv_text: str, model: str = "gemini/gemini-3.8-flash") -> Dict[str, Any]:
+    """Extrait les données structurées du texte d'un CV."""
     prompt = f"""
 Voici le texte brut d'un CV (curriculum vitae).
 Ton rôle est d'extraire les informations sous format JSON strictement structuré.
@@ -94,20 +99,13 @@ Instructions :
 - Si des données sont absentes (ex: projets), renvoie une liste vide [].
 """
 
-    try:
-        response = completion(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.1,
-        )
-        content = response.choices[0].message.content.strip()
-        # Fallback pour supprimer les balises markdown si le modèle les inclut malgré le json_object
-        if content.startswith("```json"):
-            content = content[7:]
-        if content.endswith("```"):
-            content = content[:-3]
-        return json.loads(content)
-    except Exception as e:
-        print(f"Erreur LLM Parsing CV: {e}")
-        raise e
+    response = await acompletion(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+        temperature=0.1,
+        drop_params=True,
+    )
+    content = response.choices[0].message.content.strip()
+    content = re.sub(r"^```(?:json)?|```$", "", content, flags=re.MULTILINE).strip()
+    return json.loads(content)
