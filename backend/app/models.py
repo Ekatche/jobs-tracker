@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 from bson import ObjectId
 from pydantic import BaseModel, Field, GetCoreSchemaHandler, HttpUrl, ConfigDict
 from pydantic_core import core_schema
@@ -298,6 +298,8 @@ class JobOfferFilter(BaseModel):
 
 # Modèles pour le profil candidat et la génération de lettres de motivation
 CandidateSource = Literal["cv", "github", "website", "manual", "saisie"]
+# For CandidateProvenance.source: includes "site" for backwards compatibility with existing data
+CandidateProvenanceSource = Union[CandidateSource, Literal["site"]]
 
 
 class CandidateAchievement(BaseModel):
@@ -307,7 +309,7 @@ class CandidateAchievement(BaseModel):
 
 class CandidateExperience(BaseModel):
     company: str
-    role: str = ""
+    role: Optional[str] = None
     location: Optional[str] = None
     contract: Optional[str] = None
     start: Optional[str] = None
@@ -356,7 +358,7 @@ class CandidateConflict(BaseModel):
 
 class CandidateProvenance(BaseModel):
     field_path: str
-    source: Literal["cv", "github", "website", "site", "manual", "saisie"]
+    source: CandidateProvenanceSource
 
 
 class CandidateProfile(BaseModel):
@@ -372,7 +374,7 @@ class CandidateProfile(BaseModel):
     languages: List[str] = Field(default_factory=list)
     skills: Dict[str, List[str]] = Field(default_factory=dict)
     provenance: List[CandidateProvenance] = Field(default_factory=list)
-    sources: Dict[str, Any] = Field(default_factory=dict)
+    sources: Dict[str, dict] = Field(default_factory=dict)
     conflicts: List[CandidateConflict] = Field(default_factory=list)
     updated_at: datetime = Field(default_factory=utcnow_with_timezone)
 
