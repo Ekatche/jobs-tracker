@@ -40,13 +40,13 @@ def validate_cross_provider(writer_model: str, critic_model: Optional[str] = Non
             raise ValueError(f"Writer ({writer_model}) and Critic ({critic_model}) resolve to the same provider ('{writer_prov}'). Cross-provider critic is required.")
         return critic_model
 
-    # Résolution automatique basée sur la spec
-    if writer_prov == "openai":
-        return "gemini/gemini-3.8-flash"
-    elif writer_prov == "google":
-        return "openai/gpt-5.6-terra"
-    else:
-        return "gemini/gemini-3.8-flash"
+    # Résolution automatique : le critique doit toujours changer de fournisseur
+    CROSS_PROVIDER_CRITIC = {
+        "openai": "gemini/gemini-3.8-flash",
+        "google": "openai/gpt-5.6-terra",
+        "mistral": "openai/gpt-5.6-terra",
+    }
+    return CROSS_PROVIDER_CRITIC[writer_prov]
 
 def get_letter_llm(role: str, model_override: Optional[str] = None) -> LLM:
     env_var_map = {
