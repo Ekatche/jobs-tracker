@@ -7,6 +7,16 @@ from app.auth import get_current_user
 from app.database import get_database
 from app.models import UserModel
 
+
+@pytest.fixture(autouse=True)
+def _clean_dependency_overrides():
+    """Les overrides de ce fichier ne doivent pas fuiter vers les autres modules de test."""
+    snapshot = dict(app.dependency_overrides)
+    yield
+    app.dependency_overrides.clear()
+    app.dependency_overrides.update(snapshot)
+
+
 MOCK_USER_ID = "60c72b2f9b1d8b2bad7f9999"
 mock_current_user = UserModel(
     id=MOCK_USER_ID,

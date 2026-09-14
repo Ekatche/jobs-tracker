@@ -1,4 +1,3 @@
-import fitz  # PyMuPDF
 import json
 from litellm import completion
 from typing import Dict, Any
@@ -69,11 +68,13 @@ PROFILE_JSON_SCHEMA = {
 
 def extract_text_from_pdf(pdf_path: str) -> str:
     """Extrait le texte d'un PDF en conservant la structure."""
+    import fitz  # PyMuPDF — import local : dépendance lourde, hors du chemin de démarrage
+
     doc = fitz.open(pdf_path)
-    text = ""
-    for page in doc:
-        text += page.get_text() + "\n\n"
-    return text
+    try:
+        return "\n\n".join(page.get_text() for page in doc)
+    finally:
+        doc.close()
 
 def parse_cv_with_llm(cv_text: str, model: str = "gemini/gemini-3.8-flash") -> Dict[str, Any]:
     """Parse le texte du CV avec le LLM pour extraire les données structurées."""
