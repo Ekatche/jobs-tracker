@@ -297,6 +297,9 @@ class JobOfferFilter(BaseModel):
 
 
 # Modèles pour le profil candidat et la génération de lettres de motivation
+CandidateSource = Literal["cv", "github", "website", "manual", "saisie"]
+
+
 class CandidateAchievement(BaseModel):
     text: str
     metric: Optional[str] = None
@@ -304,43 +307,56 @@ class CandidateAchievement(BaseModel):
 
 class CandidateExperience(BaseModel):
     company: str
-    role: str
+    role: str = ""
     location: Optional[str] = None
     contract: Optional[str] = None
-    start: str
+    start: Optional[str] = None
     end: Optional[str] = None
     sector: Optional[str] = None
     missions: List[str] = Field(default_factory=list)
+    missions_alt: List[str] = Field(default_factory=list)
+    missions_source: Optional[str] = None
     achievements: List[CandidateAchievement] = Field(default_factory=list)
     stack: List[str] = Field(default_factory=list)
+    sources: List[str] = Field(default_factory=list)
 
 
 class CandidateProject(BaseModel):
     name: str
-    description: str
+    description: str = ""
     stack: List[str] = Field(default_factory=list)
     url: Optional[str] = None
     year: Optional[str] = None
-    context: Literal["perso", "client", "recherche", "consortium"]
+    context: Literal["perso", "client", "recherche", "consortium"] = "perso"
+    sources: List[str] = Field(default_factory=list)
 
 
 class CandidateEducation(BaseModel):
-    school: str
-    degree: str
+    school: str = ""
+    degree: str = ""
     years: Optional[str] = None
     topics: List[str] = Field(default_factory=list)
 
 
 class CandidateCertification(BaseModel):
-    name: str
-    issuer: str
+    name: str = ""
+    issuer: str = ""
     year: Optional[str] = None
     topics: List[str] = Field(default_factory=list)
 
 
+class CandidateConflict(BaseModel):
+    company: str = ""
+    field: str
+    kept: Any = None
+    kept_source: str = ""
+    discarded: Any = None
+    discarded_source: str = ""
+
+
 class CandidateProvenance(BaseModel):
     field_path: str
-    source: Literal["cv", "site", "saisie"]
+    source: Literal["cv", "github", "website", "site", "manual", "saisie"]
 
 
 class CandidateProfile(BaseModel):
@@ -356,6 +372,8 @@ class CandidateProfile(BaseModel):
     languages: List[str] = Field(default_factory=list)
     skills: Dict[str, List[str]] = Field(default_factory=dict)
     provenance: List[CandidateProvenance] = Field(default_factory=list)
+    sources: Dict[str, Any] = Field(default_factory=dict)
+    conflicts: List[CandidateConflict] = Field(default_factory=list)
     updated_at: datetime = Field(default_factory=utcnow_with_timezone)
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
