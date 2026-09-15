@@ -13,6 +13,7 @@ liste de noms interdits — car un nom de service interne (`mongodb`) ou une
 IP écrite en notation hexadécimale/décimale contournerait une liste de noms.
 """
 
+import asyncio
 import ipaddress
 import socket
 from typing import Iterable
@@ -90,3 +91,23 @@ def validate_public_url(raw: str, allowed_hosts: Iterable[str] | None = None) ->
         raise ValueError(f"L'hôte {host} résout vers une adresse non publique")
 
     return candidate
+
+
+async def validate_public_url_async(
+    raw: str, allowed_hosts: Iterable[str] | None = None, timeout: float = 5.0
+) -> str:
+    """Version async de `validate_public_url` : le DNS bloquant tourne dans un
+    thread, borné dans le temps.
+
+    `validate_public_url` fait un `socket.getaddrinfo` synchrone et sans
+    timeout. Appelé tel quel depuis une coroutine, un DNS lent gèle toute la
+    boucle d'événements du process. `validate_public_url` elle-même reste
+    intacte : elle peut encore servir à un appelant sync.
+    """
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(validate_public_url, raw, allowed_hosts),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError as exc:
+        raise ValueError(f"Résolution DNS trop lente pour : {raw}") from exc
