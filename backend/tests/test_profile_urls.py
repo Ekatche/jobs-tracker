@@ -11,10 +11,11 @@ quelles par le faux résolveur, comme le ferait `getaddrinfo` réel.
 
 import ipaddress
 import socket
+import time
 
 import pytest
 
-from app.services.profile.urls import validate_public_url
+from app.services.profile.urls import validate_public_url, validate_public_url_async
 
 # Table de résolution en mémoire : hôtes publics (acceptés) et hôtes qui
 # résolvent vers de l'interne ou du loopback (doivent être rejetés au même
@@ -152,3 +153,23 @@ def test_allowed_hosts_accepts_any_iterable_not_just_a_set():
     assert validate_public_url(
         "https://github.com/Ekatche", allowed_hosts=["github.com"]
     )
+
+
+@pytest.mark.asyncio
+async def test_validate_public_url_async_accepts_public_host():
+    result = await validate_public_url_async("https://github.com/Ekatche")
+    assert result == "https://github.com/Ekatche"
+
+
+@pytest.mark.asyncio
+async def test_validate_public_url_async_raises_value_error_on_timeout(monkeypatch):
+    # Le DNS bloquant tourne dans un thread (asyncio.to_thread) : un
+    # time.sleep() y est sans risque pour la boucle d'événements du test.
+    def slow_getaddrinfo(host, *args, **kwargs):
+        time.sleep(0.2)
+        raise socket.gaierror("ne devrait jamais être atteint")
+
+    monkeypatch.setattr("app.services.profile.urls.socket.getaddrinfo", slow_getaddrinfo)
+
+    with pytest.raises(ValueError):
+        await validate_public_url_async("https://github.com/Ekatche", timeout=0.01)
