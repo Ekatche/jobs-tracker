@@ -129,3 +129,62 @@ def test_module_does_not_mutate_litellm_globally():
     source = open(cover_letter_crew.__file__, encoding="utf-8").read()
     assert "litellm.drop_params = True" not in source
 
+
+def test_call_analyst_propagates_exception_instead_of_silent_fallback():
+    # Une panne de l'analyste ne doit jamais retomber sur des missions
+    # génériques factices : l'exception doit se propager telle quelle.
+    with patch("cover_letter_crew.completion", side_effect=RuntimeError("panne fournisseur")):
+        with pytest.raises(RuntimeError):
+            cover_letter_crew._call_analyst("Description", {"experiences": []})
+
+
+def test_call_critic_returns_explicit_error_object_on_failure():
+    from cover_letter_crew import _call_critic
+
+    with patch("cover_letter_crew.completion", side_effect=RuntimeError("panne critique")):
+        result = _call_critic("Lettre...", ["M1"])
+
+    assert result["verdict"] == "error"
+    assert result["flaws"] == []
+    assert result["role"] == "critic"
+    assert result["detail"] == "panne critique"
+    assert "provider" in result
+
+
+def test_pipeline_triggers_revision_and_reports_provider_failure_on_critic_error():
+    mock_analyst = {
+        "missions": ["Lead data pipelines"],
+        "selected_experiences": [],
+        "stacks": [],
+        "companies": [],
+        "projects": [],
+    }
+    mock_writer_letter = "Lettre rédigée normalement..."
+    mock_critic_error = {
+        "verdict": "error",
+        "flaws": [],
+        "provider": "google",
+        "role": "critic",
+        "detail": "quota dépassé",
+    }
+    mock_revised_letter = "Lettre révisée après panne du critique..."
+
+    with patch("cover_letter_crew._call_analyst", return_value=mock_analyst), \
+         patch("cover_letter_crew._call_writer", return_value=mock_writer_letter), \
+         patch("cover_letter_crew._call_critic", return_value=mock_critic_error), \
+         patch("cover_letter_crew._call_reviser", return_value=mock_revised_letter) as mock_reviser, \
+         patch("cover_letter_crew.validate_cross_provider"):
+
+        result = run_letter_pipeline_sync(
+            offer_description="Offre Acme",
+            candidate_profile={"headline": "Data Engineer"},
+            company_name="Acme",
+        )
+
+    assert mock_reviser.called
+    assert result["revised"] is True
+    assert result["body"] == mock_revised_letter
+    assert result["provider_failures"] == [
+        {"provider": "google", "role": "critic", "detail": "quota dépassé"}
+    ]
+
