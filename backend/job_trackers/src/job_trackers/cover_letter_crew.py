@@ -30,7 +30,7 @@ def load_prompt(name: str, **context: object) -> str:
     template = (PROMPTS_DIR / f"{name}.md").read_text(encoding="utf-8")
     return template.format(**context)
 
-def _call_analyst(offer_description: str, candidate_profile: Dict[str, Any]) -> Dict[str, Any]:
+def _call_analyst(offer_description: str, candidate_profile: Dict[str, Any], candidate_name: str = "") -> Dict[str, Any]:
     llm = get_letter_llm("offer_analyst")
     exps = candidate_profile.get("experiences", [])
     selected_exps = exps[:3] if exps else []
@@ -80,7 +80,7 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
         "stacks": list(candidate_stacks),
         "companies": companies,
         "projects": projects,
-        "candidate_name": (candidate_profile.get("contact") or {}).get("email", ""),
+        "candidate_name": candidate_name or (candidate_profile.get("contact") or {}).get("email", ""),
         "candidate_headline": candidate_profile.get("headline", ""),
     }
 
@@ -187,6 +187,7 @@ def run_letter_pipeline_sync(
     offer_description: str,
     candidate_profile: Dict[str, Any],
     company_name: str,
+    candidate_name: str = "",
 ) -> Dict[str, Any]:
     # Validation fournisseur croisé au démarrage
     validate_cross_provider(
@@ -195,7 +196,7 @@ def run_letter_pipeline_sync(
     )
 
     # 1. Analyse de l'offre et sélection d'expériences (le profil complet s'arrête ici)
-    analyst_output = _call_analyst(offer_description, candidate_profile)
+    analyst_output = _call_analyst(offer_description, candidate_profile, candidate_name)
 
     # 2. Rédaction (ne voit que le JSON d'analyst)
     draft_letter = _call_writer(analyst_output, company_name)

@@ -72,3 +72,19 @@ def test_completion_uses_max_completion_tokens():
         assert "max_tokens" not in mock_comp.call_args.kwargs
         assert mock_comp.call_args.kwargs["max_completion_tokens"] == 900
 
+
+def test_call_analyst_prefers_explicit_candidate_name_over_contact_email():
+    from cover_letter_crew import _call_analyst
+
+    mock_resp = MagicMock()
+    mock_resp.choices = [MagicMock(message=MagicMock(content='{"missions": ["M1"]}'))]
+
+    with patch("cover_letter_crew.completion", return_value=mock_resp):
+        result = _call_analyst(
+            "Description",
+            {"experiences": [], "contact": {"email": "fallback@example.com"}},
+            candidate_name="Jane Doe",
+        )
+
+    assert result["candidate_name"] == "Jane Doe"
+
