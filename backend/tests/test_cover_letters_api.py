@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from bson import ObjectId
 from fastapi.testclient import TestClient
 from main import app
@@ -118,3 +118,29 @@ def test_edit_cover_letter_mocked(client):
     patch_res = client.patch(f"/applications/{app_id}/cover-letter", json={"body": "Edited version by user"})
     assert patch_res.status_code == 200
     assert letters_coll.update_one.called
+
+
+def test_regenerate_endpoint_sets_pending_instead_of_deleting(client):
+    app_id = ObjectId()
+    apps_coll = MagicMock()
+    apps_coll.find_one = AsyncMock(return_value={"_id": app_id, "user_id": ObjectId(MOCK_USER_ID)})
+
+    letters_coll = MagicMock()
+    letters_coll.delete_one = AsyncMock()
+    letters_coll.update_one = AsyncMock()
+
+    colls = {"applications": apps_coll, "cover_letters": letters_coll}
+    mock_db = MagicMock()
+    mock_db.__getitem__.side_effect = lambda k: colls[k]
+
+    app.dependency_overrides[get_current_user] = lambda: mock_current_user
+    app.dependency_overrides[get_database] = lambda: mock_db
+
+    with patch("app.routers.cover_letters._generate_cover_letter_bg"):
+        res = client.post(f"/applications/{app_id}/cover-letter/regenerate")
+
+    assert res.status_code == 200
+    letters_coll.delete_one.assert_not_called()
+    letters_coll.update_one.assert_called_once()
+    args = letters_coll.update_one.call_args[0]
+    assert args[1]["$set"]["status"] == "pending"

@@ -8,6 +8,7 @@ job_trackers_path = Path(__file__).parent.parent / "job_trackers" / "src" / "job
 if str(job_trackers_path) not in sys.path:
     sys.path.insert(0, str(job_trackers_path))
 
+import cover_letter_crew
 from cover_letter_crew import run_letter_pipeline_sync
 
 def test_pipeline_executes_revision_when_critic_requests():
@@ -87,4 +88,29 @@ def test_call_analyst_prefers_explicit_candidate_name_over_contact_email():
         )
 
     assert result["candidate_name"] == "Jane Doe"
+
+
+def _fake_response(text: str) -> MagicMock:
+    mock = MagicMock()
+    mock.choices = [MagicMock(message=MagicMock(content=text))]
+    return mock
+
+
+def test_role_temperature_reaches_the_completion_call(monkeypatch):
+    from letter_llm import ROLE_TEMPERATURES
+    captured = {}
+
+    def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return _fake_response("texte")
+
+    monkeypatch.setattr(cover_letter_crew, "completion", fake_completion)
+    cover_letter_crew._call_writer({"missions": []}, "Acme")
+    assert captured["temperature"] == ROLE_TEMPERATURES["writer"]
+    assert captured["drop_params"] is True
+
+
+def test_module_does_not_mutate_litellm_globally():
+    source = open(cover_letter_crew.__file__, encoding="utf-8").read()
+    assert "litellm.drop_params = True" not in source
 

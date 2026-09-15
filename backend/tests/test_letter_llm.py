@@ -52,3 +52,9 @@ def test_get_api_status_structure():
     assert "mistral" in status
     assert "billing_url" in status["openai"]
 
+def test_missing_api_key_raises_instead_of_using_a_placeholder(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("LETTER_MODEL_CRITIC", "gemini/gemini-3.8-flash")
+    with pytest.raises(ValueError, match="Missing API key"):
+        get_letter_llm("critic")
+

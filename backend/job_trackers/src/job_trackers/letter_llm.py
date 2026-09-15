@@ -60,11 +60,11 @@ def get_letter_llm(role: str, model_override: Optional[str] = None) -> LLM:
 
     provider = get_model_provider(model)
     if provider == "google":
-        api_key = os.getenv("GEMINI_API_KEY", "dummy_gemini_key_for_test")
+        api_key = os.getenv("GEMINI_API_KEY")
     elif provider == "openai":
-        api_key = os.getenv("OPENAI_API_KEY", "dummy_openai_key_for_test")
+        api_key = os.getenv("OPENAI_API_KEY")
     elif provider == "mistral":
-        api_key = os.getenv("MISTRAL_API_KEY", "dummy_mistral_key_for_test")
+        api_key = os.getenv("MISTRAL_API_KEY")
     else:
         api_key = None
 

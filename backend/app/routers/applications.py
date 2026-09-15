@@ -55,16 +55,55 @@ async def _generate_description_bg(application_id: ObjectId, url: str, db):
         logger.error(f"[description_bg] Erreur: {str(e)}")
 
 
+async def _append_letter_version(db, letter_id, version: dict) -> None:
+    """Ajoute une version numérotée sans jamais écraser les précédentes."""
+    letter = await db["cover_letters"].find_one({"_id": letter_id})
+    version["n"] = len(letter.get("versions", [])) + 1
+    await db["cover_letters"].update_one(
+        {"_id": letter_id},
+        {
+            "$set": {
+                "status": "ready",
+                "current_version": version["n"],
+                "updated_at": datetime.now(timezone.utc),
+            },
+            "$push": {"versions": version},
+        },
+    )
+
+
 async def _generate_cover_letter_bg(application_id: ObjectId, user_id: ObjectId, db):
     logger.info(f"[cover_letter_bg] Démarrage pour ID={application_id}, user_id={user_id}")
+    letter_id = None
     try:
-        # 1. Vérification idempotence
-        existing = await db["cover_letters"].find_one({"application_id": ObjectId(application_id)})
-        if existing:
-            logger.info(f"[cover_letter_bg] Lettre déjà existante pour {application_id}, pas de relance.")
+        # 1. Idempotence : un échec antérieur ne doit pas geler la candidature.
+        existing = await db["cover_letters"].find_one(
+            {"application_id": ObjectId(application_id)}
+        )
+        if existing and existing.get("status") == "ready":
+            logger.info(f"[cover_letter_bg] Lettre déjà prête pour {application_id}, pas de relance.")
             return
+        if existing and existing.get("status") == "failed":
+            await db["cover_letters"].delete_many(
+                {"application_id": ObjectId(application_id), "status": "failed"}
+            )
+            existing = None
 
-        # 2. Vérification candidature et description
+        # 2. Un seul document résolu avant tout travail susceptible d'échouer :
+        #    celui déjà en "pending" (relance/régénération), ou un nouveau.
+        if existing:
+            letter_id = existing["_id"]
+        else:
+            letter_id = (await db["cover_letters"].insert_one({
+                "user_id": ObjectId(user_id),
+                "application_id": ObjectId(application_id),
+                "status": "pending",
+                "versions": [],
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
+            })).inserted_id
+
+        # 3. Vérification candidature et description
         app_doc = await db["applications"].find_one({"_id": ObjectId(application_id)})
         if not app_doc:
             return
@@ -77,40 +116,22 @@ async def _generate_cover_letter_bg(application_id: ObjectId, user_id: ObjectId,
                 offer_desc = app_doc.get("description") if app_doc else None
 
         if not offer_desc:
-            await db["cover_letters"].insert_one({
-                "user_id": ObjectId(user_id),
-                "application_id": ObjectId(application_id),
-                "status": "failed",
-                "error": "description_missing",
-                "created_at": datetime.now(timezone.utc),
-                "updated_at": datetime.now(timezone.utc),
-            })
+            await db["cover_letters"].update_one(
+                {"_id": letter_id},
+                {"$set": {"status": "failed", "error": "description_missing", "updated_at": datetime.now(timezone.utc)}}
+            )
             return
 
-        # 3. Vérification profil candidat
+        # 4. Vérification profil candidat
         profile_doc = await db["candidate_profile"].find_one({"user_id": ObjectId(user_id)})
         if not profile_doc:
-            await db["cover_letters"].insert_one({
-                "user_id": ObjectId(user_id),
-                "application_id": ObjectId(application_id),
-                "status": "failed",
-                "error": "profile_missing",
-                "created_at": datetime.now(timezone.utc),
-                "updated_at": datetime.now(timezone.utc),
-            })
+            await db["cover_letters"].update_one(
+                {"_id": letter_id},
+                {"$set": {"status": "failed", "error": "profile_missing", "updated_at": datetime.now(timezone.utc)}}
+            )
             return
 
-        # Initialisation statut pending
-        letter_id = (await db["cover_letters"].insert_one({
-            "user_id": ObjectId(user_id),
-            "application_id": ObjectId(application_id),
-            "status": "pending",
-            "versions": [],
-            "created_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc),
-        })).inserted_id
-
-        # 4. Exécution asynchrone via asyncio.to_thread pour isoler Motor
+        # 5. Exécution asynchrone via asyncio.to_thread pour isoler Motor
         import sys
         from pathlib import Path
         job_trackers_path = Path(__file__).parent.parent.parent / "job_trackers" / "src" / "job_trackers"
@@ -129,26 +150,16 @@ async def _generate_cover_letter_bg(application_id: ObjectId, user_id: ObjectId,
             full_name,
         )
         version_entry = {
-            "n": 1,
             "body": pipeline_res["body"],
             "origin": "generated",
             "models": pipeline_res["models"],
+            "prompt_version": pipeline_res["prompt_version"],
             "guard_report": pipeline_res["guard_report"],
             "critic_verdict": pipeline_res["critic_verdict"],
             "revised": pipeline_res["revised"],
             "created_at": datetime.now(timezone.utc),
         }
-        await db["cover_letters"].update_one(
-            {"_id": letter_id},
-            {
-                "$set": {
-                    "status": "ready",
-                    "current_version": 1,
-                    "updated_at": datetime.now(timezone.utc)
-                },
-                "$push": {"versions": version_entry}
-            }
-        )
+        await _append_letter_version(db, letter_id, version_entry)
     except Exception as e:
         logger.error(f"[cover_letter_bg] Erreur lors de la génération pour {application_id}: {e}")
         try:
@@ -157,10 +168,16 @@ async def _generate_cover_letter_bg(application_id: ObjectId, user_id: ObjectId,
         except Exception:
             err_message = str(e)
 
-        await db["cover_letters"].update_one(
-            {"application_id": ObjectId(application_id)},
-            {"$set": {"status": "failed", "error": err_message, "updated_at": datetime.now(timezone.utc)}}
-        )
+        if letter_id is not None:
+            await db["cover_letters"].update_one(
+                {"_id": letter_id},
+                {"$set": {"status": "failed", "error": err_message, "updated_at": datetime.now(timezone.utc)}}
+            )
+        else:
+            await db["cover_letters"].update_one(
+                {"application_id": ObjectId(application_id)},
+                {"$set": {"status": "failed", "error": err_message, "updated_at": datetime.now(timezone.utc)}}
+            )
 
 
 @job_router.post(

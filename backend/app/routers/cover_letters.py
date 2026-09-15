@@ -58,8 +58,11 @@ async def regenerate_cover_letter(
     if str(app_doc.get("user_id")) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Accès non autorisé à cette candidature")
 
-    # Supprime l'ancienne lettre pour forcer la regénération
-    await db["cover_letters"].delete_one({"application_id": ObjectId(application_id)})
+    # Remise en attente : l'historique et les versions éditées sont conservés.
+    await db["cover_letters"].update_one(
+        {"application_id": ObjectId(application_id)},
+        {"$set": {"status": "pending", "error": None, "updated_at": datetime.now(timezone.utc)}},
+    )
     background_tasks.add_task(
         _generate_cover_letter_bg,
         ObjectId(application_id),

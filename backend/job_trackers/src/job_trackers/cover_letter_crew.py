@@ -3,13 +3,9 @@ import logging
 from pathlib import Path
 from typing import Dict, Any
 from app.services.letter_guards import evaluate_letter_guards, LETTER_RULES
-from letter_llm import get_letter_llm, validate_cross_provider
+from letter_llm import get_letter_llm, validate_cross_provider, ROLE_TEMPERATURES
 
-import litellm
 from litellm import completion
-
-# Drop unsupported params automatically across providers
-litellm.drop_params = True
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +15,7 @@ PROMPTS_DIR = Path(__file__).resolve().parents[3] / "app" / "llm" / "prompts" / 
 # fenêtre d'acceptation plus large des garde-fous côté letter_guards.py).
 MIN_WORDS = 270
 MAX_WORDS = 330
+PROMPT_VERSION = "02_style-v1"
 
 
 def load_prompt(name: str, **context: object) -> str:
@@ -64,9 +61,10 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
             model=llm.model,
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.1,
+            temperature=ROLE_TEMPERATURES["offer_analyst"],
             max_completion_tokens=600,
-            response_format={"type": "json_object"} if "gpt" in llm.model else None,
+            response_format={"type": "json_object"},
+            drop_params=True,
         )
         data = json.loads(resp.choices[0].message.content.strip())
         missions = data.get("missions", ["Conception de pipelines de données", "Industrialisation de modèles ML/IA"])
@@ -109,8 +107,9 @@ def _call_writer(analyst_json: Dict[str, Any], company_name: str) -> str:
         model=llm.model,
         api_key=llm.api_key,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.6,
+        temperature=ROLE_TEMPERATURES["writer"],
         max_completion_tokens=900,
+        drop_params=True,
     )
     content = resp.choices[0].message.content.strip()
     if content.startswith("```"):
@@ -139,8 +138,9 @@ Critères :
             model=llm.model,
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
+            temperature=ROLE_TEMPERATURES["critic"],
             max_completion_tokens=400,
+            drop_params=True,
         )
         clean = resp.choices[0].message.content.strip()
         if "{" in clean:
@@ -176,8 +176,9 @@ Renvoie uniquement le texte corrigé de la lettre."""
             model=llm.model,
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.4,
+            temperature=ROLE_TEMPERATURES["reviser"],
             max_completion_tokens=900,
+            drop_params=True,
         )
         content = resp.choices[0].message.content.strip()
         if content.startswith("```"):
@@ -232,6 +233,7 @@ def run_letter_pipeline_sync(
         "revised": revised,
         "critic_verdict": critic_verdict,
         "guard_report": guard_report.model_dump(),
+        "prompt_version": PROMPT_VERSION,
         "models": {
             "analyst": get_letter_llm("offer_analyst").model,
             "writer": get_letter_llm("writer").model,
