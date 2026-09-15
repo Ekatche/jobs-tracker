@@ -24,7 +24,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from litellm import acompletion
 
-from app.services.profile.urls import validate_public_url, validate_public_url_async
+from app.services.profile.urls import validate_public_url_async
 
 # `letter_llm` vit dans job_trackers/src/job_trackers, hors du package `app` :
 # comme les autres consommateurs du monorepo (routers/applications.py,
@@ -232,7 +232,7 @@ async def collect_website(
         # fichier. Un rejet ici est un fetch manqué (comme un fetch qui a
         # échoué), pas une exception qui interrompt la boucle.
         try:
-            url = validate_public_url(url)
+            url = await validate_public_url_async(url)
         except ValueError as exc:
             logger.info("page crawlée rejetée (URL finale non publique) %s : %s", url, exc)
             continue
