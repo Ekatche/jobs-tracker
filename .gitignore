@@ -87,3 +87,8 @@ backend/app/uploads/
 # ---------- DONNÉES PERSONNELLES ----------
 # CV et profil candidat : jamais committé
 data/profile/
+
+# Fixture locale de bake-off (comparaison de modèles) : contient des données
+# de profil candidat, jamais consommée par la suite pytest (voir
+# backend/scripts/letter_bakeoff.py, backend/scripts/run_writer_bakeoff.py).
+backend/scripts/candidate_profile_bakeoff.json
