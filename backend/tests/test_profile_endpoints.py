@@ -138,22 +138,34 @@ def test_manual_edits_survive_a_later_import(client, profile_db, monkeypatch):
     assert res.json()["headline"] == "Lead Data Engineer"
 
 
-def test_website_import_with_invalid_project_context_returns_502(client, profile_db, monkeypatch):
+def test_website_import_with_invalid_project_context_is_coerced_to_perso(
+    client, profile_db, monkeypatch
+):
     """`CandidateProject.context` est un Literal fermé ("perso"/"client"/"recherche"/
-    "consortium"). Une sortie LLM hors énumération (ex: "stage") ne doit jamais
-    faire remonter une trace 500 brute au client : `_store_source` doit attraper
-    la `ValidationError` de `CandidateProfile.model_validate` et répondre 502 avec
-    un message générique, le détail réel restant côté log serveur.
+    "consortium"). `collect_website` applique désormais une coercition défensive
+    (`_coerce_project_contexts`) : une sortie LLM hors énumération (ex: "stage")
+    est remplacée par "perso" avant même d'atteindre `_store_source`, plutôt que
+    de faire échouer la validation Pydantic et remonter 502 sur l'import de la
+    source la plus riche du profil.
+
+    Ce test mocke `collect_website` au niveau du routeur (comme les autres tests
+    de ce fichier) mais applique la vraie fonction de coercition du module
+    `website` pour refléter fidèlement ce que fait la fonction réelle — la
+    couverture de la coercition elle-même (via un `extract` factice sur le
+    vrai `collect_website`) vit dans `test_profile_collectors.py`.
     """
     import app.routers.cover_letters as router
+    from app.services.profile.collectors.website import _coerce_project_contexts
 
     async def fake_collect(url):
-        return {
+        payload = {
             "projects": [
                 {"name": "Stage RH", "description": "Mission de stage", "context": "stage"}
             ],
             "experiences": [],
         }
+        _coerce_project_contexts(payload)
+        return payload
 
     monkeypatch.setattr(router, "collect_website", fake_collect)
     # IP littérale : `validate_public_url` ne fait alors aucune résolution DNS
@@ -161,8 +173,8 @@ def test_website_import_with_invalid_project_context_returns_502(client, profile
     res = client.post(
         "/profile/candidate/sources/website", json={"url": "https://93.184.216.34"}
     )
-    assert res.status_code == 502
-    assert "stage" not in res.json()["detail"].lower()
+    assert res.status_code == 200
+    assert res.json()["projects"][0]["context"] == "perso"
 
 
 def test_store_source_non_validation_failure_returns_502_not_500(

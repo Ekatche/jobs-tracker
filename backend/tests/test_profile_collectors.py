@@ -234,6 +234,99 @@ async def test_collect_website_raises_when_no_page_has_markdown(monkeypatch):
         )
 
 
+@pytest.mark.asyncio
+async def test_collect_website_projects_context_outside_enum_is_coerced_to_perso(monkeypatch):
+    """`CandidateProject.context` est un Literal fermé ("perso"/"client"/
+    "recherche"/"consortium"). Un LLM peut renvoyer une valeur hors énumération
+    malgré le prompt qui les énumère explicitement : `collect_website` doit la
+    corriger en "perso" plutôt que de laisser passer une valeur invalide vers
+    la validation Pydantic en aval (502 sur l'import du site)."""
+
+    async def fake_fetch(url):
+        return None
+
+    monkeypatch.setattr(website, "_default_fetch", fake_fetch)
+
+    results = [SimpleNamespace(url="https://example.com", markdown="# Accueil")]
+    crawler = FakeCrawler(results)
+
+    async def fake_extract(markdown_by_url):
+        return {
+            "projects": [
+                {"name": "Mission bénévole", "description": "Aide associative", "context": "benevolat"}
+            ],
+            "experiences": [],
+        }
+
+    payload = await collect_website(
+        "https://example.com", crawler=crawler, extract=fake_extract
+    )
+
+    assert payload["projects"][0]["context"] == "perso"
+
+
+@pytest.mark.asyncio
+async def test_collect_website_keeps_valid_project_context_untouched(monkeypatch):
+    """Contrôle négatif de la coercition : une valeur déjà valide ne doit pas
+    être réécrite."""
+
+    async def fake_fetch(url):
+        return None
+
+    monkeypatch.setattr(website, "_default_fetch", fake_fetch)
+
+    results = [SimpleNamespace(url="https://example.com", markdown="# Accueil")]
+    crawler = FakeCrawler(results)
+
+    async def fake_extract(markdown_by_url):
+        return {
+            "projects": [{"name": "Projet client", "description": "Mission", "context": "client"}],
+            "experiences": [],
+        }
+
+    payload = await collect_website(
+        "https://example.com", crawler=crawler, extract=fake_extract
+    )
+
+    assert payload["projects"][0]["context"] == "client"
+
+
+@pytest.mark.asyncio
+async def test_collect_website_rejects_crawled_result_with_non_public_final_url(monkeypatch):
+    """Crawl4AI suit ses propres redirections internes sans repasser par
+    `validate_public_url` : `result.url` (l'URL finale réellement visitée) peut
+    différer de l'URL découverte et déjà validée dans `pages`. Une page dont
+    l'URL finale n'est pas publique (ici l'endpoint de métadonnées cloud) doit
+    être ignorée comme un fetch manqué, jamais acceptée dans `markdown_by_url` :
+    sinon le filtre anti-SSRF appliqué partout ailleurs dans ce module serait
+    contourné après le crawl."""
+
+    async def fake_fetch(url):
+        return None
+
+    monkeypatch.setattr(website, "_default_fetch", fake_fetch)
+
+    results = [
+        SimpleNamespace(url="https://example.com", markdown="# Accueil"),
+        SimpleNamespace(
+            url="http://169.254.169.254/latest/meta-data/",
+            markdown="secret-metadata",
+        ),
+    ]
+    crawler = FakeCrawler(results)
+
+    captured_markdown = {}
+
+    async def fake_extract(markdown_by_url):
+        captured_markdown.update(markdown_by_url)
+        return {"projects": [], "experiences": []}
+
+    await collect_website("https://example.com", crawler=crawler, extract=fake_extract)
+
+    assert captured_markdown == {"https://example.com": "# Accueil"}
+    assert "http://169.254.169.254/latest/meta-data/" not in captured_markdown
+
+
 class _FakeResponse:
     def __init__(self, status_code, headers=None, text=""):
         self.status_code = status_code

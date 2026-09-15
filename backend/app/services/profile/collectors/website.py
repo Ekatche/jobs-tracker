@@ -15,14 +15,27 @@ l'utilisateur n'a jamais donné.
 import json
 import logging
 import re
+import sys
 import time
+from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 from urllib.parse import urljoin, urlparse
 
 import httpx
 from litellm import acompletion
 
-from app.services.profile.urls import validate_public_url
+from app.services.profile.urls import validate_public_url, validate_public_url_async
+
+# `letter_llm` vit dans job_trackers/src/job_trackers, hors du package `app` :
+# comme les autres consommateurs du monorepo (routers/applications.py,
+# routers/cover_letters.py), on ajoute son répertoire à sys.path avant
+# l'import plutôt que de deviner un chemin de package absolu ou d'inventer un
+# préfixe `job_trackers.` que le reste du monorepo n'utilise pas.
+_JOB_TRACKERS_SRC = Path(__file__).resolve().parents[4] / "job_trackers" / "src" / "job_trackers"
+if str(_JOB_TRACKERS_SRC) not in sys.path:
+    sys.path.insert(0, str(_JOB_TRACKERS_SRC))
+
+from letter_llm import get_letter_llm, ROLE_TEMPERATURES  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +44,26 @@ MAX_REDIRECTS = 5
 FETCH_TIMEOUT = 10.0
 FALLBACK_PATHS = ("", "/experience", "/work", "/projects", "/formation", "/competences", "/about")
 SKIP_PATTERNS = ("/contact", "/mentions", "/legal", "/privacy", "/blog/tag")
-MODEL = "gemini/gemini-3.8-flash"
+
+# Doit rester en phase avec `CandidateProject.context` (Literal fermé,
+# app/models.py). Le prompt d'extraction énumère déjà ces 4 valeurs, mais un
+# prompt n'est pas une garantie : un LLM peut renvoyer une valeur hors
+# énumération malgré la consigne.
+_VALID_PROJECT_CONTEXTS = {"perso", "client", "recherche", "consortium"}
+
+
+def _coerce_project_contexts(payload: Dict[str, Any]) -> None:
+    """Force `context` à "perso" pour tout projet dont la valeur n'est pas
+    l'une des 4 admises par le modèle Pydantic en aval.
+
+    Sans cette coercition défensive, une valeur hors énumération (ex.
+    "personnel", "freelance") fait échouer `CandidateProfile.model_validate`
+    dans `_store_source` et retourne 502 sur l'import du site — la source la
+    plus riche du profil. Modifie `payload` en place.
+    """
+    for project in payload.get("projects", []) or []:
+        if project.get("context") not in _VALID_PROJECT_CONTEXTS:
+            project["context"] = "perso"
 
 
 async def _default_fetch(url: str, total_timeout: float = FETCH_TIMEOUT) -> Optional[str]:
@@ -76,7 +108,7 @@ async def _default_fetch(url: str, total_timeout: float = FETCH_TIMEOUT) -> Opti
                         return None
                     next_url = urljoin(current, location)
                     try:
-                        current = validate_public_url(next_url)
+                        current = await validate_public_url_async(next_url)
                     except ValueError as exc:
                         logger.info(
                             "redirection refusée depuis %s vers %s : %s",
@@ -106,7 +138,7 @@ async def discover_pages(
     usuels plutôt que de renvoyer une liste vide — un site sans sitemap doit
     quand même produire des pages.
     """
-    base = validate_public_url(base_url).rstrip("/")
+    base = (await validate_public_url_async(base_url)).rstrip("/")
     fetch = fetch or _default_fetch
 
     sitemap = await fetch(f"{base}/sitemap.xml")
@@ -131,6 +163,7 @@ async def discover_pages(
 
 
 async def _extract_with_llm(pages_markdown: Dict[str, str]) -> Dict[str, Any]:
+    llm = get_letter_llm("site_extractor")
     corpus = "\n\n".join(
         f"### Page : {url}\n{markdown[:6000]}" for url, markdown in pages_markdown.items()
     )
@@ -142,7 +175,7 @@ Extrais les faits, sans rien inventer et sans reformuler en langage commercial.
 Réponds uniquement par un objet JSON avec ces clés :
 - "identity": {{"headline": titre professionnel, "summary": résumé factuel}}
 - "experiences": [{{"company", "role", "location", "contract", "start", "end", "missions": [], "stack": [], "achievements": []}}]
-- "projects": [{{"name", "description", "context", "stack": [], "url"}}]
+- "projects": [{{"name", "description", "context" (une valeur EXACTE parmi: "perso", "client", "recherche", "consortium"), "stack": [], "url"}}]
 - "education": [{{"school", "degree", "years"}}]
 - "certifications": [{{"name", "issuer", "year"}}]
 - "skills": {{"catégorie": ["compétence"]}}
@@ -150,10 +183,11 @@ Pour "start" et "end", recopie la date telle qu'écrite sur la page.
 Si une information est absente, rends une liste vide."""
 
     response = await acompletion(
-        model=MODEL,
+        model=llm.model,
+        api_key=llm.api_key,
         messages=[{"role": "user", "content": prompt}],
         response_format={"type": "json_object"},
-        temperature=0.1,
+        temperature=ROLE_TEMPERATURES["site_extractor"],
         drop_params=True,
     )
     content = response.choices[0].message.content.strip()
@@ -187,13 +221,28 @@ async def collect_website(
     markdown_by_url: Dict[str, str] = {}
     for result in results:
         markdown = getattr(result, "markdown", None)
-        if markdown:
-            markdown_by_url[getattr(result, "url", "")] = str(markdown)
+        if not markdown:
+            continue
+        url = getattr(result, "url", "")
+        # Crawl4AI suit ses propres redirections internes sans repasser par
+        # `validate_public_url` : `result.url` peut donc différer de l'URL
+        # déjà validée dans `pages`. Sans cette revalidation, une page qui
+        # redirige vers une IP privée ou l'endpoint de métadonnées cloud
+        # contournerait le filtre anti-SSRF appliqué partout ailleurs dans ce
+        # fichier. Un rejet ici est un fetch manqué (comme un fetch qui a
+        # échoué), pas une exception qui interrompt la boucle.
+        try:
+            url = validate_public_url(url)
+        except ValueError as exc:
+            logger.info("page crawlée rejetée (URL finale non publique) %s : %s", url, exc)
+            continue
+        markdown_by_url[url] = str(markdown)
 
     if not markdown_by_url:
         raise ValueError("Aucune page exploitable sur ce site")
 
     payload = await extract(markdown_by_url)
+    _coerce_project_contexts(payload)
 
     # Le prompt LLM niche "headline"/"summary" sous "identity" (forme
     # d'extraction raisonnable), mais `build_profile_from_sources` (merge.py)
