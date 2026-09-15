@@ -95,3 +95,28 @@ def test_word_bounds_come_from_a_single_source():
     assert LETTER_RULES["min_words"] == 250
     assert LETTER_RULES["max_words"] == 400
     assert "je suis" in LETTER_RULES["capped_repetitions"]
+
+
+def test_invented_entity_sharing_a_prefix_with_known_stack_is_still_flagged():
+    # "Go" est une stack connue : une comparaison par sous-chaîne de caractères
+    # laisserait passer "Google" car "go" in "google" est vrai. La comparaison
+    # doit se faire par ensemble de tokens (mots entiers).
+    letter = (
+        "Madame, Monsieur,\n\nJ'ai travaillé chez Google avec Kafka.\n\n"
+        "Ma méthode est rigoureuse.\n\nCordialement"
+    )
+    analyst_data = {"stacks": ["Go", "Kafka"], "companies": []}
+    report = evaluate_letter_guards(letter, "offre", analyst_data)
+    assert any("Google" in v for v in report.violations)
+
+
+def test_accented_entity_is_flagged_in_full_not_truncated():
+    # La classe de caractères de _ENTITY_PATTERN doit couvrir les lettres
+    # accentuées françaises : sinon "Biomédica" est tronqué à "Biom" avant
+    # comparaison, ce qui masque le nom réel dans le message de violation.
+    letter = (
+        "Madame, Monsieur,\n\nJ'ai eu un entretien chez Biomédica avant de rejoindre "
+        "Agence Nile.\n\nMa méthode repose sur Python.\n\nCordialement"
+    )
+    report = evaluate_letter_guards(letter, "offre", ANALYST)
+    assert any("Biomédica" in v for v in report.violations)

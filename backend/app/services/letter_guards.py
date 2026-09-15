@@ -53,7 +53,7 @@ LETTER_RULES = {
     "generic_compliments": GENERIC_COMPLIMENTS,
 }
 
-_ENTITY_PATTERN = re.compile(r"\b[A-Z][A-Za-z0-9&.\-]{2,}(?: [A-Z][A-Za-z0-9&.\-]{2,})?")
+_ENTITY_PATTERN = re.compile(r"\b[A-ZÀ-Ý][A-Za-zÀ-ÿ0-9&.\-]{2,}(?: [A-ZÀ-Ý][A-Za-zÀ-ÿ0-9&.\-]{2,})?")
 _SENTENCE_START_STOPWORDS = {
     "Madame", "Monsieur", "Cordialement", "Je", "Mon", "Ma", "Mes",
     "Votre", "Vos", "Chez", "Au", "Le", "La", "Les",
@@ -110,7 +110,15 @@ def _check_entities(letter_text: str, offer_description: str, analyst_data: Dict
                 normalized = _normalize_entity(candidate)
                 if not normalized:
                     continue
-                if any(normalized in entity or entity in normalized for entity in allowed if entity):
+                # Comparaison par ensemble de tokens (mots entiers), jamais par
+                # sous-chaîne de caractères : sinon "Go" (stack connue) autorise
+                # "Google" (entreprise inventée) puisque "go" in "google" est vrai.
+                candidate_tokens = set(normalized.split())
+                if candidate_tokens and any(
+                    candidate_tokens <= set(entity.split()) or set(entity.split()) <= candidate_tokens
+                    for entity in allowed
+                    if entity
+                ):
                     continue
                 if candidate in seen:
                     continue
