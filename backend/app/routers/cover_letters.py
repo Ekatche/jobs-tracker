@@ -18,7 +18,7 @@ from app.services.cv_parser import extract_text_from_pdf, parse_cv_with_llm
 from app.services.profile.collectors.github import collect_github
 from app.services.profile.collectors.website import collect_website
 from app.services.profile.merge import build_profile_from_sources
-from app.services.profile.urls import validate_public_url
+from app.services.profile.urls import validate_public_url_async
 
 logger = logging.getLogger(__name__)
 
@@ -210,7 +210,7 @@ async def import_website_source(
     current_user: UserModel = Depends(get_current_user),
 ):
     try:
-        url = validate_public_url(payload_in.get("url", ""))
+        url = await validate_public_url_async(payload_in.get("url", ""))
         payload = await collect_website(url)
         return await _store_source(db, str(current_user.id), "website", payload)
     except ValueError as exc:
