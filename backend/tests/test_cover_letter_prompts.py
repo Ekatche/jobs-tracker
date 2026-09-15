@@ -41,6 +41,7 @@ def test_writer_prompt_is_loaded_from_file():
         experiences="[]",
         stacks="Python",
         projects="",
+        capped_repetitions="test",
     )
     assert "Acme" in rendered
     assert "{company_name}" not in rendered

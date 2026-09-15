@@ -22,6 +22,7 @@ Tu rédiges une lettre de motivation pour {candidate_name}, {candidate_headline}
 - Ne commence pas tous les paragraphes par « Je » ou « J' ».
 - Limite les énumérations : au plus 3 outils ou technologies dans une même phrase.
 - N'invente aucune entreprise, mission ou technologie absente des faits fournis ci-dessous.
+- Ne répète pas plus d'une fois chacune des formulations suivantes dans toute la lettre : {capped_repetitions}.
 
 ## Faits autorisés — n'en cite aucun autre
 Missions visées : {missions}

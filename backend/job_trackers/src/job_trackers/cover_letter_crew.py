@@ -2,7 +2,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, Any
-from app.services.letter_guards import evaluate_letter_guards
+from app.services.letter_guards import evaluate_letter_guards, LETTER_RULES
 from letter_llm import get_letter_llm, validate_cross_provider
 
 import litellm
@@ -87,6 +87,10 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
 def _call_writer(analyst_json: Dict[str, Any], company_name: str) -> str:
     llm = get_letter_llm("writer")
 
+    capped_repetitions = ", ".join(
+        f'"{term}" (max {n})' for term, n in LETTER_RULES["capped_repetitions"].items()
+    )
+
     prompt = load_prompt(
         "02_style",
         candidate_name=analyst_json.get("candidate_name", ""),
@@ -98,6 +102,7 @@ def _call_writer(analyst_json: Dict[str, Any], company_name: str) -> str:
         experiences=json.dumps(analyst_json.get("selected_experiences", []), ensure_ascii=False),
         stacks=", ".join(analyst_json.get("stacks", [])[:15]),
         projects=", ".join(analyst_json.get("projects", [])),
+        capped_repetitions=capped_repetitions,
     )
 
     resp = completion(
@@ -197,6 +202,7 @@ def run_letter_pipeline_sync(
 
     # 1. Analyse de l'offre et sélection d'expériences (le profil complet s'arrête ici)
     analyst_output = _call_analyst(offer_description, candidate_profile, candidate_name)
+    analyst_output["company_name"] = company_name
 
     # 2. Rédaction (ne voit que le JSON d'analyst)
     draft_letter = _call_writer(analyst_output, company_name)

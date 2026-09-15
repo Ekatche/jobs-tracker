@@ -3,6 +3,8 @@ import math
 from typing import Dict, Any, List
 from pydantic import BaseModel, Field
 
+from app.services.profile.periods import company_slug as _normalize_entity
+
 BANNED_LEXICON = [
     "forte appétence", "solide expertise", "je suis convaincu que mon profil",
     "force de proposition", "dynamique", "rigoureux", "passionné par",
@@ -35,6 +37,88 @@ CAPPED_REPETITIONS = {
     "je serais": 1
 }
 
+# Source unique des seuils : consommée par les garde-fous ci-dessous ET
+# injectée dans le prompt du rédacteur (cover_letter_crew.py), pour que les
+# règles jugées par le code soient aussi les règles connues du rédacteur.
+LETTER_RULES = {
+    "min_words": 250,
+    "max_words": 400,
+    "min_paragraphs": 3,
+    "max_paragraphs": 5,
+    "max_head_connectors": 1,
+    "max_semicolons": 1,
+    "capped_repetitions": CAPPED_REPETITIONS,
+    "banned_lexicon": BANNED_LEXICON,
+    "banned_openings": BANNED_OPENINGS,
+    "generic_compliments": GENERIC_COMPLIMENTS,
+}
+
+_ENTITY_PATTERN = re.compile(r"\b[A-Z][A-Za-z0-9&.\-]{2,}(?: [A-Z][A-Za-z0-9&.\-]{2,})?")
+_SENTENCE_START_STOPWORDS = {
+    "Madame", "Monsieur", "Cordialement", "Je", "Mon", "Ma", "Mes",
+    "Votre", "Vos", "Chez", "Au", "Le", "La", "Les",
+}
+
+
+def _check_entities(letter_text: str, offer_description: str, analyst_data: Dict[str, Any]) -> List[str]:
+    """Toute entité nommée doit venir des faits fournis à l'analyste.
+
+    Seule une majuscule "interne" (qui n'a rien à voir avec la majuscule
+    conventionnelle de début de phrase en français) est un indice fiable
+    d'entité nommée : le premier mot de chaque phrase est donc exempté,
+    plutôt que de maintenir une liste sans fin de mots de liaison.
+    """
+    allowed = {
+        _normalize_entity(value)
+        for value in (
+            list(analyst_data.get("companies") or [])
+            + list(analyst_data.get("stacks") or [])
+            + list(analyst_data.get("projects") or [])
+            + [analyst_data.get("company_name") or ""]
+            + [analyst_data.get("candidate_name") or ""]
+        )
+        if value
+    }
+    # Toute entité déjà nommée dans l'offre elle-même est légitime à
+    # reprendre (ex. l'intitulé du poste) : ce n'est pas une invention du
+    # candidat.
+    allowed |= {
+        _normalize_entity(m.group(0))
+        for m in _ENTITY_PATTERN.finditer(offer_description or "")
+    }
+
+    violations: List[str] = []
+    seen: set = set()
+    for paragraph in re.split(r"\n\s*\n", letter_text):
+        for sentence in re.split(r"(?<=[.!?])\s+", paragraph.strip()):
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+            for match in _ENTITY_PATTERN.finditer(sentence):
+                if match.start() == 0:
+                    continue  # majuscule de début de phrase, pas un indice fiable
+                raw_candidate = match.group(0)
+                # Un connecteur capitalisé peut se retrouver accolé à
+                # l'entité qui le suit (« Chez Agence Nile ») : on l'ignore
+                # avant de comparer, plutôt que de rejeter le candidat entier.
+                words = raw_candidate.split()
+                while words and words[0] in _SENTENCE_START_STOPWORDS:
+                    words.pop(0)
+                if not words:
+                    continue
+                candidate = " ".join(words)
+                normalized = _normalize_entity(candidate)
+                if not normalized:
+                    continue
+                if any(normalized in entity or entity in normalized for entity in allowed if entity):
+                    continue
+                if candidate in seen:
+                    continue
+                seen.add(candidate)
+                violations.append(f"Entité non autorisée citée dans la lettre : '{candidate}'")
+    return violations
+
+
 class GuardReport(BaseModel):
     is_blocking: bool = False
     violations: List[str] = Field(default_factory=list)
@@ -61,8 +145,9 @@ def evaluate_letter_guards(
         violations.append("Tiret cadratin (—) interdit")
     if "(" in letter_text or ")" in letter_text:
         violations.append("Parenthèses interdites")
-    if letter_text.count(";") > 1:
-        violations.append(f"Point-virgule en excès ({letter_text.count(';')} trouvés, maximum 1 autorisé)")
+    max_semicolons = LETTER_RULES["max_semicolons"]
+    if letter_text.count(";") > max_semicolons:
+        violations.append(f"Point-virgule en excès ({letter_text.count(';')} trouvés, maximum {max_semicolons} autorisé)")
 
     # 2. Lexique banni
     for phrase in BANNED_LEXICON:
@@ -83,15 +168,19 @@ def evaluate_letter_guards(
     # 5. Paragraphes
     paragraphs = [p.strip() for p in re.split(r"\n\s*\n", letter_text.strip()) if p.strip()]
     stats["paragraph_count"] = len(paragraphs)
-    if not (3 <= len(paragraphs) <= 5):
-        violations.append(f"Nombre de paragraphes hors bornes (3-5 requis, {len(paragraphs)} trouvés)")
+    min_paragraphs, max_paragraphs = LETTER_RULES["min_paragraphs"], LETTER_RULES["max_paragraphs"]
+    if not (min_paragraphs <= len(paragraphs) <= max_paragraphs):
+        violations.append(
+            f"Nombre de paragraphes hors bornes ({min_paragraphs}-{max_paragraphs} requis, {len(paragraphs)} trouvés)"
+        )
 
     # 6. Longueur en mots
     words = re.findall(r"\b\w+\b", letter_text)
     word_count = len(words)
     stats["word_count"] = word_count
-    if not (250 <= word_count <= 400):
-        violations.append(f"Longueur hors bornes (250-400 mots requis, {word_count} trouvés)")
+    min_words, max_words = LETTER_RULES["min_words"], LETTER_RULES["max_words"]
+    if not (min_words <= word_count <= max_words):
+        violations.append(f"Longueur hors bornes ({min_words}-{max_words} mots requis, {word_count} trouvés)")
 
     # 7. Connecteurs en tête de phrase
     sentences = [s.strip() for s in re.split(r"[.!?]\s+", letter_text) if s.strip()]
@@ -103,11 +192,14 @@ def evaluate_letter_guards(
                 connector_count += 1
                 break
     stats["head_connector_count"] = connector_count
-    if connector_count > 1:
-        violations.append(f"Connecteurs en tête de phrase en excès ({connector_count} trouvés, maximum 1 autorisé)")
+    max_head_connectors = LETTER_RULES["max_head_connectors"]
+    if connector_count > max_head_connectors:
+        violations.append(
+            f"Connecteurs en tête de phrase en excès ({connector_count} trouvés, maximum {max_head_connectors} autorisé)"
+        )
 
     # 8. Répétitions plafonnées
-    for term, max_allowed in CAPPED_REPETITIONS.items():
+    for term, max_allowed in LETTER_RULES["capped_repetitions"].items():
         occurrences = len(re.findall(r"\b" + re.escape(term) + r"\b", lower_text))
         if occurrences > max_allowed:
             violations.append(f"Répétition excessive de '{term}' ({occurrences} trouvés, max {max_allowed})")
@@ -137,12 +229,9 @@ def evaluate_letter_guards(
                     violations.append(f"Recouvrement textuel de 8 mots avec l'offre détecté : '{' '.join(ngram)}'")
                     break
 
-    # 12. Entités : toute entreprise/techno citée doit être dans analyst_data
-    known_companies = {c.lower() for c in analyst_data.get("companies", [])}
-    common_companies = ["google", "meta", "amazon", "apple", "microsoft", "netflix"]
-    for comp in common_companies:
-        if comp in lower_text and comp not in known_companies:
-            violations.append(f"Entité non autorisée citée dans la lettre : '{comp}'")
+    # 12. Entités : toute entité nommée (majuscule interne) doit venir des faits
+    # fournis à l'analyste (entreprises, stacks, projets, entreprise destinataire).
+    violations.extend(_check_entities(letter_text, offer_description, analyst_data))
 
     # --- Contrôles d'avertissement (non bloquants) ---
     sentence_lengths = [len(re.findall(r"\b\w+\b", s)) for s in sentences if s]

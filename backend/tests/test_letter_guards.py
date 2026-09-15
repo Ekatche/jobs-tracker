@@ -1,5 +1,5 @@
 import pytest
-from app.services.letter_guards import evaluate_letter_guards
+from app.services.letter_guards import LETTER_RULES, evaluate_letter_guards
 
 def test_guards_clean_letter_passes():
     letter = """Madame, Monsieur, votre offre de Lead Data Engineer chez Biomérieux a retenu toute mon attention. Lors de mes trois années chez Sanofi, j'ai conçu et déployé des architectures de données distribuées sous Nextflow et Kafka avec un temps global de traitement divisé par deux pour l'ensemble des équipes d'analyse biologique et génomique. Cette expérience m'a permis d'acquérir une compréhension fine des contraintes opérationnelles liées aux volumes massifs et à la gouvernance rigoureuse des données dans un écosystème réglementé de santé.
@@ -14,6 +14,7 @@ Je serais ravi d'échanger prochainement avec vous pour évoquer plus en détail
         "stacks": ["Nextflow", "Kafka", "Rust", "DuckDB"],
         "metrics": ["trois années", "dix millions"],
         "projects": ["Sentinel"],
+        "candidate_name": "Eliel Katche",
     }
     offer_desc = "Biomérieux recrute un Lead Data Engineer pour transformer ses pipelines analytiques de données de santé."
 
@@ -64,3 +65,33 @@ def test_guards_warnings_flagged_without_blocking():
     uniform_letter = "Je code du python chaque jour. Je lis des livres chaque soir. Je fais du sport chaque matin. Je dors huit heures chaque nuit."
     report = evaluate_letter_guards(uniform_letter, "offre", {})
     assert report.is_blocking is False or len(report.warnings) > 0
+
+
+ANALYST = {
+    "stacks": ["Python", "Azure"],
+    "companies": ["Agence Nile", "Bimedoc"],
+}
+
+
+def test_invented_company_is_flagged():
+    letter = (
+        "Madame, Monsieur,\n\nJ'ai conduit des projets chez Initech avant de rejoindre "
+        "Agence Nile.\n\nMa méthode repose sur Python.\n\nCordialement"
+    )
+    report = evaluate_letter_guards(letter, "offre", ANALYST)
+    assert any("Initech" in v for v in report.violations)
+
+
+def test_known_company_is_not_flagged():
+    letter = (
+        "Madame, Monsieur,\n\nChez Agence Nile, j'ai industrialisé des flux.\n\n"
+        "Ma méthode repose sur Python.\n\nCordialement"
+    )
+    report = evaluate_letter_guards(letter, "offre", ANALYST)
+    assert not any("Entité non autorisée" in v for v in report.violations)
+
+
+def test_word_bounds_come_from_a_single_source():
+    assert LETTER_RULES["min_words"] == 250
+    assert LETTER_RULES["max_words"] == 400
+    assert "je suis" in LETTER_RULES["capped_repetitions"]
