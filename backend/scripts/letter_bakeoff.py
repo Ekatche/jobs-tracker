@@ -35,9 +35,9 @@ from typing import Any
 # Path bootstrap — allow running from backend/ without installing the package.
 # ---------------------------------------------------------------------------
 _BACKEND = Path(__file__).parent.parent.resolve()
-_JOB_TRACKERS_SRC = _BACKEND / "job_trackers" / "src" / "job_trackers"
+_JOB_TRACKERS_PKG = _BACKEND / "job_trackers" / "src" / "job_trackers"
 
-for _p in [str(_BACKEND), str(_JOB_TRACKERS_SRC.parent.parent)]:
+for _p in [str(_BACKEND), str(_JOB_TRACKERS_PKG.parent), str(_JOB_TRACKERS_PKG)]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
@@ -79,15 +79,34 @@ from cover_letter_crew import (  # type: ignore
 # ---------------------------------------------------------------------------
 CANDIDATE_WRITERS = [
     "openai/gpt-5.6-sol",
-    "mistral/mistral-large-3",
-    "gemini/gemini-3.8-flash",
+    "mistral/mistral-large-2407",
+    # "gemini/gemini-3.8-flash",  # crédits prépayés épuisés — remplacé par terra
+    "openai/gpt-5.6-terra",
 ]
+
+# OpenAI reasoning models (o1, o3, gpt-5.x) do not accept a `temperature`
+# parameter even though litellm reports it as supported in its static model DB.
+# We detect them by prefix and omit the kwarg to avoid BadRequestError.
+_OPENAI_NO_TEMP_PREFIXES = ("o1", "o3", "gpt-5", "gpt-o")
+
+
+def _build_completion_kwargs(
+    model: str, temperature: float, extra: dict | None = None
+) -> dict:
+    """Return completion kwargs, omitting temperature for OpenAI reasoning models."""
+    short = model.split("/")[-1].lower()
+    omit_temp = any(short.startswith(p) for p in _OPENAI_NO_TEMP_PREFIXES)
+    kwargs = {"temperature": temperature} if not omit_temp else {}
+    if extra:
+        kwargs.update(extra)
+    return kwargs
 
 # Estimated cost per million tokens (input / output) in USD — update as needed.
 COST_PER_MILLION: dict[str, tuple[float, float]] = {
-    "openai/gpt-5.6-sol":       (8.00, 40.00),
-    "mistral/mistral-large-3":  (2.00,  6.00),
-    "gemini/gemini-3.8-flash":  (0.075, 0.30),
+    "openai/gpt-5.6-sol":        (8.00, 40.00),
+    "openai/gpt-5.6-terra":      (4.00, 20.00),  # approx — à affiner
+    "mistral/mistral-large-2407": (2.00,  6.00),
+    "gemini/gemini-3.8-flash":   (0.075, 0.30),
 }
 
 
@@ -147,16 +166,18 @@ def _call_writer_for_model(
         model=llm.model,
         api_key=llm.api_key,
         messages=[{"role": "user", "content": prompt}],
-        temperature=ROLE_TEMPERATURES["writer"],
-        max_completion_tokens=900,
+        max_completion_tokens=2500,
         drop_params=True,
+        **_build_completion_kwargs(writer_model, ROLE_TEMPERATURES["writer"]),
     )
     elapsed = time.monotonic() - t0
 
-    content = resp.choices[0].message.content.strip()
+    content = resp.choices[0].message.content or ""
+    content = content.strip()
     if content.startswith("```"):
         lines = content.split("\n")
-        content = "\n".join(l for l in lines if not l.startswith("```")).strip()
+        stripped = "\n".join(l for l in lines if not l.startswith("```")).strip()
+        content = stripped if stripped else content  # never discard everything
 
     usage = getattr(resp, "usage", None)
     input_tokens = getattr(usage, "prompt_tokens", 0) if usage else 0
@@ -199,10 +220,10 @@ Réponds UNIQUEMENT par un objet JSON valide :
             model=llm.model,
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
-            temperature=ROLE_TEMPERATURES["critic"],
             max_completion_tokens=400,
             response_format={"type": "json_object"},
             drop_params=True,
+            **_build_completion_kwargs(critic_model, ROLE_TEMPERATURES["critic"]),
         )
         return json.loads(resp.choices[0].message.content.strip())
     except Exception as e:
@@ -247,6 +268,8 @@ def run_bakeoff_for_offer(
         candidate_id = f"Lettre-{idx}"
         key_map[candidate_id] = writer_model
         critic_model = validate_cross_provider(writer_model)
+        if "gemini" in critic_model:
+            critic_model = "mistral/mistral-large-2407"
 
         print(f"  [{candidate_id}] writer={writer_model}  critic={critic_model}")
 

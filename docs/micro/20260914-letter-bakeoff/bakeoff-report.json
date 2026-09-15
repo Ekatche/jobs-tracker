@@ -1,0 +1,134 @@
+[
+  {
+    "offer_index": 1,
+    "company": "Volvo Group",
+    "results": [
+      {
+        "candidate_id": "Lettre-1",
+        "letter": "Madame, Monsieur,\n\nLes missions de conception et de déploiement de modèles IA et LLM, ainsi que l’architecture et la gouvernance des flux de données chez Volvo Group correspondent à des problématiques que j’ai traitées dans des environnements où la fiabilité, la traçabilité et l’usage opérationnel des données sont déterminants. Je souhaite mettre cette pratique au service de solutions d’IA déployables et de flux de données maîtrisés.\n\nÀ l’Agence Nile, en VIE depuis 2025, je conçois et mets en production des agents LLM destinés à automatiser le support et le traitement documentaire. Des solutions RAG fondées sur Mistral ont été développées pour fiabiliser les réponses métier. J’industrialise également des pipelines ETL et ELT avec Microsoft Fabric, Azure Data Lake et Azure SQL afin d’alimenter des tableaux Power BI. Des workflows Python et cron synchronisent les données issues de HubSpot, Sage X3 et Odoo. Cette expérience comprend la mise en production de pipelines Fabric selon une architecture Medallion.\n\nAu Centre Léon Bérard, l’automatisation des flux de données patients pour la RCP Moléculaire a permis de traiter environ dix patients par semaine. J’y ai aussi réalisé un POC de RAG avec Mistral et ChromaDB pour l’aide au matching d’essais cliniques. Chez Nodya Group, la structuration de bases et l’optimisation d’ETL multi-sources ont renforcé ma rigueur sur la qualité et la cohérence des données. Ma méthode repose sur la clarification du besoin, la validation des sources et une industrialisation documentée. Pour Volvo Group, j’apporterais des flux traçables, des modèles évalués et des déploiements adaptés aux usages métier.\n\nJe reste à votre disposition pour échanger sur les besoins de votre équipe et vous prie d’agréer, Madame, Monsieur, mes salutations distinguées.\n\nEliel Katche",
+        "guard_report": {
+          "is_blocking": true,
+          "violations": [
+            "Nombre de paragraphes hors bornes (3-5 requis, 6 trouvés)",
+            "Plus de 3 technologies énumérées dans la même phrase : ['sql', 'azure sql', 'azure', 'microsoft fabric', 'etl', 'power bi']",
+            "Entité non autorisée citée dans la lettre : 'VIE'",
+            "Entité non autorisée citée dans la lettre : 'Lake'",
+            "Entité non autorisée citée dans la lettre : 'HubSpot'",
+            "Entité non autorisée citée dans la lettre : 'Sage'",
+            "Entité non autorisée citée dans la lettre : 'Odoo.'",
+            "Entité non autorisée citée dans la lettre : 'RCP Moléculaire'",
+            "Entité non autorisée citée dans la lettre : 'POC'"
+          ],
+          "warnings": [
+            "Phrase extrême détectée (> 40 mots : 52 mots)"
+          ],
+          "stats": {
+            "paragraph_count": 6,
+            "word_count": 293,
+            "head_connector_count": 0,
+            "sentence_length_stdev": 10.59
+          }
+        },
+        "guard_violation_count": 9,
+        "guard_is_blocking": true,
+        "critic_verdict": {
+          "verdict": "approve",
+          "score": 8,
+          "flaws": [
+            "Manque de quantification précise des impacts (ex : gain de temps, réduction d'erreurs) pour les projets mentionnés",
+            "Absence de détails sur les frameworks ou outils spécifiques utilisés pour l'évaluation des modèles IA/LLM (ex : métriques de performance, outils de monitoring)"
+          ]
+        },
+        "usage": {
+          "input_tokens": 1176,
+          "output_tokens": 1968,
+          "total_tokens": 3144,
+          "estimated_cost_usd": 0.044064,
+          "duration_s": 25.82
+        }
+      },
+      {
+        "candidate_id": "Lettre-2",
+        "letter": "Madame, Monsieur,\n\nVolvo Group place la donnée et l’intelligence artificielle au cœur de sa transformation industrielle. Cette approche correspond à mon parcours où j’ai conçu des systèmes capables de traiter des flux complexes tout en garantissant leur fiabilité opérationnelle. Chez Agence Nile, j’ai déployé des agents LLM pour automatiser des processus métier en combinant RAG et prompt engineering avec Mistral. Ces solutions ont permis d’industrialiser des pipelines ETL/ELT sous Microsoft Fabric, structurés selon une architecture Medallion, pour alimenter des tableaux de bord Power BI. Au Centre Léon Bérard, j’ai automatisé le traitement de dossiers médicaux pour les réunions de concertation pluridisciplinaire, réduisant les délais d’analyse tout en intégrant un POC de RAG pour le matching d’essais cliniques.\n\nLa conception de ces systèmes repose sur une méthodologie rigoureuse. J’ai systématiquement aligné les choix techniques sur les contraintes métier en priorisant la scalabilité et la maintenabilité. Par exemple, l’utilisation de ChromaDB pour le stockage vectoriel au Centre Léon Bérard a permis d’équilibrer performance et simplicité d’intégration. Chez Agence Nile, l’orchestration des workflows via Python et cron a synchronisé des données issues de HubSpot, Sage X3 et Odoo sans rupture de charge. Cette approche s’applique directement aux enjeux de Volvo Group où la gouvernance des données et l’automatisation des flux sont critiques pour l’efficacité industrielle.\n\nMon apport se concentrerait sur deux axes. D’abord, la standardisation des pipelines de données en appliquant les principes de l’architecture Medallion pour garantir la qualité des jeux de données utilisés en production. Ensuite, le déploiement de modèles IA adaptés aux spécificités du secteur, comme l’optimisation des chaînes logistiques ou la maintenance prédictive, en m’appuyant sur des frameworks éprouvés comme LangChain et des LLMs maîtrisés. Ces solutions seraient conçues pour s’intégrer aux infrastructures existantes, avec une attention particulière portée à la documentation et à la reproductibilité.\n\nJe vous prie d’agréer, Madame, Monsieur, l’expression de mes salutations distinguées.\n\nEliel Katche",
+        "guard_report": {
+          "is_blocking": true,
+          "violations": [
+            "Nombre de paragraphes hors bornes (3-5 requis, 6 trouvés)",
+            "Plus de 3 technologies énumérées dans la même phrase : ['architecture medallion', 'microsoft fabric', 'etl', 'power bi']",
+            "Entité non autorisée citée dans la lettre : 'POC'",
+            "Entité non autorisée citée dans la lettre : 'HubSpot'",
+            "Entité non autorisée citée dans la lettre : 'Sage'",
+            "Entité non autorisée citée dans la lettre : 'Odoo'",
+            "Entité non autorisée citée dans la lettre : 'LLMs'"
+          ],
+          "warnings": [],
+          "stats": {
+            "paragraph_count": 6,
+            "word_count": 333,
+            "head_connector_count": 0,
+            "sentence_length_stdev": 8.97
+          }
+        },
+        "guard_violation_count": 7,
+        "guard_is_blocking": true,
+        "critic_verdict": {
+          "verdict": "revise",
+          "score": 6,
+          "flaws": [
+            "La lettre décrit des réalisations pertinentes, mais reste insuffisamment chiffrée : aucun volume de données, gain de temps, taux d’automatisation, nombre d’utilisateurs ou indicateur de qualité ne permet d’évaluer l’impact réel.",
+            "La gouvernance des données est surtout affirmée, pas démontrée : absence d’éléments sur catalogage, lineage, qualité des données, gestion des accès/RBAC, conformité, politiques de rétention ou ownership.",
+            "Le déploiement LLM manque de profondeur production : aucune mention d’évaluation des modèles, monitoring, guardrails, sécurité des prompts, gestion des hallucinations, observabilité, CI/CD ou MLOps/LLMOps.",
+            "L’orchestration par Python et cron peut paraître peu robuste pour un environnement industriel à grande échelle ; il faudrait préciser les mécanismes de reprise sur erreur, alerting, SLA, idempotence et supervision.",
+            "La projection vers Volvo est générique et spéculative (« optimisation logistique », « maintenance prédictive ») sans rattachement concret à une mission, un cas d’usage, une contrainte industrielle ou un écosystème technique identifié.",
+            "LangChain, Mistral et ChromaDB sont cités comme outils, mais les décisions d’architecture, limites rencontrées et arbitrages techniques ne sont pas assez explicités."
+          ]
+        },
+        "usage": {
+          "input_tokens": 1220,
+          "output_tokens": 480,
+          "total_tokens": 1700,
+          "estimated_cost_usd": 0.00532,
+          "duration_s": 10.18
+        }
+      },
+      {
+        "candidate_id": "Lettre-3",
+        "letter": "Madame, Monsieur,\n\nLes besoins de Volvo Group en conception et déploiement de modèles IA et LLM appellent une approche qui relie la qualité des réponses à celle des données qui les alimentent. L’architecture et la gouvernance des flux constituent donc le même sujet que la mise en production des modèles. Ce lien structure mon parcours et motive ma candidature.\n\nDepuis 2025, en VIE comme Data Engineer à l’Agence Nile, je conçois et mets en production des agents LLM pour le support et le traitement documentaire. J’ai développé des solutions RAG fondées sur Mistral et le prompt engineering afin de fiabiliser les réponses métier. J’ai aussi industrialisé dans Microsoft Fabric des pipelines ETL et ELT. Leur organisation suit une architecture Medallion. Ces flux s’appuient sur Azure Data Lake et Azure SQL pour alimenter Power BI. Leur synchronisation est automatisée avec Python et cron. Au Centre Léon Bérard, j’ai automatisé le traitement de dossiers médicaux pour environ dix patients par semaine et réalisé un POC de RAG avec Mistral et ChromaDB pour le matching d’essais cliniques. J’y ai également piloté l’implémentation de CGI Clinics, présenté au consortium européen. Chez Nodya Group, j’ai structuré des bases de données et optimisé des processus ETL multisources avec Python et SQL.\n\nMa méthode repose sur un cadrage explicite du besoin, des critères de validation mesurables et une mise en production progressive. Pour les LLM, je sépare l’évaluation de la récupération documentaire, celle de la génération et le suivi des réponses afin d’identifier rapidement les causes d’erreur. Pour les flux de données, je privilégie des couches lisibles, des contrôles de qualité et des responsabilités définies. Chez Volvo Group, cette démarche me permettrait de livrer des solutions IA exploitables, adossées à des données traçables et à une architecture maintenable.\n\nJe vous prie d’agréer, Madame, Monsieur, l’expression de mes salutations distinguées.  \nEliel Katche",
+        "guard_report": {
+          "is_blocking": true,
+          "violations": [
+            "Plus de 3 technologies énumérées dans la même phrase : ['sql', 'azure sql', 'azure', 'power bi']",
+            "Entité non autorisée citée dans la lettre : 'VIE'",
+            "Entité non autorisée citée dans la lettre : 'Lake'",
+            "Entité non autorisée citée dans la lettre : 'POC'",
+            "Entité non autorisée citée dans la lettre : 'CGI Clinics'"
+          ],
+          "warnings": [],
+          "stats": {
+            "paragraph_count": 5,
+            "word_count": 319,
+            "head_connector_count": 0,
+            "sentence_length_stdev": 8.61
+          }
+        },
+        "guard_violation_count": 5,
+        "guard_is_blocking": true,
+        "critic_verdict": {
+          "verdict": "approve",
+          "score": 8,
+          "flaws": [
+            "La date 'Depuis 2025' semble erronée (anachronisme probable)",
+            "Manque de quantification précise des impacts (ex : gain de temps, réduction d'erreurs) pour renforcer la crédibilité des réalisations"
+          ]
+        },
+        "usage": {
+          "input_tokens": 1176,
+          "output_tokens": 2399,
+          "total_tokens": 3575,
+          "estimated_cost_usd": 0.105368,
+          "duration_s": 46.18
+        }
+      }
+    ]
+  }
+]

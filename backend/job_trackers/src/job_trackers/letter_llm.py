@@ -5,9 +5,9 @@ from crewai import LLM
 # Modèles épinglés par défaut selon la spec
 DEFAULT_MODELS = {
     "offer_analyst": "openai/gpt-5.6-luna",
-    "writer": "openai/gpt-5.6-sol",
+    "writer": "openai/gpt-5.6-terra",
     "critic": "gemini/gemini-3.8-flash",
-    "reviser": "openai/gpt-5.6-sol",
+    "reviser": "openai/gpt-5.6-terra",
 }
 
 ROLE_TEMPERATURES = {
