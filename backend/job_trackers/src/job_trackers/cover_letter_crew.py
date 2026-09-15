@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Any
 from app.services.letter_guards import evaluate_letter_guards, LETTER_RULES
-from letter_llm import get_letter_llm, validate_cross_provider, ROLE_TEMPERATURES
+from letter_llm import get_letter_llm, validate_cross_provider, ROLE_TEMPERATURES, get_model_provider, build_completion_kwargs
 
 from litellm import completion
 
@@ -56,21 +56,21 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
     "summary": "synthèse de correspondance"
 }}"""
 
-    try:
-        resp = completion(
-            model=llm.model,
-            api_key=llm.api_key,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=ROLE_TEMPERATURES["offer_analyst"],
-            max_completion_tokens=600,
-            response_format={"type": "json_object"},
-            drop_params=True,
-        )
-        data = json.loads(resp.choices[0].message.content.strip())
-        missions = data.get("missions", ["Conception de pipelines de données", "Industrialisation de modèles ML/IA"])
-    except Exception as e:
-        logger.warning(f"Fallback analyste: {e}")
-        missions = ["Conception et déploiement de modèles IA / LLM", "Architecture et gouvernance des flux de données"]
+    # Aucun fallback silencieux ici : une panne de l'analyste ne doit jamais
+    # produire de fausses missions génériques qui masqueraient l'échec réel.
+    # L'exception se propage jusqu'à `applications.py::_generate_cover_letter_bg`,
+    # qui l'attrape déjà et produit un statut `failed` avec `format_llm_error`.
+    resp = completion(
+        model=llm.model,
+        api_key=llm.api_key,
+        messages=[{"role": "user", "content": prompt}],
+        max_completion_tokens=600,
+        response_format={"type": "json_object"},
+        drop_params=True,
+        **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["offer_analyst"]),
+    )
+    data = json.loads(resp.choices[0].message.content.strip())
+    missions = data.get("missions", ["Conception de pipelines de données", "Industrialisation de modèles ML/IA"])
 
     return {
         "missions": missions,
@@ -107,14 +107,16 @@ def _call_writer(analyst_json: Dict[str, Any], company_name: str) -> str:
         model=llm.model,
         api_key=llm.api_key,
         messages=[{"role": "user", "content": prompt}],
-        temperature=ROLE_TEMPERATURES["writer"],
-        max_completion_tokens=900,
+        max_completion_tokens=2500,
         drop_params=True,
+        **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["writer"]),
     )
-    content = resp.choices[0].message.content.strip()
+    content = resp.choices[0].message.content or ""
+    content = content.strip()
     if content.startswith("```"):
         lines = content.split("\n")
-        content = "\n".join([l for l in lines if not l.startswith("```")]).strip()
+        stripped = "\n".join([l for l in lines if not l.startswith("```")]).strip()
+        content = stripped if stripped else content
     return content
 
 def _call_critic(letter_text: str, missions: list) -> Dict[str, Any]:
@@ -138,9 +140,9 @@ Critères :
             model=llm.model,
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
-            temperature=ROLE_TEMPERATURES["critic"],
             max_completion_tokens=400,
             drop_params=True,
+            **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["critic"]),
         )
         clean = resp.choices[0].message.content.strip()
         if "{" in clean:
@@ -151,8 +153,18 @@ Critères :
             "flaws": data.get("flaws", []),
         }
     except Exception as e:
+        # Jamais un verdict "pass" implicite sur panne réelle : ça masquerait
+        # une panne fournisseur derrière un faux jugement positif. Un objet
+        # d'erreur explicite laisse `run_letter_pipeline_sync` déclencher une
+        # révision et remonter la panne dans `provider_failures`.
         logger.warning(f"Erreur critique LLM: {e}")
-        return {"verdict": "pass", "flaws": []}
+        return {
+            "verdict": "error",
+            "flaws": [],
+            "provider": get_model_provider(llm.model),
+            "role": "critic",
+            "detail": str(e),
+        }
 
 def _call_reviser(letter_text: str, analyst_json: Dict[str, Any], critic_flaws: list, guard_report: Dict[str, Any]) -> str:
     llm = get_letter_llm("reviser")
@@ -176,14 +188,16 @@ Renvoie uniquement le texte corrigé de la lettre."""
             model=llm.model,
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
-            temperature=ROLE_TEMPERATURES["reviser"],
-            max_completion_tokens=900,
+            max_completion_tokens=2500,
             drop_params=True,
+            **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["reviser"]),
         )
-        content = resp.choices[0].message.content.strip()
+        content = resp.choices[0].message.content or ""
+        content = content.strip()
         if content.startswith("```"):
             lines = content.split("\n")
-            content = "\n".join([l for l in lines if not l.startswith("```")]).strip()
+            stripped = "\n".join([l for l in lines if not l.startswith("```")]).strip()
+            content = stripped if stripped else content
         return content
     except Exception as e:
         logger.warning(f"Erreur réviseur LLM: {e}")
@@ -212,8 +226,13 @@ def run_letter_pipeline_sync(
     guard_report = evaluate_letter_guards(draft_letter, offer_description, analyst_output)
     critic_verdict = _call_critic(draft_letter, analyst_output.get("missions", []))
 
-    # 4. Passe de révision conditionnelle
-    needs_revision = guard_report.is_blocking or critic_verdict.get("verdict") == "revise"
+    # 4. Passe de révision conditionnelle : une panne du critique ("error")
+    # déclenche aussi une révision, au même titre qu'un verdict "revise" — un
+    # critique en panne ne doit jamais être traité comme un feu vert silencieux.
+    needs_revision = (
+        guard_report.is_blocking
+        or critic_verdict.get("verdict") in ("revise", "error")
+    )
     revised = False
     final_letter = draft_letter
 
@@ -228,11 +247,20 @@ def run_letter_pipeline_sync(
         # Ré-évaluation des garde-fous pour le rapport final
         guard_report = evaluate_letter_guards(final_letter, offer_description, analyst_output)
 
+    provider_failures = []
+    if critic_verdict.get("verdict") == "error":
+        provider_failures.append({
+            "provider": critic_verdict.get("provider"),
+            "role": critic_verdict.get("role", "critic"),
+            "detail": critic_verdict.get("detail"),
+        })
+
     return {
         "body": final_letter,
         "revised": revised,
         "critic_verdict": critic_verdict,
         "guard_report": guard_report.model_dump(),
+        "provider_failures": provider_failures,
         "prompt_version": PROMPT_VERSION,
         "models": {
             "analyst": get_letter_llm("offer_analyst").model,

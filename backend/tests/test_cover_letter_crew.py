@@ -57,7 +57,7 @@ def test_completion_uses_max_completion_tokens():
         assert mock_comp.called
         assert "max_completion_tokens" in mock_comp.call_args.kwargs
         assert "max_tokens" not in mock_comp.call_args.kwargs
-        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 900
+        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 2500
 
     with patch("cover_letter_crew.completion", return_value=mock_resp) as mock_comp:
         _call_critic("Lettre...", ["M1"])
@@ -71,7 +71,7 @@ def test_completion_uses_max_completion_tokens():
         assert mock_comp.called
         assert "max_completion_tokens" in mock_comp.call_args.kwargs
         assert "max_tokens" not in mock_comp.call_args.kwargs
-        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 900
+        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 2500
 
 
 def test_call_analyst_prefers_explicit_candidate_name_over_contact_email():
@@ -96,7 +96,7 @@ def _fake_response(text: str) -> MagicMock:
     return mock
 
 
-def test_role_temperature_reaches_the_completion_call(monkeypatch):
+def test_role_temperature_reaches_the_completion_call_for_standard_models(monkeypatch):
     from letter_llm import ROLE_TEMPERATURES
     captured = {}
 
@@ -104,9 +104,24 @@ def test_role_temperature_reaches_the_completion_call(monkeypatch):
         captured.update(kwargs)
         return _fake_response("texte")
 
+    monkeypatch.setenv("LETTER_MODEL_WRITER", "mistral/mistral-large-2407")
     monkeypatch.setattr(cover_letter_crew, "completion", fake_completion)
     cover_letter_crew._call_writer({"missions": []}, "Acme")
     assert captured["temperature"] == ROLE_TEMPERATURES["writer"]
+    assert captured["drop_params"] is True
+
+
+def test_role_temperature_omitted_for_reasoning_models(monkeypatch):
+    captured = {}
+
+    def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return _fake_response("texte")
+
+    monkeypatch.setenv("LETTER_MODEL_WRITER", "openai/gpt-5.6-terra")
+    monkeypatch.setattr(cover_letter_crew, "completion", fake_completion)
+    cover_letter_crew._call_writer({"missions": []}, "Acme")
+    assert "temperature" not in captured
     assert captured["drop_params"] is True
 
 
