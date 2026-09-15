@@ -1,3 +1,4 @@
+import json
 import re
 import math
 from typing import Dict, Any, List
@@ -10,7 +11,9 @@ BANNED_LEXICON = [
     "force de proposition", "dynamique", "rigoureux", "passionné par",
     "vivement intéressé", "à la pointe de", "parfaitement adapté",
     "dans l'attente de votre retour", "restant à votre entière disposition",
-    "permettez-moi de vous présenter", "polyvalent"
+    "permettez-moi de vous présenter", "polyvalent",
+    "synergie", "actionable insights", "valeur ajoutée", "alignement stratégique",
+    "opportunité unique", "profil idéal", "mettre à profit",
 ]
 
 BANNED_OPENINGS = [
@@ -57,16 +60,22 @@ _ENTITY_PATTERN = re.compile(r"\b[A-ZÀ-Ý][A-Za-zÀ-ÿ0-9&.\-]{2,}(?: [A-ZÀ-Ý
 _SENTENCE_START_STOPWORDS = {
     "Madame", "Monsieur", "Cordialement", "Je", "Mon", "Ma", "Mes",
     "Votre", "Vos", "Chez", "Au", "Le", "La", "Les",
+    "Lors", "Cette", "Ce", "Cet", "Ces", "Sur", "Dans", "Pour", "Par", "Avec", "Sous",
+    "Elle", "Elles", "Il", "Ils", "Nous", "Vous", "On",
+    "Rejoindre", "Intégrer", "Depuis", "Durant", "Pendant", "Grâce",
+    "Ainsi", "Aussi", "Enfin", "En", "De", "Du", "Des",
+    "Tout", "Toute", "Tous", "Toutes", "Notre", "Nos",
 }
 
 
 def _check_entities(letter_text: str, offer_description: str, analyst_data: Dict[str, Any]) -> List[str]:
     """Toute entité nommée doit venir des faits fournis à l'analyste.
 
-    Seule une majuscule "interne" (qui n'a rien à voir avec la majuscule
-    conventionnelle de début de phrase en français) est un indice fiable
-    d'entité nommée : le premier mot de chaque phrase est donc exempté,
-    plutôt que de maintenir une liste sans fin de mots de liaison.
+    Aucune exemption de position n'est accordée au premier mot d'une phrase :
+    un LLM pourrait sinon placer une entité inventée en tête de n'importe
+    laquelle des phrases du texte pour la faire passer. Le nettoyage des
+    connecteurs capitalisés (`_SENTENCE_START_STOPWORDS`) suffit à traiter le
+    cas légitime des connecteurs en tête de phrase.
     """
     allowed = {
         _normalize_entity(value)
@@ -76,16 +85,15 @@ def _check_entities(letter_text: str, offer_description: str, analyst_data: Dict
             + list(analyst_data.get("projects") or [])
             + [analyst_data.get("company_name") or ""]
             + [analyst_data.get("candidate_name") or ""]
+            + [analyst_data.get("candidate_headline") or ""]
         )
         if value
     }
-    # Toute entité déjà nommée dans l'offre elle-même est légitime à
-    # reprendre (ex. l'intitulé du poste) : ce n'est pas une invention du
-    # candidat.
-    allowed |= {
-        _normalize_entity(m.group(0))
-        for m in _ENTITY_PATTERN.finditer(offer_description or "")
-    }
+    # Une entité citée dans l'offre brute (partenaire, client, concurrent du
+    # recruteur) n'est PAS légitime pour autant dans la lettre : seuls les
+    # faits fournis à l'analyste (companies/stacks/projects/company_name/
+    # candidate_name ci-dessus) blanchissent une entité. Ne jamais construire
+    # `allowed` à partir de `offer_description`.
 
     violations: List[str] = []
     seen: set = set()
@@ -95,8 +103,6 @@ def _check_entities(letter_text: str, offer_description: str, analyst_data: Dict
             if not sentence:
                 continue
             for match in _ENTITY_PATTERN.finditer(sentence):
-                if match.start() == 0:
-                    continue  # majuscule de début de phrase, pas un indice fiable
                 raw_candidate = match.group(0)
                 # Un connecteur capitalisé peut se retrouver accolé à
                 # l'entité qui le suit (« Chez Agence Nile ») : on l'ignore
@@ -115,7 +121,7 @@ def _check_entities(letter_text: str, offer_description: str, analyst_data: Dict
                 # "Google" (entreprise inventée) puisque "go" in "google" est vrai.
                 candidate_tokens = set(normalized.split())
                 if candidate_tokens and any(
-                    candidate_tokens <= set(entity.split()) or set(entity.split()) <= candidate_tokens
+                    candidate_tokens <= set(entity.split())
                     for entity in allowed
                     if entity
                 ):
@@ -240,6 +246,22 @@ def evaluate_letter_guards(
     # 12. Entités : toute entité nommée (majuscule interne) doit venir des faits
     # fournis à l'analyste (entreprises, stacks, projets, entreprise destinataire).
     violations.extend(_check_entities(letter_text, offer_description, analyst_data))
+
+    # 13. Chiffres non vérifiables : tout nombre cité dans la lettre doit
+    # apparaître littéralement soit dans l'offre, soit dans le JSON des
+    # expériences sélectionnées transmises à l'analyste — sinon rien ne prouve
+    # que le LLM ne l'a pas inventé. Une année plausible (1900-2099) est
+    # exemptée : elle n'a pas besoin d'être présente ailleurs pour être
+    # légitime dans une lettre.
+    experiences_json = json.dumps(
+        analyst_data.get("selected_experiences", []), ensure_ascii=False
+    )
+    for number in re.findall(r"\b\d+(?:[.,]\d+)?\b", letter_text):
+        if re.fullmatch(r"(?:19|20)\d{2}", number) and 1900 <= int(number) <= 2099:
+            continue
+        if number in (offer_description or "") or number in experiences_json:
+            continue
+        violations.append(f"Chiffre non vérifiable cité dans la lettre : '{number}'")
 
     # --- Contrôles d'avertissement (non bloquants) ---
     sentence_lengths = [len(re.findall(r"\b\w+\b", s)) for s in sentences if s]

@@ -15,6 +15,7 @@ Je serais ravi d'échanger prochainement avec vous pour évoquer plus en détail
         "metrics": ["trois années", "dix millions"],
         "projects": ["Sentinel"],
         "candidate_name": "Eliel Katche",
+        "candidate_headline": "Lead Data Engineer",
     }
     offer_desc = "Biomérieux recrute un Lead Data Engineer pour transformer ses pipelines analytiques de données de santé."
 
@@ -120,3 +121,106 @@ def test_accented_entity_is_flagged_in_full_not_truncated():
     )
     report = evaluate_letter_guards(letter, "offre", ANALYST)
     assert any("Biomédica" in v for v in report.violations)
+
+
+def test_invented_entity_at_sentence_start_is_now_flagged():
+    # C3-1 : l'ancienne exemption "match.start() == 0" laissait passer toute
+    # entité inventée placée en tête de n'importe quelle phrase du texte.
+    # Supprimée : une entité en tête de phrase doit être contrôlée comme
+    # n'importe quelle autre.
+    letter = (
+        "Innotech m'a inspiré durant mes études.\n\n"
+        "Ma méthode repose sur Python.\n\nCordialement"
+    )
+    analyst_data = {"stacks": ["Python"], "companies": []}
+    report = evaluate_letter_guards(letter, "offre", analyst_data)
+    assert any("Innotech" in v for v in report.violations)
+
+
+def test_entity_present_only_in_offer_description_is_now_rejected():
+    # C3-2 : whitelister depuis l'offre brute est contraire à la spec —
+    # l'offre peut citer un partenaire, un client ou un concurrent du
+    # recruteur que le candidat n'a aucune légitimité à reprendre.
+    letter = (
+        "Madame, Monsieur,\n\nJ'ai suivi votre partenariat avec PartnerCorp "
+        "avec beaucoup d'intérêt.\n\nMa méthode repose sur Python.\n\nCordialement"
+    )
+    offer_desc = "Cette offre est proposée en collaboration avec PartnerCorp."
+    analyst_data = {"stacks": ["Python"], "companies": []}
+    report = evaluate_letter_guards(letter, offer_desc, analyst_data)
+    assert any("PartnerCorp" in v for v in report.violations)
+
+
+def test_longer_invented_entity_containing_a_known_short_token_is_rejected():
+    # I5 : la comparaison à double sens ("entity <= candidate" en plus de
+    # "candidate <= entity") laissait blanchir une entité inventée plus
+    # longue qui contient un token autorisé court (ex. "Python" dans la
+    # stack blanchissant à tort "Python Institute"). Seule la direction
+    # "candidate est un sous-ensemble d'une entité autorisée" doit rester.
+    letter = (
+        "Madame, Monsieur,\n\nJ'ai suivi une formation chez Python Institute "
+        "avant de rejoindre Agence Nile.\n\nMa méthode repose sur Python.\n\nCordialement"
+    )
+    report = evaluate_letter_guards(letter, "offre", ANALYST)
+    assert any("Python Institute" in v for v in report.violations)
+
+
+def test_unverifiable_number_is_flagged():
+    # C3-3 : tout chiffre cité dans la lettre doit apparaître littéralement
+    # dans l'offre ou dans les expériences sélectionnées transmises à
+    # l'analyste, sinon rien ne prouve qu'il n'a pas été inventé.
+    letter = (
+        "Madame, Monsieur,\n\nJ'ai réduit les coûts de 47 pourcent.\n\n"
+        "Ma méthode est rigoureuse.\n\nCordialement"
+    )
+    analyst_data = {"stacks": [], "companies": [], "selected_experiences": []}
+    report = evaluate_letter_guards(letter, "offre sans chiffres", analyst_data)
+    assert any("Chiffre non vérifiable" in v and "47" in v for v in report.violations)
+
+
+def test_number_present_in_offer_description_is_accepted():
+    letter = (
+        "Madame, Monsieur,\n\nJ'ai géré une équipe de 12 personnes.\n\n"
+        "Ma méthode est rigoureuse.\n\nCordialement"
+    )
+    offer_desc = "Nous recherchons quelqu'un pour encadrer une équipe de 12 personnes."
+    analyst_data = {"stacks": [], "companies": [], "selected_experiences": []}
+    report = evaluate_letter_guards(letter, offer_desc, analyst_data)
+    assert not any("Chiffre non vérifiable" in v for v in report.violations)
+
+
+def test_number_present_in_selected_experiences_is_accepted():
+    letter = (
+        "Madame, Monsieur,\n\nJ'ai traité 500 dossiers.\n\n"
+        "Ma méthode est rigoureuse.\n\nCordialement"
+    )
+    analyst_data = {
+        "stacks": [],
+        "companies": [],
+        "selected_experiences": [{"company": "Sanofi", "metric": "500 dossiers traités"}],
+    }
+    report = evaluate_letter_guards(letter, "offre sans chiffres", analyst_data)
+    assert not any("Chiffre non vérifiable" in v for v in report.violations)
+
+
+def test_plausible_year_is_accepted_without_being_present_elsewhere():
+    letter = (
+        "Madame, Monsieur,\n\nDepuis 2023, je me spécialise en data engineering.\n\n"
+        "Ma méthode est rigoureuse.\n\nCordialement"
+    )
+    analyst_data = {"stacks": [], "companies": [], "selected_experiences": []}
+    report = evaluate_letter_guards(letter, "offre sans chiffres", analyst_data)
+    assert not any("Chiffre non vérifiable" in v and "2023" in v for v in report.violations)
+
+
+def test_guards_new_career_ops_banned_lexicon_fails():
+    newly_banned = [
+        "synergie", "actionable insights", "valeur ajoutée",
+        "alignement stratégique", "opportunité unique", "profil idéal", "mettre à profit"
+    ]
+    for term in newly_banned:
+        letter = f"Madame, Monsieur,\n\nNotre collaboration créera une {term} remarquable.\n\nCordialement"
+        report = evaluate_letter_guards(letter, "offre", {})
+        assert report.is_blocking is True
+        assert any(term in v for v in report.violations), f"Le terme banni '{term}' n'a pas été détecté"
+
