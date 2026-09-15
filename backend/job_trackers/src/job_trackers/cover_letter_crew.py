@@ -1,5 +1,6 @@
 import json
 import logging
+from pathlib import Path
 from typing import Dict, Any
 from app.services.letter_guards import evaluate_letter_guards
 from letter_llm import get_letter_llm, validate_cross_provider
@@ -11,6 +12,23 @@ from litellm import completion
 litellm.drop_params = True
 
 logger = logging.getLogger(__name__)
+
+PROMPTS_DIR = Path(__file__).resolve().parents[3] / "app" / "llm" / "prompts" / "cover_letter"
+
+# Fenêtre de longueur ciblée par le rédacteur (resserrée par rapport à la
+# fenêtre d'acceptation plus large des garde-fous côté letter_guards.py).
+MIN_WORDS = 270
+MAX_WORDS = 330
+
+
+def load_prompt(name: str, **context: object) -> str:
+    """Charge un prompt depuis son fichier et y substitue le contexte.
+
+    Une seule source de vérité pour les prompts : le fichier. Le code ne
+    reformule pas les règles, il les interpole.
+    """
+    template = (PROMPTS_DIR / f"{name}.md").read_text(encoding="utf-8")
+    return template.format(**context)
 
 def _call_analyst(offer_description: str, candidate_profile: Dict[str, Any]) -> Dict[str, Any]:
     llm = get_letter_llm("offer_analyst")
@@ -62,43 +80,25 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
         "stacks": list(candidate_stacks),
         "companies": companies,
         "projects": projects,
+        "candidate_name": (candidate_profile.get("contact") or {}).get("email", ""),
+        "candidate_headline": candidate_profile.get("headline", ""),
     }
 
 def _call_writer(analyst_json: Dict[str, Any], company_name: str) -> str:
     llm = get_letter_llm("writer")
 
-    prompt = f"""Tu es Eliel Katche, Ingénieur Data & IA, et tu rédiges ta lettre de motivation pour postuler chez {company_name}.
-Ton écriture est professionnelle, sobre, directe, précise, sans fioritures et sans clichés d'IA.
-
-RÈGLES DE FORME TRÈS STRICTES :
-1. Longueur : Entre 270 et 330 mots (TRÈS IMPORTANT, écris au moins 280 mots pour respecter les critères de recrutement).
-2. Structure : EXACTEMENT 3 ou 4 paragraphes au total, séparés par UNE ligne vide :
-   - Paragraphe 1 : Accroche personnalisée pour {company_name} (ex: "Votre recherche d'un profil... retient toute mon attention.")
-     INTERDICTION FORMELLE de commencer par "Je vous adresse ma candidature" ou "Actuellement à la recherche" ou "C'est avec grand intérêt".
-   - Paragraphe 2 : Réalisations concrètes en rapport avec l'offre (mentionne tes missions chez Agence Nile, Centre Léon Bérard ou Bimedoc en citant les stacks réelles).
-   - Paragraphe 3 : Ta méthode de travail en production (MLOps, gouvernance, architectures de données) et ce que tu apportes concrètement aux équipes de {company_name}.
-   - Paragraphe 4 : Formule de politesse sobre et signature :
-     "Je serais ravi d'échanger prochainement sur vos enjeux lors d'un entretien.
-     Cordialement,
-     Eliel Katche"
-3. GARDE-FOUS STRICTS (zéro tolérance) :
-   - AUCUN point d'exclamation (!)
-   - AUCUN point de suspension (...)
-   - AUCUN tiret cadratin (—)
-   - AUCUNE parenthèse (remplace par des virgules)
-   - Au maximum UN seul point-virgule (;)
-   - Répétitions : utilise l'expression "mon parcours" au plus 1 fois, "mon expérience" au plus 1 fois, et "mes compétences" au plus 1 fois.
-   - AUCUN mot banni : pas de "forte appétence", pas de "passionné par", pas de "dynamique", pas de "rigoureux", pas de "solide expertise", pas de "force de proposition", pas de "polyvalent", pas de "vivement intéressé".
-   - AUCUN compliment générique : pas de "entreprise leader", pas d'"acteur majeur", pas d'"excellence".
-   - N'invente AUCUNE entreprise non listée dans les faits fournis ci-dessous.
-
-FAITS DU CANDIDAT :
-Missions visées : {json.dumps(analyst_json.get('missions', []), ensure_ascii=False)}
-Expériences réelles : {json.dumps(analyst_json.get('selected_experiences', []), ensure_ascii=False)}
-Technologies : {', '.join(analyst_json.get('stacks', [])[:15])}
-Projets : {', '.join(analyst_json.get('projects', []))}
-
-Rédige directement le corps de la lettre en commençant par "Madame, Monsieur," sans en-tête d'adresse."""
+    prompt = load_prompt(
+        "02_style",
+        candidate_name=analyst_json.get("candidate_name", ""),
+        candidate_headline=analyst_json.get("candidate_headline", ""),
+        company_name=company_name,
+        min_words=MIN_WORDS,
+        max_words=MAX_WORDS,
+        missions=json.dumps(analyst_json.get("missions", []), ensure_ascii=False),
+        experiences=json.dumps(analyst_json.get("selected_experiences", []), ensure_ascii=False),
+        stacks=", ".join(analyst_json.get("stacks", [])[:15]),
+        projects=", ".join(analyst_json.get("projects", [])),
+    )
 
     resp = completion(
         model=llm.model,
