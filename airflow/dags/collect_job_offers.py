@@ -17,7 +17,7 @@ dag = DAG(
     "collect_job_offers_granular",
     default_args=default_args,
     description="Collecte automatique d'offres d'emploi - Version granulaire",
-    schedule="0 5 * * 1,3,5",
+    schedule="0 7,16 * * 1-5",
     catchup=False,
     max_active_runs=1,
     tags=["job-tracker", "collection", "granular"],
@@ -27,18 +27,16 @@ dag = DAG(
 
 @task(dag=dag, execution_timeout=timedelta(minutes=5))
 def validate_queries() -> list:
-    """Tâche 1: Validation des requêtes de recherche"""
+    """Tâche 1: Validation et génération dynamique des requêtes de recherche"""
+    import sys
+    sys.path.append("/app")
+
     logger = logging.getLogger("airflow.task")
     logger.info("📋 Validation des requêtes")
 
-    queries = [
-        "Je recherche un poste de data scientist proche de Lyon",
-        "Je recherche un poste d'ingénieur IA (AI engineer) proche de Lyon",
-        "Je recherche un poste de data engineer proche de Lyon",
-        "Je recherche un poste de machine learning engineer proche de Lyon",
-        "Je recherche un poste d'ingénieur MLOps proche de Lyon",
-        "Je recherche un poste de LLM engineer / ingénieur IA générative proche de Lyon",
-    ]
+    from app.tasks.job_offers_collectors import build_search_queries_sync
+
+    queries = build_search_queries_sync()
     valid_queries = [q.strip() for q in queries if len(q.strip()) > 5]
 
     if not valid_queries:
@@ -48,7 +46,7 @@ def validate_queries() -> list:
     return valid_queries
 
 
-@task(dag=dag, execution_timeout=timedelta(minutes=45))
+@task(dag=dag, execution_timeout=timedelta(minutes=60))
 def execute_collection_pipeline(validated_queries: list) -> dict:
     """Tâche 2: Exécution complète du pipeline de collecte, déduplication et stockage"""
     import sys

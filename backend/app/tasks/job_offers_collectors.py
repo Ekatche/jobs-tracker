@@ -17,10 +17,21 @@ from app.services.relevance import (
     is_relevant_position,
 )
 
-# Borne par requête pour collect_offers_sync : 6 requêtes × 7 min = 42 min,
-# sous l'execution_timeout de 45 min de la tâche Airflow. Sans cette borne,
-# une requête qui pend consomme tout le budget et tue les 5 autres.
+# Borne par requête pour collect_offers_sync : jusqu'à 8 requêtes × 7 min = 56 min,
+# sous l'execution_timeout de 60 min de la tâche Airflow. Sans cette borne,
+# une requête qui pend consomme tout le budget et tue les autres.
 COLLECT_QUERY_TIMEOUT = 420
+MAX_QUERIES_PER_PROFILE = 3
+MAX_TOTAL_QUERIES = 8
+
+DEFAULT_QUERIES: list[str] = [
+    "Je recherche un poste de data scientist proche de Lyon",
+    "Je recherche un poste d'ingénieur IA (AI engineer) proche de Lyon",
+    "Je recherche un poste de data engineer proche de Lyon",
+    "Je recherche un poste de machine learning engineer proche de Lyon",
+    "Je recherche un poste d'ingénieur MLOps proche de Lyon",
+    "Je recherche un poste de LLM engineer / ingénieur IA générative proche de Lyon",
+]
 
 
 def setup_logger():
@@ -419,7 +430,7 @@ def collect_offers_sync(query: str) -> dict:
     os.environ.setdefault("ENVIRONMENT", "airflow")
     try:
         logger.info(f"🚀 Collecte complète démarrée: {query}")
-        # 6 requêtes × 7 min = 42 min, sous l'execution_timeout de 45 min du DAG.
+        # jusqu'à 8 requêtes × 7 min = 56 min, sous l'execution_timeout de 60 min du DAG.
         # Sans cette borne, une requête qui pend consomme tout le budget de la tâche.
         result = asyncio.run(
             asyncio.wait_for(collect_and_save_offers(query), timeout=COLLECT_QUERY_TIMEOUT)
@@ -429,3 +440,126 @@ def collect_offers_sync(query: str) -> dict:
     except Exception as e:
         logger.error(f"💥 Erreur collecte complète: {e}")
         raise
+
+
+async def build_search_queries() -> list[str]:
+    """Génère dynamiquement les requêtes de recherche depuis les préférences des candidats.
+
+    Interroge la collection candidate_profile, combine rôles cibles et localisations,
+    déduplique entre candidats, assure une sélection équitable en round-robin plafonnée
+    à MAX_TOTAL_QUERIES, et bascule sur DEFAULT_QUERIES en cas d'erreur ou d'absence de données.
+    """
+    try:
+        db = await get_database()
+        cursor = db["candidate_profile"].find({})
+        profiles = await cursor.to_list(length=100)
+
+        from app.services.role_normalizer import normalize_role
+
+        memo_normalized: dict[str, str] = {}
+        profiles_queries_list: list[list[str]] = []
+
+        for profile in profiles:
+            prefs = profile.get("preferences") or {}
+            raw_target_roles = [
+                r.strip() for r in (prefs.get("target_roles") or []) if isinstance(r, str) and r.strip()
+            ]
+            if not raw_target_roles:
+                continue
+
+            target_roles: list[str] = []
+            seen_profile_roles: set[str] = set()
+            for r in raw_target_roles:
+                r_key = r.lower()
+                if r_key in memo_normalized:
+                    norm_role = memo_normalized[r_key]
+                else:
+                    norm_role = await normalize_role(r, db=db)
+                    memo_normalized[r_key] = norm_role
+
+                norm_key = norm_role.lower()
+                if norm_key not in seen_profile_roles:
+                    seen_profile_roles.add(norm_key)
+                    target_roles.append(norm_role)
+
+            if not target_roles:
+                continue
+
+            locations = [
+                loc.strip() for loc in (prefs.get("locations") or []) if isinstance(loc, str) and loc.strip()
+            ]
+            remote_policy = prefs.get("remote_policy")
+            is_full_remote = str(remote_policy).lower() in ("full_remote", "remotepolicy.full_remote")
+            contract_types = prefs.get("contract_types") or []
+            contract_suffix = f" ({contract_types[0]})" if contract_types else ""
+
+            candidate_queries: list[str] = []
+            if locations:
+                for role in target_roles:
+                    for loc in locations:
+                        candidate_queries.append(
+                            f"Je recherche un poste de {role} proche de {loc}{contract_suffix}"
+                        )
+            elif is_full_remote:
+                for role in target_roles:
+                    candidate_queries.append(
+                        f"Je recherche un poste de {role} en télétravail{contract_suffix}"
+                    )
+            else:
+                for role in target_roles:
+                    candidate_queries.append(
+                        f"Je recherche un poste de {role}{contract_suffix}"
+                    )
+
+            if candidate_queries:
+                profiles_queries_list.append(candidate_queries[:MAX_QUERIES_PER_PROFILE])
+
+        if not profiles_queries_list:
+            logger.info("ℹ️ Aucun profil candidat avec rôles cibles trouvé, utilisation de DEFAULT_QUERIES")
+            return list(DEFAULT_QUERIES)
+
+        # Sélection en Round-Robin équitable entre profils avec déduplication normalisée
+        selected_queries: list[str] = []
+        seen_keys: set[str] = set()
+
+        round_idx = 0
+        while len(selected_queries) < MAX_TOTAL_QUERIES:
+            added_in_round = False
+            for p_queries in profiles_queries_list:
+                if round_idx < len(p_queries):
+                    query = p_queries[round_idx].strip()
+                    dedup_key = query.lower()
+                    if dedup_key not in seen_keys:
+                        seen_keys.add(dedup_key)
+                        selected_queries.append(query)
+                        if len(selected_queries) >= MAX_TOTAL_QUERIES:
+                            break
+                    added_in_round = True
+            if not added_in_round:
+                break
+            round_idx += 1
+
+        if not selected_queries:
+            return list(DEFAULT_QUERIES)
+
+        logger.info(f"✅ {len(selected_queries)} requêtes de recherche dynamiques générées: {selected_queries}")
+        return selected_queries
+
+    except Exception as e:
+        logger.warning(
+            f"⚠️ Erreur lors de la génération dynamique des requêtes: {e}, utilisation du fallback DEFAULT_QUERIES"
+        )
+        return list(DEFAULT_QUERIES)
+
+
+def build_search_queries_sync() -> list[str]:
+    """Version synchrone pour Airflow avec boucle d'événements dédiée et résilience."""
+    os.environ.setdefault("ENVIRONMENT", "airflow")
+    try:
+        return asyncio.run(build_search_queries())
+    except Exception as e:
+        logger.warning(
+            f"⚠️ Erreur execution sync build_search_queries: {e}, utilisation du fallback DEFAULT_QUERIES"
+        )
+        return list(DEFAULT_QUERIES)
+
