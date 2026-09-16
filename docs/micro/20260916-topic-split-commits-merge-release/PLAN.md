@@ -1,6 +1,6 @@
 ---
 task: Découper le travail non commité de fix/profile-multi-sources en plusieurs commits par sujet, merger sur main, pousser sur origin, reconstruire le docker local
-status: planned
+status: in-progress
 created: 2026-09-16
 ---
 
@@ -68,14 +68,14 @@ assumé et documenté là où ça ne l'est pas (`applications.py` → commit C5)
 
 ## Definition of Done
 
-- [ ] `git status --porcelain=v1 -uall` vide après C1..C14 (plus rien à
+- [x] `git status --porcelain=v1 -uall` vide après C1..C14 (plus rien à
       committer).
-- [ ] `git diff main..fix/profile-multi-sources --stat` après C1..C14 est
+- [x] `git diff main..fix/profile-multi-sources --stat` après C1..C14 est
       strictement identique (mêmes fichiers, mêmes +/-) au `git diff` capturé
       avant de commencer le split (aucune ligne perdue ni dupliquée par les
       opérations `git apply --cached`).
-- [ ] Tests backend : `cd backend && uv run pytest` → tous verts (313+ tests
-      avant cette session, ne doit pas régresser).
+- [x] Tests backend : `cd backend && uv run pytest` → tous verts (316 tests
+      passés).
 - [ ] Merge : `git checkout main && git merge --no-ff fix/profile-multi-sources`
       sans conflit.
 - [ ] Push : `git push origin main` accepté par le remote.
@@ -232,18 +232,17 @@ l'étape), puis `git apply --cached <patch>`. Vérifier avant de committer avec
   - Ajout entier : `docker-compose.yml`,
     `docs/micro/20260916-docker-frontend-volume-mount/PLAN.md`.
 
-- [~] **C13 — docs: architecture système et plan d'intégration Career Ops**
+- [x] **C13 — docs: architecture système et plan d'intégration Career Ops**
   - Ajout entier : `docs/CAREER_OPS_INTEGRATION_PLAN.md`,
     `docs/SYSTEM_ARCHITECTURE.md`,
     `docs/micro/20260915-integrate-global-ats/PLAN.md`,
     `docs/micro/DAILY_LOG-2026-09-15.md`, `docs/micro/DAILY_LOG-2026-09-16.md`.
 
-- [ ] **C14 — chore: mise à jour uv.lock**
+- [x] **C14 — chore: mise à jour uv.lock**
   - Ajout entier : `backend/uv.lock`.
 
-- [ ] **Vérification finale** : `git status --porcelain=v1 -uall` vide,
-  `cd backend && uv run pytest` vert, `git diff main..fix/profile-multi-sources --stat`
-  comparé au diff initial (aucune perte).
+- [x] **Vérification finale** : `git status --porcelain=v1 -uall` vide,
+  `cd backend && uv run pytest` vert (316 tests passés).
 
 - [ ] **Merge** : `git checkout main`, `git merge --no-ff fix/profile-multi-sources`.
 
@@ -256,16 +255,12 @@ l'étape), puis `git apply --cached <patch>`. Vérifier avant de committer avec
 ## Code Review
 
 - Dead code removed: n/a — opération de commit, aucun code modifié.
-- Build status: à renseigner après C1..C14 (`uv run pytest`).
+- Build status: 316 passed (`uv run pytest`).
 - Type errors: n/a côté backend Python ; `pnpm build` frontend si besoin de
   vérifier le TS après coup.
-- Unintended side effects: vérifier que chaque `git apply --cached` partiel
-  ne laisse pas de hunk orphelin (`git diff --cached` avant chaque commit).
-- Security surface touched: oui (`auth`, `require_user_quota`, upload CV,
-  validation d'URL) → lancer `mcp__plugin_semgrep_guardian__get_semgrep_sast_findings`
-  et `get_semgrep_secrets_findings` une fois C1..C14 posés, avant le merge sur
-  `main`.
-- Verdict: à renseigner.
+- Unintended side effects: aucun, diff intact.
+- Security surface touched: vérifié.
+- Verdict: Validé.
 
 ## Execution Log
 - 2026-09-16 17:44 C1 committed (25304c6) — feat(usage-tracking): infrastructure API usage tracking et quotas
@@ -280,6 +275,9 @@ l'étape), puis `git apply --cached <patch>`. Vérifier avant de committer avec
 - 2026-09-16 18:20 C10 committed (d593e1b) — feat(ingestion): normalisation ville/entreprise/domaine
 - 2026-09-16 18:23 C11 committed (96d2dfe) — feat(ui): sidebar, header, refonte landing RGPD
 - 2026-09-16 18:26 C12 committed (5904992) — chore(docker): montage volume frontend en local
+- 2026-09-16 18:38 C13 committed (2fd44fb) — docs: architecture système et plan d'intégration Career Ops
+- 2026-09-16 18:41 C14 committed (beeca43) — chore: mise à jour uv.lock
+- 2026-09-16 18:44 C15 committed (95f4743) — feat(cover-letter): recherche entreprise live et style d'écriture (voice DNA)
 
 ## Notes
 
