@@ -137,11 +137,15 @@ export default function Header() {
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo et titre */}
-          <Link href="/" className="flex items-center gap-2 text-white">
-            <FiBriefcase className="text-2xl" />
-            <span className="font-bold text-xl hidden sm:block">
-              Job Tracker
-            </span>
+          <Link href="/" className="flex items-center gap-2.5 text-white group">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+              <FiBriefcase className="text-xl" />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-bold text-xl tracking-tight text-white group-hover:text-blue-200 transition-colors">
+                MonSuiviJob
+              </span>
+            </div>
           </Link>
 
           {/* Navigation sur grand écran */}
