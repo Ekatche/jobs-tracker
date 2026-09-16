@@ -6,7 +6,9 @@ from typing import Dict, Any, List, Optional, Tuple
 from app.services.letter_guards import evaluate_letter_guards, LETTER_RULES
 from letter_llm import get_letter_llm, validate_cross_provider, ROLE_TEMPERATURES, get_model_provider, build_completion_kwargs
 
-from litellm import completion
+import asyncio
+import time
+from litellm import acompletion
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ def _track_usage(usage_acc: Optional[List[Tuple[int, int]]], resp: Any) -> None:
     ))
 
 
-def _call_analyst(
+async def _call_analyst(
     offer_description: str,
     candidate_profile: Dict[str, Any],
     candidate_name: str = "",
@@ -76,7 +78,7 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
     # produire de fausses missions génériques qui masqueraient l'échec réel.
     # L'exception se propage jusqu'à `applications.py::_generate_cover_letter_bg`,
     # qui l'attrape déjà et produit un statut `failed` avec `format_llm_error`.
-    resp = completion(
+    resp = await acompletion(
         model=llm.model,
         api_key=llm.api_key,
         messages=[{"role": "user", "content": prompt}],
@@ -103,22 +105,22 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
     }
 
 
-def _search_company_web(company_name: str) -> List[str]:
+async def _search_company_web(company_name: str) -> List[str]:
     if not company_name or not company_name.strip():
         return []
     try:
         api_key = os.environ.get("TAVILY_API_KEY")
         if not api_key:
             return []
-        from tavily import TavilyClient
-        client = TavilyClient(api_key=api_key)
+        from tavily import AsyncTavilyClient
+        client = AsyncTavilyClient(api_key=api_key)
         queries = [
             f"{company_name} actualités produits services",
             f"{company_name} enjeux défis stratégie",
         ]
         snippets: List[str] = []
         for q in queries:
-            res = client.search(query=q, search_depth="basic", max_results=5)
+            res = await client.search(query=q, search_depth="basic", max_results=5)
             for item in res.get("results", []):
                 content = item.get("content") or item.get("snippet") or ""
                 if content:
@@ -129,7 +131,7 @@ def _search_company_web(company_name: str) -> List[str]:
         return []
 
 
-def _call_company_researcher(
+async def _call_company_researcher(
     company_name: str,
     snippets: List[str],
     usage_acc: Optional[List[Tuple[int, int]]] = None,
@@ -148,7 +150,7 @@ Extraits web :
 {joined_snippets}
 
 Synthèse (2-3 phrases claires et directes) :"""
-        resp = completion(
+        resp = await acompletion(
             model=llm.model,
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
@@ -164,6 +166,29 @@ Synthèse (2-3 phrases claires et directes) :"""
         return ""
 
 
+
+COMPANY_CACHE = {}
+
+async def _get_cached_or_research_company(company_name: str, usage_acc: Optional[List[Tuple[int, int]]] = None) -> str:
+    if not company_name or not company_name.strip():
+        return ""
+    
+    now = time.time()
+    # TTL de 7 jours = 7 * 24 * 3600 secondes
+    if company_name in COMPANY_CACHE:
+        cached_context, timestamp = COMPANY_CACHE[company_name]
+        if now - timestamp < 604800:
+            return cached_context
+
+    try:
+        snippets = await _search_company_web(company_name)
+        context = await _call_company_researcher(company_name, snippets, usage_acc=usage_acc)
+        COMPANY_CACHE[company_name] = (context, now)
+        return context
+    except Exception as e:
+        logger.warning(f"Recherche entreprise ignorée suite à une erreur: {e}")
+        return ""
+
 def _build_voice_style_block(voice_style: str) -> str:
     clean = (voice_style or "").strip()
     if not clean:
@@ -178,7 +203,7 @@ def _build_company_context_block(company_context: str) -> str:
     return f"## Contexte de l'entreprise (recherche live)\n\nVoici des informations récentes sur l'entreprise issues d'une recherche web :\n{clean}"
 
 
-def _call_writer(
+async def _call_writer(
     analyst_json: Dict[str, Any],
     company_name: str,
     company_context: str = "",
@@ -212,7 +237,7 @@ def _call_writer(
     )
     prompt = f"{fond}\n\n{style}"
 
-    resp = completion(
+    resp = await acompletion(
         model=llm.model,
         api_key=llm.api_key,
         messages=[{"role": "user", "content": prompt}],
@@ -225,11 +250,11 @@ def _call_writer(
     content = content.strip()
     if content.startswith("```"):
         lines = content.split("\n")
-        stripped = "\n".join([l for l in lines if not l.startswith("```")]).strip()
+        stripped = "\n".join([line for line in lines if not line.startswith("```")]).strip()
         content = stripped if stripped else content
     return content
 
-def _call_critic(
+async def _call_critic(
     letter_text: str,
     missions: list,
     usage_acc: Optional[List[Tuple[int, int]]] = None,
@@ -242,7 +267,7 @@ def _call_critic(
     )
 
     try:
-        resp = completion(
+        resp = await acompletion(
             model=llm.model,
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
@@ -273,7 +298,7 @@ def _call_critic(
             "detail": str(e),
         }
 
-def _call_reviser(
+async def _call_reviser(
     letter_text: str,
     analyst_json: Dict[str, Any],
     critic_flaws: list,
@@ -295,7 +320,7 @@ def _call_reviser(
     )
 
     try:
-        resp = completion(
+        resp = await acompletion(
             model=llm.model,
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
@@ -308,14 +333,14 @@ def _call_reviser(
         content = content.strip()
         if content.startswith("```"):
             lines = content.split("\n")
-            stripped = "\n".join([l for l in lines if not l.startswith("```")]).strip()
+            stripped = "\n".join([line for line in lines if not line.startswith("```")]).strip()
             content = stripped if stripped else content
         return content
     except Exception as e:
         logger.warning(f"Erreur réviseur LLM: {e}")
         return letter_text
 
-def run_letter_pipeline_sync(
+async def run_letter_pipeline_async(
     offer_description: str,
     candidate_profile: Dict[str, Any],
     company_name: str,
@@ -329,20 +354,15 @@ def run_letter_pipeline_sync(
 
     usage_acc: List[Tuple[int, int]] = []
 
-    # 1. Analyse de l'offre et sélection d'expériences (le profil complet s'arrête ici)
-    analyst_output = _call_analyst(offer_description, candidate_profile, candidate_name, usage_acc=usage_acc)
+    # 1. Analyse de l'offre et recherche entreprise (en parallèle)
+    analyst_task = _call_analyst(offer_description, candidate_profile, candidate_name, usage_acc=usage_acc)
+    company_task = _get_cached_or_research_company(company_name, usage_acc=usage_acc)
+    
+    analyst_output, company_context = await asyncio.gather(analyst_task, company_task)
     analyst_output["company_name"] = company_name
 
-    # Recherche entreprise live (Tavily + synthèse LLM)
-    try:
-        snippets = _search_company_web(company_name)
-        company_context = _call_company_researcher(company_name, snippets, usage_acc=usage_acc)
-    except Exception as e:
-        logger.warning(f"Recherche entreprise ignorée suite à une erreur: {e}")
-        company_context = ""
-
     # 2. Rédaction (ne voit que le JSON d'analyst, le contexte entreprise et le style de voix)
-    draft_letter = _call_writer(
+    draft_letter = await _call_writer(
         analyst_output,
         company_name,
         company_context=company_context,
@@ -352,7 +372,7 @@ def run_letter_pipeline_sync(
 
     # 3. Évaluation parallèle : Garde-fous en code + Critique inter-modèle
     guard_report = evaluate_letter_guards(draft_letter, offer_description, analyst_output)
-    critic_verdict = _call_critic(draft_letter, analyst_output.get("missions", []), usage_acc=usage_acc)
+    critic_verdict = await _call_critic(draft_letter, analyst_output.get("missions", []), usage_acc=usage_acc)
 
     # 4. Passe de révision conditionnelle : une panne du critique ("error")
     # déclenche aussi une révision, au même titre qu'un verdict "revise" — un
@@ -365,7 +385,7 @@ def run_letter_pipeline_sync(
     final_letter = draft_letter
 
     if needs_revision:
-        final_letter = _call_reviser(
+        final_letter = await _call_reviser(
             draft_letter,
             analyst_output,
             critic_verdict.get("flaws", []),

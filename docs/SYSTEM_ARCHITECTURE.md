@@ -168,11 +168,12 @@ Pour que l'utilisateur sache que sa tâche longue est terminée sans avoir à ra
 
 ### A. Points d'Appel LLM Identifiés
 
-**Stack LiteLLM** (pipeline cover letter — 4 agents par lettre) :
+**Stack LiteLLM** (pipeline cover letter — 5 rôles/agents par lettre, exécution 100% asynchrone) :
 
 | Agent | Modèle par défaut | Coût estimé/appel |
 |---|---|---|
 | `offer_analyst` | `openai/gpt-5.6-luna` | ~$0.005 |
+| `company_researcher` | `openai/gpt-5.6-luna` | ~$0.005 (recherche web Tavily avec cache TTL 7j) |
 | `writer` | `openai/gpt-5.6-sol` | ~$0.015 |
 | `critic` | `gemini/gemini-3.8-flash` (cross-provider) | ~$0.002 |
 | `reviser` | `openai/gpt-5.6-sol` (conditionnel) | ~$0.015 |
@@ -218,7 +219,7 @@ Deux points d'interception :
 | Parsing CV → Profil | `app/services/cv_parser.py` | ✅ En production |
 | Collecteurs GitHub/Website | `app/services/profile/collectors/` | ✅ En production |
 | Fusion multi-sources profil | `app/services/profile/merge.py` | ✅ En production |
-| Pipeline cover letter (4 agents) | `job_trackers/cover_letter_crew.py` | ✅ En production |
+| Pipeline cover letter (5 agents) | `job_trackers/cover_letter_crew.py` | ✅ En production |
 | Letter guards (code pur) | `app/services/letter_guards.py` | ✅ En production |
 | Vérification liveness offres | `app/tasks/verify_job_offers.py` | ✅ En production |
 | Nettoyage/normalisation offres | `app/services/normalization.py`, `app/tasks/clean_job_offers.py` | ✅ En production |

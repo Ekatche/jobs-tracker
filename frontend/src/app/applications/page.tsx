@@ -413,7 +413,7 @@ export default function ApplicationsPage() {
   }, [filteredApplications]);
 
   return (
-    <div className="min-h-screen bg-blue-night text-white flex flex-col">
+    <div className="h-[calc(100dvh-64px)] flex flex-col overflow-hidden bg-blue-night text-white">
       {/* Barre supérieure : Titre, Recherche, Filtres, KPIs */}
       <div className="border-b border-gray-800 bg-blue-night-lighter/40 px-4 py-3 flex-shrink-0">
         <div className="max-w-[1700px] mx-auto">
@@ -576,7 +576,7 @@ export default function ApplicationsPage() {
       </div>
 
       {/* Corps Principal : Kanban pleine hauteur ou Tableau */}
-      <div className="flex-1 flex flex-col p-4 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col p-4 overflow-hidden">
         {loading ? (
           <div className="flex-1 flex items-center justify-center py-24 text-gray-400 gap-3">
             <FiRefreshCw className="w-6 h-6 animate-spin text-blue-400" />
@@ -591,11 +591,11 @@ export default function ApplicationsPage() {
           /* ========================================================= */
           /* VUE KANBAN : COLONNES DE HAUTEUR ÉGALE STRICTE            */
           /* ========================================================= */
-          <div className="flex-1 flex flex-row gap-4 overflow-x-auto overflow-y-hidden pb-2 custom-scrollbar h-[calc(100vh-230px)] min-h-[520px]">
+          <div className="flex-1 min-h-0 flex flex-row gap-4 overflow-x-auto overflow-y-hidden pb-2 custom-scrollbar">
             {columns.map((col) => (
               <div
                 key={col.id}
-                className="flex-1 min-w-[270px] max-w-[340px] flex flex-col h-full bg-gray-900/50 rounded-xl border border-gray-800/80 shadow-sm"
+                className="flex-1 min-w-[280px] max-w-[340px] flex flex-col h-full min-h-0 bg-gray-900/50 rounded-xl border border-gray-800/80 shadow-sm"
               >
                 {/* En-tête de la colonne (toujours visible, ne défile jamais) */}
                 <div className="p-3 border-b border-gray-800 flex items-center justify-between flex-shrink-0 bg-gray-900/60 rounded-t-xl">
@@ -611,7 +611,7 @@ export default function ApplicationsPage() {
                 </div>
 
                 {/* Cartes de candidature (défilement vertical interne exclusif) */}
-                <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5 custom-scrollbar">
+                <div className="flex-1 min-h-0 overflow-y-auto p-2.5 space-y-2.5 custom-scrollbar">
                   {col.apps.length === 0 ? (
                     <div className="h-32 flex items-center justify-center text-xs text-gray-500 italic text-center px-4">
                       Aucune candidature dans cette étape
@@ -729,7 +729,7 @@ export default function ApplicationsPage() {
           /* ========================================================= */
           /* VUE TABLEAU : LISTE TABULAIRE COMPLÈTE & FILTRABLE        */
           /* ========================================================= */
-          <div className="flex-1 bg-gray-900/50 rounded-xl border border-gray-800 overflow-hidden flex flex-col">
+          <div className="flex-1 min-h-0 bg-gray-900/50 rounded-xl border border-gray-800 overflow-hidden flex flex-col">
             <div className="overflow-x-auto flex-1 custom-scrollbar">
               <table className="w-full text-left text-xs">
                 <thead className="bg-gray-900/80 text-gray-400 font-semibold border-b border-gray-800 sticky top-0">

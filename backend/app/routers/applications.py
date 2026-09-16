@@ -1,4 +1,3 @@
-import asyncio
 from fastapi import APIRouter, Body, Depends, status, HTTPException, BackgroundTasks
 from typing import Dict, List, Optional
 from bson import ObjectId
@@ -148,19 +147,18 @@ async def _generate_cover_letter_bg(application_id: ObjectId, user_id: ObjectId,
             )
             return
 
-        # 5. Exécution asynchrone via asyncio.to_thread pour isoler Motor
+        # 5. Exécution asynchrone native
         import sys
         from pathlib import Path
         job_trackers_path = Path(__file__).parent.parent.parent / "job_trackers" / "src" / "job_trackers"
         if str(job_trackers_path) not in sys.path:
             sys.path.insert(0, str(job_trackers_path))
-        from cover_letter_crew import run_letter_pipeline_sync
+        from cover_letter_crew import run_letter_pipeline_async
 
         user_doc = await db["users"].find_one({"_id": ObjectId(user_id)})
         full_name = (user_doc or {}).get("full_name") or ""
 
-        pipeline_res = await asyncio.to_thread(
-            run_letter_pipeline_sync,
+        pipeline_res = await run_letter_pipeline_async(
             offer_desc,
             profile_doc,
             app_doc.get("company", "l'entreprise"),

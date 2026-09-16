@@ -1,6 +1,6 @@
 ---
 task: Découper le travail non commité de fix/profile-multi-sources en plusieurs commits par sujet, merger sur main, pousser sur origin, reconstruire le docker local
-status: in-progress
+status: done
 created: 2026-09-16
 ---
 
@@ -78,7 +78,7 @@ assumé et documenté là où ça ne l'est pas (`applications.py` → commit C5)
       passés).
 - [x] Merge : `git checkout main && git merge --no-ff fix/profile-multi-sources`
       sans conflit.
-- [ ] Push : `git push origin main` accepté par le remote.
+- [x] Push : `git push origin main` accepté par le remote (`c9c283d..ce7cf41`).
 - [x] Docker : `docker compose build && docker compose up -d` (ou
       équivalent déjà en place dans `docker-compose.yml`) démarre sans erreur.
 
