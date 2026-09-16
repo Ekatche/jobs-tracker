@@ -188,3 +188,65 @@ def test_pipeline_triggers_revision_and_reports_provider_failure_on_critic_error
         {"provider": "google", "role": "critic", "detail": "quota dépassé"}
     ]
 
+
+def test_company_research_failure_does_not_break_pipeline():
+    mock_analyst = {
+        "missions": ["Lead data pipelines"],
+        "selected_experiences": [],
+        "stacks": [],
+        "companies": [],
+        "projects": [],
+    }
+    mock_writer_letter = "Lettre générée malgré l'erreur..."
+
+    with patch("cover_letter_crew._call_analyst", return_value=mock_analyst), \
+         patch("cover_letter_crew._search_company_web", side_effect=Exception("Tavily unreachable")), \
+         patch("cover_letter_crew._call_writer", return_value=mock_writer_letter), \
+         patch("cover_letter_crew._call_critic", return_value={"verdict": "pass", "flaws": []}), \
+         patch("cover_letter_crew.evaluate_letter_guards") as mock_guards, \
+         patch("cover_letter_crew.validate_cross_provider"):
+
+        mock_guard_report = MagicMock()
+        mock_guard_report.is_blocking = False
+        mock_guards.return_value = mock_guard_report
+
+        result = run_letter_pipeline_sync(
+            offer_description="Offre Acme",
+            candidate_profile={"headline": "Data Engineer"},
+            company_name="Acme",
+        )
+
+    assert result.get("body") == mock_writer_letter
+
+
+def test_writer_prompt_includes_voice_style_when_present():
+    mock_choice = MagicMock()
+    mock_choice.message.content = "Lettre générée"
+    mock_resp = MagicMock(choices=[mock_choice], usage=None)
+
+    with patch("cover_letter_crew.completion", return_value=mock_resp) as mock_comp, \
+         patch("cover_letter_crew.get_letter_llm") as mock_llm:
+        mock_llm.return_value.model = "openai/gpt-5.6-terra"
+        mock_llm.return_value.api_key = "fake_key"
+
+        analyst_json = {
+            "candidate_name": "Alice",
+            "candidate_headline": "ML Engineer",
+            "missions": ["Mission 1"],
+            "selected_experiences": [],
+            "stacks": ["Python"],
+            "projects": [],
+        }
+
+        cover_letter_crew._call_writer(
+            analyst_json=analyst_json,
+            company_name="Acme",
+            voice_style="Direct, phrases courtes, pas de jargon marketing.",
+        )
+
+        assert mock_comp.called
+        sent_messages = mock_comp.call_args[1]["messages"]
+        sent_prompt = sent_messages[0]["content"]
+        assert "Direct, phrases courtes, pas de jargon marketing." in sent_prompt
+
+

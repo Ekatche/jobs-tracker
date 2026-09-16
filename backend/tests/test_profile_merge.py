@@ -469,4 +469,16 @@ def test_trivial_projects_and_excluded_projects_are_filtered():
     assert "WideDocs" in names
 
 
+def test_writing_style_propagates_from_manual_source():
+    """Le style personnel d'écriture fourni dans manual se propage dans le profil fusionné."""
+    sources = {
+        "manual": {
+            "writing_style": "Style concis et direct, voix active.",
+        }
+    }
+    profile, _ = build_profile_from_sources(sources)
+    assert profile.get("writing_style") == "Style concis et direct, voix active."
+
+
+
 

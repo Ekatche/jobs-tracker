@@ -99,17 +99,17 @@ Lettre à évaluer :
 
 Retourne exclusivement le JSON suivant :
 
-{
+{{
 "verdict": "pass" ou "revise",
 "flaws": [
 "Description précise du défaut 1",
 "Description précise du défaut 2"
 ]
-}
+}}
 
 Si la lettre ne présente pas de défaut important, utilise :
 
-{
+{{
 "verdict": "pass",
 "flaws": []
-}
+}}

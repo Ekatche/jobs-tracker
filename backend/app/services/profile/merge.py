@@ -424,6 +424,7 @@ def build_profile_from_sources(
     _, headline = _first_non_empty("headline", contributions)
     _, summary = _first_non_empty("summary", contributions)
     _, preferences = _first_non_empty("preferences", contributions)
+    _, writing_style = _first_non_empty("writing_style", contributions)
 
     experiences = _merge_experiences(sources, order, conflicts)
     skills = _merge_skills(sources, order)
@@ -436,6 +437,7 @@ def build_profile_from_sources(
         "summary": summary or "",
         "contact": contact,
         "preferences": preferences or {},
+        "writing_style": writing_style or "",
         "experiences": experiences,
         "projects": _merge_projects(sources, order),
         "education": _merge_education(sources, order),

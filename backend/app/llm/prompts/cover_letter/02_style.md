@@ -18,6 +18,8 @@ La lettre doit donner l'impression que le candidat sait pourquoi il postule et q
 
 Ne cherche pas à utiliser toutes les informations disponibles. Sélectionne uniquement celles qui servent réellement la candidature.
 
+{voice_style_block}
+
 ## Voix et style
 
 Utilise principalement la voix active.
@@ -46,11 +48,13 @@ Une technologie ne doit apparaître que si elle sert à expliquer une réalisati
 
 Évite les longues listes de technologies.
 
+{company_context_block}
+
 ## Accroche
 
 Le premier paragraphe doit expliquer rapidement pourquoi le poste et l'entreprise ont retenu l'attention du candidat.
 
-Pars d'un élément concret de l'offre : une mission, un produit, un problème technique, un domaine d'application ou un type de système.
+Si un contexte entreprise est fourni, ancre l'accroche dans un enjeu réel qu'il mentionne plutôt que dans les seules missions de l'offre ; sinon, pars d'un élément concret de l'offre : une mission, un produit, un problème technique, un domaine d'application ou un type de système.
 
 Relie immédiatement cet élément à une expérience réelle du candidat.
 

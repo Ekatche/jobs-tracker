@@ -11,6 +11,7 @@ DEFAULT_MODELS = {
     "critic": "gemini/gemini-3.8-flash",
     "reviser": "openai/gpt-5.6-terra",
     "site_extractor": "gemini/gemini-3.8-flash",
+    "company_researcher": "gemini/gemini-3.8-flash",
 }
 
 ROLE_TEMPERATURES = {
@@ -19,6 +20,7 @@ ROLE_TEMPERATURES = {
     "critic": 0.2,
     "reviser": 0.5,
     "site_extractor": 0.1,
+    "company_researcher": 0.3,
 }
 
 _OPENAI_NO_TEMP_PREFIXES = ("o1", "o3", "gpt-5", "gpt-o")
@@ -74,6 +76,7 @@ def get_letter_llm(role: str, model_override: Optional[str] = None) -> LLM:
         "critic": "LETTER_MODEL_CRITIC",
         "reviser": "LETTER_MODEL_REVISER",
         "site_extractor": "LETTER_MODEL_SITE_EXTRACTOR",
+        "company_researcher": "LETTER_MODEL_COMPANY_RESEARCHER",
     }
     model = model_override or os.getenv(env_var_map.get(role, ""), DEFAULT_MODELS.get(role, ""))
     validate_no_floating_alias(model)
