@@ -57,6 +57,12 @@ export default function CandidateProfileSection() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Inline writing style editor (always visible, independent of full edit mode)
+  const [isEditingStyle, setIsEditingStyle] = useState(false);
+  const [writingStyleDraft, setWritingStyleDraft] = useState("");
+  const [isSavingStyle, setIsSavingStyle] = useState(false);
+  const [saveStyleSuccess, setSaveStyleSuccess] = useState(false);
+
   // Form states
   const [headline, setHeadline] = useState("");
   const [summary, setSummary] = useState("");
@@ -395,16 +401,87 @@ export default function CandidateProfileSection() {
             <p className="text-slate-300 leading-relaxed whitespace-pre-line text-xs sm:text-sm">
               {profile?.summary || "Aucun résumé professionnel enregistré."}
             </p>
-            {profile?.writing_style && (
-              <div className="mt-3 pt-3 border-t border-slate-800/80">
-                <div className="text-[11px] font-semibold text-purple-400 uppercase tracking-wider mb-1">
-                  Style d&apos;écriture (Voice DNA)
+            {/* Voice DNA — always visible inline editor */}
+            <div className="mt-3 pt-3 border-t border-slate-800/80">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[11px] font-semibold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>✍️</span> Style d&apos;écriture (Voice DNA)
                 </div>
-                <p className="text-slate-300 italic text-xs leading-relaxed whitespace-pre-line">
-                  &ldquo;{profile.writing_style}&rdquo;
-                </p>
+                {!isEditingStyle && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWritingStyleDraft(profile?.writing_style || writingStyle);
+                      setIsEditingStyle(true);
+                    }}
+                    className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
+                  >
+                    ✏️ Modifier
+                  </button>
+                )}
               </div>
-            )}
+              {isEditingStyle ? (
+                <div className="space-y-2">
+                  <textarea
+                    id="inline_writing_style"
+                    rows={3}
+                    value={writingStyleDraft}
+                    onChange={(e) => setWritingStyleDraft(e.target.value)}
+                    placeholder="ex: Style direct et sobre, phrases courtes et percutantes, orienté résultats chiffrés, voix active, zéro flatterie générique..."
+                    className="w-full rounded-md bg-slate-900 border border-purple-500/30 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-xs leading-relaxed resize-none"
+                    autoFocus
+                  />
+                  <div className="flex items-center gap-2 justify-end">
+                    {saveStyleSuccess && (
+                      <span className="text-[10px] text-emerald-400">✓ Sauvegardé</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingStyle(false);
+                        setSaveStyleSuccess(false);
+                      }}
+                      className="text-[10px] px-2.5 py-1 rounded-md text-gray-400 hover:text-gray-200 transition-colors"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSavingStyle}
+                      onClick={async () => {
+                        setIsSavingStyle(true);
+                        try {
+                          await coverLetterApi.updateCandidateProfile({ writing_style: writingStyleDraft });
+                          setWritingStyle(writingStyleDraft);
+                          setProfile((prev) => prev ? { ...prev, writing_style: writingStyleDraft } : prev);
+                          setSaveStyleSuccess(true);
+                          setTimeout(() => {
+                            setIsEditingStyle(false);
+                            setSaveStyleSuccess(false);
+                          }, 1500);
+                        } catch {
+                          // keep editor open on error
+                        } finally {
+                          setIsSavingStyle(false);
+                        }
+                      }}
+                      className="text-[10px] px-3 py-1 rounded-md bg-purple-600/80 text-white hover:bg-purple-500 transition-colors disabled:opacity-60 flex items-center gap-1"
+                    >
+                      {isSavingStyle ? (
+                        <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : "Sauvegarder"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-slate-300 italic text-xs leading-relaxed whitespace-pre-line min-h-[1.5rem]">
+                  {profile?.writing_style || writingStyle
+                    ? <>&ldquo;{profile?.writing_style || writingStyle}&rdquo;</>
+                    : <span className="text-slate-500 not-italic">Non défini — cliquez ✏️ Modifier pour décrire votre style d&apos;écriture.</span>
+                  }
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Coordonnées & Liens web */}
