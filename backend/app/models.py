@@ -299,6 +299,9 @@ class JobOfferCreate(BaseModel):
     source_url: Optional[str] = None  # URL de la page où l'offre a été trouvée
     pipeline_stage: Optional[str] = "discovered"
     evaluation_score: Optional[float] = None
+    canonical_title: Optional[str] = None
+    seniority_level: Optional[str] = None
+    alternative_urls: Optional[List[str]] = None
 
 
 class JobOfferResponse(BaseModel):
@@ -319,6 +322,25 @@ class JobOfferResponse(BaseModel):
     source_url: Optional[str] = None
     pipeline_stage: Optional[str] = "discovered"
     evaluation_score: Optional[float] = None
+    canonical_title: Optional[str] = None
+    seniority_level: Optional[str] = None
+    alternative_urls: Optional[List[str]] = None
+    user_interaction: Optional[str] = None  # Interaction: "saved", "hidden", "applied", "dismissed"
+    created_at: datetime
+    updated_at: datetime
+
+
+class UserOfferInteractionRequest(BaseModel):
+    status: Literal["saved", "hidden", "applied", "dismissed", "none"]
+    notes: Optional[str] = None
+
+
+class UserOfferInteractionResponse(BaseModel):
+    id: Optional[str] = None
+    user_id: str
+    offer_id: str
+    status: str
+    notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

@@ -1,22 +1,77 @@
 import asyncio
-import re
 import logging
 from datetime import datetime, timedelta, timezone
+
 from app.database import get_database
-
-# ✅ IMPORT de la fonction optimisée
 from app.services.job_offers import clean_job_offer_duplicates_optimized
-
-# Configuration du logging
-logger = logging.getLogger(__name__)
-
 from app.services.normalization import (
+    extract_domain,
     normalize_city,
     normalize_company,
     normalize_position,
-    extract_domain,
-    compute_unique_key,
 )
+
+logger = logging.getLogger(__name__)
+
+
+# ======================================================================
+# FONCTIONS DE VÉRIFICATION & PROTECTION MULTI-TENANT
+# ======================================================================
+
+
+async def is_offer_referenced_by_application(offer_id, db) -> bool:
+    """Vérifie si une offre est liée à au moins une candidature dans db['applications']."""
+    if not offer_id:
+        return False
+    try:
+        from bson import ObjectId
+
+        obj_id = (
+            ObjectId(offer_id)
+            if not isinstance(offer_id, ObjectId) and ObjectId.is_valid(str(offer_id))
+            else offer_id
+        )
+        str_id = str(offer_id)
+        linked = await db["applications"].find_one(
+            {"$or": [{"offer_id": str_id}, {"offer_id": obj_id}]}
+        )
+        return linked is not None
+    except Exception as e:
+        logger.warning(f"Erreur vérification référence offre {offer_id}: {e}")
+        return True  # Principe de précaution : préserver si erreur
+
+
+async def safe_delete_or_expire_offer(offer_id, collection, db) -> str:
+    """Supprime physiquement une offre non référencée, ou la passe en soft-delete ('expired') si liée."""
+    try:
+        from bson import ObjectId
+
+        obj_id = (
+            ObjectId(offer_id)
+            if not isinstance(offer_id, ObjectId) and ObjectId.is_valid(str(offer_id))
+            else offer_id
+        )
+
+        if await is_offer_referenced_by_application(offer_id, db):
+            await collection.update_one(
+                {"_id": obj_id},
+                {
+                    "$set": {
+                        "is_deleted": True,
+                        "pipeline_stage": "expired",
+                        "deletion_reason": "application_referenced_retention",
+                        "deleted_date": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+            return "expired"
+        else:
+            await collection.delete_one({"_id": obj_id})
+            return "deleted"
+    except Exception as e:
+        logger.error(f"Erreur safe_delete_or_expire_offer pour {offer_id}: {e}")
+        return "error"
 
 
 # ======================================================================
@@ -59,6 +114,15 @@ async def normalize_existing_data():
                 normalized_site = extract_domain(offer["url"])
                 if normalized_site != offer.get("normalized_site"):
                     updates["normalized_site"] = normalized_site
+
+            # Synchroniser pipeline_stage si manquant
+            if not offer.get("pipeline_stage"):
+                if offer.get("is_deleted"):
+                    updates["pipeline_stage"] = "expired"
+                elif offer.get("evaluation_score") is not None:
+                    updates["pipeline_stage"] = "evaluated"
+                else:
+                    updates["pipeline_stage"] = "discovered"
 
             # Mettre à jour si nécessaire
             if updates:
@@ -125,8 +189,9 @@ async def remove_exact_duplicates():
             docs_to_delete = docs[1:]  # Tous sauf le premier (plus récent)
 
             for doc in docs_to_delete:
-                await collection.delete_one({"_id": doc["id"]})
-                deleted_count += 1
+                action = await safe_delete_or_expire_offer(doc["id"], collection, db)
+                if action in ("deleted", "expired"):
+                    deleted_count += 1
 
         logger.info(f"✅ Supprimé {deleted_count} doublons exacts")
         return {"deleted_exact_duplicates": deleted_count}
@@ -174,18 +239,47 @@ async def remove_similarity_duplicates(
         deleted_count = len(offers) - len(cleaned_offers)
 
         if deleted_count > 0:
-            # Identifier les offres à supprimer
+            # 1. Mettre à jour les offres survivantes avec leurs métadonnées consolidées (multi-sources, salaire, etc.)
+            for survivor in cleaned_offers:
+                survivor_id = survivor.get("_id")
+                if survivor_id:
+                    update_fields = {}
+                    for field in [
+                        "url",
+                        "alternative_urls",
+                        "salaire",
+                        "type_contrat",
+                        "localisation",
+                        "description",
+                        "competences_cles",
+                        "canonical_title",
+                        "seniority_level",
+                        "poste",
+                    ]:
+                        if field in survivor:
+                            update_fields[field] = survivor[field]
+                    if update_fields:
+                        update_fields["updated_at"] = datetime.now(timezone.utc)
+                        await collection.update_one(
+                            {"_id": survivor_id},
+                            {"$set": update_fields},
+                        )
+
+            # 2. Identifier et supprimer/expirer les doublons de manière sécurisée
             cleaned_ids = {offer.get("_id") for offer in cleaned_offers}
             offers_to_delete = [
                 offer for offer in offers if offer.get("_id") not in cleaned_ids
             ]
 
-            # Supprimer les doublons de la base de données
             for offer_to_delete in offers_to_delete:
-                await collection.delete_one({"_id": offer_to_delete["_id"]})
+                action = await safe_delete_or_expire_offer(
+                    offer_to_delete["_id"], collection, db
+                )
+                if action not in ("deleted", "expired"):
+                    logger.warning(f"⚠️ Échec traitement doublon: {offer_to_delete['_id']}")
 
             logger.info(
-                f"✅ Nettoyage par similarité terminé: {deleted_count} doublons supprimés sur {len(offers)} offres analysées"
+                f"✅ Nettoyage par similarité terminé: {deleted_count} doublons traités et métadonnées fusionnées sur {len(offers)} offres analysées"
             )
         else:
             logger.info("✅ Aucun doublon par similarité détecté")
@@ -198,7 +292,7 @@ async def remove_similarity_duplicates(
 
 
 async def cleanup_old_offers(days: int = 40):
-    """Supprime les offres anciennes"""
+    """Supprime ou expire les offres anciennes en protégeant les candidatures actives"""
     logger.info(f"🗑️ Début du nettoyage des offres de plus de {days} jours")
 
     db = await get_database()
@@ -215,20 +309,50 @@ async def cleanup_old_offers(days: int = 40):
             ]
         }
 
-        # Compter d'abord les offres à supprimer
-        count_to_delete = await collection.count_documents(query)
+        # Identifier les offres référencées par des candidatures pour éviter de les purger
+        app_cursor = db["applications"].find(
+            {"offer_id": {"$exists": True, "$ne": None}}, {"offer_id": 1}
+        )
+        apps = await app_cursor.to_list(length=None)
+        referenced_raw = {str(a["offer_id"]) for a in apps if a.get("offer_id")}
 
-        if count_to_delete == 0:
+        # Compter d'abord les offres candidates
+        old_offers = await collection.find(query, {"_id": 1}).to_list(length=None)
+        if not old_offers:
             logger.info("✅ Aucune offre ancienne à supprimer")
             return {"deleted": 0}
 
-        # Supprimer les offres anciennes
-        result = await collection.delete_many(query)
+        purge_ids = []
+        soft_expire_ids = []
+        for o in old_offers:
+            if str(o["_id"]) in referenced_raw:
+                soft_expire_ids.append(o["_id"])
+            else:
+                purge_ids.append(o["_id"])
+
+        purged_count = 0
+        if purge_ids:
+            res_del = await collection.delete_many({"_id": {"$in": purge_ids}})
+            purged_count = res_del.deleted_count
+
+        if soft_expire_ids:
+            await collection.update_many(
+                {"_id": {"$in": soft_expire_ids}},
+                {
+                    "$set": {
+                        "is_deleted": True,
+                        "pipeline_stage": "expired",
+                        "deletion_reason": "old_offer_referenced_in_application",
+                        "deleted_date": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
 
         logger.info(
-            f"✅ Supprimé {result.deleted_count} offres anciennes sur {count_to_delete} identifiées"
+            f"✅ {purged_count} offres anciennes purgées, {len(soft_expire_ids)} offres liées archivées en soft-delete"
         )
-        return {"deleted": result.deleted_count}
+        return {"deleted": purged_count, "soft_expired": len(soft_expire_ids)}
 
     except Exception as e:
         logger.error(f"💥 Erreur lors du nettoyage: {e}")
@@ -236,47 +360,70 @@ async def cleanup_old_offers(days: int = 40):
 
 
 async def cleanup_invalid_offers():
-    """Supprime les offres avec des données invalides ou incomplètes"""
+    """Supprime les offres avec des données invalides en protégeant les candidatures liées"""
     logger.info("🧹 Début du nettoyage des offres invalides")
 
     db = await get_database()
     collection = db["job_offers"]
 
-    deleted_count = 0
-
     try:
-        # Supprimer les offres sans poste ni entreprise
-        result1 = await collection.delete_many(
-            {
-                "$or": [
-                    {"poste": {"$in": [None, "", "Poste non spécifié"]}},
-                    {
-                        "entreprise": {
-                            "$in": [
-                                None,
-                                "",
-                                "Entreprise non spécifiée",
-                                "Non spécifié",
-                            ]
-                        }
-                    },
-                ]
-            }
+        # Identifier les offres référencées par des candidatures pour éviter de les purger
+        app_cursor = db["applications"].find(
+            {"offer_id": {"$exists": True, "$ne": None}}, {"offer_id": 1}
         )
-        deleted_count += result1.deleted_count
+        apps = await app_cursor.to_list(length=None)
+        referenced_raw = {str(a["offer_id"]) for a in apps if a.get("offer_id")}
 
-        # Supprimer les offres avec des URLs invalides
-        result2 = await collection.delete_many(
-            {
-                "url": {
-                    "$regex": "^(?!https?://).*"
-                }  # URLs qui ne commencent pas par http(s)://
-            }
+        invalid_query = {
+            "$or": [
+                {"poste": {"$in": [None, "", "Poste non spécifié"]}},
+                {
+                    "entreprise": {
+                        "$in": [
+                            None,
+                            "",
+                            "Entreprise non spécifiée",
+                            "Non spécifié",
+                        ]
+                    }
+                },
+                {"url": {"$regex": "^(?!https?://).*"}},
+            ]
+        }
+
+        invalid_docs = await collection.find(invalid_query, {"_id": 1}).to_list(length=None)
+
+        purge_ids = []
+        soft_expire_ids = []
+        for inv in invalid_docs:
+            if str(inv["_id"]) in referenced_raw:
+                soft_expire_ids.append(inv["_id"])
+            else:
+                purge_ids.append(inv["_id"])
+
+        deleted_count = 0
+        if purge_ids:
+            res = await collection.delete_many({"_id": {"$in": purge_ids}})
+            deleted_count = res.deleted_count
+
+        if soft_expire_ids:
+            await collection.update_many(
+                {"_id": {"$in": soft_expire_ids}},
+                {
+                    "$set": {
+                        "is_deleted": True,
+                        "pipeline_stage": "expired",
+                        "deletion_reason": "invalid_offer_referenced_in_application",
+                        "deleted_date": datetime.now(timezone.utc),
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+
+        logger.info(
+            f"✅ {deleted_count} offres invalides supprimées, {len(soft_expire_ids)} offres liées protégées en soft-delete"
         )
-        deleted_count += result2.deleted_count
-
-        logger.info(f"✅ Supprimé {deleted_count} offres invalides")
-        return {"deleted_invalid": deleted_count}
+        return {"deleted_invalid": deleted_count, "protected_linked": len(soft_expire_ids)}
 
     except Exception as e:
         logger.error(f"💥 Erreur lors du nettoyage des invalides: {e}")
@@ -695,14 +842,15 @@ async def remove_similarity_duplicates_global(
                             {
                                 "$set": {
                                     "is_deleted": True,
+                                    "pipeline_stage": "expired",
                                     "deleted_date": datetime.now(timezone.utc),
                                     "updated_at": datetime.now(timezone.utc),
                                 }
                             },
                         )
                     else:
-                        await collection.delete_one(
-                            {"_id": offer_to_delete["original"]["_id"]}
+                        await safe_delete_or_expire_offer(
+                            offer_to_delete["original"]["_id"], collection, db
                         )
                     deleted_count += 1
 

@@ -1,16 +1,22 @@
 import os
 import logging
-from typing import List, Dict, Any
-from job_trackers.src.job_trackers.main import run_crew
-from job_crawler.crawler1 import (
-    crawl_and_extract_jobs_optimized,
-    cleanup_shared_configs,
-)
+from typing import List
 import json
 from difflib import SequenceMatcher
 import re
 import hashlib
 from functools import lru_cache
+
+from job_trackers.src.job_trackers.main import run_crew
+from job_crawler.crawler1 import (
+    crawl_and_extract_jobs_optimized,
+    cleanup_shared_configs,
+)
+from app.services.normalization import (
+    normalize_company,
+    normalize_position,
+    deduplicate_and_merge_offers,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +71,6 @@ def fast_similarity_check(text1: str, text2: str, threshold: float = 0.75) -> bo
     return cached_similarity(text1, text2) >= threshold
 
 
-from app.services.normalization import normalize_company, normalize_position
-
-
 def create_offer_hash(company: str, position: str) -> str:
     """Crée un hash normalisé pour grouper les offres potentiellement similaires"""
     norm_c = normalize_company(company).lower()
@@ -85,74 +88,21 @@ def clean_job_offer_duplicates_optimized(
     company_similarity_threshold: float = 0.75,
     position_similarity_threshold: float = 0.80,
 ) -> List[dict]:
-    """
-    Nettoyage optimisé des doublons 100% en local et sans appels externes
-    """
+    """Nettoyage optimisé des doublons avec fusion multi-sources et préservation des métadonnées riches."""
     if not offers:
         return []
 
-    logger.info(f"🧹 Nettoyage optimisé de {len(offers)} offres")
-
-    # Étape 1: Groupement rapide par hash
-    hash_groups: Dict[str, List[dict]] = {}
-    for offer in offers:
-        company = str(offer.get("entreprise", "")).strip()
-        position = str(offer.get("poste", "")).strip()
-
-        if not company or not position:
-            continue
-
-        offer_hash = create_offer_hash(company, position)
-        if offer_hash not in hash_groups:
-            hash_groups[offer_hash] = []
-        hash_groups[offer_hash].append(offer)
-
-    # Étape 2: Traitement par groupe
-    cleaned_offers = []
-    total_removed = 0
-
-    for group_hash, group_offers in hash_groups.items():
-        if len(group_offers) == 1:
-            cleaned_offers.extend(group_offers)
-            continue
-
-        group_cleaned = []
-
-        for current_offer in group_offers:
-            current_company = str(current_offer.get("entreprise", "")).strip()
-            current_position = str(current_offer.get("poste", "")).strip()
-            current_url = current_offer.get("url", "")
-
-            is_duplicate = False
-
-            for existing_offer in group_cleaned:
-                existing_company = str(existing_offer.get("entreprise", "")).strip()
-                existing_position = str(existing_offer.get("poste", "")).strip()
-                existing_url = existing_offer.get("url", "")
-
-                # 1. URLs identiques
-                if current_url and existing_url and current_url == existing_url:
-                    is_duplicate = True
-                    break
-
-                # 2. Similarité entreprise + poste
-                if fast_similarity_check(current_company, existing_company, company_similarity_threshold):
-                    if fast_similarity_check(current_position, existing_position, position_similarity_threshold):
-                        logger.debug(f"🔄 Doublon détecté: {current_company[:25]} - {current_position[:25]}")
-                        is_duplicate = True
-                        break
-
-            if not is_duplicate:
-                group_cleaned.append(current_offer)
-            else:
-                total_removed += 1
-
-        cleaned_offers.extend(group_cleaned)
-
-    logger.info(
-        f"✅ Nettoyage terminé: {total_removed} doublons supprimés, {len(cleaned_offers)} conservées"
+    logger.info(f"🧹 Nettoyage optimisé et consolidation de {len(offers)} offres")
+    cleaned = deduplicate_and_merge_offers(
+        offers,
+        title_similarity_threshold=position_similarity_threshold,
+        jaccard_threshold=0.65,
     )
-    return cleaned_offers
+    total_removed = len(offers) - len(cleaned)
+    logger.info(
+        f"✅ Nettoyage terminé: {total_removed} doublons fusionnés/supprimés, {len(cleaned)} conservées"
+    )
+    return cleaned
 
 
 def clean_job_offer_duplicates(

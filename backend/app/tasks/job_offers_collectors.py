@@ -5,12 +5,18 @@ from datetime import datetime, timezone
 from app.services.job_offers import (
     get_urls,
     get_job_offers_from_query,
-    clean_job_offer_duplicates,
 )
 from app.database import get_database
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
-from app.services.normalization import compute_unique_key, extract_company_from_url
+from app.services.normalization import (
+    compute_unique_key,
+    extract_company_from_url,
+    clean_job_title_syntax,
+    extract_seniority,
+    deduplicate_and_merge_offers,
+)
+from app.services.role_normalizer import normalize_role
 from app.services.relevance import (
     RELEVANCE_FILTER_ENABLED,
     is_off_domain_url,
@@ -96,21 +102,48 @@ async def get_urls_for_query(query: str) -> list:
 
 
 async def crawl_urls_for_offers(urls: list) -> list:
-    """Étape 2: Crawling des URLs pour extraire les offres"""
-    logger.info(f"🕷️ Crawling de {len(urls)} URLs")
+    """Étape 2: Crawling des URLs pour extraire les offres (Zero-Token ATS/JSON-LD prioritaire)."""
+    logger.info(f"🕷️ Traitement de {len(urls)} URLs")
 
     if not urls:
         logger.warning("⚠️ Aucune URL à crawler")
         return []
 
     try:
-        offers = await get_job_offers_from_query(urls)
+        from app.services.ats.router import extract_ats_or_jsonld_offer
+        import httpx
 
-        if not isinstance(offers, list):
-            raise TypeError(f"Format invalide: {type(offers)}, attendu: list")
+        ats_offers: list[dict] = []
+        remaining_urls: list[str] = []
 
-        logger.info(f"📊 {len(offers)} offres brutes récupérées")
-        return offers
+        async with httpx.AsyncClient(follow_redirects=True, timeout=10.0) as client:
+            for url in urls:
+                try:
+                    direct_offer = await extract_ats_or_jsonld_offer(url, client=client)
+                    if direct_offer:
+                        ats_offers.append(direct_offer)
+                    else:
+                        remaining_urls.append(url)
+                except Exception as e:
+                    logger.debug(f"Erreur extraction directe pour {url}: {e}")
+                    remaining_urls.append(url)
+
+        if ats_offers:
+            logger.info(f"⚡ {len(ats_offers)} offres extraites via Zero-Token ATS / JSON-LD (0 token LLM)")
+
+        crawled_offers = []
+        if remaining_urls:
+            logger.info(f"🕷️ Crawling de repli (Crawl4AI + LLM) pour {len(remaining_urls)} URLs restantes")
+            raw_crawled = await get_job_offers_from_query(remaining_urls)
+            if isinstance(raw_crawled, list):
+                crawled_offers = raw_crawled
+
+        total_offers = ats_offers + crawled_offers
+        logger.info(
+            f"📊 {len(total_offers)} offres brutes au total "
+            f"({len(ats_offers)} Zero-Token, {len(crawled_offers)} Crawl4AI)"
+        )
+        return total_offers
     except Exception as e:
         logger.error(f"💥 Erreur crawling: {e}")
         raise
@@ -160,6 +193,7 @@ async def enrich_offers(offers: list, query: str) -> list:
 
                     url = str(offer.get("url", "")).strip() or None
                     source_url = str(offer.get("source_url", "")).strip() or None
+                    ats_platform = offer.get("ats_platform")
 
                     # Fallback nom d'entreprise depuis l'URL si manquant ou non spécifié
                     invalid_placeholders = {"non spécifié", "non disponible", "inconnu", "none", "null", "undefined", ""}
@@ -191,10 +225,18 @@ async def enrich_offers(offers: list, query: str) -> list:
                         off_domain_count += 1
                         continue
 
-                    # Clé d'unicité normalisée
+                    # Nettoyage Couche 1 & Extraction Couche 2
+                    clean_poste = clean_job_title_syntax(poste)
+                    seniority_level = extract_seniority(poste, description)
+                    try:
+                        canonical_title = await normalize_role(clean_poste)
+                    except Exception:
+                        canonical_title = clean_poste
+
+                    # Clé d'unicité normalisée avec intitulé nettoyé
                     unique_key = compute_unique_key(
                         company=entreprise,
-                        position=poste,
+                        position=clean_poste,
                         location=localisation,
                         url=url,
                     )
@@ -202,7 +244,10 @@ async def enrich_offers(offers: list, query: str) -> list:
                     # ✅ Enrichissement selon le modèle MongoDB complet
                     enriched_offer = {
                         # ===== CHAMPS PRINCIPAUX =====
-                        "poste": poste,
+                        "poste": clean_poste,
+                        "raw_poste": poste,
+                        "canonical_title": canonical_title,
+                        "seniority_level": seniority_level,
                         "entreprise": entreprise,
                         "description": description,
                         "localisation": (
@@ -214,13 +259,16 @@ async def enrich_offers(offers: list, query: str) -> list:
                         "mode_travail": mode_travail if mode_travail else "Non spécifié",
                         "competences_cles": competences_cles,
                         "url": url,
+                        "alternative_urls": offer.get("alternative_urls") or [],
                         "source_url": source_url,
+                        "ats_platform": ats_platform,
                         "unique_key": unique_key,
                         # ===== MÉTADONNÉES DE COLLECTE =====
                         "source_query": query,
                         "created_at": current_time,
                         "updated_at": current_time,
-                        # ===== CHAMPS DE GESTION =====
+                        # ===== CHAMPS DE GESTION & ÉTATS =====
+                        "pipeline_stage": offer.get("pipeline_stage") or "discovered",
                         "is_deleted": False,  # Nouveau champ pour soft delete
                         "deleted_date": None,  # Date de suppression (None par défaut)
                         # ===== RAW DATA (données originales) =====
@@ -254,7 +302,7 @@ async def enrich_offers(offers: list, query: str) -> list:
 
 
 async def clean_duplicate_offers(offers: list) -> list:
-    """Étape 4: Nettoyage des doublons (processus long)"""
+    """Étape 4: Nettoyage des doublons et fusion multi-sources (Couche 3 & 4)"""
     logger.info(f"🧹 Nettoyage des doublons sur {len(offers)} offres")
 
     if not offers:
@@ -262,14 +310,11 @@ async def clean_duplicate_offers(offers: list) -> list:
         return []
 
     try:
-        # Cette fonction peut être longue, d'où la séparation
-        cleaned_offers = clean_job_offer_duplicates(
-            offers, company_similarity_threshold=0.75, position_similarity_threshold=0.8
-        )
+        cleaned_offers = deduplicate_and_merge_offers(offers)
 
         removed_count = len(offers) - len(cleaned_offers)
         logger.info(
-            f"✅ Nettoyage terminé: {removed_count} doublons supprimés, {len(cleaned_offers)} offres conservées"
+            f"✅ Nettoyage terminé: {removed_count} doublons fusionnés/supprimés, {len(cleaned_offers)} offres conservées"
         )
         return cleaned_offers
 
@@ -470,11 +515,14 @@ async def build_search_queries() -> list[str]:
             target_roles: list[str] = []
             seen_profile_roles: set[str] = set()
             for r in raw_target_roles:
-                r_key = r.lower()
+                cleaned_r = clean_job_title_syntax(r)
+                if not cleaned_r or cleaned_r == "Non spécifié":
+                    cleaned_r = r
+                r_key = cleaned_r.lower()
                 if r_key in memo_normalized:
                     norm_role = memo_normalized[r_key]
                 else:
-                    norm_role = await normalize_role(r, db=db)
+                    norm_role = await normalize_role(cleaned_r, db=db)
                     memo_normalized[r_key] = norm_role
 
                 norm_key = norm_role.lower()

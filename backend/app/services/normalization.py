@@ -1,6 +1,7 @@
 import re
 import string
-from typing import Optional
+from typing import Optional, List, Dict, Any, Set
+from difflib import SequenceMatcher
 
 
 def normalize_city(city: Optional[str]) -> str:
@@ -346,5 +347,360 @@ def restore_canonical_job_url(url: Optional[str]) -> str:
         return f"{base}/viewjob?jk={jk}"
 
     return url_clean
+
+
+# =====================================================================
+# PIPELINE DE NORMALISATION EN 4 COUCHES & DÉDUPLICATION MULTI-CRITÈRES
+# =====================================================================
+
+def clean_job_title_syntax(title: Optional[str]) -> str:
+    """Couche 1 : Nettoyage syntaxique déterministe de l'intitulé de poste.
+
+    Supprime les mentions légales (H/F), types de contrat (CDI, CDD, etc.),
+    localisations/balises polluantes ([Paris], - Lyon), et éléments marketing (emojis, URGENT).
+    """
+    if not title or not isinstance(title, str):
+        return "Non spécifié"
+
+    cleaned = title.strip()
+
+    # 1. Emojis et caractères décoratifs Unicode
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F1E0-\U0001F1FF"  # drapeaux
+        "\U0001F300-\U0001F5FF"  # symboles & pictogrammes
+        "\U0001F600-\U0001F64F"  # smileys
+        "\U0001F680-\U0001F6FF"  # transport & cartes
+        "\U0001F700-\U0001F77F"  # formes géométriques
+        "\U0001F780-\U0001F7FF"
+        "\U0001F800-\U0001F8FF"
+        "\U0001F900-\U0001F9FF"
+        "\U0001FA00-\U0001FA6F"
+        "\U0001FA70-\U0001FAFF"
+        "\U00002702-\U000027B0"
+        "\U000024C2-\U0001F251"
+        "\U00002600-\U000026FF"  # symboles météo/divers
+        "]+",
+        flags=re.UNICODE,
+    )
+    cleaned = emoji_pattern.sub(" ", cleaned)
+
+    # 2. Mentions marketing & buzzwords entre crochets ou isolés
+    marketing_patterns = [
+        r"\[(?:urgent|top mission|super opportunit[ée]|exclusivit[ée]|nouveau|hot|asap|recrutement|imm[ée]diat)\]",
+        r"\b(?:urgent|top mission|super opportunit[ée]|exclusivit[ée]|asap)\b",
+    ]
+    for pat in marketing_patterns:
+        cleaned = re.sub(pat, " ", cleaned, flags=re.IGNORECASE)
+
+    # 3. Mentions légales H/F, F/H, M/F/D, etc.
+    legal_patterns = [
+        r"\(\s*h\s*[\/\-]?\s*f(?:\s*[\/\-]\s*x)?\s*\)",
+        r"\(\s*f\s*[\/\-]?\s*h(?:\s*[\/\-]\s*x)?\s*\)",
+        r"\(\s*m\s*[\/\-]?\s*f(?:\s*[\/\-]\s*[dx])?\s*\)",
+        r"\(\s*m\s*[\/\-]?\s*w(?:\s*[\/\-]\s*d)?\s*\)",
+        r"\b(?:h\/f|f\/h|hf|fh|h\-f|f\-h|m\/f|m\/w\/d|m\/f\/d)\b",
+        r"\b(?:homme\s*[\/\-]?\s*femme|femme\s*[\/\-]?\s*homme)\b",
+    ]
+    for pat in legal_patterns:
+        cleaned = re.sub(pat, " ", cleaned, flags=re.IGNORECASE)
+
+    # 4. Balises entre crochets résiduelles (ex: [Lyon], [CDI], [Remote], [Tech], [Ref 1234])
+    cleaned = re.sub(r"\[[^\]]*\]", " ", cleaned)
+
+    # 5. Types de contrat dans l'intitulé
+    contract_patterns = [
+        r"\b(?:cdi\s*[\-–—]?\s*cdd|cdd\s*[\-–—]?\s*cdi)\b",
+        r"\b(?:cdi\s*int[ée]rimaire|contrat\s*pro(?:fessionnalisation)?)\b",
+        r"\b(?:cdi|cdd|freelance|stage|stagiaire|alternance|alternant|alternante|apprentissage|apprenti|apprentie|int[ée]rim)\b",
+    ]
+    for pat in contract_patterns:
+        cleaned = re.sub(pat, " ", cleaned, flags=re.IGNORECASE)
+
+    # 6. Suffixes / Séparateurs de localisation ou remote résiduels
+    loc_remote_patterns = [
+        r"\s*[\-–—\|\/]\s*(?:paris|lyon|marseille|toulouse|bordeaux|nantes|lille|strasbourg|rennes|nice|montpellier|grenoble|france|remote|t[ée]l[ée]travail|full[\s\-]remote|hybride)\b.*$",
+        r"\(\s*(?:paris|lyon|marseille|toulouse|bordeaux|nantes|lille|strasbourg|rennes|nice|montpellier|grenoble|france|remote|t[ée]l[ée]travail|full[\s\-]remote|hybride)\s*\)",
+    ]
+    for pat in loc_remote_patterns:
+        cleaned = re.sub(pat, " ", cleaned, flags=re.IGNORECASE)
+
+    # 7. Nettoyage de ponctuation résiduelle en début/fin et espaces multiples
+    cleaned = re.sub(r"^[\s\-–—\|\/,\.:;]+|[\s\-–—\|\/,\.:;]+$", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+
+    return cleaned if cleaned else (title.strip() or "Non spécifié")
+
+
+def extract_seniority(title: Optional[str], description: Optional[str] = None) -> Optional[str]:
+    """Couche 2 : Extraction du niveau de séniorité standardisé.
+
+    Ordre de priorité:
+    - intern: Stage, Alternance, Apprentissage, Intern
+    - director: Director, Directeur, VP, Head of, Chief, CTO
+    - lead: Lead, Principal, Staff, Tech Lead, Architecte
+    - senior: Senior, Sr, Confirmé+, 5+ ans
+    - junior: Junior, Jr, Débutant, Graduate, Entry-level
+    - mid: Confirmé, Intermédiaire, Mid
+    """
+    text_to_check = (title or "").lower()
+
+    patterns = [
+        ("intern", r"\b(stage|stagiaire|alternance|alternant|alternante|apprenti|apprentie|apprentissage|intern|internship)\b"),
+        ("director", r"\b(director|directeur|directrice|head of|vp|chief|cto|cpo|ceo|coo)\b"),
+        ("lead", r"\b(lead|principal|staff|tech lead|architecte|architect|team lead)\b"),
+        ("senior", r"\b(senior|sr\.?|exp[ée]riment[ée]|5\+?\s*ans)\b"),
+        ("junior", r"\b(junior|jr\.?|d[ée]butant|d[ée]butante|graduate|entry[\s\-]level|0[\s\-]2\s*ans)\b"),
+        ("mid", r"\b(mid|confirm[ée]|interm[ée]diaire|2[\s\-]5\s*ans)\b"),
+    ]
+
+    for level, pat in patterns:
+        if re.search(pat, text_to_check, flags=re.IGNORECASE):
+            return level
+
+    if description and isinstance(description, str):
+        desc_snippet = description[:500].lower()
+        for level, pat in patterns:
+            if re.search(pat, desc_snippet, flags=re.IGNORECASE):
+                return level
+
+    return None
+
+
+FRENCH_ENGLISH_STOPWORDS: Set[str] = {
+    "le", "la", "les", "un", "une", "des", "du", "de", "d", "en", "pour", "et", "ou",
+    "qui", "que", "dans", "sur", "avec", "par", "au", "aux", "ce", "cette", "ces",
+    "est", "sont", "nous", "vous", "ils", "elles", "notre", "votre", "leur", "plus",
+    "the", "a", "an", "and", "or", "in", "on", "at", "to", "for", "with", "by",
+    "is", "are", "we", "you", "they", "our", "your", "their", "of", "from", "as",
+}
+
+
+def jaccard_description_similarity(desc1: Optional[str], desc2: Optional[str]) -> float:
+    """Couche 3 : Calcule la similarité de Jaccard sur les tokens signifiants des descriptions."""
+    if not desc1 or not desc2:
+        return 0.0
+
+    def tokenize(text: str) -> Set[str]:
+        words = re.findall(r"\b[a-zA-ZÀ-ÿ0-9]{3,}\b", text.lower())
+        return {w for w in words if w not in FRENCH_ENGLISH_STOPWORDS}
+
+    tokens1 = tokenize(desc1)
+    tokens2 = tokenize(desc2)
+
+    if len(tokens1) < 15 or len(tokens2) < 15:
+        return 0.0
+
+    intersection = len(tokens1 & tokens2)
+    union = len(tokens1 | tokens2)
+    return intersection / union if union > 0 else 0.0
+
+
+def are_offers_duplicates(
+    offer1: Dict[str, Any],
+    offer2: Dict[str, Any],
+    title_similarity_threshold: float = 0.82,
+    jaccard_threshold: float = 0.65,
+) -> bool:
+    """Couche 3 : Évalue si deux offres représentent le même poste (multidiffusion ou repost)."""
+    # 1. URLs identiques
+    url1 = (offer1.get("url") or "").strip()
+    url2 = (offer2.get("url") or "").strip()
+    if url1 and url2 and url1 == url2:
+        return True
+
+    # 2. Vérification entreprise
+    c1 = normalize_company(offer1.get("entreprise", "")).lower()
+    c2 = normalize_company(offer2.get("entreprise", "")).lower()
+    if not c1 or not c2 or c1 == "non spécifié" or c2 == "non spécifié":
+        return False
+
+    c_match = (c1 == c2) or (SequenceMatcher(None, c1, c2).ratio() >= 0.85)
+    if not c_match:
+        return False
+
+    # 3. Vérification compatibilité ville / localisation
+    loc1 = normalize_city(offer1.get("localisation", "")).lower()
+    loc2 = normalize_city(offer2.get("localisation", "")).lower()
+    non_spec = {"non spécifié", "france", "télétravail", "remote"}
+    if loc1 not in non_spec and loc2 not in non_spec and loc1 != loc2:
+        return False
+
+    # 4. Similarité sur l'intitulé de poste nettoyé (Couche 1)
+    p1 = clean_job_title_syntax(offer1.get("poste", "")).lower()
+    p2 = clean_job_title_syntax(offer2.get("poste", "")).lower()
+
+    if p1 == p2 and p1 != "non spécifié":
+        return True
+
+    ratio_title = SequenceMatcher(None, p1, p2).ratio()
+    if ratio_title >= title_similarity_threshold:
+        return True
+
+    # 5. Similarité textuelle sur description (Jaccard)
+    d1 = offer1.get("description") or ""
+    d2 = offer2.get("description") or ""
+    jaccard = jaccard_description_similarity(d1, d2)
+    if jaccard >= jaccard_threshold and ratio_title >= 0.45:
+        return True
+
+    return False
+
+
+def get_source_priority(url: Optional[str]) -> int:
+    """Couche 4 : Hiérarchie de confiance et de pérennité des sources.
+
+    100 = ATS direct entreprise (Greenhouse, Lever, Workable, Ashby, etc.)
+     80 = Job boards qualifiés (Welcome to the Jungle, Apec, France Travail)
+     50 = Agrégateurs généralistes (LinkedIn, HelloWork, Indeed, Cadremploi)
+     20 = Autre / Inconnu
+    """
+    if not url:
+        return 20
+    url_lower = url.lower()
+
+    ats_indicators = [
+        "greenhouse.io", "lever.co", "workable.com", "ashbyhq.com",
+        "teamtailor.com", "recruitee.com", "personio", "myworkdayjobs.com",
+        "smartrecruiters.com", "taleo.net", "icims.com", "bamboohr.com",
+        "breezy.hr", "flatchr.io", "jobs2web.com",
+    ]
+    if any(ats in url_lower for ats in ats_indicators):
+        return 100
+
+    if any(jb in url_lower for jb in ("welcometothejungle.com", "apec.fr", "francetravail.fr")):
+        return 80
+
+    if any(agg in url_lower for agg in ("linkedin.com", "hellowork.com", "indeed.com", "cadremploi.fr", "meteojob.com", "glassdoor")):
+        return 50
+
+    return 20
+
+
+def merge_multidiffusion_offers(primary: Dict[str, Any], secondary: Dict[str, Any]) -> Dict[str, Any]:
+    """Couche 4 : Fusionne deux offres doublons en conservant les données les plus riches."""
+    p_copy = dict(primary)
+    s_copy = dict(secondary)
+
+    # 1. Sélection de l'URL primaire selon la hiérarchie de priorité
+    p_url = p_copy.get("url") or ""
+    s_url = s_copy.get("url") or ""
+
+    p_prio = get_source_priority(p_url)
+    s_prio = get_source_priority(s_url)
+
+    if s_prio > p_prio:
+        chosen_primary_url = s_url
+        other_url = p_url
+        p_copy["poste"] = clean_job_title_syntax(s_copy.get("poste") or p_copy.get("poste"))
+    else:
+        chosen_primary_url = p_url or s_url
+        other_url = s_url if s_url != chosen_primary_url else ""
+        p_copy["poste"] = clean_job_title_syntax(p_copy.get("poste") or s_copy.get("poste"))
+
+    p_copy["url"] = chosen_primary_url
+
+    # 2. Consolidation des URLs alternatives
+    existing_alts = set(p_copy.get("alternative_urls") or [])
+    if s_copy.get("alternative_urls"):
+        existing_alts.update(s_copy["alternative_urls"])
+    if other_url and other_url != chosen_primary_url:
+        existing_alts.add(other_url)
+    existing_alts.discard(chosen_primary_url)
+    p_copy["alternative_urls"] = sorted(list(existing_alts))
+
+    # 3. Consolidation du salaire
+    p_sal = str(p_copy.get("salaire") or "").strip()
+    s_sal = str(s_copy.get("salaire") or "").strip()
+    if p_sal in ("", "None", "Non spécifié") and s_sal not in ("", "None", "Non spécifié"):
+        p_copy["salaire"] = s_sal
+
+    # 4. Consolidation du type de contrat
+    p_contrat = str(p_copy.get("type_contrat") or "").strip()
+    s_contrat = str(s_copy.get("type_contrat") or "").strip()
+    if p_contrat in ("", "None", "Non spécifié") and s_contrat not in ("", "None", "Non spécifié"):
+        p_copy["type_contrat"] = s_contrat
+
+    # 5. Consolidation de la localisation
+    p_loc = str(p_copy.get("localisation") or "").strip()
+    s_loc = str(s_copy.get("localisation") or "").strip()
+    if p_loc in ("", "None", "Non spécifié", "France") and s_loc not in ("", "None", "Non spécifié"):
+        p_copy["localisation"] = s_loc
+
+    # 6. Description : garder la plus détaillée
+    p_desc = str(p_copy.get("description") or "").strip()
+    s_desc = str(s_copy.get("description") or "").strip()
+    if len(s_desc) > len(p_desc):
+        p_copy["description"] = s_desc
+
+    # 7. Compétences clés : union
+    p_skills = set(p_copy.get("competences_cles") or [])
+    s_skills = set(s_copy.get("competences_cles") or [])
+    combined_skills = p_skills | s_skills
+    if combined_skills:
+        p_copy["competences_cles"] = sorted(list(combined_skills))
+
+    # 8. Séniorité et Titre canonique
+    if not p_copy.get("seniority_level"):
+        p_copy["seniority_level"] = s_copy.get("seniority_level") or extract_seniority(
+            p_copy.get("poste"), p_copy.get("description")
+        )
+    if not p_copy.get("canonical_title"):
+        p_copy["canonical_title"] = s_copy.get("canonical_title")
+
+    # 9. Horodatages : plus ancien created_at
+    if s_copy.get("created_at") and p_copy.get("created_at"):
+        try:
+            p_copy["created_at"] = min(p_copy["created_at"], s_copy["created_at"])
+        except Exception:
+            pass
+
+    return p_copy
+
+
+def deduplicate_and_merge_offers(
+    offers: List[Dict[str, Any]],
+    title_similarity_threshold: float = 0.82,
+    jaccard_threshold: float = 0.65,
+) -> List[Dict[str, Any]]:
+    """Couche 4 : Déduplication multi-critères et fusion des offres multidiffusées."""
+    if not offers:
+        return []
+
+    company_groups: Dict[str, List[Dict[str, Any]]] = {}
+    for offer in offers:
+        comp_key = normalize_company(offer.get("entreprise", "")).lower()
+        if not comp_key or comp_key == "non spécifié":
+            comp_key = f"unknown_{id(offer)}"
+        company_groups.setdefault(comp_key, []).append(offer)
+
+    consolidated_offers: List[Dict[str, Any]] = []
+
+    for _comp_key, group in company_groups.items():
+        if len(group) == 1:
+            consolidated_offers.append(group[0])
+            continue
+
+        survivors: List[Dict[str, Any]] = []
+        for candidate in group:
+            matched_idx = -1
+            for idx, existing in enumerate(survivors):
+                if are_offers_duplicates(
+                    candidate,
+                    existing,
+                    title_similarity_threshold=title_similarity_threshold,
+                    jaccard_threshold=jaccard_threshold,
+                ):
+                    matched_idx = idx
+                    break
+
+            if matched_idx >= 0:
+                survivors[matched_idx] = merge_multidiffusion_offers(survivors[matched_idx], candidate)
+            else:
+                survivors.append(candidate)
+
+        consolidated_offers.extend(survivors)
+
+    return consolidated_offers
 
 
