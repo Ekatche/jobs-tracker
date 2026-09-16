@@ -42,6 +42,8 @@ class UserModel(BaseModel):
     hashed_password: str = Field(...)
     full_name: Optional[str] = None
     disabled: Optional[bool] = False
+    tier: UserTier = UserTier.FREE
+    onboarding_completed: Optional[bool] = False
     created_at: datetime = Field(default_factory=utcnow_with_timezone)
     updated_at: Optional[datetime] = None
     cv_url: Optional[HttpUrl] = None  # <--- Ajouté ici
@@ -55,6 +57,8 @@ class UserModel(BaseModel):
                 "email": "john.doe@example.com",
                 "full_name": "John Doe",
                 "disabled": False,
+                "tier": "free",
+                "onboarding_completed": False,
                 "cv_url": "https://monapp.com/uploads/cv_johndoe.pdf",
             }
         },
@@ -87,6 +91,8 @@ class UserResponse(BaseModel):
     email: str
     full_name: Optional[str] = None
     disabled: Optional[bool] = False
+    tier: UserTier = UserTier.FREE
+    onboarding_completed: Optional[bool] = False
     created_at: datetime
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
