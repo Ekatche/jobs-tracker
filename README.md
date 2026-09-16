@@ -90,37 +90,41 @@ Cette commande démarre les 6 services :
 
 ---
 
-## 🎯 Personnaliser la recherche pour votre profil / métier
+## 🎯 Recherche Automatisée : Profil → Requêtes Dynamiques
 
-Le projet est conçu pour être facilement adapté à n'importe quel profil, localisation ou secteur d'activité. Voici les 3 fichiers clés à modifier :
+Le système génère automatiquement les requêtes de collecte d'offres en temps réel depuis votre profil candidat, sans codage requérir. Deux niveaux de personnalisation :
 
-### 1. Définir votre recherche et votre fréquence (Airflow)
+### 1. Configurer votre Profil Candidat (Interface Web)
+Accédez à `/profile` et remplissez vos préférences de recherche :
+
+- **Rôles Cibles** : ex. `Data Engineer`, `AI Engineer`, `Machine Learning Engineer` (format libre, normalisés automatiquement via embeddings).
+- **Villes** : ex. `Lyon`, `Paris`, `Remote`.
+- **Politique de Télétravail** : `Full Remote`, `Hybrid`, `On-Site`.
+- **Types de Contrat** : `CDI`, `Freelance`, `Stage`, etc.
+
+Le système génère des requêtes multi-profils (si plusieurs utilisateurs), avec :
+- **Normalisation sémantique** : `"Ingénieur IA"` et `"AI Engineer"` sont regroupés sous le même rôle canonique.
+- **Round-Robin équitable** : chaque profil candidat contribue à la collecte sans favoritisme.
+- **Plafonnement intelligent** : max 8 requêtes/run Airflow pour rester dans le budget de temps.
+
+### 2. Ajuster la Fréquence de Collecte (Airflow Cron)
 Fichier : [`airflow/dags/collect_job_offers.py`](file:///Users/elielkatche/job-tracker/airflow/dags/collect_job_offers.py)
 
-- **Requête de recherche** : modifiez la requête envoyée au pipeline dans la tâche `get_urls` :
-  ```python
-  # Exemple par défaut :
-  queries = ["Je recherche un poste de data scientist proche de Lyon"]
+Par défaut, le DAG s'exécute **2 fois par jour en semaine** (7h & 16h UTC, lun-ven) :
+```python
+schedule="0 7,16 * * 1-5"  # Capte les parutions de nuit et du jour
+```
 
-  # Exemples d'adaptation :
-  queries = ["Je recherche un poste de DevOps Cloud Kubernetes en télétravail ou à Paris"]
-  queries = ["Chef de projet digital junior ou alternance à Nantes"]
-  ```
-- **Planification / Cron** : modifiez le paramètre `schedule_interval` :
-  ```python
-  schedule_interval="0 7 * * *"  # Tous les jours à 07h00 (heure locale)
-  ```
-
-### 2. Affiner les critères de qualification IA (CrewAI)
+### 3. Affiner la Qualification IA (CrewAI)
 Dossier : [`backend/job_trackers/src/job_trackers/config/`](file:///Users/elielkatche/job-tracker/backend/job_trackers/src/job_trackers/config/)
 
-- **`agents.yaml`** : Ajustez l'expertise de vos agents (par ex. pour cibler des postes tech, marketing, finance ou RH).
-- **`tasks.yaml`** : Personnalisez les consignes de filtrage des URLs dans `filter_urls_task` :
-  - Niveau d'expérience souhaité (Junior, Confirmé, Senior, Lead).
-  - Modalités acceptées (Full Remote, Hybride, Présentiel).
-  - Technologies, compétences obligatoires ou mots-clés éliminatoires.
+- **`agents.yaml`** : Expertise des agents (tech, marketing, finance, RH, etc.).
+- **`tasks.yaml`** : Consignes de filtrage dans `filter_urls_task` :
+  - Niveau d'expérience souhaité.
+  - Modalités acceptées.
+  - Technologies/compétences obligatoires ou mots-clés exclus.
 
-### 3. Cibler ou exclure des sites d'emploi (Tavily & Crawler)
+### 4. Cibler ou Exclure des Sites d'Emploi (Tavily & Crawler)
 Fichier : [`backend/job_trackers/src/job_trackers/tools/custom_tool.py`](backend/job_trackers/src/job_trackers/tools/custom_tool.py)
 
 - **Plateformes vérifiées** (`verified_domains`) :

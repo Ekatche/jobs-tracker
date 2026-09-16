@@ -69,11 +69,33 @@ Pour ne pas scraper dans le vide des métiers inutiles, Airflow n'utilise plus d
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Normalisation Sémantique des Rôles (Registre d'Alias Auto-Alimenté)
+
+Problème : Deux utilisateurs ayant `"Ingénieur IA"` et `"AI Engineer"` dans leurs préférences lancent deux requêtes distinctes, fragmentant la couverture. Solution : registre MongoDB `role_aliases` avec embeddings sémantiques.
+
+**Architecture** :
+```
+role_aliases : {
+  canonical: "AI Engineer",
+  embedding: [0.12, -0.45, 0.78, ...],  // text-embedding-3-small (1536 dims)
+  variants: ["ai engineer", "ingénieur ia", "ingenieur ia", "artificial intelligence engineer", ...]
+}
+```
+
+**Logique** :
+1. **Fast Path** (0 coût token) : Recherche exacte insensible à la casse dans `variants`. Hit → retourne `canonical`.
+2. **Slow Path** (1 appel OpenAI Embedding/run) : Calcul embedding du rôle brut. Similarité cosinus ≥ 0.85 avec les canoniques existants → rattachement et ajout de la variante. Sinon, création d'un nouveau canonical.
+3. **Fallback** : En cas d'erreur (Mongo, OpenAI), retourne le rôle brut nettoyé.
+
+**Implémentation** : `app/services/role_normalizer.py` (126 lignes). Seed initial dans `scripts/seed_role_aliases.py` (24 rôles tech : Data Engineer, AI Engineer, Backend Developer, etc. avec variantes FR/EN). Appels depuis `build_search_queries()` en `app/tasks/job_offers_collectors.py` avec mémoïsation par run pour éviter les refactorisations inutiles.
+
+**Bénéfice** : Mutualisation multi-utilisateurs. 100 profils ayant `target_roles = ["AI Engineer", "Ingénieur IA"]` convertis à `["AI Engineer", "AI Engineer"]` → dédup intra-profil + round-robin produit une seule requête au lieu de deux.
+
 ### Fréquences Recommandées des Crons Airflow
 
 | DAG / Tâche | Fréquence | Expression Cron | Objectif |
 |---|---|---|---|
-| `collect_job_offers` | 2x / jour en semaine | `0 6,13 * * 1-5` | Capte les parutions de nuit (06h UTC) et le pic de fin de matinée (13h UTC). |
+| `collect_job_offers` | 2x / jour en semaine | `0 7,16 * * 1-5` | Capte les parutions nuit (07h UTC) et fin matinée (16h UTC). |
 | `verify_job_offers` | 1x / jour la nuit | `0 2 * * *` | Vérifie la validité des liens (détection 404/expirées). |
 | `clean_job_offers` | 1x / jour la nuit | `0 4 * * *` | Déduplication et archivage des offres > 30 jours sans candidature liée. |
 | `archive_applications` | 1x / jour la nuit | `0 3 * * *` | Archivage des candidatures inactives > 90 jours. |

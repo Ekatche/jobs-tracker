@@ -124,9 +124,10 @@ L'IA et le scraping (Crawl4AI) prennent de 15 secondes à plusieurs minutes. Le 
 | **Scale-up** (>50 users concurrents) | **Migration vers Celery + Redis** | Quand BackgroundTasks sature le process FastAPI |
 
 > **Stratégie de Collecte Airflow ("Demand-Driven")** :
-> - Airflow n'exécute pas de requêtes fixes en dur, mais agrège les requêtes uniques des utilisateurs actifs (`SearchSubscriptions`).
+> - Airflow génère les requêtes **dynamiquement** depuis les préférences actives (`CandidateProfile.preferences`) des utilisateurs en base MongoDB, au lieu de requêtes figées.
+> - **Pipeline de Normalisation des Rôles** : Chaque rôle cible est normalisé via embeddings sémantiques (`text-embedding-3-small`) + registre d'alias auto-alimenté. Fast path : recherche exacte MongoDB. Slow path : similarité cosinus ≥ 0.85 pour regrouper variantes FR/EN d'un même métier, sans table statique à maintenir manuellement. Permet la **mutualisation multi-utilisateurs** : 100 candidats recherchant `"Ingénieur IA"` et `"AI Engineer"` = 1 seule requête Airflow.
 > - **Fréquences optimisées** :
->   - Collecte (`collect_job_offers`) : `0 6,13 * * 1-5` (2x/jour en semaine, captures des parutions nuit + matinée).
+>   - Collecte (`collect_job_offers`) : `0 7,16 * * 1-5` (2x/jour en semaine, captures des parutions nuit + fin matinée).
 >   - Liveness (`verify_job_offers`) : `0 2 * * *` (1x/jour la nuit, détection 404/expirations).
 >   - Nettoyage (`clean_job_offers`) : `0 4 * * *` (1x/jour la nuit, déduplication et archivage des offres > 30 jours non référencées).
 > - *(Détails complets dans `JOB_INGESTION_AND_NORMALIZATION.md`)*.
@@ -219,8 +220,9 @@ Deux points d'interception :
 | Parsing CV → Profil | `app/services/cv_parser.py` | ✅ En production |
 | Collecteurs GitHub/Website | `app/services/profile/collectors/` | ✅ En production |
 | Fusion multi-sources profil | `app/services/profile/merge.py` | ✅ En production |
-| Pipeline cover letter (5 agents) | `job_trackers/cover_letter_crew.py` | ✅ En production |
+| Pipeline cover letter (5 agents, 100% async) | `job_trackers/cover_letter_crew.py` | ✅ En production, contexte réviseur complet, cache TTL 7j recherche entreprise |
 | Letter guards (code pur) | `app/services/letter_guards.py` | ✅ En production |
+| Champ voice DNA (style d'écriture) | `app/models.py` (`writing_style` in `CandidateProfile`) | ✅ Exposé en UI |
 | Vérification liveness offres | `app/tasks/verify_job_offers.py` | ✅ En production |
 | Nettoyage/normalisation offres | `app/services/normalization.py`, `app/tasks/clean_job_offers.py` | ✅ En production |
 | Filtrage de pertinence métier | `app/services/relevance.py` | ✅ En production |
