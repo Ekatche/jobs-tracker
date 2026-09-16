@@ -1,0 +1,11 @@
+[
+  {
+    "offer_index": 1,
+    "company": "Volvo Group",
+    "key_map": {
+      "Lettre-1": "openai/gpt-5.6-terra",
+      "Lettre-2": "mistral/mistral-large-2407",
+      "Lettre-3": "openai/gpt-5.6-sol"
+    }
+  }
+]

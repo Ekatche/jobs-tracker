@@ -3,6 +3,7 @@ export interface Application {
   user_id: string;
   company: string;
   position: string;
+  offer_id?: string;
   location?: string;
   url?: string;
   application_date: string;
@@ -11,7 +12,9 @@ export interface Application {
   notes?: string[];
   created_at: string;
   updated_at?: string;
-  archived: boolean; // Ajoutez cette propriété (sans la rendre optionnelle)
+  archived: boolean;
+  days_since_application?: number;
+  follow_up_alert?: "relance_due" | "remerciement_due" | null;
 }
 
 // Type pour les applications groupées par statut
@@ -25,8 +28,12 @@ export const STATUS_ORDER: string[] = [
   "Candidature envoyée",
   "Première sélection",
   "Entretien",
+  "Test technique",
+  "Négociation",
   "Offre reçue",
+  "Offre acceptée",
   "Refusée",
+  "Retirée",
 ];
 
 // Fonction pour obtenir la couleur de fond selon le statut
@@ -42,10 +49,16 @@ export const getStatusColor = (status: string): string => {
       return "bg-purple-800";
     case "Test technique":
       return "bg-indigo-700";
+    case "Négociation":
+      return "bg-teal-700";
     case "Offre reçue":
       return "bg-green-800";
+    case "Offre acceptée":
+      return "bg-emerald-600";
     case "Refusée":
       return "bg-red-800";
+    case "Retirée":
+      return "bg-slate-700";
     default:
       return "bg-gray-800";
   }
@@ -63,10 +76,16 @@ export const getStatusBackgroundColor = (status: string): string => {
       return "bg-purple-900/40";
     case "Test technique":
       return "bg-indigo-900/40";
+    case "Négociation":
+      return "bg-teal-900/40";
     case "Offre reçue":
       return "bg-green-900/40";
+    case "Offre acceptée":
+      return "bg-emerald-900/40";
     case "Refusée":
       return "bg-red-900/40";
+    case "Retirée":
+      return "bg-slate-900/40";
     default:
       return "bg-gray-800/40";
   }
@@ -127,6 +146,7 @@ export const normalizeApiData = (
   user_id: apiData.user_id || "",
   company: apiData.company || "",
   position: apiData.position || "",
+  offer_id: apiData.offer_id,
   location: apiData.location,
   url: apiData.url,
   application_date: apiData.application_date || "",
@@ -136,4 +156,17 @@ export const normalizeApiData = (
   created_at: apiData.created_at || "",
   updated_at: apiData.updated_at,
   archived: typeof apiData.archived === "boolean" ? apiData.archived : false,
+  days_since_application: apiData.days_since_application,
+  follow_up_alert: apiData.follow_up_alert,
 });
+
+export interface PipelineSummary {
+  total_active: number;
+  total_archived: number;
+  status_counts: Record<string, number>;
+  interview_conversion_rate: number;
+  offer_conversion_rate: number;
+  follow_ups_due_count: number;
+  thank_yous_due_count: number;
+  evaluated_offers_ready_count: number;
+}

@@ -6,8 +6,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { authApi, userApi } from "@/lib/api";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { FiEdit, FiUser, FiMail, FiSave, FiKey } from "react-icons/fi";
+import { FiEdit, FiUser, FiMail, FiSave, FiKey, FiTarget, FiBriefcase } from "react-icons/fi";
 import CandidateProfileSection from "@/components/profile/CandidateProfileSection";
+import TargetingPreferencesSection from "@/components/profile/TargetingPreferencesSection";
 
 // Ajoutez ceci après les imports et avant les schémas de validation
 interface User {
@@ -57,6 +58,7 @@ function ProfileContent() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState<"targeting" | "profile" | "account">("targeting");
 
   // Form pour les informations de profil
   const {
@@ -197,12 +199,86 @@ function ProfileContent() {
   return (
     <div className="min-h-screen bg-blue-night p-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-8">Mon Profil</h1>
+        {/* En-tête Profil */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
+              <span>Mon Profil</span>
+              {user?.username && (
+                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-900/40 text-blue-300 border border-blue-700/40">
+                  @{user.username}
+                </span>
+              )}
+            </h1>
+            <p className="text-sm text-gray-400 mt-1">
+              Gérez votre ciblage de recherche, les sources de votre profil candidat et les paramètres de votre compte.
+            </p>
+          </div>
+        </div>
 
-        {/* Section Profil Candidat & IA (CV, Website, Compétences, Lettres) */}
-        <CandidateProfileSection />
+        {/* Navigation par onglets */}
+        <div className="flex border-b border-gray-700/70 mb-8 overflow-x-auto gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("targeting")}
+            className={`flex items-center gap-2 py-3 px-5 text-sm font-semibold rounded-t-xl transition-all border-b-2 whitespace-nowrap ${
+              activeTab === "targeting"
+                ? "border-blue-500 text-blue-400 bg-blue-500/10"
+                : "border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-800/40"
+            }`}
+          >
+            <FiTarget className="w-4 h-4" />
+            <span>Ciblage & Préférences</span>
+            <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-blue-900/60 text-blue-300 rounded border border-blue-700/50">
+              Matching IA
+            </span>
+          </button>
 
-        <div className="bg-blue-night-lighter rounded-lg shadow-lg p-6 mb-8">
+          <button
+            type="button"
+            onClick={() => setActiveTab("profile")}
+            className={`flex items-center gap-2 py-3 px-5 text-sm font-semibold rounded-t-xl transition-all border-b-2 whitespace-nowrap ${
+              activeTab === "profile"
+                ? "border-blue-500 text-blue-400 bg-blue-500/10"
+                : "border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-800/40"
+            }`}
+          >
+            <FiBriefcase className="w-4 h-4" />
+            <span>Profil & Expériences (IA)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("account")}
+            className={`flex items-center gap-2 py-3 px-5 text-sm font-semibold rounded-t-xl transition-all border-b-2 whitespace-nowrap ${
+              activeTab === "account"
+                ? "border-blue-500 text-blue-400 bg-blue-500/10"
+                : "border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-800/40"
+            }`}
+          >
+            <FiUser className="w-4 h-4" />
+            <span>Compte & Sécurité</span>
+          </button>
+        </div>
+
+        {/* Onglet 1 : Ciblage & Préférences */}
+        {activeTab === "targeting" && (
+          <div className="animate-in fade-in duration-200">
+            <TargetingPreferencesSection />
+          </div>
+        )}
+
+        {/* Onglet 2 : Profil Candidat (CV, GitHub, Expériences, Compétences) */}
+        {activeTab === "profile" && (
+          <div className="animate-in fade-in duration-200">
+            <CandidateProfileSection />
+          </div>
+        )}
+
+        {/* Onglet 3 : Paramètres du compte */}
+        {activeTab === "account" && (
+          <div className="animate-in fade-in duration-200 space-y-8">
+            <div className="bg-blue-night-lighter rounded-lg shadow-lg p-6 mb-8">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-white flex items-center">
               <FiUser className="mr-2" /> Informations personnelles
@@ -495,7 +571,9 @@ function ProfileContent() {
           )}
         </div>
       </div>
+      )}
     </div>
+  </div>
   );
 }
 

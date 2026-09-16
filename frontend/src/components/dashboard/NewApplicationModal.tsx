@@ -17,6 +17,7 @@ const applicationSchema = z.object({
   url: z.string().url("URL invalide").optional().or(z.literal("")),
   application_date: z.string().min(1, "La date de candidature est requise"),
   description: z.string().optional(),
+  offer_id: z.string().optional(),
 });
 
 type ApplicationFormData = z.infer<typeof applicationSchema>;
@@ -28,6 +29,7 @@ export interface PrefilledData {
   location?: string;
   url?: string;
   description?: string;
+  offer_id?: string;
 }
 
 interface NewApplicationModalProps {
@@ -69,6 +71,7 @@ export default function NewApplicationModal({
       url: "",
       application_date: format(new Date(), "yyyy-MM-dd"),
       description: "",
+      offer_id: "",
     },
   });
 
@@ -79,6 +82,7 @@ export default function NewApplicationModal({
       if (prefilledData.position) setValue("position", prefilledData.position);
       if (prefilledData.location) setValue("location", prefilledData.location);
       if (prefilledData.url) setValue("url", prefilledData.url);
+      if (prefilledData.offer_id) setValue("offer_id", prefilledData.offer_id);
       setValue("description", prefilledData.description || "");
 
       // Réinitialiser les autres champs à leurs valeurs par défaut
@@ -135,6 +139,7 @@ export default function NewApplicationModal({
       const formData = {
         ...data,
         url: data.url === "" ? undefined : data.url,
+        offer_id: data.offer_id === "" ? undefined : data.offer_id,
         notes: notes.length > 0 ? notes : undefined, // Inclure les notes s'il y en a
       };
 

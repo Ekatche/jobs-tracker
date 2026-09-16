@@ -16,7 +16,7 @@ import {
   setRememberMe,
 } from "./auth";
 import { Task } from "@/types/tasks";
-import { CoverLetter, CandidateProfile } from "@/types/coverLetter";
+import { CoverLetter, CandidateProfile, CandidatePreferences } from "@/types/coverLetter";
 import Cookies from "js-cookie";
 // Ajoutez cet import au début du fichier
 import { getLastActivityTime } from "./activityTracker";
@@ -43,6 +43,17 @@ apiClient.interceptors.request.use((config) => {
   const token = getToken();
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  // Important: Pour les requêtes multipart/form-data (upload de fichier avec FormData),
+  // supprimer "Content-Type" pour qu'Axios et le navigateur calculent le boundary automatiquement.
+  if (typeof FormData !== "undefined" && config.data instanceof FormData && config.headers) {
+    if ("delete" in config.headers && typeof config.headers.delete === "function") {
+      config.headers.delete("Content-Type");
+      config.headers.delete("content-type");
+    } else {
+      delete (config.headers as Record<string, unknown>)["Content-Type"];
+      delete (config.headers as Record<string, unknown>)["content-type"];
+    }
   }
   return config;
 });
@@ -73,6 +84,12 @@ async function fetchApi<T, D = Record<string, unknown>>(
     delete config.headers.Authorization;
   }
 
+  // Pour FormData, s'assurer que Content-Type n'est pas forcé à application/json
+  if (typeof FormData !== "undefined" && data instanceof FormData && config.headers) {
+    delete config.headers["Content-Type"];
+    delete config.headers["content-type"];
+  }
+
   // Ajouter les données pour les requêtes non-GET
   if (data) {
     if (method === "GET") {
@@ -87,8 +104,22 @@ async function fetchApi<T, D = Record<string, unknown>>(
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
-      const message =
-        error.response.data.detail || "Erreur communication serveur";
+      const detail = error.response.data?.detail;
+      let message = "Erreur communication serveur";
+      if (typeof detail === "string") {
+        message = detail;
+      } else if (Array.isArray(detail)) {
+        message = detail
+          .map((d: unknown) => {
+            if (typeof d === "object" && d !== null && "msg" in d) {
+              return String((d as { msg: unknown }).msg);
+            }
+            return JSON.stringify(d);
+          })
+          .join(", ");
+      } else if (detail) {
+        message = JSON.stringify(detail);
+      }
       throw new Error(message);
     }
     throw error;
@@ -253,6 +284,7 @@ export interface User {
   email: string;
   full_name?: string;
   is_admin?: boolean;
+  onboarding_completed?: boolean;
 }
 
 export interface Application {
@@ -260,6 +292,7 @@ export interface Application {
   user_id?: string;
   company: string;
   position: string;
+  offer_id?: string;
   location?: string;
   url?: string;
   application_date: string;
@@ -269,6 +302,8 @@ export interface Application {
   created_at?: string;
   updated_at?: string;
   archived?: boolean;
+  days_since_application?: number;
+  follow_up_alert?: "relance_due" | "remerciement_due" | null;
 }
 
 export interface JobOffer {
@@ -290,7 +325,18 @@ export interface JobOffer {
   deleted_date?: string;
   is_active?: boolean;
   description_updated_at?: string;
+  pipeline_stage?: string;
+  evaluation_score?: number;
 }
+
+export type {
+  OfferEvaluation,
+  BlocA,
+  BlocB,
+  BlocG,
+  RequirementMatch,
+  MissingRequirement,
+} from "../types/jobOffer";
 
 export interface JobOfferFilter {
   keywords?: string;
@@ -406,6 +452,10 @@ export const userApi = {
   delete: async (userId: string) => {
     return fetchApi<void>(`/users/${userId}`, "DELETE");
   },
+
+  completeOnboarding: async () => {
+    return fetchApi<User>("/users/complete-onboarding", "POST");
+  },
 };
 
 // API Tasks
@@ -474,6 +524,27 @@ export const applicationApi = {
     return fetchApi<Application>(
       `/applications/${applicationId}/regenerate-description`,
       "POST"
+    );
+  },
+
+  getPipelineSummary: async () => {
+    return fetchApi<import("../types/application").PipelineSummary>(
+      "/applications/pipeline/summary",
+      "GET"
+    );
+  },
+
+  evaluate: async (applicationId: string) => {
+    return fetchApi<import("../types/jobOffer").OfferEvaluation>(
+      `/applications/${applicationId}/evaluate`,
+      "POST"
+    );
+  },
+
+  getEvaluation: async (applicationId: string) => {
+    return fetchApi<import("../types/jobOffer").OfferEvaluation | null>(
+      `/applications/${applicationId}/evaluation`,
+      "GET"
     );
   },
 };
@@ -548,6 +619,22 @@ export const jobOffersApi = {
     const endpoint = `/job-offers/count/?${params.toString()}`;
     return fetchApi<{ total: number }>(endpoint, "GET");
   },
+
+  // Évaluation Two-Pass Career-Ops de l'offre
+  evaluate: async (offerId: string) => {
+    return fetchApi<import("../types/jobOffer").OfferEvaluation>(
+      `/job-offers/${offerId}/evaluate`,
+      "POST"
+    );
+  },
+
+  // Récupérer l'évaluation existante de l'offre
+  getEvaluation: async (offerId: string) => {
+    return fetchApi<import("../types/jobOffer").OfferEvaluation>(
+      `/job-offers/${offerId}/evaluation`,
+      "GET"
+    );
+  },
 };
 
 // API Cover Letters
@@ -567,6 +654,18 @@ export const coverLetterApi = {
   updateCandidateProfile: async (profile: Partial<CandidateProfile>): Promise<CandidateProfile> => {
     return fetchApi<CandidateProfile>("/profile/candidate", "PUT", profile);
   },
+  updateCandidatePreferences: async (preferences: CandidatePreferences): Promise<CandidateProfile> => {
+    return fetchApi<CandidateProfile, CandidatePreferences>("/profile/candidate/preferences", "PUT", preferences);
+  },
+  importCv: async (file: File): Promise<CandidateProfile> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return fetchApi<CandidateProfile, FormData>("/profile/candidate/sources/cv", "POST", formData);
+  },
+  importGithub: async (url: string): Promise<CandidateProfile> =>
+    fetchApi<CandidateProfile>("/profile/candidate/sources/github", "POST", { url }),
+  importWebsite: async (url: string): Promise<CandidateProfile> =>
+    fetchApi<CandidateProfile>("/profile/candidate/sources/website", "POST", { url }),
 };
 
 // Exportations par défaut

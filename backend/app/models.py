@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 from bson import ObjectId
-from pydantic import BaseModel, Field, GetCoreSchemaHandler, HttpUrl, ConfigDict
+from pydantic import BaseModel, Field, GetCoreSchemaHandler, HttpUrl, ConfigDict, model_validator
 from pydantic_core import core_schema
 
 
@@ -28,6 +28,12 @@ class PyObjectId(str):
         return str(v)
 
 
+class UserTier(str, Enum):
+    FREE = "free"
+    ADVANCED = "advanced"
+    PRO = "pro"
+
+
 # Modèle utilisateur
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
@@ -36,6 +42,8 @@ class UserModel(BaseModel):
     hashed_password: str = Field(...)
     full_name: Optional[str] = None
     disabled: Optional[bool] = False
+    tier: UserTier = UserTier.FREE
+    onboarding_completed: Optional[bool] = False
     created_at: datetime = Field(default_factory=utcnow_with_timezone)
     updated_at: Optional[datetime] = None
     cv_url: Optional[HttpUrl] = None  # <--- Ajouté ici
@@ -49,6 +57,8 @@ class UserModel(BaseModel):
                 "email": "john.doe@example.com",
                 "full_name": "John Doe",
                 "disabled": False,
+                "tier": "free",
+                "onboarding_completed": False,
                 "cv_url": "https://monapp.com/uploads/cv_johndoe.pdf",
             }
         },
@@ -81,6 +91,8 @@ class UserResponse(BaseModel):
     email: str
     full_name: Optional[str] = None
     disabled: Optional[bool] = False
+    tier: UserTier = UserTier.FREE
+    onboarding_completed: Optional[bool] = False
     created_at: datetime
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
@@ -95,6 +107,7 @@ class ApplicationStatus(str, Enum):
     TECHNICAL_TEST = "Test technique"
     NEGOTIATION = "Négociation"
     OFFER = "Offre reçue"
+    OFFER_RECEIVED = "Offre reçue"
     ACCEPTED = "Offre acceptée"
     REJECTED = "Refusée"
     WITHDRAWN = "Retirée"
@@ -104,6 +117,7 @@ class ApplicationStatus(str, Enum):
 class JobApplication(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     user_id: PyObjectId = Field(...)
+    offer_id: Optional[str] = None
     company: str = Field(...)
     position: str = Field(...)
     location: Optional[str] = None
@@ -137,6 +151,7 @@ class JobApplication(BaseModel):
 class JobApplicationCreate(BaseModel):
     company: str
     position: str
+    offer_id: Optional[str] = None
     url: Optional[HttpUrl] = None
     application_date: Optional[datetime] = None
     location: Optional[str] = None
@@ -154,6 +169,7 @@ class JobApplicationCreate(BaseModel):
                 "application_date": "2025-04-08T10:00:00Z",
                 "status": "Candidature envoyée",
                 "description": "Poste de développeur full stack avec React et Python",
+                "offer_id": "673f1c9d8e5f2a1b3c4d5e6f",
             }
         }
     }
@@ -163,6 +179,7 @@ class JobApplicationCreate(BaseModel):
 class JobApplicationUpdate(BaseModel):
     company: Optional[str] = None
     position: Optional[str] = None
+    offer_id: Optional[str] = None
     location: Optional[str] = None
     url: Optional[HttpUrl] = None
     application_date: Optional[datetime] = None
@@ -189,6 +206,7 @@ class JobApplicationResponse(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     company: str
     position: str
+    offer_id: Optional[str] = None
     url: Optional[HttpUrl] = None
     application_date: datetime
     status: ApplicationStatus
@@ -198,8 +216,21 @@ class JobApplicationResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
     archived: Optional[bool] = False  # Ajout du champ archived
+    days_since_application: Optional[int] = None
+    follow_up_alert: Optional[str] = None  # None, "relance_due" (J+7), "remerciement_due" (J+1)
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
+
+
+class PipelineSummaryResponse(BaseModel):
+    total_active: int
+    total_archived: int
+    status_counts: Dict[str, int]
+    interview_conversion_rate: float
+    offer_conversion_rate: float
+    follow_ups_due_count: int
+    thank_yous_due_count: int
+    evaluated_offers_ready_count: int = 0
 
 
 class TaskStatus(str, Enum):
@@ -266,6 +297,8 @@ class JobOfferCreate(BaseModel):
     deletion_reason: Optional[str] = None  # Raison de suppression / expiration
     url: Optional[str] = None
     source_url: Optional[str] = None  # URL de la page où l'offre a été trouvée
+    pipeline_stage: Optional[str] = "discovered"
+    evaluation_score: Optional[float] = None
 
 
 class JobOfferResponse(BaseModel):
@@ -284,6 +317,8 @@ class JobOfferResponse(BaseModel):
     deleted_date: Optional[datetime] = None  # Date de suppression
     deletion_reason: Optional[str] = None  # Raison de suppression / expiration
     source_url: Optional[str] = None
+    pipeline_stage: Optional[str] = "discovered"
+    evaluation_score: Optional[float] = None
     created_at: datetime
     updated_at: datetime
 
@@ -292,11 +327,92 @@ class JobOfferFilter(BaseModel):
     keywords: Optional[List[str]] = None
     locations: Optional[List[str]] = None
     companies: Optional[List[str]] = None
+    min_score: Optional[float] = None
+    pipeline_stage: Optional[str] = None
     limit: int = 50
     skip: int = 0
 
 
+# --- Modèles d'Évaluation d'Offre (Two-Pass Career-Ops) ---
+class RequirementMatch(BaseModel):
+    requirement: str
+    weight: Literal["critical", "high", "meaningful"] = "high"
+    candidate_evidence: str
+    verbatim_quote: str  # Citation exacte de l'offre
+    status: Literal["full_match", "partial_match"] = "full_match"
+    # "stated" : preuve explicite dans le profil (poste, stack, mission listée).
+    # "inferred" : déduction du modèle sans mention explicite. Ne peut jamais à
+    # elle seule justifier un full_match sur une exigence critical/high — voir
+    # le gate déterministe dans evaluator.py::evaluate_offer_two_pass.
+    evidence_tier: Literal["stated", "inferred"] = "stated"
+
+
+class MissingRequirement(BaseModel):
+    requirement: str
+    weight: Literal["critical", "high", "meaningful"] = "high"
+    reason: str
+    impact_on_role: Optional[str] = None
+
+
+class BlocA(BaseModel):
+    summary: str = ""
+    archetype: str = ""
+    red_flags: List[str] = Field(default_factory=list)
+    geo_mismatch: bool = False
+    visa_sponsoring_refused: bool = False
+    notes: Optional[str] = None
+
+
+class BlocB(BaseModel):
+    matched_requirements: List[RequirementMatch] = Field(default_factory=list)
+    missing_requirements: List[MissingRequirement] = Field(default_factory=list)
+    score_justification: str = ""
+
+
+class BlocG(BaseModel):
+    is_ghost_job: bool = False
+    is_scam_risk: bool = False
+    reposted_frequency: Optional[str] = None
+    warnings: List[str] = Field(default_factory=list)
+
+
+class OfferEvaluation(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    user_id: PyObjectId
+    offer_id: PyObjectId
+    score: float = 1.0  # 1.0 to 5.0
+    headline: str = ""
+    pipeline_stage: Literal["discovered", "evaluated", "expired"] = "evaluated"
+    bloc_a: BlocA = Field(default_factory=BlocA)
+    bloc_b: BlocB = Field(default_factory=BlocB)
+    bloc_g: BlocG = Field(default_factory=BlocG)
+    models_used: List[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utcnow_with_timezone)
+    updated_at: datetime = Field(default_factory=utcnow_with_timezone)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class OfferEvaluationResponse(BaseModel):
+    id: Optional[str] = None
+    user_id: str
+    offer_id: str
+    score: float
+    headline: str
+    pipeline_stage: str
+    bloc_a: BlocA
+    bloc_b: BlocB
+    bloc_g: BlocG
+    created_at: datetime
+    updated_at: datetime
+
+
 # Modèles pour le profil candidat et la génération de lettres de motivation
+CandidateSource = Literal["cv", "github", "website", "manual", "saisie"]
+# For CandidateProvenance.source: includes "site" for backwards compatibility with existing data
+CandidateProvenanceSource = Union[CandidateSource, Literal["site"]]
+
+
 class CandidateAchievement(BaseModel):
     text: str
     metric: Optional[str] = None
@@ -304,43 +420,89 @@ class CandidateAchievement(BaseModel):
 
 class CandidateExperience(BaseModel):
     company: str
-    role: str
+    role: Optional[str] = None
     location: Optional[str] = None
     contract: Optional[str] = None
-    start: str
+    start: Optional[str] = None
     end: Optional[str] = None
     sector: Optional[str] = None
     missions: List[str] = Field(default_factory=list)
+    missions_alt: List[str] = Field(default_factory=list)
+    missions_source: Optional[str] = None
     achievements: List[CandidateAchievement] = Field(default_factory=list)
     stack: List[str] = Field(default_factory=list)
+    sources: List[str] = Field(default_factory=list)
 
 
 class CandidateProject(BaseModel):
     name: str
-    description: str
+    description: str = ""
     stack: List[str] = Field(default_factory=list)
     url: Optional[str] = None
+    repo: Optional[str] = None
     year: Optional[str] = None
-    context: Literal["perso", "client", "recherche", "consortium"]
+    context: Literal["perso", "client", "recherche", "consortium"] = "perso"
+    highlights: List[str] = Field(default_factory=list)
+    sources: List[str] = Field(default_factory=list)
 
 
 class CandidateEducation(BaseModel):
-    school: str
-    degree: str
+    school: str = ""
+    degree: str = ""
     years: Optional[str] = None
     topics: List[str] = Field(default_factory=list)
 
 
 class CandidateCertification(BaseModel):
-    name: str
-    issuer: str
+    name: str = ""
+    issuer: str = ""
     year: Optional[str] = None
     topics: List[str] = Field(default_factory=list)
 
 
+class CandidateConflict(BaseModel):
+    company: str = ""
+    field: str
+    kept: Any = None
+    kept_source: str = ""
+    discarded: Any = None
+    discarded_source: str = ""
+
+
 class CandidateProvenance(BaseModel):
     field_path: str
-    source: Literal["cv", "site", "saisie"]
+    source: CandidateProvenanceSource
+
+
+class RemotePolicy(str, Enum):
+    FULL_REMOTE = "full_remote"
+    HYBRID = "hybrid"
+    ON_SITE = "on_site"
+    FLEXIBLE = "flexible"
+
+
+class CandidatePreferences(BaseModel):
+    target_roles: List[str] = Field(default_factory=list)
+    seniority_level: Optional[str] = None
+    seniority_levels: List[str] = Field(default_factory=list)
+    locations: List[str] = Field(default_factory=list)
+    remote_policy: RemotePolicy = RemotePolicy.FLEXIBLE
+    min_salary: Optional[int] = None
+    target_salary: Optional[int] = None
+    currency: str = "EUR"
+    contract_types: List[str] = Field(default_factory=list)
+    notice_period: Optional[str] = None
+    work_authorization: Optional[str] = None
+    excluded_keywords: List[str] = Field(default_factory=list)
+    preferred_industries: List[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def sync_seniority(self) -> "CandidatePreferences":
+        if self.seniority_levels and not self.seniority_level:
+            self.seniority_level = self.seniority_levels[0]
+        elif self.seniority_level and not self.seniority_levels:
+            self.seniority_levels = [self.seniority_level]
+        return self
 
 
 class CandidateProfile(BaseModel):
@@ -349,6 +511,7 @@ class CandidateProfile(BaseModel):
     headline: str = ""
     summary: str = ""
     contact: Dict[str, Optional[str]] = Field(default_factory=dict)
+    preferences: CandidatePreferences = Field(default_factory=CandidatePreferences)
     experiences: List[CandidateExperience] = Field(default_factory=list)
     projects: List[CandidateProject] = Field(default_factory=list)
     education: List[CandidateEducation] = Field(default_factory=list)
@@ -356,6 +519,10 @@ class CandidateProfile(BaseModel):
     languages: List[str] = Field(default_factory=list)
     skills: Dict[str, List[str]] = Field(default_factory=dict)
     provenance: List[CandidateProvenance] = Field(default_factory=list)
+    sources: Dict[str, dict] = Field(default_factory=dict)
+    conflicts: List[CandidateConflict] = Field(default_factory=list)
+    excluded_projects: List[str] = Field(default_factory=list)
+    writing_style: Optional[str] = None
     updated_at: datetime = Field(default_factory=utcnow_with_timezone)
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
@@ -385,3 +552,53 @@ class CoverLetter(BaseModel):
     updated_at: datetime = Field(default_factory=utcnow_with_timezone)
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
+
+
+# --- API Usage & Quota Models ---
+class ApiUsageAction(str, Enum):
+    COVER_LETTER = "cover_letter"
+    EVALUATION = "evaluation"
+    CV_TAILORING = "cv_tailoring"
+    CV_PARSING = "cv_parsing"
+    INTERVIEW_PREP = "interview_prep"
+    OFFER_SUMMARY = "offer_summary"
+
+
+class ApiUsageRecord(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    user_id: PyObjectId
+    action: ApiUsageAction
+    models_used: List[str] = Field(default_factory=list)
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+    latency_ms: Optional[int] = None
+    success: bool = True
+    error_message: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=utcnow_with_timezone)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class TierQuota(BaseModel):
+    action: ApiUsageAction
+    monthly_limit: Optional[int] = None  # None = unlimited
+
+
+class ActionQuotaUsage(BaseModel):
+    action: ApiUsageAction
+    used: int = 0
+    monthly_limit: Optional[int] = None  # None = unlimited
+    remaining: Optional[int] = None  # None = unlimited
+
+
+class UserQuotaSummary(BaseModel):
+    user_id: PyObjectId
+    tier: UserTier
+    year: int
+    month: int
+    usage: Dict[str, ActionQuotaUsage]
+    total_cost_usd: float = 0.0
+    total_tokens: int = 0

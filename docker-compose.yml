@@ -4,6 +4,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports:
       - "8000:8000"
     volumes:
@@ -35,7 +36,7 @@ services:
       - TAVILY_API_KEY=${TAVILY_API_KEY}
       - SUMMARY_MODEL=${SUMMARY_MODEL:-gpt-5-nano}
       - CRAWL_LLM_MODEL=${CRAWL_LLM_MODEL:-openai/gpt-4o-mini}
-      - CREW_LLM_MODEL=${CREW_LLM_MODEL:-gpt-4o-mini}
+      - CREW_LLM_MODEL=${CREW_LLM_MODEL:-gpt-5.6-luna}
       - PATH=/app/.venv/bin:$PATH
       - UV_CACHE_DIR=/app/.cache/uv
       - UV_LINK_MODE=copy
@@ -90,10 +91,18 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    command: ["npm", "run", "dev"]
     ports:
       - "3875:3875"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - HOSTNAME=0.0.0.0
+      - PORT=3875
+      - WATCHPACK_POLLING=true
     depends_on:
       - backend
     restart: unless-stopped
@@ -152,10 +161,11 @@ services:
       - DATABASE_NAME=${DATABASE_NAME}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
       - TAVILY_API_KEY=${TAVILY_API_KEY}
       - SUMMARY_MODEL=${SUMMARY_MODEL:-gpt-5-nano}
       - CRAWL_LLM_MODEL=${CRAWL_LLM_MODEL:-openai/gpt-4o-mini}
-      - CREW_LLM_MODEL=${CREW_LLM_MODEL:-gpt-4o-mini}
+      - CREW_LLM_MODEL=${CREW_LLM_MODEL:-gpt-5.6-luna}
       - PATH=/root/.local/bin:/app/.venv/bin:$PATH
       - DISPLAY=:99
     deploy:

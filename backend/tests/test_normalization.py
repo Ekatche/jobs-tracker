@@ -61,6 +61,18 @@ def test_extract_company_from_url():
     assert extract_company_from_url("https://swile.recruitee.com/o/lead-dev") == "Swile"
     assert extract_company_from_url("https://carrieres.totalenergies.com/offres/123") == "Totalenergies"
 
+    # New global and generalist ATS platforms
+    assert extract_company_from_url("https://jobs.ashbyhq.com/openai/12345") == "Openai"
+    assert extract_company_from_url("https://acme.bamboohr.com/careers/123") == "Acme"
+    assert extract_company_from_url("https://apply.workable.com/qonto/j/ABC123/") == "Qonto"
+    assert extract_company_from_url("https://qonto.workable.com/j/ABC123") == "Qonto"
+    assert extract_company_from_url("https://alan.jobs.personio.de/job/987") == "Alan"
+    assert extract_company_from_url("https://jobs.personio.de/alan/job/987") == "Alan"
+    assert extract_company_from_url("https://danone.jobs2web.com/job/123") == "Danone"
+    assert extract_company_from_url("https://airbus.taleo.net/careersection/jobdetail.ftl?job=123") == "Airbus"
+    assert extract_company_from_url("https://careers-totalenergies.icims.com/jobs/123") == "Totalenergies"
+    assert extract_company_from_url("https://swile.teamtailor.com/jobs/123") == "Swile"
+
     # Aggregator URLs must return None
     assert extract_company_from_url("https://candidat.francetravail.fr/offres/recherche/detail/184ABCD") is None
     assert extract_company_from_url("https://www.linkedin.com/jobs/view/12345") is None

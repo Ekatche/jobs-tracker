@@ -3,11 +3,15 @@ from typing import Optional
 from crewai import LLM
 
 # Modèles épinglés par défaut selon la spec
+# (docs/superpowers/specs/2026-09-13-lettres-motivation-design.md, tableau
+# "Agent | Modèle | Température").
 DEFAULT_MODELS = {
-    "offer_analyst": "openai/gpt-5.6-luna",
-    "writer": "openai/gpt-5.6-sol",
+    "offer_analyst": "gemini/gemini-3.8-flash",
+    "writer": "openai/gpt-5.6-terra",
     "critic": "gemini/gemini-3.8-flash",
-    "reviser": "openai/gpt-5.6-sol",
+    "reviser": "openai/gpt-5.6-terra",
+    "site_extractor": "gemini/gemini-3.8-flash",
+    "company_researcher": "gemini/gemini-3.8-flash",
 }
 
 ROLE_TEMPERATURES = {
@@ -15,7 +19,20 @@ ROLE_TEMPERATURES = {
     "writer": 0.7,
     "critic": 0.2,
     "reviser": 0.5,
+    "site_extractor": 0.1,
+    "company_researcher": 0.3,
 }
+
+_OPENAI_NO_TEMP_PREFIXES = ("o1", "o3", "gpt-5", "gpt-o")
+
+def build_completion_kwargs(model: str, temperature: float, extra: Optional[dict] = None) -> dict:
+    """Return completion kwargs, omitting temperature for OpenAI reasoning models."""
+    short = model.split("/")[-1].lower()
+    omit_temp = any(short.startswith(p) for p in _OPENAI_NO_TEMP_PREFIXES)
+    kwargs = {"temperature": temperature} if not omit_temp else {}
+    if extra:
+        kwargs.update(extra)
+    return kwargs
 
 def get_model_provider(model_name: str) -> str:
     clean = model_name.lower()
@@ -40,13 +57,17 @@ def validate_cross_provider(writer_model: str, critic_model: Optional[str] = Non
             raise ValueError(f"Writer ({writer_model}) and Critic ({critic_model}) resolve to the same provider ('{writer_prov}'). Cross-provider critic is required.")
         return critic_model
 
-    # Résolution automatique basée sur la spec
-    if writer_prov == "openai":
-        return "gemini/gemini-3.8-flash"
-    elif writer_prov == "google":
-        return "openai/gpt-5.6-terra"
-    else:
-        return "gemini/gemini-3.8-flash"
+    # Résolution automatique : le critique doit toujours changer de fournisseur.
+    # Valeurs de la spec : writer chez OpenAI -> critic sur Gemini Flash ;
+    # writer chez Mistral ou Google -> critic sur GPT-5.6 Sol (finesse de
+    # jugement supérieure à un modèle d'entrée de gamme, coût négligeable sur
+    # une entrée d'environ 350 mots).
+    CROSS_PROVIDER_CRITIC = {
+        "openai": "gemini/gemini-3.8-flash",
+        "google": "openai/gpt-5.6-sol",
+        "mistral": "openai/gpt-5.6-sol",
+    }
+    return CROSS_PROVIDER_CRITIC[writer_prov]
 
 def get_letter_llm(role: str, model_override: Optional[str] = None) -> LLM:
     env_var_map = {
@@ -54,17 +75,19 @@ def get_letter_llm(role: str, model_override: Optional[str] = None) -> LLM:
         "writer": "LETTER_MODEL_WRITER",
         "critic": "LETTER_MODEL_CRITIC",
         "reviser": "LETTER_MODEL_REVISER",
+        "site_extractor": "LETTER_MODEL_SITE_EXTRACTOR",
+        "company_researcher": "LETTER_MODEL_COMPANY_RESEARCHER",
     }
     model = model_override or os.getenv(env_var_map.get(role, ""), DEFAULT_MODELS.get(role, ""))
     validate_no_floating_alias(model)
 
     provider = get_model_provider(model)
     if provider == "google":
-        api_key = os.getenv("GEMINI_API_KEY", "dummy_gemini_key_for_test")
+        api_key = os.getenv("GEMINI_API_KEY")
     elif provider == "openai":
-        api_key = os.getenv("OPENAI_API_KEY", "dummy_openai_key_for_test")
+        api_key = os.getenv("OPENAI_API_KEY")
     elif provider == "mistral":
-        api_key = os.getenv("MISTRAL_API_KEY", "dummy_mistral_key_for_test")
+        api_key = os.getenv("MISTRAL_API_KEY")
     else:
         api_key = None
 

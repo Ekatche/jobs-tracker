@@ -42,6 +42,24 @@ async def upload_cv(
     return {"cv_url": url}
 
 
+@user_router.post("/complete-onboarding", response_model=UserResponse)
+async def complete_onboarding(
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Mark the authenticated user's onboarding as completed."""
+    now = datetime.now(timezone.utc)
+    user_oid = ObjectId(str(current_user.id))
+    await db["users"].update_one(
+        {"_id": user_oid},
+        {"$set": {"onboarding_completed": True, "updated_at": now}},
+    )
+    updated_user = await db["users"].find_one({"_id": user_oid})
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    return serialize_mongodb_doc(updated_user)
+
+
 @user_router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(user: UserCreate = Body(...), db=Depends(get_database)):
     if await db["users"].find_one(

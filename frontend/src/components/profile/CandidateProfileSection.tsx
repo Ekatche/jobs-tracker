@@ -15,9 +15,39 @@ import {
   FiAlertCircle,
   FiLayers,
   FiCode,
+  FiExternalLink,
+  FiAward,
+  FiCalendar,
+  FiBook,
+  FiPlus,
+  FiTrash2,
 } from "react-icons/fi";
 import { coverLetterApi } from "@/lib/api";
-import { CandidateProfile, CandidateExperience, CandidateProject } from "@/types/coverLetter";
+import { CandidateProfile, CandidateExperience, CandidateProject, CandidateConflict } from "@/types/coverLetter";
+import CvDropzone from "./CvDropzone";
+
+function formatMonthYear(val?: string | null): string {
+  if (!val) return "";
+  const match = val.match(/^(\d{4})(?:-(\d{2}))?$/);
+  if (!match) return val;
+  const year = match[1];
+  const monthNum = match[2];
+  if (!monthNum) return year;
+  const months = [
+    "Janv.", "Févr.", "Mars", "Avril", "Mai", "Juin",
+    "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc."
+  ];
+  const idx = parseInt(monthNum, 10) - 1;
+  return idx >= 0 && idx < 12 ? `${months[idx]} ${year}` : `${monthNum}/${year}`;
+}
+
+function formatPeriod(start?: string | null, end?: string | null): string {
+  const startFmt = formatMonthYear(start);
+  const endFmt = end ? formatMonthYear(end) : "Présent";
+  if (!startFmt && !endFmt) return "Période non renseignée";
+  if (!startFmt) return `Jusqu'à ${endFmt}`;
+  return `${startFmt} — ${endFmt}`;
+}
 
 export default function CandidateProfileSection() {
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
@@ -38,6 +68,7 @@ export default function CandidateProfileSection() {
   const [skillsText, setSkillsText] = useState("");
   const [experiences, setExperiences] = useState<CandidateExperience[]>([]);
   const [projects, setProjects] = useState<CandidateProject[]>([]);
+  const [excludedProjects, setExcludedProjects] = useState<string[]>([]);
 
   const loadProfile = async () => {
     setLoading(true);
@@ -78,11 +109,126 @@ export default function CandidateProfileSection() {
 
     setExperiences(data.experiences || []);
     setProjects(data.projects || []);
+    setExcludedProjects(data.excluded_projects || []);
+  };
+
+  const handleUpdateExperience = (
+    index: number,
+    field: keyof CandidateExperience,
+    value: string
+  ) => {
+    setExperiences((prev) => {
+      const copy = [...prev];
+      if (field === "stack") {
+        copy[index] = {
+          ...copy[index],
+          stack: value.split(",").map((s) => s.trim()).filter(Boolean),
+        };
+      } else if (field === "missions") {
+        copy[index] = {
+          ...copy[index],
+          missions: value
+            .split("\n")
+            .map((s) => s.replace(/^[•\-\*]\s*/, "").trim())
+            .filter(Boolean),
+        };
+      } else {
+        copy[index] = { ...copy[index], [field]: value };
+      }
+      return copy;
+    });
+  };
+
+  const handleAddExperience = () => {
+    setExperiences((prev) => [
+      {
+        role: "",
+        company: "",
+        start: "",
+        end: "",
+        location: "",
+        missions: [],
+        stack: [],
+      },
+      ...prev,
+    ]);
+  };
+
+  const handleRemoveExperience = (index: number) => {
+    setExperiences((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateProject = (
+    index: number,
+    field: keyof CandidateProject,
+    value: string
+  ) => {
+    setProjects((prev) => {
+      const copy = [...prev];
+      if (field === "stack") {
+        copy[index] = {
+          ...copy[index],
+          stack: value.split(",").map((s) => s.trim()).filter(Boolean),
+        };
+      } else {
+        copy[index] = { ...copy[index], [field]: value };
+        if (field === "name" && value.trim()) {
+          const valLower = value.trim().toLowerCase();
+          setExcludedProjects((prevExc) =>
+            prevExc.filter((n) => n.toLowerCase() !== valLower)
+          );
+        }
+      }
+      return copy;
+    });
+  };
+
+  const handleAddProject = () => {
+    setProjects((prev) => [
+      {
+        name: "",
+        description: "",
+        stack: [],
+        context: "perso",
+        url: "",
+        repo: "",
+      },
+      ...prev,
+    ]);
+  };
+
+  const handleRemoveProject = (index: number) => {
+    const projToRemove = projects[index];
+    if (projToRemove?.name?.trim()) {
+      const name = projToRemove.name.trim();
+      setExcludedProjects((prev) => (prev.includes(name) ? prev : [...prev, name]));
+    }
+    setProjects((prev) => prev.filter((_, i) => i !== index));
   };
 
   useEffect(() => {
     loadProfile();
   }, []);
+
+  type SourceName = "cv" | "github" | "website";
+
+  const [busySource, setBusySource] = useState<SourceName | null>(null);
+
+  const runImport = async (source: SourceName, call: () => Promise<CandidateProfile>) => {
+    setBusySource(source);
+    setSaveError(null);
+    try {
+      const updated = await call();
+      setProfile(updated);
+      populateForm(updated);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 4000);
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : `Échec de l'import ${source}`);
+    } finally {
+      setBusySource(null);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,6 +275,7 @@ export default function CandidateProfileSection() {
       skills: Object.keys(parsedSkills).length > 0 ? parsedSkills : profile?.skills || {},
       experiences,
       projects,
+      excluded_projects: excludedProjects,
       education: profile?.education || [],
       certifications: profile?.certifications || [],
       languages: profile?.languages || ["Français", "Anglais"],
@@ -160,47 +307,65 @@ export default function CandidateProfileSection() {
   }
 
   return (
-    <div className="bg-blue-night-lighter rounded-lg shadow-lg p-6 mb-8 border border-gray-800">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-xl font-semibold text-white flex items-center">
-              <FiFileText className="mr-2 text-blue-400" /> Profil Candidat & IA
-            </h2>
-            {profile ? (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/50 text-green-300 border border-green-700/50">
-                <FiCheckCircle className="mr-1" /> Prêt pour les lettres
-              </span>
-            ) : (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-900/50 text-amber-300 border border-amber-700/50">
-                <FiAlertCircle className="mr-1" /> Profil non initialisé
-              </span>
-            )}
+    <div className="space-y-6">
+      {/* 1. Zone d'importation de CV par glisser-déposer ou sélection */}
+      <CvDropzone
+        onProfileUpdated={(updated) => {
+          setProfile(updated);
+          populateForm(updated);
+        }}
+        hasCvSource={Boolean(profile?.sources && "cv" in profile.sources)}
+      />
+
+      {/* 2. Profil Numérique Consolidé (IA) */}
+      <div className="bg-slate-900/70 backdrop-blur-md rounded-2xl shadow-xl p-6 border border-slate-800">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 shrink-0">
+              <FiFileText className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h2 className="text-lg font-bold text-white">
+                  Profil Candidat Numérique (IA)
+                </h2>
+                {profile ? (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-950/80 text-emerald-300 border border-emerald-700/50">
+                    <FiCheckCircle className="mr-1 text-emerald-400" /> Prêt pour les lettres & matching
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-950/80 text-amber-300 border border-amber-700/50">
+                    <FiAlertCircle className="mr-1 text-amber-400" /> Profil non initialisé
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Synthèse consolidée issue de votre CV, portfolio et GitHub, utilisée par l'IA pour personnaliser vos candidatures.
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-gray-400 mt-1">
-            Ces informations sont utilisées par l'agent IA pour contextualiser et rédiger vos lettres de motivation.
-          </p>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsEditing(!isEditing)}
+              className="inline-flex items-center px-4 py-2.5 rounded-xl text-xs font-semibold bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30 transition-all"
+            >
+              <FiEdit2 className="mr-1.5 w-3.5 h-3.5" />
+              {isEditing ? "Annuler l'édition" : "Modifier manuellement"}
+            </button>
+          </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsEditing(!isEditing)}
-          className="flex items-center self-start md:self-auto px-3.5 py-1.5 rounded-md text-sm font-medium bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30 transition-colors"
-        >
-          <FiEdit2 className="mr-1.5" />
-          {isEditing ? "Annuler l'édition" : "Modifier le profil"}
-        </button>
-      </div>
-
       {saveSuccess && (
-        <div className="bg-green-900/40 border border-green-600 text-green-200 p-3 rounded-md mb-5 text-sm flex items-center">
-          <FiCheckCircle className="mr-2 text-green-400 shrink-0" />
+        <div className="bg-emerald-950/60 border border-emerald-700/60 text-emerald-200 p-3 rounded-xl mb-5 text-sm flex items-center">
+          <FiCheckCircle className="mr-2 text-emerald-400 shrink-0" />
           Profil candidat enregistré avec succès ! L'IA utilisera ces informations à jour.
         </div>
       )}
 
       {saveError && (
-        <div className="bg-red-900/40 border border-red-600 text-red-200 p-3 rounded-md mb-5 text-sm flex items-center">
+        <div className="bg-red-950/60 border border-red-700/60 text-red-200 p-3 rounded-xl mb-5 text-sm flex items-center">
           <FiAlertCircle className="mr-2 text-red-400 shrink-0" />
           {saveError}
         </div>
@@ -209,103 +374,114 @@ export default function CandidateProfileSection() {
       {!isEditing ? (
         // Mode Affichage / Consultation
         <div className="space-y-6 text-sm">
-          {/* Headline & Summary */}
-          <div className="bg-blue-night/60 p-4 rounded-lg border border-gray-800/80">
-            <h3 className="text-xs uppercase tracking-wider font-semibold text-gray-400 mb-1">
-              Titre & Résumé
-            </h3>
-            <div className="text-base font-medium text-white mb-2">
-              {profile?.headline || "Titre non renseigné"}
+          {/* Titre & Résumé */}
+          <div className="bg-slate-950/40 p-5 rounded-xl border border-slate-800/80">
+            <div className="flex items-center justify-between mb-2.5">
+              <h3 className="text-xs uppercase tracking-wider font-semibold text-slate-400 flex items-center gap-1.5">
+                <FiAward className="text-blue-400" /> Titre professionnel & Résumé
+              </h3>
+              {profile?.headline && (
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  Titre actif
+                </span>
+              )}
             </div>
-            <p className="text-gray-300 leading-relaxed whitespace-pre-line">
+            <div className="text-lg font-bold text-white mb-2 tracking-tight">
+              {profile?.headline || "Data Engineer & AI Specialist"}
+            </div>
+            <p className="text-slate-300 leading-relaxed whitespace-pre-line text-xs sm:text-sm">
               {profile?.summary || "Aucun résumé professionnel enregistré."}
             </p>
           </div>
 
-          {/* Contact & Liens (Website, GitHub, LinkedIn, etc.) */}
-          <div className="bg-blue-night/60 p-4 rounded-lg border border-gray-800/80">
-            <h3 className="text-xs uppercase tracking-wider font-semibold text-gray-400 mb-3">
+          {/* Coordonnées & Liens web */}
+          <div className="bg-slate-950/40 p-5 rounded-xl border border-slate-800/80">
+            <h3 className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-3.5">
               Coordonnées & Liens web
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              <div className="flex items-center text-gray-300">
-                <FiGlobe className="mr-2 text-blue-400 shrink-0" />
-                <span className="text-gray-400 mr-2">Site Web :</span>
-                {profile?.contact?.website ? (
-                  <a
-                    href={profile.contact.website.startsWith("http") ? profile.contact.website : `https://${profile.contact.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-400 hover:underline truncate"
-                  >
-                    {profile.contact.website}
-                  </a>
-                ) : (
-                  <span className="text-gray-500 italic">Non renseigné</span>
-                )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800/90 flex items-center">
+                <FiGlobe className="mr-2.5 text-blue-400 shrink-0 w-4 h-4" />
+                <div className="min-w-0">
+                  <div className="text-[10px] text-slate-400 uppercase font-semibold">Site Web</div>
+                  {profile?.contact?.website ? (
+                    <a
+                      href={profile.contact.website.startsWith("http") ? profile.contact.website : `https://${profile.contact.website}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-400 hover:underline truncate block"
+                    >
+                      {profile.contact.website.replace(/^https?:\/\//, "")}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-slate-500 italic">Non renseigné</span>
+                  )}
+                </div>
               </div>
 
-              <div className="flex items-center text-gray-300">
-                <FiGithub className="mr-2 text-gray-300 shrink-0" />
-                <span className="text-gray-400 mr-2">GitHub :</span>
-                {profile?.contact?.github ? (
-                  <a
-                    href={profile.contact.github.startsWith("http") ? profile.contact.github : `https://${profile.contact.github}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-400 hover:underline truncate"
-                  >
-                    {profile.contact.github}
-                  </a>
-                ) : (
-                  <span className="text-gray-500 italic">Non renseigné</span>
-                )}
+              <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800/90 flex items-center">
+                <FiGithub className="mr-2.5 text-slate-300 shrink-0 w-4 h-4" />
+                <div className="min-w-0">
+                  <div className="text-[10px] text-slate-400 uppercase font-semibold">GitHub</div>
+                  {profile?.contact?.github ? (
+                    <a
+                      href={profile.contact.github.startsWith("http") ? profile.contact.github : `https://${profile.contact.github}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-400 hover:underline truncate block"
+                    >
+                      {profile.contact.github.replace(/^https?:\/\//, "")}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-slate-500 italic">Non renseigné</span>
+                  )}
+                </div>
               </div>
 
-              <div className="flex items-center text-gray-300">
-                <FiLinkedin className="mr-2 text-blue-500 shrink-0" />
-                <span className="text-gray-400 mr-2">LinkedIn :</span>
-                {profile?.contact?.linkedin ? (
-                  <a
-                    href={profile.contact.linkedin.startsWith("http") ? profile.contact.linkedin : `https://${profile.contact.linkedin}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-400 hover:underline truncate"
-                  >
-                    {profile.contact.linkedin}
-                  </a>
-                ) : (
-                  <span className="text-gray-500 italic">Non renseigné</span>
-                )}
+              <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800/90 flex items-center">
+                <FiLinkedin className="mr-2.5 text-blue-500 shrink-0 w-4 h-4" />
+                <div className="min-w-0">
+                  <div className="text-[10px] text-slate-400 uppercase font-semibold">LinkedIn</div>
+                  {profile?.contact?.linkedin ? (
+                    <a
+                      href={profile.contact.linkedin.startsWith("http") ? profile.contact.linkedin : `https://${profile.contact.linkedin}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-400 hover:underline truncate block"
+                    >
+                      {profile.contact.linkedin.replace(/^https?:\/\//, "")}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-slate-500 italic">Non renseigné</span>
+                  )}
+                </div>
               </div>
 
-              <div className="flex items-center text-gray-300">
-                <FiMail className="mr-2 text-gray-400 shrink-0" />
-                <span className="text-gray-400 mr-2">Email :</span>
-                <span className="truncate">{profile?.contact?.email || "Non renseigné"}</span>
-              </div>
-
-              <div className="flex items-center text-gray-300">
-                <FiPhone className="mr-2 text-gray-400 shrink-0" />
-                <span className="text-gray-400 mr-2">Tél :</span>
-                <span>{profile?.contact?.phone || "Non renseigné"}</span>
+              <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800/90 flex items-center">
+                <FiMail className="mr-2.5 text-emerald-400 shrink-0 w-4 h-4" />
+                <div className="min-w-0">
+                  <div className="text-[10px] text-slate-400 uppercase font-semibold">Email</div>
+                  <span className="text-xs text-slate-200 truncate block">
+                    {profile?.contact?.email || "Non renseigné"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Compétences */}
+          {/* Compétences structurées */}
           {profile?.skills && Object.keys(profile.skills).length > 0 && (
-            <div className="bg-blue-night/60 p-4 rounded-lg border border-gray-800/80">
-              <h3 className="text-xs uppercase tracking-wider font-semibold text-gray-400 mb-3 flex items-center">
+            <div className="bg-slate-950/40 p-5 rounded-xl border border-slate-800/80">
+              <h3 className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-3.5 flex items-center">
                 <FiCode className="mr-2 text-blue-400" /> Compétences structurées
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {Object.entries(profile.skills).map(([category, items]) => (
-                  <div key={category} className="bg-blue-night-lighter/50 p-2.5 rounded border border-gray-800">
-                    <span className="text-xs font-semibold uppercase text-blue-400">{category}</span>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  <div key={category} className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800/90">
+                    <span className="text-xs font-bold uppercase tracking-wider text-blue-400">{category}</span>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
                       {items.map((skill, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded text-xs bg-gray-800 text-gray-200 border border-gray-700">
+                        <span key={i} className="px-2.5 py-0.5 rounded-lg text-xs bg-slate-800 text-slate-200 border border-slate-700/70 font-medium">
                           {skill}
                         </span>
                       ))}
@@ -316,41 +492,78 @@ export default function CandidateProfileSection() {
             </div>
           )}
 
-          {/* Expériences */}
+          {/* Expériences clés */}
           {profile?.experiences && profile.experiences.length > 0 && (
-            <div className="bg-blue-night/60 p-4 rounded-lg border border-gray-800/80">
-              <h3 className="text-xs uppercase tracking-wider font-semibold text-gray-400 mb-3 flex items-center">
-                <FiBriefcase className="mr-2 text-blue-400" /> Expériences clés ({profile.experiences.length})
-              </h3>
-              <div className="space-y-3">
+            <div className="bg-slate-950/40 p-5 rounded-xl border border-slate-800/80">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs uppercase tracking-wider font-semibold text-slate-400 flex items-center">
+                  <FiBriefcase className="mr-2 text-blue-400" /> Expériences clés ({profile.experiences.length})
+                </h3>
+              </div>
+              {profile?.conflicts && profile.conflicts.length > 0 && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200 mb-4">
+                  <p className="font-semibold mb-1">
+                    Divergences détectées entre vos sources ({profile.conflicts.length})
+                  </p>
+                  <ul className="space-y-1">
+                    {profile.conflicts.map((c: CandidateConflict, i) => (
+                      <li key={i}>
+                        <span className="font-medium text-amber-300">{c.company}</span> — {c.field} : « {String(c.kept)} » retenu depuis {c.kept_source},
+                        « {String(c.discarded)} » écarté depuis {c.discarded_source}.
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="max-h-[560px] overflow-y-auto pr-1.5 custom-scrollbar space-y-3.5">
                 {profile.experiences.map((exp, idx) => (
-                  <div key={idx} className="bg-blue-night-lighter/50 p-3 rounded border border-gray-800">
-                    <div className="flex justify-between items-start">
+                  <div key={idx} className="bg-slate-900/80 p-4 rounded-xl border border-slate-800/90 hover:border-slate-700/80 transition-all">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
-                        <span className="font-semibold text-white">{exp.role}</span>
-                        <span className="text-blue-400 mx-1.5">@</span>
-                        <span className="text-gray-300 font-medium">{exp.company}</span>
+                        <span className="font-bold text-white text-sm sm:text-base">{exp.role}</span>
+                        <span className="text-blue-400 mx-1.5 font-semibold">@</span>
+                        <span className="text-slate-200 font-semibold">{exp.company}</span>
+                        {exp.location && (
+                          <span className="text-xs text-slate-400 ml-2">({exp.location})</span>
+                        )}
                       </div>
-                      <span className="text-xs text-gray-400 bg-gray-800 px-2 py-0.5 rounded">
-                        {exp.start} — {exp.end || "Présent"}
+                      <span className="inline-flex items-center text-xs font-semibold text-slate-300 bg-slate-800/90 border border-slate-700/60 px-2.5 py-1 rounded-lg shrink-0 w-fit">
+                        <FiCalendar className="mr-1.5 text-blue-400" />
+                        {formatPeriod(exp.start, exp.end)}
                       </span>
                     </div>
+
                     {exp.missions && exp.missions.length > 0 && (
-                      <ul className="mt-2 list-disc list-inside space-y-1 text-xs text-gray-300">
-                        {exp.missions.slice(0, 3).map((m, mIdx) => (
-                          <li key={mIdx} className="leading-snug">{m}</li>
+                      <ul className="mt-3 space-y-1.5 text-xs text-slate-300">
+                        {exp.missions.map((m, mIdx) => (
+                          <li key={mIdx} className="flex items-start gap-2">
+                            <span className="text-blue-400 mt-1 leading-none">•</span>
+                            <span className="leading-relaxed">{m}</span>
+                          </li>
                         ))}
                       </ul>
                     )}
-                    {exp.stack && exp.stack.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {exp.stack.map((s, sIdx) => (
-                          <span key={sIdx} className="text-[10px] bg-blue-900/30 text-blue-300 border border-blue-700/30 px-1.5 py-0.5 rounded">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+
+                    <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-800/60">
+                      {exp.stack && exp.stack.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {exp.stack.map((s, sIdx) => (
+                            <span key={sIdx} className="text-[10px] bg-blue-950/60 text-blue-300 border border-blue-800/40 px-2 py-0.5 rounded-md font-medium">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {exp.sources && exp.sources.length > 0 && (
+                        <div className="flex flex-wrap gap-1 ml-auto">
+                          {exp.sources.map((s, sIdx) => (
+                            <span key={sIdx} className="text-[10px] bg-emerald-950/60 text-emerald-300 border border-emerald-800/40 px-2 py-0.5 rounded-md font-medium">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -359,24 +572,161 @@ export default function CandidateProfileSection() {
 
           {/* Projets */}
           {profile?.projects && profile.projects.length > 0 && (
-            <div className="bg-blue-night/60 p-4 rounded-lg border border-gray-800/80">
-              <h3 className="text-xs uppercase tracking-wider font-semibold text-gray-400 mb-3 flex items-center">
-                <FiLayers className="mr-2 text-blue-400" /> Projets personnels & réalisations
+            <div className="bg-slate-950/40 p-5 rounded-xl border border-slate-800/80">
+              <div className="flex items-center justify-between mb-3.5">
+                <h3 className="text-xs uppercase tracking-wider font-semibold text-slate-400 flex items-center">
+                  <FiLayers className="mr-2 text-blue-400" /> Projets personnels & réalisations ({profile.projects.length})
+                </h3>
+                {profile.projects.length > 4 && (
+                  <span className="text-[10px] text-slate-500 italic">Défilement actif</span>
+                )}
+              </div>
+              <div className="max-h-[520px] overflow-y-auto pr-1.5 custom-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {profile.projects.map((proj, idx) => (
+                    <div key={idx} className="bg-slate-900/80 p-4 rounded-xl border border-slate-800/90 flex flex-col justify-between hover:border-slate-700/80 transition-all">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <div className="font-bold text-white text-sm flex items-center gap-2">
+                            <span>{proj.name}</span>
+                            {proj.context && (
+                              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                                {proj.context}
+                              </span>
+                            )}
+                          </div>
+                          {proj.sources && proj.sources.length > 0 && (
+                            <div className="flex gap-1">
+                              {proj.sources.map((s, sIdx) => (
+                                <span key={sIdx} className="text-[9px] bg-emerald-950/60 text-emerald-300 border border-emerald-800/40 px-1.5 py-0.5 rounded">
+                                  {s}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-300 leading-relaxed mt-1">
+                          {proj.description}
+                        </p>
+                        {proj.highlights && proj.highlights.length > 0 && (
+                          <ul className="mt-2 space-y-1 text-xs text-slate-400">
+                            {proj.highlights.map((h, hIdx) => (
+                              <li key={hIdx} className="flex items-start gap-1.5">
+                                <span className="text-blue-400 mt-0.5">•</span>
+                                <span>{h}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-800/60 space-y-3">
+                        {proj.stack && proj.stack.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {proj.stack.map((s, sIdx) => (
+                              <span key={sIdx} className="text-[10px] bg-blue-950/60 text-blue-300 border border-blue-800/40 px-2 py-0.5 rounded-md font-medium">
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {proj.url && (
+                            <a
+                              href={proj.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-xs font-semibold text-blue-400 hover:text-blue-300 hover:underline gap-1"
+                            >
+                              <span>Consulter</span>
+                              <FiExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                          {proj.repo && (
+                            <a
+                              href={proj.repo}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-xs font-semibold text-slate-300 hover:text-white hover:underline gap-1 ml-auto"
+                            >
+                              <FiGithub className="w-3.5 h-3.5" />
+                              <span>Code</span>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Formations & Diplômes */}
+          {profile?.education && profile.education.length > 0 && (
+            <div className="bg-slate-950/40 p-5 rounded-xl border border-slate-800/80">
+              <h3 className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-3.5 flex items-center">
+                <FiBook className="mr-2 text-blue-400" /> Formations & Diplômes ({profile.education.length})
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {profile.projects.map((proj, idx) => (
-                  <div key={idx} className="bg-blue-night-lighter/50 p-3 rounded border border-gray-800">
-                    <div className="font-medium text-white">{proj.name}</div>
-                    <p className="text-xs text-gray-400 mt-1">{proj.description}</p>
-                    {proj.url && (
-                      <a
-                        href={proj.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-400 hover:underline mt-2 inline-block"
-                      >
-                        Voir le projet →
-                      </a>
+              <div className="max-h-[460px] overflow-y-auto pr-1.5 custom-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {profile.education.map((edu, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-slate-900/80 p-4 rounded-xl border border-slate-800/90 hover:border-slate-700/80 transition-all flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="font-bold text-white text-sm sm:text-base leading-snug">
+                            {edu.degree}
+                          </h4>
+                          {edu.years && (
+                            <span className="inline-flex items-center text-[11px] font-semibold text-slate-300 bg-slate-800/90 border border-slate-700/60 px-2.5 py-0.5 rounded-lg shrink-0 w-fit">
+                              <FiCalendar className="mr-1 text-blue-400" />
+                              {edu.years}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-blue-400 text-xs font-semibold mt-1">
+                          {edu.school}
+                        </p>
+                      </div>
+
+                      {edu.topics && edu.topics.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-3 pt-3 border-t border-slate-800/60">
+                          {edu.topics.map((t, tIdx) => (
+                            <span
+                              key={tIdx}
+                              className="text-[10px] bg-slate-800/70 text-slate-300 border border-slate-700/40 px-2 py-0.5 rounded-md font-medium"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Certifications */}
+          {profile?.certifications && profile.certifications.length > 0 && (
+            <div className="bg-slate-950/40 p-5 rounded-xl border border-slate-800/80">
+              <h3 className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-3.5 flex items-center">
+                <FiAward className="mr-2 text-emerald-400" /> Certifications ({profile.certifications.length})
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {profile.certifications.map((cert, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800/90 hover:border-slate-700/80 transition-all"
+                  >
+                    <h4 className="font-bold text-white text-xs sm:text-sm">{cert.name}</h4>
+                    <p className="text-emerald-400 text-xs mt-1">{cert.issuer}</p>
+                    {cert.year && (
+                      <span className="text-[10px] text-slate-400 mt-2 block">{cert.year}</span>
                     )}
                   </div>
                 ))}
@@ -406,14 +756,28 @@ export default function CandidateProfileSection() {
               <label htmlFor="candidate_website" className="block text-xs font-semibold text-gray-300 uppercase mb-1 flex items-center">
                 <FiGlobe className="mr-1.5 text-blue-400" /> Site Web / Portfolio
               </label>
-              <input
-                id="candidate_website"
-                type="text"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                placeholder="https://mon-portfolio.dev"
-                className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="flex gap-2">
+                <input
+                  id="candidate_website"
+                  type="text"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="https://mon-portfolio.dev"
+                  className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => runImport("website", () => coverLetterApi.importWebsite(website))}
+                  disabled={busySource !== null || !website}
+                  className="flex items-center shrink-0 px-3 py-1.5 rounded-md text-xs font-medium bg-purple-600/20 text-purple-300 border border-purple-500/30 hover:bg-purple-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {busySource === "website" ? (
+                    <span className="w-3.5 h-3.5 border-2 border-purple-300 border-t-transparent rounded-full animate-spin"></span>
+                  ) : (
+                    "Importer"
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -436,19 +800,36 @@ export default function CandidateProfileSection() {
               <label htmlFor="candidate_github" className="block text-xs font-medium text-gray-300 mb-1 flex items-center">
                 <FiGithub className="mr-1.5" /> GitHub
               </label>
-              <input
-                id="candidate_github"
-                type="text"
-                value={github}
-                onChange={(e) => setGithub(e.target.value)}
-                placeholder="https://github.com/moncompte"
-                className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="flex gap-2">
+                <input
+                  id="candidate_github"
+                  type="text"
+                  value={github}
+                  onChange={(e) => setGithub(e.target.value)}
+                  placeholder="https://github.com/moncompte"
+                  className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => runImport("github", () => coverLetterApi.importGithub(github))}
+                  disabled={busySource !== null || !github}
+                  className="flex items-center shrink-0 px-3 py-1.5 rounded-md text-xs font-medium bg-purple-600/20 text-purple-300 border border-purple-500/30 hover:bg-purple-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {busySource === "github" ? (
+                    <span className="w-3.5 h-3.5 border-2 border-purple-300 border-t-transparent rounded-full animate-spin"></span>
+                  ) : (
+                    "Importer"
+                  )}
+                </button>
+              </div>
             </div>
 
             <div>
-              <label htmlFor="candidate_linkedin" className="block text-xs font-medium text-gray-300 mb-1 flex items-center">
-                <FiLinkedin className="mr-1.5 text-blue-400" /> LinkedIn
+              <label htmlFor="candidate_linkedin" className="block text-xs font-medium text-gray-300 mb-1 flex items-center justify-between">
+                <span className="flex items-center">
+                  <FiLinkedin className="mr-1.5 text-blue-400" /> LinkedIn
+                </span>
+                <span className="text-[10px] normal-case text-gray-500 italic">affiché sur votre profil, non importé</span>
               </label>
               <input
                 id="candidate_linkedin"
@@ -503,6 +884,220 @@ export default function CandidateProfileSection() {
             />
           </div>
 
+          {/* Édition des Expériences */}
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-xs font-semibold text-gray-300 uppercase flex items-center">
+                <FiBriefcase className="mr-2 text-blue-400" /> Expériences professionnelles ({experiences.length})
+              </label>
+              <button
+                type="button"
+                onClick={handleAddExperience}
+                className="inline-flex items-center gap-1 text-xs font-medium bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 border border-blue-500/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <FiPlus className="w-3.5 h-3.5" />
+                <span>Ajouter une expérience</span>
+              </button>
+            </div>
+
+            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1.5 custom-scrollbar">
+              {experiences.map((exp, idx) => (
+                <div key={idx} className="bg-slate-900/90 p-3 rounded-lg border border-slate-800 space-y-2 relative">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                      Expérience #{idx + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveExperience(idx)}
+                      className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-950/40 transition-colors cursor-pointer"
+                      title="Supprimer cette expérience"
+                    >
+                      <FiTrash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Poste / Rôle</label>
+                      <input
+                        type="text"
+                        value={exp.role || ""}
+                        onChange={(e) => handleUpdateExperience(idx, "role", e.target.value)}
+                        placeholder="ex: Senior Data Engineer"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Entreprise</label>
+                      <input
+                        type="text"
+                        value={exp.company || ""}
+                        onChange={(e) => handleUpdateExperience(idx, "company", e.target.value)}
+                        placeholder="ex: Agence Nile"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Début (ex: 2023-02)</label>
+                      <input
+                        type="text"
+                        value={exp.start || ""}
+                        onChange={(e) => handleUpdateExperience(idx, "start", e.target.value)}
+                        placeholder="2023-02"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Fin (vide = en cours)</label>
+                      <input
+                        type="text"
+                        value={exp.end || ""}
+                        onChange={(e) => handleUpdateExperience(idx, "end", e.target.value)}
+                        placeholder="2024-06"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Localisation</label>
+                      <input
+                        type="text"
+                        value={exp.location || ""}
+                        onChange={(e) => handleUpdateExperience(idx, "location", e.target.value)}
+                        placeholder="ex: Lyon, France"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Technologies / Stack (séparées par virgule)</label>
+                    <input
+                      type="text"
+                      value={(exp.stack || []).join(", ")}
+                      onChange={(e) => handleUpdateExperience(idx, "stack", e.target.value)}
+                      placeholder="Python, Spark, Airflow, Azure"
+                      className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-medium block mb-0.5">
+                      Missions & Réalisations (1 bullet point par ligne)
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={(exp.missions || []).join("\n")}
+                      onChange={(e) => handleUpdateExperience(idx, "missions", e.target.value)}
+                      placeholder={"Déploiement de pipelines de données temps réel sous Databricks\nOptimisation des requêtes SQL et réduction des temps de calcul de 35%\nMise en place du monitoring des modèles de Machine Learning"}
+                      className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white focus:outline-none focus:ring-1 focus:ring-blue-500 custom-scrollbar resize-y"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Édition des Projets */}
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-xs font-semibold text-gray-300 uppercase flex items-center">
+                <FiLayers className="mr-2 text-blue-400" /> Projets & Réalisations ({projects.length})
+              </label>
+              <button
+                type="button"
+                onClick={handleAddProject}
+                className="inline-flex items-center gap-1 text-xs font-medium bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 border border-blue-500/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <FiPlus className="w-3.5 h-3.5" />
+                <span>Ajouter un projet</span>
+              </button>
+            </div>
+
+            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1.5 custom-scrollbar">
+              {projects.map((proj, idx) => (
+                <div key={idx} className="bg-slate-900/90 p-3 rounded-lg border border-slate-800 space-y-2 relative">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                      Projet #{idx + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveProject(idx)}
+                      className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-950/40 transition-colors cursor-pointer"
+                      title="Supprimer ce projet"
+                    >
+                      <FiTrash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Nom du projet</label>
+                      <input
+                        type="text"
+                        value={proj.name || ""}
+                        onChange={(e) => handleUpdateProject(idx, "name", e.target.value)}
+                        placeholder="ex: WideDocs"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Contexte</label>
+                      <input
+                        type="text"
+                        value={proj.context || "perso"}
+                        onChange={(e) => handleUpdateProject(idx, "context", e.target.value)}
+                        placeholder="perso, client, recherche"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Description</label>
+                    <textarea
+                      rows={2}
+                      value={proj.description || ""}
+                      onChange={(e) => handleUpdateProject(idx, "description", e.target.value)}
+                      placeholder="Description concise du projet et des défis relevés..."
+                      className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Lien public (Démo / Site)</label>
+                      <input
+                        type="text"
+                        value={proj.url || ""}
+                        onChange={(e) => handleUpdateProject(idx, "url", e.target.value)}
+                        placeholder="https://..."
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Dépôt GitHub (Code source)</label>
+                      <input
+                        type="text"
+                        value={proj.repo || ""}
+                        onChange={(e) => handleUpdateProject(idx, "repo", e.target.value)}
+                        placeholder="https://github.com/..."
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Stack technique (séparée par virgule)</label>
+                    <input
+                      type="text"
+                      value={(proj.stack || []).join(", ")}
+                      onChange={(e) => handleUpdateProject(idx, "stack", e.target.value)}
+                      placeholder="React, FastAPI, PostgreSQL"
+                      className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
@@ -525,6 +1120,7 @@ export default function CandidateProfileSection() {
           </div>
         </form>
       )}
+      </div>
     </div>
   );
 }

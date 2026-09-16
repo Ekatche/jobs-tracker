@@ -52,3 +52,18 @@ def test_get_api_status_structure():
     assert "mistral" in status
     assert "billing_url" in status["openai"]
 
+def test_missing_api_key_raises_instead_of_using_a_placeholder(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("LETTER_MODEL_CRITIC", "gemini/gemini-3.8-flash")
+    with pytest.raises(ValueError, match="Missing API key"):
+        get_letter_llm("critic")
+
+
+def test_build_completion_kwargs_omits_temperature_for_reasoning_models():
+    from letter_llm import build_completion_kwargs
+    assert build_completion_kwargs("openai/gpt-5.6-terra", 0.7) == {}
+    assert build_completion_kwargs("openai/o1-mini", 0.7) == {}
+    assert build_completion_kwargs("openai/o3-mini", 0.7) == {}
+    assert build_completion_kwargs("mistral/mistral-large-2407", 0.7) == {"temperature": 0.7}
+    assert build_completion_kwargs("gemini/gemini-3.8-flash", 0.2) == {"temperature": 0.2}
+

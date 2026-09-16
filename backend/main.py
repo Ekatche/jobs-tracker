@@ -15,6 +15,7 @@ from app.routers import (
     task_router,
     job_offers_router,
     cover_letters_router,
+    usage_router,
 )
 
 
@@ -64,6 +65,7 @@ app.include_router(job_router)
 app.include_router(task_router)
 app.include_router(job_offers_router)
 app.include_router(cover_letters_router)
+app.include_router(usage_router)
 
 app.mount("/uploads", StaticFiles(directory="app/uploads"), name="uploads")
 

@@ -903,3 +903,4 @@ zipp==3.21.0
     # via importlib-metadata
 zstandard==0.23.0
     # via langsmith
+pymupdf==1.24.1

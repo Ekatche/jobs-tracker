@@ -37,3 +37,4 @@ def capitalize_words(text):
 
     # Sépare les mots et capitalise chacun d'eux
     return " ".join(word.capitalize() for word in text.split())
+

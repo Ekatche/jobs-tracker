@@ -34,6 +34,7 @@ None — solving the user's issue requires connecting real LLM generation so the
 - [x] Frontend type check passes: `npx tsc --noEmit` (0 errors)
 - [x] Frontend build passes: `npm run lint` (in frontend docker build)
 - [x] Layout check: CoverLetterPanel includes "Aperçu" (reading view) and "Édition" (editor view), responsive buttons, and animated spinner on generation.
+- [x] LiteLLM max_completion_tokens compatibility: `cover_letter_crew.py` uses `max_completion_tokens` and passes tests with uv.
 
 ## Steps
 - [x] Step 1: Update `DEFAULT_MODELS` in `letter_llm.py` to use `openai/gpt-5.6-sol` (Writer/Reviser), `openai/gpt-5.6-luna` (Analyst) and `gemini/gemini-3.8-flash` (Critic, ensuring cross-provider validation).
@@ -41,6 +42,8 @@ None — solving the user's issue requires connecting real LLM generation so the
 - [x] Step 3: Update `CoverLetterPanel.tsx` to add `generating` state, animated spinners on buttons, optimistic pending state, responsive header controls, and a toggle between "Aperçu" (document view) and "Édition".
 - [x] Step 4: Rebuild frontend container and test end-to-end letter generation on the Deloitte offer.
 - [x] Step 5 (teardown): Verify tests and confirm 0 regressions.
+- [x] Step 6: Replace `max_tokens` with `max_completion_tokens` across all completion calls in `cover_letter_crew.py` and set `litellm.drop_params = True`.
+- [x] Step 7: Add unit test in `tests/test_cover_letter_crew.py` verifying all 4 LLM calls use `max_completion_tokens` and run `uv run --no-sync pytest --noconftest tests/test_cover_letter_crew.py -v`.
 
 ## Code Review
 - Dead code removed: yes
@@ -56,7 +59,10 @@ None — solving the user's issue requires connecting real LLM generation so the
 - 00:13 Step 3 complete: `CoverLetterPanel.tsx` updated with dual view modes ("Aperçu" / "Éditer"), animated spinner feedback, and optimistic pending state.
 - 00:14 Step 4 complete: Frontend Docker container rebuilt and healthy, backend restarted.
 - 00:14 Step 5 complete: `pytest tests/test_cover_letters_api.py tests/test_cover_letter_crew.py -v` passed (6/6).
+- 00:49 Steps 6-7 complete: Replaced `max_tokens` with `max_completion_tokens` in `cover_letter_crew.py` across all four LLM calls (`_call_analyst`, `_call_writer`, `_call_critic`, `_call_reviser`) and enabled `litellm.drop_params = True`. Added unit test and verified passing via `uv run --no-sync pytest --noconftest tests/test_cover_letter_crew.py -v` (2 passed).
 
 ## Notes
 - Initial stubs used `gemini-3.6-flash` which returned a 429 quota exhaustion error. Upgraded through `gpt-4o-mini`/`mistral-small-2501` and finally to the latest GPT-5.6 family (Sol/Luna) + Gemini 3.8 Flash for optimal quality-to-price ratio.
 - Config: Writer/Reviser `gpt-5.6-sol` (~$0.04/call), Analyst `gpt-5.6-luna` (~$0.001/call), Critic `gemini-3.8-flash` (free tier, cross-provider).
+- OpenAI newer model families reject `max_tokens` with `litellm.BadRequestError: Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.`. Migrated all LiteLLM completion calls to `max_completion_tokens`.
+

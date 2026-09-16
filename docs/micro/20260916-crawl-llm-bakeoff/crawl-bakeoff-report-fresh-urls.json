@@ -1,0 +1,481 @@
+[
+  {
+    "model": "openai/gpt-4o-mini",
+    "skipped": false,
+    "duration_s": 48.1,
+    "status_counts": {
+      "success": 8
+    },
+    "success_rate": 1.0,
+    "grounding_rejected_rate": 0.0,
+    "usage": {
+      "prompt_tokens": 42386,
+      "completion_tokens": 5769,
+      "total_tokens": 48155
+    },
+    "estimated_cost_usd": 0.009819,
+    "per_url": [
+      {
+        "url": "https://fr.linkedin.com/jobs/view/data-engineer-at-matawan-4461990351",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://fr.linkedin.com/jobs/view/senior-ai-gen-ai-engineer-f-h-at-talan-4467759620",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83024070.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83187858.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/213NZPW",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/ovh/jobs/ai-infrastructure-engineer-inference-serving-training-data-de-production-h-f-n_lyon",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.free-work.com/fr/tech-it/jobs/large-language-model-llm",
+        "status": "success",
+        "offers_count": 8
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/cgi/jobs/directeur-trice-expert-intelligence-artificielle-genai-llm-agentic-ai-f-h_lyon",
+        "status": "success",
+        "offers_count": 1
+      }
+    ]
+  },
+  {
+    "model": "openai/gpt-5-nano",
+    "skipped": false,
+    "duration_s": 292.32,
+    "status_counts": {
+      "empty_extraction": 2,
+      "grounding_rejected": 3,
+      "success": 3
+    },
+    "success_rate": 0.38,
+    "grounding_rejected_rate": 0.38,
+    "usage": {
+      "prompt_tokens": 41714,
+      "completion_tokens": 44781,
+      "total_tokens": 86495
+    },
+    "estimated_cost_usd": 0.088028,
+    "per_url": [
+      {
+        "url": "https://fr.linkedin.com/jobs/view/data-engineer-at-matawan-4461990351",
+        "status": "empty_extraction"
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/213NZPW",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83024070.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://fr.linkedin.com/jobs/view/senior-ai-gen-ai-engineer-f-h-at-talan-4467759620",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://www.free-work.com/fr/tech-it/jobs/large-language-model-llm",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": "Free Work"
+        }
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83187858.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/cgi/jobs/directeur-trice-expert-intelligence-artificielle-genai-llm-agentic-ai-f-h_lyon",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/ovh/jobs/ai-infrastructure-engineer-inference-serving-training-data-de-production-h-f-n_lyon",
+        "status": "empty_extraction"
+      }
+    ]
+  },
+  {
+    "model": "openai/gpt-5.6-luna",
+    "skipped": false,
+    "duration_s": 84.77,
+    "status_counts": {
+      "empty_extraction": 2,
+      "success": 6
+    },
+    "success_rate": 0.75,
+    "grounding_rejected_rate": 0.0,
+    "usage": {
+      "prompt_tokens": 41751,
+      "completion_tokens": 10565,
+      "total_tokens": 52316
+    },
+    "estimated_cost_usd": 0.146892,
+    "per_url": [
+      {
+        "url": "https://fr.linkedin.com/jobs/view/data-engineer-at-matawan-4461990351",
+        "status": "empty_extraction"
+      },
+      {
+        "url": "https://fr.linkedin.com/jobs/view/senior-ai-gen-ai-engineer-f-h-at-talan-4467759620",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83024070.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/213NZPW",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/cgi/jobs/directeur-trice-expert-intelligence-artificielle-genai-llm-agentic-ai-f-h_lyon",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83187858.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.free-work.com/fr/tech-it/jobs/large-language-model-llm",
+        "status": "success",
+        "offers_count": 9
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/ovh/jobs/ai-infrastructure-engineer-inference-serving-training-data-de-production-h-f-n_lyon",
+        "status": "empty_extraction"
+      }
+    ]
+  },
+  {
+    "model": "gemini/gemini-3.8-flash",
+    "skipped": false,
+    "duration_s": 71.11,
+    "status_counts": {
+      "empty_extraction": 2,
+      "success": 6
+    },
+    "success_rate": 0.75,
+    "grounding_rejected_rate": 0.0,
+    "usage": {
+      "prompt_tokens": 43754,
+      "completion_tokens": 15605,
+      "total_tokens": 59359
+    },
+    "estimated_cost_usd": 0.091334,
+    "per_url": [
+      {
+        "url": "https://fr.linkedin.com/jobs/view/data-engineer-at-matawan-4461990351",
+        "status": "empty_extraction"
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83024070.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://fr.linkedin.com/jobs/view/senior-ai-gen-ai-engineer-f-h-at-talan-4467759620",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/213NZPW",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.free-work.com/fr/tech-it/jobs/large-language-model-llm",
+        "status": "success",
+        "offers_count": 4
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/cgi/jobs/directeur-trice-expert-intelligence-artificielle-genai-llm-agentic-ai-f-h_lyon",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83187858.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/ovh/jobs/ai-infrastructure-engineer-inference-serving-training-data-de-production-h-f-n_lyon",
+        "status": "empty_extraction"
+      }
+    ]
+  },
+  {
+    "model": "gemini/gemini-3.1-pro-preview",
+    "skipped": false,
+    "duration_s": 151.77,
+    "status_counts": {
+      "empty_extraction": 2,
+      "success": 4,
+      "grounding_rejected": 2
+    },
+    "success_rate": 0.5,
+    "grounding_rejected_rate": 0.25,
+    "usage": {
+      "prompt_tokens": 43813,
+      "completion_tokens": 23213,
+      "total_tokens": 67026
+    },
+    "estimated_cost_usd": 0.366182,
+    "per_url": [
+      {
+        "url": "https://fr.linkedin.com/jobs/view/data-engineer-at-matawan-4461990351",
+        "status": "empty_extraction"
+      },
+      {
+        "url": "https://fr.linkedin.com/jobs/view/senior-ai-gen-ai-engineer-f-h-at-talan-4467759620",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83024070.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/213NZPW",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://www.free-work.com/fr/tech-it/jobs/large-language-model-llm",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": "Free Work"
+        }
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83187858.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/cgi/jobs/directeur-trice-expert-intelligence-artificielle-genai-llm-agentic-ai-f-h_lyon",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/ovh/jobs/ai-infrastructure-engineer-inference-serving-training-data-de-production-h-f-n_lyon",
+        "status": "empty_extraction"
+      }
+    ]
+  },
+  {
+    "model": "gemini/gemini-3.7-flash",
+    "skipped": false,
+    "duration_s": 46.68,
+    "status_counts": {
+      "success": 6,
+      "empty_extraction": 2
+    },
+    "success_rate": 0.75,
+    "grounding_rejected_rate": 0.0,
+    "usage": {
+      "prompt_tokens": 44153,
+      "completion_tokens": 12962,
+      "total_tokens": 57115
+    },
+    "estimated_cost_usd": 0.081722,
+    "per_url": [
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/213NZPW",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://fr.linkedin.com/jobs/view/data-engineer-at-matawan-4461990351",
+        "status": "empty_extraction"
+      },
+      {
+        "url": "https://fr.linkedin.com/jobs/view/senior-ai-gen-ai-engineer-f-h-at-talan-4467759620",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83024070.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83187858.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.free-work.com/fr/tech-it/jobs/large-language-model-llm",
+        "status": "success",
+        "offers_count": 9
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/cgi/jobs/directeur-trice-expert-intelligence-artificielle-genai-llm-agentic-ai-f-h_lyon",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/ovh/jobs/ai-infrastructure-engineer-inference-serving-training-data-de-production-h-f-n_lyon",
+        "status": "empty_extraction"
+      }
+    ]
+  },
+  {
+    "model": "gemini/gemini-3.6-flash",
+    "skipped": false,
+    "duration_s": 114.78,
+    "status_counts": {
+      "grounding_rejected": 1,
+      "empty_extraction": 2,
+      "success": 5
+    },
+    "success_rate": 0.62,
+    "grounding_rejected_rate": 0.12,
+    "usage": {
+      "prompt_tokens": 43760,
+      "completion_tokens": 21776,
+      "total_tokens": 65536
+    },
+    "estimated_cost_usd": 0.11448,
+    "per_url": [
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83024070.html",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://fr.linkedin.com/jobs/view/data-engineer-at-matawan-4461990351",
+        "status": "empty_extraction"
+      },
+      {
+        "url": "https://fr.linkedin.com/jobs/view/senior-ai-gen-ai-engineer-f-h-at-talan-4467759620",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83187858.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/213NZPW",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.free-work.com/fr/tech-it/jobs/large-language-model-llm",
+        "status": "success",
+        "offers_count": 4
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/cgi/jobs/directeur-trice-expert-intelligence-artificielle-genai-llm-agentic-ai-f-h_lyon",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/ovh/jobs/ai-infrastructure-engineer-inference-serving-training-data-de-production-h-f-n_lyon",
+        "status": "empty_extraction"
+      }
+    ]
+  },
+  {
+    "model": "gemini/gemini-3.5-flash-lite",
+    "skipped": false,
+    "duration_s": 35.32,
+    "status_counts": {
+      "success": 7,
+      "empty_extraction": 1
+    },
+    "success_rate": 0.88,
+    "grounding_rejected_rate": 0.0,
+    "usage": {
+      "prompt_tokens": 44179,
+      "completion_tokens": 9152,
+      "total_tokens": 53331
+    },
+    "estimated_cost_usd": 0.036134,
+    "per_url": [
+      {
+        "url": "https://fr.linkedin.com/jobs/view/data-engineer-at-matawan-4461990351",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83024070.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/213NZPW",
+        "status": "success",
+        "offers_count": 11
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83187858.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://fr.linkedin.com/jobs/view/senior-ai-gen-ai-engineer-f-h-at-talan-4467759620",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.free-work.com/fr/tech-it/jobs/large-language-model-llm",
+        "status": "success",
+        "offers_count": 6
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/cgi/jobs/directeur-trice-expert-intelligence-artificielle-genai-llm-agentic-ai-f-h_lyon",
+        "status": "success",
+        "offers_count": 3
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/ovh/jobs/ai-infrastructure-engineer-inference-serving-training-data-de-production-h-f-n_lyon",
+        "status": "empty_extraction"
+      }
+    ]
+  }
+]
