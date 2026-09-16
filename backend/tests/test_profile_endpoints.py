@@ -138,6 +138,28 @@ def test_manual_edits_survive_a_later_import(client, profile_db, monkeypatch):
     assert res.json()["headline"] == "Lead Data Engineer"
 
 
+def test_saving_profile_does_not_wipe_preferences(client, profile_db):
+    """PUT /profile/candidate écrit une source "manual" séparée de PUT
+    /profile/candidate/preferences, mais les deux partagent la même clé
+    `sources.manual` en base. `_store_source` remplaçant tout le contenu de
+    cette clé, un remplacement naïf de "manual" par le seul payload du
+    formulaire profil (qui ne connaît pas `preferences`) effaçait les
+    préférences de ciblage à chaque sauvegarde de profil.
+    """
+    res = client.put(
+        "/profile/candidate/preferences",
+        json={"target_roles": ["Data Engineer"], "locations": ["Paris"]},
+    )
+    assert res.status_code == 200
+    assert res.json()["preferences"]["target_roles"] == ["Data Engineer"]
+
+    res = client.put("/profile/candidate", json={"headline": "Lead Data Engineer"})
+    assert res.status_code == 200
+    assert res.json()["headline"] == "Lead Data Engineer"
+    assert res.json()["preferences"]["target_roles"] == ["Data Engineer"]
+    assert res.json()["preferences"]["locations"] == ["Paris"]
+
+
 def test_website_import_with_invalid_project_context_is_coerced_to_perso(
     client, profile_db, monkeypatch
 ):

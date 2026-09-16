@@ -247,7 +247,10 @@ async def update_candidate_profile(
     for key in ("_id", "id", "user_id", "sources", "conflicts", "updated_at"):
         profile_data.pop(key, None)
     try:
-        return await _store_source(db, str(current_user.id), "manual", profile_data)
+        existing = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)}) or {}
+        manual = dict(existing.get("sources", {}).get("manual") or {})
+        manual.update(profile_data)
+        return await _store_source(db, str(current_user.id), "manual", manual)
     except HTTPException:
         raise
     except Exception:
