@@ -111,9 +111,35 @@ Ne force toutefois pas une transition lorsqu'elle n'apporte rien. Un changement 
 
 N'utilise pas plusieurs fois la même construction syntaxique dans des paragraphes successifs.
 
-Évite les formulations qui donnent l'impression que chaque expérience constitue une preuve destinée à convaincre le recruteur.
+## Principe de subtilité
 
-Le candidat raconte son parcours et explique naturellement pourquoi celui-ci correspond au poste.
+Ne cherche pas à démontrer explicitement que chaque expérience correspond à une mission de l'offre.
+
+Le recruteur doit pouvoir faire lui-même une partie du rapprochement.
+
+Évite les formulations de type :
+« Cette expérience correspond à... »
+« Cette articulation répond directement à... »
+« Cette compétence est particulièrement pertinente pour... »
+« Cela correspond aux missions de... »
+« Cette expérience m'a préparé à... »
+« C'est précisément ce que vous recherchez... »
+
+Lorsqu'un lien entre une expérience et le poste est évident, montre-le à travers le récit plutôt que de l'expliquer.
+
+Privilégie :
+
+* la description d'un problème réellement rencontré ;
+* ce que le candidat a construit ou développé ;
+* la manière dont il a travaillé ;
+* ce qu'il a appris de cette expérience ;
+* le lien naturel avec le sujet suivant.
+
+Ne transforme pas chaque paragraphe en démonstration de compatibilité avec l'offre.
+
+La lettre doit raconter un parcours professionnel cohérent, pas répondre point par point à l'annonce.
+
+Le candidat raconte son parcours ; le lien avec le poste se comprend de lui-même.
 
 ## Interdictions
 
@@ -152,6 +178,8 @@ Entre {min_words} et {max_words} mots.
 3 ou 4 paragraphes.
 
 Le dernier paragraphe doit rester court et naturel.
+
+Évite les conclusions qui résument artificiellement toutes les compétences du candidat. La conclusion doit rester simple et laisser les expériences précédentes porter l'argumentation.
 
 Commence par :
 

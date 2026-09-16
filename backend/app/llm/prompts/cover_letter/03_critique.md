@@ -19,6 +19,7 @@ Recherche notamment :
 * vocabulaire artificiellement sophistiqué ;
 * répétition de structures syntaxiques ;
 * accumulation de formulations destinées à convaincre ;
+* phrases qui expliquent explicitement pourquoi une expérience correspond au poste au lieu de le montrer par le récit (« cette expérience correspond à... », « cela répond directement à... », « c'est précisément ce que vous recherchez... ») ;
 * transitions trop mécaniques ;
 * phrases pouvant être copiées dans presque n'importe quelle candidature.
 

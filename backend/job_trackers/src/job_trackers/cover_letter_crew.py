@@ -303,6 +303,7 @@ async def _call_reviser(
     analyst_json: Dict[str, Any],
     critic_flaws: list,
     guard_report: Dict[str, Any],
+    voice_style: str = "",
     usage_acc: Optional[List[Tuple[int, int]]] = None,
 ) -> str:
     llm = get_letter_llm("reviser")
@@ -318,6 +319,7 @@ async def _call_reviser(
         analyst_json=json.dumps(analyst_json, ensure_ascii=False),
         critic_flaws=json.dumps(critic_flaws, ensure_ascii=False),
         violations=json.dumps(violations, ensure_ascii=False),
+        voice_style_block=_build_voice_style_block(voice_style),
     )
 
     try:
@@ -391,6 +393,7 @@ async def run_letter_pipeline_async(
             analyst_output,
             critic_verdict.get("flaws", []),
             guard_report.model_dump(),
+            voice_style=candidate_profile.get("writing_style") or "",
             usage_acc=usage_acc,
         )
         revised = True

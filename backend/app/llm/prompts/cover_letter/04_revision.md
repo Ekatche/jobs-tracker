@@ -9,6 +9,8 @@ Tu disposes de :
 
 Ton objectif est d'améliorer uniquement les éléments qui posent réellement problème.
 
+{voice_style_block}
+
 ## Principe de révision minimale
 
 Conserve autant que possible :
@@ -125,7 +127,7 @@ Violations des garde-fous déterministes :
 Avant de retourner la lettre, vérifie silencieusement :
 
 1. Chaque correction répond-elle à un défaut réellement signalé ?
-2. Ai-je conservé la voix originale ?
+2. Ai-je conservé la voix originale et le style personnel demandé ?
 3. Ai-je introduit une information absente du JSON ?
 4. Les paragraphes s'enchaînent-ils naturellement ?
 5. Le premier paragraphe est-il spécifique au poste ?
