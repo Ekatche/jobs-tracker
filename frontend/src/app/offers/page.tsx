@@ -23,6 +23,8 @@ import {
   FiEye,
   FiZap,
   FiX,
+  FiBookmark,
+  FiEyeOff,
 } from "react-icons/fi";
 import { PrefilledData } from "@/components/dashboard/NewApplicationModal";
 
@@ -51,6 +53,8 @@ export default function OffersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [companyFilter, setCompanyFilter] = useState("");
+  const [onlySaved, setOnlySaved] = useState(false);
+  const [minScoreFilter, setMinScoreFilter] = useState<number | undefined>(undefined);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -72,6 +76,8 @@ export default function OffersPage() {
         keywords: searchTerm || undefined,
         location: locationFilter || undefined,
         company: companyFilter || undefined,
+        only_saved: onlySaved || undefined,
+        min_score: minScoreFilter,
       };
 
       const countData = await jobOffersApi.getCount(filters);
@@ -80,7 +86,7 @@ export default function OffersPage() {
       console.error("Erreur lors du comptage des offres:", err);
       setTotalOffers(0);
     }
-  }, [searchTerm, locationFilter, companyFilter]);
+  }, [searchTerm, locationFilter, companyFilter, onlySaved, minScoreFilter]);
 
   // Fonction pour charger les offres
   const fetchOffers = useCallback(async () => {
@@ -92,6 +98,8 @@ export default function OffersPage() {
         keywords: searchTerm || undefined,
         location: locationFilter || undefined,
         company: companyFilter || undefined,
+        only_saved: onlySaved || undefined,
+        min_score: minScoreFilter,
         limit: ITEMS_PER_PAGE,
         skip: (currentPage - 1) * ITEMS_PER_PAGE,
       };
@@ -104,7 +112,7 @@ export default function OffersPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, locationFilter, companyFilter, currentPage]);
+  }, [searchTerm, locationFilter, companyFilter, onlySaved, minScoreFilter, currentPage]);
 
   // Fonction pour charger les statistiques
   const fetchStats = useCallback(async () => {
@@ -119,14 +127,12 @@ export default function OffersPage() {
     }
   }, []);
 
-  // ✅ NOUVELLE FONCTION: handleDeleteOffer (qui fait du soft delete en interne)
-  const handleDeleteOffer = async (offerId: string) => {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer cette offre ?")) return;
-
+  // ✅ Multi-tenant hide: masque l'offre pour le compte candidat sans impacter la plateforme
+  const handleHideOffer = async (offerId: string) => {
     try {
-      await jobOffersApi.softDelete(offerId);
+      await jobOffersApi.setInteraction(offerId, "hidden");
 
-      // Supprimer l'offre de la liste locale immédiatement pour un feedback instantané
+      // Supprimer l'offre de la vue locale immédiatement
       setOffers((prevOffers) =>
         prevOffers.filter((offer) => offer.id !== offerId)
       );
@@ -134,8 +140,31 @@ export default function OffersPage() {
       // Recharger le total pour avoir le bon compte
       await fetchTotalCount();
     } catch (err) {
-      console.error("💥 Erreur lors de la suppression:", err);
-      alert("Erreur lors de la suppression de l'offre");
+      console.error("💥 Erreur lors du masquage de l'offre:", err);
+      alert("Erreur lors du masquage de l'offre");
+    }
+  };
+
+  // ✅ Multi-tenant save / bookmark toggle
+  const handleToggleSaveOffer = async (offerId: string, currentInteraction?: string | null) => {
+    const isCurrentlySaved = currentInteraction === "saved";
+    const nextStatus = isCurrentlySaved ? "none" : "saved";
+
+    try {
+      await jobOffersApi.setInteraction(offerId, nextStatus);
+      setOffers((prevOffers) =>
+        prevOffers.map((offer) =>
+          offer.id === offerId
+            ? { ...offer, user_interaction: nextStatus === "none" ? null : "saved" }
+            : offer
+        )
+      );
+      if (onlySaved && isCurrentlySaved) {
+        setOffers((prevOffers) => prevOffers.filter((offer) => offer.id !== offerId));
+        await fetchTotalCount();
+      }
+    } catch (err) {
+      console.error("💥 Erreur lors de la mise à jour des favoris:", err);
     }
   };
 
@@ -228,24 +257,37 @@ export default function OffersPage() {
     const [isExpanded, setIsExpanded] = useState(false);
     const cleanedDescription = cleanDescriptionPreview(offer.description);
 
+    const isSaved = offer.user_interaction === "saved";
+
     return (
       <div className="bg-slate-900/80 hover:bg-slate-900/95 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all duration-200 border border-slate-800 hover:border-blue-500/40 relative group flex flex-col justify-between backdrop-blur-sm">
-        {/* Quick action buttons on hover */}
-        <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        {/* Quick action buttons */}
+        <div className="absolute top-3 right-3 flex items-center gap-1 z-10">
+          <button
+            onClick={() => handleToggleSaveOffer(offer.id, offer.user_interaction)}
+            className={`p-1.5 rounded-lg border transition-all ${
+              isSaved
+                ? "bg-amber-500/20 text-amber-300 border-amber-500/40 opacity-100"
+                : "bg-slate-800 hover:bg-amber-500/20 text-slate-400 hover:text-amber-300 border-slate-700 opacity-0 group-hover:opacity-100"
+            }`}
+            title={isSaved ? "Retirer des favoris" : "Sauvegarder cette offre"}
+          >
+            <FiBookmark className={`w-3.5 h-3.5 ${isSaved ? "fill-amber-400 text-amber-400" : ""}`} />
+          </button>
           <button
             onClick={() => handleRegenerateDescription(offer.id)}
             disabled={regeneratingId === offer.id}
-            className="bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white p-1.5 rounded-lg border border-slate-700 transition-colors disabled:opacity-50"
+            className="opacity-0 group-hover:opacity-100 bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white p-1.5 rounded-lg border border-slate-700 transition-all disabled:opacity-50"
             title="Régénérer la description par IA"
           >
             <FiRefreshCw className={`w-3.5 h-3.5 ${regeneratingId === offer.id ? "animate-spin" : ""}`} />
           </button>
           <button
-            onClick={() => handleDeleteOffer(offer.id)}
-            className="bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white p-1.5 rounded-lg border border-slate-700 transition-colors"
-            title="Supprimer cette offre"
+            onClick={() => handleHideOffer(offer.id)}
+            className="opacity-0 group-hover:opacity-100 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white p-1.5 rounded-lg border border-slate-700 transition-all"
+            title="Masquer cette offre pour mon compte"
           >
-            <FiTrash2 className="w-3.5 h-3.5" />
+            <FiEyeOff className="w-3.5 h-3.5" />
           </button>
         </div>
 
@@ -660,6 +702,41 @@ export default function OffersPage() {
                 )}
               </div>
 
+              {/* Quick filter pills */}
+              <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOnlySaved(!onlySaved);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
+                    onlySaved
+                      ? "bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm shadow-amber-500/10"
+                      : "bg-slate-800/70 text-slate-400 hover:text-white border-slate-700/60 hover:bg-slate-800"
+                  }`}
+                >
+                  <FiBookmark className={`w-3.5 h-3.5 ${onlySaved ? "fill-amber-400 text-amber-400" : ""}`} />
+                  <span>Favoris uniquement</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMinScoreFilter(minScoreFilter === 4.0 ? undefined : 4.0);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
+                    minScoreFilter === 4.0
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/10"
+                      : "bg-slate-800/70 text-slate-400 hover:text-white border-slate-700/60 hover:bg-slate-800"
+                  }`}
+                >
+                  <FiZap className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Score IA ≥ 4.0</span>
+                </button>
+              </div>
+
               {/* Filtres détaillés */}
               {showFilters && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 mt-4 border-t border-slate-800">
@@ -669,7 +746,7 @@ export default function OffersPage() {
                     </label>
                     <input
                       type="text"
-                      placeholder="Ex: Paris, Lyon, Remote..."
+                      placeholder="Paris, Lyon, Télétravail..."
                       value={locationFilter}
                       onChange={(e) => setLocationFilter(e.target.value)}
                       className="w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm"
@@ -682,7 +759,7 @@ export default function OffersPage() {
                     </label>
                     <input
                       type="text"
-                      placeholder="Nom de l'entreprise..."
+                      placeholder="Google, Alan, Doctolib..."
                       value={companyFilter}
                       onChange={(e) => setCompanyFilter(e.target.value)}
                       className="w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm"
@@ -700,12 +777,14 @@ export default function OffersPage() {
                   : `${totalOffers} offres au total • ${offers.length} affichées`}
               </p>
 
-              {(searchTerm || locationFilter || companyFilter) && (
+              {(searchTerm || locationFilter || companyFilter || onlySaved || minScoreFilter !== undefined) && (
                 <button
                   onClick={() => {
                     setSearchTerm("");
                     setLocationFilter("");
                     setCompanyFilter("");
+                    setOnlySaved(false);
+                    setMinScoreFilter(undefined);
                   }}
                   className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
                 >

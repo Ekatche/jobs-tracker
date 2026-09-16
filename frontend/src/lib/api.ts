@@ -327,6 +327,7 @@ export interface JobOffer {
   description_updated_at?: string;
   pipeline_stage?: string;
   evaluation_score?: number;
+  user_interaction?: "saved" | "hidden" | "applied" | "dismissed" | null;
 }
 
 export type {
@@ -336,6 +337,8 @@ export type {
   BlocG,
   RequirementMatch,
   MissingRequirement,
+  UserOfferInteraction,
+  UserOfferInteractionStatus,
 } from "../types/jobOffer";
 
 export interface JobOfferFilter {
@@ -344,6 +347,9 @@ export interface JobOfferFilter {
   company?: string;
   limit?: number;
   skip?: number;
+  only_saved?: boolean;
+  include_hidden?: boolean;
+  min_score?: number;
 }
 
 export interface JobOfferStats {
@@ -558,6 +564,11 @@ export const jobOffersApi = {
     if (filters.keywords) params.append("keywords", filters.keywords);
     if (filters.location) params.append("location", filters.location);
     if (filters.company) params.append("company", filters.company);
+    if (filters.only_saved) params.append("only_saved", "true");
+    if (filters.include_hidden) params.append("include_hidden", "true");
+    if (filters.min_score !== undefined && filters.min_score !== null) {
+      params.append("min_score", filters.min_score.toString());
+    }
     if (filters.limit) params.append("limit", filters.limit.toString());
     if (filters.skip) params.append("skip", filters.skip.toString());
 
@@ -570,7 +581,37 @@ export const jobOffersApi = {
     return fetchApi<JobOffer>(`/job-offers/${offerId}`, "GET");
   },
 
-  // ✅ Soft delete au lieu de la suppression définitive
+  // Enregistrer ou modifier l'interaction d'un utilisateur sur une offre (saved, hidden, applied, none)
+  setInteraction: async (
+    offerId: string,
+    status: "saved" | "hidden" | "applied" | "dismissed" | "none",
+    notes?: string
+  ) => {
+    return fetchApi<{ id?: string; user_id: string; offer_id: string; status: string; notes?: string }>(
+      `/job-offers/${offerId}/interaction`,
+      "POST",
+      { status, notes }
+    );
+  },
+
+  // Récupérer l'interaction pour une offre
+  getInteraction: async (offerId: string) => {
+    return fetchApi<{ id?: string; user_id: string; offer_id: string; status: string; notes?: string }>(
+      `/job-offers/${offerId}/interaction`,
+      "GET"
+    );
+  },
+
+  // Récupérer toutes les interactions de l'utilisateur connecté
+  getUserInteractions: async (status?: string) => {
+    const query = status ? `?status=${encodeURIComponent(status)}` : "";
+    return fetchApi<import("../types/jobOffer").UserOfferInteraction[]>(
+      `/job-offers/user/interactions${query}`,
+      "GET"
+    );
+  },
+
+  // ✅ Soft delete au lieu de la suppression définitive (admin / obsolescence)
   softDelete: async (offerId: string) => {
     return fetchApi<{ message: string; offer: JobOffer }>(
       `/job-offers/${offerId}/soft-delete`,
@@ -615,6 +656,11 @@ export const jobOffersApi = {
     if (filters.keywords) params.append("keywords", filters.keywords);
     if (filters.location) params.append("location", filters.location);
     if (filters.company) params.append("company", filters.company);
+    if (filters.only_saved) params.append("only_saved", "true");
+    if (filters.include_hidden) params.append("include_hidden", "true");
+    if (filters.min_score !== undefined && filters.min_score !== null) {
+      params.append("min_score", filters.min_score.toString());
+    }
 
     const endpoint = `/job-offers/count/?${params.toString()}`;
     return fetchApi<{ total: number }>(endpoint, "GET");
