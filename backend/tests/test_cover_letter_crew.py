@@ -260,3 +260,38 @@ async def test_writer_prompt_includes_voice_style_when_present():
         assert "Direct, phrases courtes, pas de jargon marketing." in sent_prompt
 
 
+@pytest.mark.asyncio
+async def test_reviser_prompt_includes_letter_and_analysis_data():
+    mock_choice = MagicMock()
+    mock_choice.message.content = "Lettre révisée"
+    mock_resp = MagicMock(choices=[mock_choice], usage=None)
+
+    with patch("cover_letter_crew.acompletion", return_value=mock_resp) as mock_comp, \
+         patch("cover_letter_crew.get_letter_llm") as mock_llm:
+        mock_llm.return_value.model = "openai/gpt-5.6-terra"
+        mock_llm.return_value.api_key = "fake_key"
+
+        letter_text = "Madame, Monsieur, voici ma candidature chez Acme..."
+        analyst_json = {
+            "missions": ["Optimiser les pipelines BigQuery"],
+            "selected_experiences": [{"company": "DataCorp"}],
+        }
+        critic_flaws = ["Accroche trop générique"]
+        guard_report = {"violations": ["Point d'exclamation interdit"]}
+
+        revised = await cover_letter_crew._call_reviser(
+            letter_text=letter_text,
+            analyst_json=analyst_json,
+            critic_flaws=critic_flaws,
+            guard_report=guard_report,
+        )
+
+        assert revised == "Lettre révisée"
+        assert mock_comp.called
+        sent_prompt = mock_comp.call_args[1]["messages"][0]["content"]
+        assert "Madame, Monsieur, voici ma candidature chez Acme..." in sent_prompt
+        assert "Optimiser les pipelines BigQuery" in sent_prompt
+        assert "Accroche trop générique" in sent_prompt
+        assert "Point d'exclamation interdit" in sent_prompt
+
+

@@ -60,6 +60,7 @@ export default function CandidateProfileSection() {
   // Form states
   const [headline, setHeadline] = useState("");
   const [summary, setSummary] = useState("");
+  const [writingStyle, setWritingStyle] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [website, setWebsite] = useState("");
@@ -90,6 +91,7 @@ export default function CandidateProfileSection() {
   const populateForm = (data: CandidateProfile) => {
     setHeadline(data.headline || "");
     setSummary(data.summary || "");
+    setWritingStyle(data.writing_style || "");
     setEmail(data.contact?.email || "");
     setPhone(data.contact?.phone || "");
     setWebsite(data.contact?.website || "");
@@ -265,6 +267,7 @@ export default function CandidateProfileSection() {
     const updatedProfile: Partial<CandidateProfile> = {
       headline,
       summary,
+      writing_style: writingStyle,
       contact: {
         email,
         phone,
@@ -392,6 +395,16 @@ export default function CandidateProfileSection() {
             <p className="text-slate-300 leading-relaxed whitespace-pre-line text-xs sm:text-sm">
               {profile?.summary || "Aucun résumé professionnel enregistré."}
             </p>
+            {profile?.writing_style && (
+              <div className="mt-3 pt-3 border-t border-slate-800/80">
+                <div className="text-[11px] font-semibold text-purple-400 uppercase tracking-wider mb-1">
+                  Style d&apos;écriture (Voice DNA)
+                </div>
+                <p className="text-slate-300 italic text-xs leading-relaxed whitespace-pre-line">
+                  &ldquo;{profile.writing_style}&rdquo;
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Coordonnées & Liens web */}
@@ -792,6 +805,21 @@ export default function CandidateProfileSection() {
               onChange={(e) => setSummary(e.target.value)}
               placeholder="Présentation synthétique de votre expertise, points forts et domaines de prédilection..."
               className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="candidate_writing_style" className="block text-xs font-semibold text-gray-300 uppercase mb-1 flex items-center justify-between">
+              <span>Style d&apos;écriture personnel (Voice DNA)</span>
+              <span className="text-[10px] normal-case text-gray-400 font-normal">guide le ton et le style des lettres de motivation générées</span>
+            </label>
+            <textarea
+              id="candidate_writing_style"
+              rows={3}
+              value={writingStyle}
+              onChange={(e) => setWritingStyle(e.target.value)}
+              placeholder="ex: Style direct et sobre, phrases courtes et percutantes, orienté résultats chiffrés, voix active, zéro flatterie générique..."
+              className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
             />
           </div>
 

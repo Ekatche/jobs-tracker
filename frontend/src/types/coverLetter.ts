@@ -48,6 +48,7 @@ export interface CandidateProfile {
   user_id?: string;
   headline?: string;
   summary?: string;
+  writing_style?: string;
   contact?: Record<string, string>;
   preferences?: CandidatePreferences;
   experiences?: CandidateExperience[];

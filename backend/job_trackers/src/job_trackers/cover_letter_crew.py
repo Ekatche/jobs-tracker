@@ -315,8 +315,9 @@ async def _call_reviser(
         min_words=MIN_WORDS,
         max_words=MAX_WORDS,
         letter_text=letter_text,
-        violations=violations,
-        critic_flaws=critic_flaws,
+        analyst_json=json.dumps(analyst_json, ensure_ascii=False),
+        critic_flaws=json.dumps(critic_flaws, ensure_ascii=False),
+        violations=json.dumps(violations, ensure_ascii=False),
     )
 
     try:

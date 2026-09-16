@@ -106,6 +106,20 @@ Conserve une longueur comprise entre {min_words} et {max_words} mots.
 
 Si la lettre respecte déjà cette longueur, ne la raccourcis pas ou ne l'allonge pas artificiellement.
 
+## Contexte
+
+Lettre originale :
+{letter_text}
+
+JSON d'analyse factuelle :
+{analyst_json}
+
+Défauts identifiés par le critique :
+{critic_flaws}
+
+Violations des garde-fous déterministes :
+{violations}
+
 ## Contrôle final
 
 Avant de retourner la lettre, vérifie silencieusement :
