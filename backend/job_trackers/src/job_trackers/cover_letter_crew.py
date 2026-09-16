@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional, Tuple
 from app.services.letter_guards import evaluate_letter_guards, LETTER_RULES
 from letter_llm import get_letter_llm, validate_cross_provider, ROLE_TEMPERATURES, get_model_provider, build_completion_kwargs
 
@@ -15,7 +15,7 @@ PROMPTS_DIR = Path(__file__).resolve().parents[3] / "app" / "llm" / "prompts" / 
 # fenêtre d'acceptation plus large des garde-fous côté letter_guards.py).
 MIN_WORDS = 270
 MAX_WORDS = 330
-PROMPT_VERSION = "02_style-v1"
+PROMPT_VERSION = "01_fond+02_style+03_critique+04_revision-v1"
 
 
 def load_prompt(name: str, **context: object) -> str:
@@ -27,13 +27,28 @@ def load_prompt(name: str, **context: object) -> str:
     template = (PROMPTS_DIR / f"{name}.md").read_text(encoding="utf-8")
     return template.format(**context)
 
-def _call_analyst(offer_description: str, candidate_profile: Dict[str, Any], candidate_name: str = "") -> Dict[str, Any]:
+def _track_usage(usage_acc: Optional[List[Tuple[int, int]]], resp: Any) -> None:
+    if usage_acc is None:
+        return
+    resp_usage = getattr(resp, "usage", None)
+    usage_acc.append((
+        getattr(resp_usage, "prompt_tokens", 0) or 0,
+        getattr(resp_usage, "completion_tokens", 0) or 0,
+    ))
+
+
+def _call_analyst(
+    offer_description: str,
+    candidate_profile: Dict[str, Any],
+    candidate_name: str = "",
+    usage_acc: Optional[List[Tuple[int, int]]] = None,
+) -> Dict[str, Any]:
     llm = get_letter_llm("offer_analyst")
     exps = candidate_profile.get("experiences", [])
     selected_exps = exps[:3] if exps else []
     companies = [e.get("company", "") for e in selected_exps if e.get("company")]
     projects = [p.get("name", "") for p in candidate_profile.get("projects", []) if p.get("name")]
-    
+
     candidate_stacks = set()
     for e in exps:
         for s in e.get("stack", []):
@@ -64,12 +79,16 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
         model=llm.model,
         api_key=llm.api_key,
         messages=[{"role": "user", "content": prompt}],
-        max_completion_tokens=600,
+        max_completion_tokens=1500,
         response_format={"type": "json_object"},
         drop_params=True,
         **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["offer_analyst"]),
     )
-    data = json.loads(resp.choices[0].message.content.strip())
+    _track_usage(usage_acc, resp)
+    clean = resp.choices[0].message.content.strip()
+    if "{" in clean and "}" in clean:
+        clean = clean[clean.find("{"):clean.rfind("}")+1]
+    data = json.loads(clean)
     missions = data.get("missions", ["Conception de pipelines de données", "Industrialisation de modèles ML/IA"])
 
     return {
@@ -82,14 +101,19 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
         "candidate_headline": candidate_profile.get("headline", ""),
     }
 
-def _call_writer(analyst_json: Dict[str, Any], company_name: str) -> str:
+def _call_writer(
+    analyst_json: Dict[str, Any],
+    company_name: str,
+    usage_acc: Optional[List[Tuple[int, int]]] = None,
+) -> str:
     llm = get_letter_llm("writer")
 
     capped_repetitions = ", ".join(
         f'"{term}" (max {n})' for term, n in LETTER_RULES["capped_repetitions"].items()
     )
 
-    prompt = load_prompt(
+    fond = (PROMPTS_DIR / "01_fond.md").read_text(encoding="utf-8")
+    style = load_prompt(
         "02_style",
         candidate_name=analyst_json.get("candidate_name", ""),
         candidate_headline=analyst_json.get("candidate_headline", ""),
@@ -102,6 +126,7 @@ def _call_writer(analyst_json: Dict[str, Any], company_name: str) -> str:
         projects=", ".join(analyst_json.get("projects", [])),
         capped_repetitions=capped_repetitions,
     )
+    prompt = f"{fond}\n\n{style}"
 
     resp = completion(
         model=llm.model,
@@ -111,6 +136,7 @@ def _call_writer(analyst_json: Dict[str, Any], company_name: str) -> str:
         drop_params=True,
         **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["writer"]),
     )
+    _track_usage(usage_acc, resp)
     content = resp.choices[0].message.content or ""
     content = content.strip()
     if content.startswith("```"):
@@ -119,21 +145,17 @@ def _call_writer(analyst_json: Dict[str, Any], company_name: str) -> str:
         content = stripped if stripped else content
     return content
 
-def _call_critic(letter_text: str, missions: list) -> Dict[str, Any]:
+def _call_critic(
+    letter_text: str,
+    missions: list,
+    usage_acc: Optional[List[Tuple[int, int]]] = None,
+) -> Dict[str, Any]:
     llm = get_letter_llm("critic")
-    prompt = f"""Tu es un recruteur senior intransigeant.
-Évalue cette lettre de motivation au regard des missions : {json.dumps(missions, ensure_ascii=False)}
-
-Lettre :
-{letter_text}
-
-Critères :
-- La lettre est-elle crédible, concrète et sans formulations creuses d'IA ?
-- Réponds UNIQUEMENT par un JSON avec :
-{{
-    "verdict": "pass" si la lettre est publiable, ou "revise" si elle nécessite une retouche,
-    "flaws": ["défaut 1", ...]
-}}"""
+    prompt = load_prompt(
+        "03_critique",
+        missions=json.dumps(missions, ensure_ascii=False),
+        letter_text=letter_text,
+    )
 
     try:
         resp = completion(
@@ -144,6 +166,7 @@ Critères :
             drop_params=True,
             **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["critic"]),
         )
+        _track_usage(usage_acc, resp)
         clean = resp.choices[0].message.content.strip()
         if "{" in clean:
             clean = clean[clean.find("{"):clean.rfind("}")+1]
@@ -166,22 +189,26 @@ Critères :
             "detail": str(e),
         }
 
-def _call_reviser(letter_text: str, analyst_json: Dict[str, Any], critic_flaws: list, guard_report: Dict[str, Any]) -> str:
+def _call_reviser(
+    letter_text: str,
+    analyst_json: Dict[str, Any],
+    critic_flaws: list,
+    guard_report: Dict[str, Any],
+    usage_acc: Optional[List[Tuple[int, int]]] = None,
+) -> str:
     llm = get_letter_llm("reviser")
     violations = guard_report.get("violations", [])
     if not violations and not critic_flaws:
         return letter_text
 
-    prompt = f"""Corrige cette lettre de motivation pour résoudre strictement les défauts identifiés ci-dessous, tout en conservant la structure en 3-4 paragraphes, entre 260 et 330 mots, sans ponctuation interdite (!, ..., —, parenthèses).
-
-Lettre originale :
-{letter_text}
-
-Défauts à corriger :
-- Violations de garde-fous : {violations}
-- Remarques du critique : {critic_flaws}
-
-Renvoie uniquement le texte corrigé de la lettre."""
+    prompt = load_prompt(
+        "04_revision",
+        min_words=MIN_WORDS,
+        max_words=MAX_WORDS,
+        letter_text=letter_text,
+        violations=violations,
+        critic_flaws=critic_flaws,
+    )
 
     try:
         resp = completion(
@@ -192,6 +219,7 @@ Renvoie uniquement le texte corrigé de la lettre."""
             drop_params=True,
             **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["reviser"]),
         )
+        _track_usage(usage_acc, resp)
         content = resp.choices[0].message.content or ""
         content = content.strip()
         if content.startswith("```"):
@@ -215,16 +243,18 @@ def run_letter_pipeline_sync(
         get_letter_llm("critic").model
     )
 
+    usage_acc: List[Tuple[int, int]] = []
+
     # 1. Analyse de l'offre et sélection d'expériences (le profil complet s'arrête ici)
-    analyst_output = _call_analyst(offer_description, candidate_profile, candidate_name)
+    analyst_output = _call_analyst(offer_description, candidate_profile, candidate_name, usage_acc=usage_acc)
     analyst_output["company_name"] = company_name
 
     # 2. Rédaction (ne voit que le JSON d'analyst)
-    draft_letter = _call_writer(analyst_output, company_name)
+    draft_letter = _call_writer(analyst_output, company_name, usage_acc=usage_acc)
 
     # 3. Évaluation parallèle : Garde-fous en code + Critique inter-modèle
     guard_report = evaluate_letter_guards(draft_letter, offer_description, analyst_output)
-    critic_verdict = _call_critic(draft_letter, analyst_output.get("missions", []))
+    critic_verdict = _call_critic(draft_letter, analyst_output.get("missions", []), usage_acc=usage_acc)
 
     # 4. Passe de révision conditionnelle : une panne du critique ("error")
     # déclenche aussi une révision, au même titre qu'un verdict "revise" — un
@@ -241,7 +271,8 @@ def run_letter_pipeline_sync(
             draft_letter,
             analyst_output,
             critic_verdict.get("flaws", []),
-            guard_report.model_dump()
+            guard_report.model_dump(),
+            usage_acc=usage_acc,
         )
         revised = True
         # Ré-évaluation des garde-fous pour le rapport final
@@ -255,6 +286,13 @@ def run_letter_pipeline_sync(
             "detail": critic_verdict.get("detail"),
         })
 
+    models = {
+        "analyst": get_letter_llm("offer_analyst").model,
+        "writer": get_letter_llm("writer").model,
+        "critic": get_letter_llm("critic").model,
+        "reviser": get_letter_llm("reviser").model,
+    }
+
     return {
         "body": final_letter,
         "revised": revised,
@@ -262,10 +300,10 @@ def run_letter_pipeline_sync(
         "guard_report": guard_report.model_dump(),
         "provider_failures": provider_failures,
         "prompt_version": PROMPT_VERSION,
-        "models": {
-            "analyst": get_letter_llm("offer_analyst").model,
-            "writer": get_letter_llm("writer").model,
-            "critic": get_letter_llm("critic").model,
-            "reviser": get_letter_llm("reviser").model,
-        }
+        "models": models,
+        "usage": {
+            "input_tokens": sum(t[0] for t in usage_acc),
+            "output_tokens": sum(t[1] for t in usage_acc),
+            "models_used": sorted(set(models.values())),
+        },
     }

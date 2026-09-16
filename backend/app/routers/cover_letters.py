@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from app.database import get_database
 from app.auth import get_current_user
-from app.models import CandidateProfile, UserModel
+from app.models import ApiUsageAction, CandidateProfile, UserModel
 from app.utils import serialize_mongodb_doc
 from app.routers.applications import _generate_cover_letter_bg
 from app.services.cv_parser import extract_text_from_pdf, parse_cv_with_llm
@@ -19,6 +19,7 @@ from app.services.profile.collectors.github import collect_github
 from app.services.profile.collectors.website import collect_website
 from app.services.profile.merge import build_profile_from_sources
 from app.services.profile.urls import validate_public_url_async
+from app.services.usage_tracker import record_api_usage, require_user_quota
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,8 @@ async def import_cv_source(
     db=Depends(get_database),
     current_user: UserModel = Depends(get_current_user),
 ):
+    await require_user_quota(db, current_user.id, ApiUsageAction.CV_PARSING)
+
     content = await _read_upload(file, PDF_MAGIC)
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     file_path = os.path.join(UPLOAD_DIR, f"cv_{current_user.id}_{uuid4().hex}.pdf")
@@ -172,7 +175,20 @@ async def import_cv_source(
         with open(file_path, "wb") as buffer:
             buffer.write(content)
         text = await asyncio.to_thread(extract_text_from_pdf, file_path)
-        payload = await parse_cv_with_llm(text)
+        try:
+            payload = await parse_cv_with_llm(text, pdf_path=file_path)
+        except TypeError:
+            payload = await parse_cv_with_llm(text)
+        usage = payload.pop("_usage", None)
+        if usage:
+            await record_api_usage(
+                db=db,
+                user_id=current_user.id,
+                action=ApiUsageAction.CV_PARSING,
+                models_used=[usage["model"]],
+                input_tokens=usage["input_tokens"],
+                output_tokens=usage["output_tokens"],
+            )
         return await _store_source(db, str(current_user.id), "cv", payload)
     except HTTPException:
         raise

@@ -27,7 +27,8 @@ async def test_trigger_cover_letter_on_etude_transition():
     bg_tasks = MagicMock()
     current_user = MagicMock(id=user_id)
 
-    with patch("app.routers.applications._generate_cover_letter_bg") as mock_bg_fn:
+    with patch("app.routers.applications._generate_cover_letter_bg") as mock_bg_fn, \
+         patch("app.routers.applications.require_user_quota", new=AsyncMock()):
         await update_application(
             background_tasks=bg_tasks,
             application_id=app_id,
