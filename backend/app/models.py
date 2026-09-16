@@ -28,6 +28,12 @@ class PyObjectId(str):
         return str(v)
 
 
+class UserTier(str, Enum):
+    FREE = "free"
+    ADVANCED = "advanced"
+    PRO = "pro"
+
+
 # Modèle utilisateur
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
@@ -405,3 +411,53 @@ class CoverLetter(BaseModel):
     updated_at: datetime = Field(default_factory=utcnow_with_timezone)
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
+
+
+# --- API Usage & Quota Models ---
+class ApiUsageAction(str, Enum):
+    COVER_LETTER = "cover_letter"
+    EVALUATION = "evaluation"
+    CV_TAILORING = "cv_tailoring"
+    CV_PARSING = "cv_parsing"
+    INTERVIEW_PREP = "interview_prep"
+    OFFER_SUMMARY = "offer_summary"
+
+
+class ApiUsageRecord(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    user_id: PyObjectId
+    action: ApiUsageAction
+    models_used: List[str] = Field(default_factory=list)
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+    latency_ms: Optional[int] = None
+    success: bool = True
+    error_message: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=utcnow_with_timezone)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class TierQuota(BaseModel):
+    action: ApiUsageAction
+    monthly_limit: Optional[int] = None  # None = unlimited
+
+
+class ActionQuotaUsage(BaseModel):
+    action: ApiUsageAction
+    used: int = 0
+    monthly_limit: Optional[int] = None  # None = unlimited
+    remaining: Optional[int] = None  # None = unlimited
+
+
+class UserQuotaSummary(BaseModel):
+    user_id: PyObjectId
+    tier: UserTier
+    year: int
+    month: int
+    usage: Dict[str, ActionQuotaUsage]
+    total_cost_usd: float = 0.0
+    total_tokens: int = 0
