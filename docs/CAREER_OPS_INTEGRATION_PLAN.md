@@ -27,10 +27,17 @@ Plutôt que des fichiers statiques locaux, la plateforme gère dynamiquement l'e
 | API profil (CRUD) | `app/routers/cover_letters.py` (routes `/profile/candidate/*`) | GET, PUT, POST sources |
 | Route `/profile` (UI) | `frontend/src/app/profile/` | Interface de gestion du profil |
 
-### Reste à faire ⬜
-- [ ] Route `/onboarding` (wizard multi-étapes)
-- [ ] Formulaires de préférences (poste, salaire, géo, visa, filtres)
-- [ ] Stockage des préférences de ciblage dans le profil MongoDB
+### Déjà implémenté ✅
+| Composant | Fichier(s) | Notes |
+|---|---|---|
+| Modèle `CandidateProfile` | `app/models.py` | Expériences, projets, éducation, certifications, skills, Voice DNA (`writing_style`) |
+| Parsing CV → Profil | `app/services/cv_parser.py` | Extraction PDF + parsing VLM Mistral |
+| Collecteur GitHub | `app/services/profile/collectors/github.py` | Scrape repos, contributions et filtrage des repos triviaux |
+| Collecteur Website | `app/services/profile/collectors/website.py` | Scrape portfolio et pages internes |
+| Fusion multi-sources | `app/services/profile/merge.py` | Merge dédupliqué (`_normalize_key`), résolution de conflits et provenance |
+| Portail Onboarding (UI) | `frontend/src/app/onboarding/` | Wizard multi-étapes : ciblage, upload CV, sources externes |
+| Préférences de ciblage | `frontend/src/components/profile/` | Sélection multi-niveaux de séniorité, prétentions, télétravail |
+| Route `/profile` (UI) | `frontend/src/app/profile/` | Single Source of Truth, CRUD complet, conteneurs scrollables |
 
 ---
 
@@ -38,114 +45,73 @@ Plutôt que des fichiers statiques locaux, la plateforme gère dynamiquement l'e
 Le but est de cesser de collecter du bruit et de détecter immédiatement les offres expirées (ex: offre OVH sur WTTJ).
 
 *   **Liveness Gate (Filtre de viabilité)** :
-    *   Lors du crawl (Crawl4AI), vérifier les codes HTTP (404/410), les redirections forcées, et la présence de textes comme *"Cette offre n'est plus disponible"*.
-    *   Action : Marquer `pipeline_stage: "expired"` dans MongoDB (rétrocompatible avec `is_deleted=True`).
-*   **Zero-Token ATS Parsers** :
-    *   Cibler les API publiques d'ATS (Greenhouse, Lever en priorité — Ashby est plus fermé) pour récupérer des flux JSON propres avant de tomber sur le fallback Crawl4AI.
-*   **Filtres Chirurgicaux** :
-    *   Appliquer une logique stricte sur les titres via le filtre de pertinence métier (allowlist data/IA/ML + blocklist métiers hors-domaine).
-    *   Bannissement automatique des stacks non désirées.
-
-> **Orchestrateur** : Airflow (DAGs existants pour le scraping quotidien, nettoyage batch, vérification liveness).
+    *   Lors du crawl, vérifier les codes HTTP (404/410), les redirections forcées, et la présence de textes comme *"Cette offre n'est plus disponible"*.
+    *   Action : Marquer `pipeline_stage: "expired"` dans MongoDB et synchroniser avec les candidatures liées.
+*   **Zero-Token ATS Parsers & Routeur JSON-LD** :
+    *   Cibler les API publiques d'ATS (Greenhouse, Lever, Workable) et le balisage Schema.org (`JobPosting` pour Ashby, Teamtailor, Personio, Recruitee) pour extraire du JSON propre à coût token nul avant Crawl4AI.
+*   **Funnel de recherche équilibré CrewAI** :
+    *   Stratégie d'entonnoir additif en 3 passes (Job Boards nationaux, Portails & ATS direct entreprises, LinkedIn Jobs).
+*   **Pipeline de normalisation en 4 couches** :
+    *   Nettoyage syntaxique, extraction de séniorité, déduplication floue Levenshtein + Jaccard de description, et fusion multi-sources avec priorité ATS.
 
 ### Déjà implémenté ✅
 | Composant | Fichier(s) | Notes |
 |---|---|---|
-| Vérification liveness offres | `app/tasks/verify_job_offers.py` | Détection 404/410, textes d'expiration |
-| Nettoyage/normalisation offres | `app/services/normalization.py`, `app/tasks/clean_job_offers.py` | Normalisation ville, entreprise, déduplication |
-| Filtrage pertinence métier | `app/services/relevance.py` | Allowlist data/IA + blocklist génie civil/BTP |
-| Scraping CrewAI (3 agents) | `job_trackers/crew.py` | query_converter → search_executor → url_filter |
-| Airflow DAGs | `airflow/dags/` | Orchestration batch |
-
-### Reste à faire ⬜
-- [ ] Support étendu des ATS mondiaux (Ashby, BambooHR, Personio, Workable, SuccessFactors, Taleo, iCIMS) dans `custom_tool.py` et `normalization.py`
-- [ ] Pipeline de normalisation des titres en 4 couches (syntaxique, séniorité/canonique, fuzzy Jaccard, embeddings)
-- [ ] Découplage des interactions utilisateur (`user_offer_interactions` : sauvegardes, masquages, match score)
-- [ ] Refonte d'Airflow en Demand-Driven Scraping (agrégation des `SearchSubscriptions` des utilisateurs actifs)
-- [ ] Zero-Token ATS Parsers (Greenhouse API, Lever API, Ashby API)
-- [ ] Migration `is_deleted` → `pipeline_stage: "expired"` sur les offres existantes (avec protection des offres liées aux candidatures)
-- [ ] Configuration des filtres par utilisateur (portals.yml → UI)
-
-*(Référence détaillée : [`JOB_INGESTION_AND_NORMALIZATION.md`](./JOB_INGESTION_AND_NORMALIZATION.md))*
+| Zero-Token ATS Parsers & JSON-LD | `app/services/ats/router.py` | Connecteurs directs Greenhouse, Lever, Workable, Schema.org |
+| Funnel de recherche CrewAI | `job_trackers/src/job_trackers/tools/custom_tool.py` | 3 passes équilibrées (Boards nationaux 12, ATS direct 10, LinkedIn 8) |
+| Normalisation en 4 couches | `app/services/normalization.py` | Syntaxe, séniorité, Levenshtein/Jaccard, fusion multi-sources |
+| Normalisation des rôles | `app/services/role_normalizer.py` | 24 rôles tech canoniques, embeddings cosinus >= 0.85 |
+| Demand-Driven Scraping | `app/tasks/job_offers_collectors.py` | Requêtes dynamiques depuis les préférences candidats |
+| Découplage Multi-Tenant | `app/models.py`, `app/routers/job_offers.py` | Collection `user_offer_interactions` (saved, hidden, applied) |
+| Vérification liveness & protection | `app/tasks/verify_job_offers.py`, `clean_job_offers.py` | Protection des offres liées aux candidatures, passage en expired |
 
 ---
 
 ## 3. Phase d'Analyse : L'Auto-Pipeline d'Évaluation ("Evaluation")
 Chaque offre viable passe par un sas d'évaluation IA avant d'apparaître sur l'écran de l'utilisateur.
 
-> **But produit** : l'intérêt de brancher career-ops n'est pas seulement de calculer un score — c'est de le **rendre consultable par l'utilisateur**, avec le détail des blocs (A-G) qui explique *pourquoi* une offre matche ou pas (exigences manquantes, geo-mismatch, sponsoring refusé...). Un score sans détail consultable ne remplit pas l'objectif.
-
 *   **Two-Pass Rule (Règle des 2 passages)** :
-    1. L'Agent lit la description du poste seule et liste les exigences avec leur pondération (`critical`, `high`, `meaningful`).
-    2. L'Agent lit ensuite le profil candidat (équivalent `cv.md`) et effectue le matching.
+    1. L'Agent lit la description du poste seule et extrait les exigences pondérées (`critical`, `high`, `meaningful`).
+    2. L'Agent lit le profil candidat complet (expériences, stack, formations, projets GitHub) et effectue le matching.
 *   **Les Blocs d'Évaluation (A à G)** :
     *   *Bloc A* : Résumé, Archétype du poste, et Drapeaux Rouges (Geo-mismatch, Sponsoring refusé).
-    *   *Bloc B* : Le Match CV vs Offre (avec citations *verbatim* obligatoires).
+    *   *Bloc B* : Le Match CV vs Offre (avec citations *verbatim* obligatoires et distinction des preuves déclarées vs déduites).
     *   *Bloc G* : Détection des arnaques et offres republiées (Ghost jobs).
-*   **Action** : Génération d'un **Score de 1.0 à 5.0**. Stocké dans `JobOffer.evaluation_score`.
+*   **Action** : Génération d'un **Score de 1.0 à 5.0**. Stocké dans `offer_evaluations` et `JobOffer.evaluation_score`.
 *   **Transition d'état** : `JobOffer.pipeline_stage` passe de `discovered` à `evaluated`.
-
-> **Orchestrateur** : FastAPI `BackgroundTasks` (tâche user-triggered ou batch Airflow selon le volume).
->
-> **Dépendance** : Phase 1 (profil candidat) et Phase 2 (offres scrapées viables).
 
 ### Déjà implémenté ✅
 | Composant | Fichier(s) | Notes |
 |---|---|---|
-| Résumé d'offre via LLM | `app/llm/utils.py` | Résumé structuré via `gpt-5-nano` |
-
-### Reste à faire ⬜
-- [ ] Nouveau modèle `Evaluation` (ou champs sur `JobOffer`) : score, blocs A-G, exigences pondérées
-- [ ] Agent d'évaluation Two-Pass (LiteLLM)
-- [ ] Transition automatique `pipeline_stage: "discovered" → "evaluated"`
-- [ ] Affichage par défaut limité aux offres Score >= 4.0
-- [ ] **UI de consultation du score** sur la fiche offre (`/offers/[id]`) : score global visible immédiatement + détail dépliable des Blocs A-G (exigences non satisfaites avec citation verbatim, drapeaux rouges, résumé) pour que l'utilisateur comprenne ce qui ne matche pas
+| Modèles d'évaluation | `app/models.py` | `OfferEvaluationInDB`, `RequirementMatch`, `MissingRequirement` |
+| Évaluateur Two-Pass (Gemini 3.7 Flash) | `app/services/evaluation/evaluator.py` | Blocs A-G, vérification quotas API, scoring déterministe |
+| Endpoints d'évaluation | `app/routers/job_offers.py` | POST `/job-offers/{id}/evaluate`, GET `/job-offers/{id}/evaluation` |
+| UI de consultation détaillée | `frontend/src/app/offers/[id]/page.tsx` | Jauge de score, citations verbatim, points forts/bloquants |
+| Évaluation in-sidebar Kanban | `frontend/src/components/applications/ApplicationDetails.tsx` | Évaluation en 1 clic directement dans la sidebar |
 
 ---
 
 ## 4. Phase de Pilotage : Vue Pipeline & Suivi ("Summarize Statuses")
-L'interface de `job-tracker` (Next.js) se transforme en un Dashboard de Commandement structuré autour d'un **Kanban de Matching**.
+L'interface de `job-tracker` (Next.js) propose un **Kanban de Matching et de Candidatures**.
 
-*   **State Machine Unifiée à Deux Niveaux** :
-
-    **Offer Pipeline** (automatique, sur `JobOffer.pipeline_stage`) :
-    1. `discovered` : Offre collectée par Airflow, en attente du passage de l'Auto-Pipeline.
-    2. `evaluated` : Offre évaluée avec un Score >= 4.0, en attente d'action (Personnalisation CV/Lettre).
-    3. `expired` : Offre détectée comme expirée ou non-viable.
-
-    **Application Pipeline** (utilisateur, sur `JobApplication.status`) :
-    4. `applied` : Candidature envoyée (déclenche le compte à rebours pour la relance J+7).
-    5. `screening` → `interview` → `technical_test` → `negotiation` : En processus de recrutement.
-    6. `offer_received` / `rejected` / `withdrawn` : Clôture (alimente les statistiques de conversion).
-
-    **Pont** : Bouton "Postuler" crée un `JobApplication` avec `offer_id` lié à l'offre scrapée.
-
-*   **Filtrage par Score** :
-    *   Affichage par défaut limité aux offres avec un Score >= 4.0.
+*   **State Machine Unifiée** :
+    *   Offer Pipeline : `discovered` → `evaluated` → `expired`.
+    *   Application Pipeline : `applied` → `screening` → `interview` → `technical_test` → `negotiation` → `offer_received` / `rejected` / `withdrawn`.
+*   **Filtrage personnalisé** :
+    *   Filtre par score minimum (`min_score >= 4.0`), bascule favoris / offres sauvegardées.
 *   **Cadences Automatisées (Follow-up)** :
-    *   Génération de rappels basés sur le statut :
-        *   `applied` + 7 jours -> Alerte "Relance 1".
-        *   `interview` + 1 jour -> Alerte "Email de Remerciement".
-*   **Summarize** :
-    *   Vue analytique : Taux de conversion par ATS, temps moyen avant réponse, détection des "trous noirs" (entreprises qui ne répondent jamais).
-
-> **Dépendance** : Phase 3 (évaluation) pour le Kanban colonnes Discovered/Evaluated. Phase 1 (profil) pour le matching.
+    *   `applied` + 7 jours -> Badge alerte "Relance à faire".
+    *   `interview` + 1 jour -> Badge alerte "Email de remerciement".
+*   **Vue Summarize & KPIs** :
+    *   Taux de conversion entretien et offre, offres prêtes à postuler, relances en souffrance.
 
 ### Déjà implémenté ✅
 | Composant | Fichier(s) | Notes |
 |---|---|---|
-| Route `/dashboard` (UI) | `frontend/src/app/dashboard/` | KPIs basiques |
-| Route `/applications` (UI) | `frontend/src/app/applications/` | Liste des candidatures |
-| Route `/offers` (UI) | `frontend/src/app/offers/` | Liste des offres scrapées |
-| Enum `ApplicationStatus` (9 valeurs) | `app/models.py` (L90-101) | À migrer : supprimer `ETUDE`, renommer `OFFER` → `OFFER_RECEIVED` |
-
-### Reste à faire ⬜
-- [ ] Ajout `pipeline_stage` sur `JobOffer`
-- [ ] Ajout `offer_id` sur `JobApplication`
-- [ ] Migration enum : supprimer `ETUDE`, renommer `OFFER` → `OFFER_RECEIVED`
-- [ ] Route `/pipeline` (Kanban UI)
-- [ ] Cadences automatisées (rappels J+7, J+1)
-- [ ] Vue Summarize (analytics de conversion)
+| Route unifiée `/applications` (UI) | `frontend/src/app/applications/` | Switcher Kanban / Tableau, colonnes scrollables indépendantes |
+| Métriques & Conversion | `app/routers/applications.py` | Endpoint `/applications/summary` (KPIs, conversions) |
+| Cadences J+7 / J+1 | `frontend/src/components/applications/` | Badges visuels d'échéance et alerte |
+| Redirection `/pipeline` | `frontend/src/app/pipeline/page.tsx` | Redirection transparente vers `/applications` |
 
 ---
 

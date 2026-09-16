@@ -106,38 +106,63 @@ role_aliases : {
 
 Pour permettre aux candidats de **tous les secteurs** (industrie, santé, finance, juridique, commerce, tech) de trouver des opportunités, le collecteur intègre 4 catégories de sources :
 
-| Catégorie | Domaines & Plateformes | Profils & Métiers Ciblés |
-|---|---|---|
-| **Grands Groupes & Multinationales** | `myworkdayjobs.com` (Workday)<br>`smartrecruiters.com`<br>`jobs2web.com` (SAP SuccessFactors)<br>`taleo.net` (Oracle Taleo)<br>`icims.com` | **Tous métiers** (Ouvriers, logisticiens, juristes, acheteurs, pharmaciens, comptables, ingénieurs, managers). |
-| **Job Boards Nationaux Généralistes** | `francetravail.fr` (France Travail)<br>`hellowork.com`<br>`apec.fr`<br>`indeed.fr`<br>`cadremploi.fr` | **Tous métiers** (PME régionales, secteur public, artisanat, commerce, cadres non-tech). |
-| **PME & Scale-ups Européennes** | `personio.de` / `personio.com`<br>`workable.com` / `apply.workable.com`<br>`teamtailor.com`<br>`recruitee.com`<br>`breezy.hr` / `flatchr.io` | **Multi-secteurs** (Agences, retail, hôtellerie, conseil, services, PME). |
-| **Tech, Startups & IA Mondiales** | `greenhouse.io`<br>`lever.co`<br>`ashbyhq.com` / `jobs.ashbyhq.com`<br>`bamboohr.com`<br>`welcometothejungle.com` | **Tech & Digital** (Développeurs, Data/AI, Product, Growth, Design). |
+| Catégorie | Domaines & Plateformes | Méthode d'Extraction | Statut |
+|---|---|---|---|
+| **Tech & Startups Mondiales** | `greenhouse.io`, `lever.co`, `workable.com` | **Zero-Token ATS API** direct HTTP (0 token LLM) | ✅ Implémenté (`app/services/ats/router.py`) |
+| **PME & Scale-ups Européennes** | `ashbyhq.com`, `teamtailor.com`, `recruitee.com`, `personio.de`, `breezy.hr` | **Schema.org JSON-LD Parser** direct HTTP (0 token LLM) | ✅ Implémenté (`app/services/ats/router.py`) |
+| **Grands Groupes & Multinationales** | `myworkdayjobs.com`, `smartrecruiters.com`, `jobs2web.com`, `taleo.net`, `icims.com` | Extraction hybride JSON-LD + Crawl4AI avec LLM | ✅ Implémenté |
+| **Job Boards Nationaux Généralistes** | `welcometothejungle.com`, `apec.fr`, `francetravail.fr`, `hellowork.com`, `cadremploi.fr`, `linkedin.com` | Funnel CrewAI 3 passes + Crawl4AI optimisé | ✅ Implémenté |
+
+### Zero-Token ATS & JSON-LD Router (`app/services/ats/router.py`)
+Avant tout appel lourd et coûteux à Crawl4AI (Chromium headless + extraction LLM) :
+1. Le routeur intercepte l'URL de l'offre.
+2. Si l'URL correspond à **Greenhouse**, **Lever** ou **Workable**, il interroge directement leurs API REST publiques pour obtenir les champs structurés (`title`, `company`, `location`, `description`, `salary`) en quelques millisecondes à coût token nul.
+3. Pour tous les autres domaines (Ashby, Teamtailor, Personio, etc.), il effectue une requête HTTP légère (GET) et parse les balises `<script type="application/ld+json">` avec type `@type: "JobPosting"`.
+4. En cas d'échec ou de page dynamique protégée, le système bascule gracieusement sur le crawling standard Crawl4AI.
+
+### Funnel de Recherche Équilibré CrewAI (`job_trackers/tools/custom_tool.py`)
+Pour éviter que les agrégateurs à fort trafic (HelloWork, Indeed) ne monopolisent les résultats au détriment des ATS directs d'entreprises :
+- **Passe 1 - Job boards nationaux (max 12)** : Welcome to the Jungle, Apec, France Travail, HelloWork, Cadremploi.
+- **Passe 2 - ATS direct entreprises & portails (max 10)** : Greenhouse, Lever, Workable, Ashby, Teamtailor, Recruitee, Personio, Workday.
+- **Passe 3 - LinkedIn Jobs (max 8)** : Ciblage spécifique des offres LinkedIn directes.
+- Chaque passe dispose d'une tolérance aux pannes isolée (`try/except`) et les URLs sont dédupliquées à l'insertion.
 
 ---
 
-## 4. Pipeline de Normalisation en 4 Couches
+## 4. Pipeline de Normalisation en 4 Couches (Implémenté)
 
-Face à la multiplicité des formulations recruteurs (`"Data Scientist (H/F) - CDI"`, `"[LYON] Lead Data Scientist F/H 🚀"`, `"Senior Data Scientist | Python"`), le traitement s'opère en 4 passes successives :
+Face à la multiplicité des formulations recruteurs (`"Data Scientist (H/F) - CDI"`, `"[LYON] Lead Data Scientist F/H 🚀"`, `"Senior Data Scientist | Python"`), le traitement s'opère en 4 passes successives dans `app/services/normalization.py` :
 
-### Couche 1 : Nettoyage Syntaxique Déterministe
-* Suppression des mentions légales : `(H/F)`, `(F/H)`, `HF`, `Homme/Femme`.
-* Suppression des types de contrat : `CDI`, `CDD`, `Stage`, `Alternance`, `Freelance`, `Interim`.
-* Suppression des balises et localisations polluantes : `[Lyon]`, `- Paris`, `| Remote`, `Télétravail`.
-* Suppression des éléments marketing : emojis (`🚀`, `🔥`), mentions `[URGENT]`, `Top Mission`.
-* Normalisation des espaces, passage en majuscules, suppression de la ponctuation, tri alphabétique des tokens significatifs.
+### Couche 1 : Nettoyage Syntaxique Déterministe (`clean_job_title_syntax`)
+* **Mentions légales éliminées** : `(H/F)`, `(F/H)`, `HF`, `Homme/Femme`, `M/F/D`, `(h/f/x)`.
+* **Types de contrat retirés de l'intitulé** : `CDI`, `CDD`, `Stage`, `Alternance`, `Freelance`, `Interim`, `Apprentissage`, `Contrat Pro`.
+* **Balises et localisations polluantes supprimées** : `[Lyon]`, `[CDI]`, `- Paris`, `| Remote`, `Télétravail`, `Full Remote`.
+* **Éléments marketing et emojis éliminés** : `🚀`, `🔥`, `⭐`, `[URGENT]`, `Top Mission`, `Super opportunité`.
+* **Garde-fou Profil Candidat** : Appliqué également aux préférences saisies par les candidats dans `build_search_queries` pour garantir qu'aucune scorie utilisateur ne contamine les requêtes web.
 
-### Couche 2 : Extraction de la Séniorité & Titre Canonique
-* **Séniorité** isolée dans `seniority_level` : `intern` | `junior` | `mid` | `senior` | `lead` | `principal` | `director`.
-* **Titre Canonique (`canonical_title`)** : Mappé via un dictionnaire de synonymes ou classification (ROME / O*NET) :
-  * *"Ingénieur Données"*, *"Data Engineer"*, *"Consultant ETL"* ➔ **`Data Engineer`**
-  * *"Ingénieur IA"*, *"AI Engineer"*, *"Machine Learning Engineer"* ➔ **`ML Engineer`**
-  * *"Contrôleur de gestion"*, *"Financial Controller"* ➔ **`Contrôleur de gestion`**
+### Couche 2 : Extraction de la Séniorité & Titre Canonique (`extract_seniority`, `role_normalizer.py`)
+* **Séniorité standardisée** dans `seniority_level` :
+  - `intern` : Stage, Alternance, Apprentissage, Intern
+  - `junior` : Junior, Jr, Débutant, Graduate, 0-2 ans
+  - `mid` : Confirmé, Intermédiaire, 2-5 ans
+  - `senior` : Senior, Sr, Confirmé+, 5+ ans
+  - `lead` : Lead, Principal, Staff, Tech Lead, Architecte
+  - `director` : Director, Directeur, VP, Head of, Chief, CTO
+* **Titre Canonique (`canonical_title`)** : Mappé via le registre MongoDB `role_aliases` (24 rôles tech canoniques avec résolution sémantique cosinus ≥ 0.85).
 
-### Couche 3 : Déduplication Multi-Critères (Fuzzy & Jaccard)
-1. **Passe stricte** : Clé composite `hash(Entreprise_normalisée + Ville_normalisée + Titre_canonique)` avec fenêtre glissante de 15 jours.
-2. **Passe floue (Levenshtein / Jaro-Winkler)** : Similarité > 85% sur le titre pour la même entreprise et même ville.
-3. **Passe de contenu (Distance de Jaccard)** : Comparaison des n-grammes de la description (> 80% de similitude textuelle = détection de multidiffusion Indeed/LinkedIn).
+### Couche 3 : Déduplication Multi-Critères (`are_offers_duplicates`, `jaccard_description_similarity`)
+1. **Passe exacte** : URLs identiques = doublon immédiat.
+2. **Passe entreprise + ville** : Entreprise normalisée (`normalize_company`) + compatibilité géographique (`normalize_city`).
+3. **Passe floue sur l'intitulé (Levenshtein / SequenceMatcher)** : Similarité ≥ 82% sur l'intitulé nettoyé par la Couche 1.
+4. **Passe de contenu (Distance de Jaccard)** : Tokenisation de la description (hors stopwords français/anglais). Si Jaccard ≥ 65% pour la même entreprise : détection formelle de multidiffusion (ex: Indeed / LinkedIn / ATS avec des intitulés légèrement différents).
 
-### Couche 4 : Déduplication Sémantique par Embeddings
-* Vecteur dense généré sur la signature normalisée de l'offre : `"{company} | {canonical_title} | {location} | {first_300_chars}"`.
-* Si `cosine_similarity > 0.94` à moins de 20 jours d'intervalle chez le même employeur : fusion dans une offre unique avec multi-liens sources (`sources: [linkedin_url, direct_ats_url]`).
+### Couche 4 : Fusion & Consolidation Multi-Sources (`merge_multidiffusion_offers`, `deduplicate_and_merge_offers`)
+* **Hiérarchie de priorité des sources** :
+  - **Priorité 100** : ATS direct entreprise (`greenhouse.io`, `lever.co`, `workable.com`, `ashbyhq.com`, etc.)
+  - **Priorité 80** : Job boards qualifiés (`welcometothejungle.com`, `apec.fr`, `francetravail.fr`)
+  - **Priorité 50** : Agrégateurs généralistes (`linkedin.com`, `hellowork.com`, `indeed.com`, `cadremploi.fr`)
+* **Consolidation intelligente** :
+  - L'URL la plus noble (ATS direct) devient l'URL principale (`url`).
+  - Les URLs des autres parutions sont rattachées dans `alternative_urls`.
+  - **Préservation des métadonnées les plus riches** : Si le salaire est présent sur une source mais absent sur l'autre, le salaire réel est conservé. Idem pour le type de contrat et la description la plus détaillée.
+  - **Sauvegarde MongoDB** : Les documents survivants sont mis à jour dans `remove_similarity_duplicates` (`clean_job_offers.py`) avant l'archivage sécurisé des doublons.

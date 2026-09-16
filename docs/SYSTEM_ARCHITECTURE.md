@@ -14,15 +14,15 @@ L'interface est segmentée logiquement pour une navigation SaaS fluide.
 
 | Route | Rôle | État |
 |---|---|---|
-| `/onboarding` | Wizard multi-étapes : poste, prétentions, upload CV, filtres | À créer |
-| `/dashboard` | Vue "Summarize" : KPIs globaux, taux de conversion, offres à relancer | ✅ Existe |
-| `/offers` | Liste des offres scrapées (Discovered / Evaluated) | ✅ Existe |
-| `/offers/[id]` | Vue détaillée d'une offre : Match CV (Bloc B), red-flags, boutons d'action | À créer |
-| `/applications` | Liste des candidatures actives de l'utilisateur | ✅ Existe |
-| `/pipeline` | Kanban principal (Discovered → Evaluated → Applied → Interview → Offer) | À créer |
-| `/tasks` | Tâches manuelles de l'utilisateur | ✅ Existe |
-| `/profile` | Mise à jour du profil candidat (Single Source of Truth) | ✅ Existe |
-| `/settings/usage` | Dashboard de consommation API personnelle | À créer |
+| `/onboarding` | Wizard multi-étapes : poste, prétentions, upload CV, filtres | ✅ Existe (`app/onboarding/page.tsx`) |
+| `/dashboard` | Vue "Summarize" : KPIs globaux, taux de conversion, offres à relancer | ✅ Existe (`app/dashboard/page.tsx`) |
+| `/offers` | Liste des offres scrapées (Discovered / Evaluated, filtres min_score & favoris) | ✅ Existe (`app/offers/page.tsx`) |
+| `/offers/[id]` | Vue détaillée d'une offre : Match CV Two-Pass (Blocs A-G), verbatim quotes, actions | ✅ Existe (`app/offers/[id]/page.tsx`) |
+| `/applications` | Vue unifiée Kanban & Tableau des candidatures, cadences relances J+7/J+1, sidebar | ✅ Existe (`app/applications/page.tsx`) |
+| `/pipeline` | Redirection transparente vers `/applications` (vue Kanban par défaut) | ✅ Existe (`app/pipeline/page.tsx`) |
+| `/tasks` | Tâches manuelles de l'utilisateur | ✅ Existe (`app/tasks/page.tsx`) |
+| `/profile` | Mise à jour du profil candidat (Single Source of Truth, CV, Voice DNA, CRUD) | ✅ Existe (`app/profile/page.tsx`) |
+| `/settings/usage` | Suivi de consommation API et quotas (backend `/usage/summary`) | ✅ Backend actif (`routers/usage.py`) |
 
 ### B. Feedback Visuel (Spinners & Skeletons)
 - **Actions courtes (< 2 secondes)** : Spinners classiques sur les boutons + désactivation pour éviter le double clic.
@@ -34,11 +34,12 @@ L'interface est segmentée logiquement pour une navigation SaaS fluide.
 
 ### A. Flow JWT (déjà implémenté)
 - Module `app/auth.py` avec `get_current_user` injecté via `Depends()` sur les routes protégées.
+- Support optionnel `get_current_user_optional` pour les routes de consultation publique/catalogue.
 - Tokens JWT signés avec `SECRET_KEY`, expiration configurable (`ACCESS_TOKEN_EXPIRE_MINUTES=30`).
 
 ### B. Isolation Multi-Tenant
 - **Données Utilisateur Privées** : Chaque document `applications`, `tasks`, `candidate_profile`, `cover_letters`, `api_usage` et `user_quotas` porte un champ `user_id` obligatoire. Toutes les requêtes/mutations filtrent strictement par le `user_id` du token JWT (rejet avec HTTP 403 en cas de mismatch).
-- **Catalogue Global d'Offres (`job_offers`)** : Pool partagé alimenté par Airflow et les imports on-demand. L'état personnel d'un utilisateur vis-à-vis d'une offre (favori, masqué, match score) est découplé dans `user_offer_interactions` pour ne jamais polluer le catalogue commun.
+- **Catalogue Global d'Offres (`job_offers`)** : Pool partagé alimenté par Zero-Token ATS, Airflow et Crawl4AI. L'état personnel d'un utilisateur vis-à-vis d'une offre (favori, masqué, match score) est découplé dans `user_offer_interactions` (index unique `user_id + offer_id`) pour ne jamais polluer le catalogue commun.
 - *(Détails complets dans `JOB_INGESTION_AND_NORMALIZATION.md`)*.
 
 ### C. Rate Limiting
@@ -53,13 +54,16 @@ L'interface est segmentée logiquement pour une navigation SaaS fluide.
 
 ```
 User (users)
- ├── CandidateProfile (candidate_profile)           [1:1]
- ├── JobOffer (job_offers)                           [via Airflow, partagé en lecture]
+ ├── CandidateProfile (candidate_profile)           [1:1, CV + GitHub + Website + Voice DNA]
+ ├── JobOffer (job_offers)                           [Catalogue global partagé]
+ │    ├── canonical_title, seniority_level, poste
+ │    ├── url (priorité ATS), alternative_urls (multidiffusions)
  │    └── pipeline_stage: discovered | evaluated | expired
  ├── UserOfferInteraction (user_offer_interactions) [1:N, statut perso sur catalogue]
  │    ├── offer_id → JobOffer._id
- │    ├── status: SAVED | HIDDEN | DISMISSED | APPLIED
- │    └── match_score: float
+ │    ├── status: saved | hidden | applied | dismissed
+ │    ├── notes: string
+ │    └── updated_at: datetime
  ├── JobApplication (applications)                   [1:N]
  │    ├── offer_id → JobOffer._id                    [optionnel, lien offre d'origine]
  │    ├── status: ApplicationStatus enum             [9 valeurs]

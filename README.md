@@ -6,19 +6,22 @@ Job Tracker est une application web moderne et automatisée pour centraliser vos
 
 ## 🏗️ Architecture & Technologies
 
-- **Frontend** : Next.js (App Router), React, TailwindCSS, Axios, React Icons, Cookies de session proactifs.
-- **Backend API** : FastAPI, Pydantic v2, Motor / PyMongo, JWT Auth (Access + Refresh Tokens avec "Se souvenir de moi").
-- **Automatisation & Scheduling** : Apache Airflow (DAGs de collecte quotidienne, nettoyage des doublons et soft-delete).
+- **Frontend** : Next.js (App Router), React, TailwindCSS, Axios, React Icons, Cookies de session proactifs, Vue unifiée Kanban & Tableau (`/applications`), Wizard d'onboarding (`/onboarding`).
+- **Backend API** : FastAPI, Pydantic v2, Motor / PyMongo, JWT Auth (Access + Refresh Tokens avec support optionnel pour catalogue).
+- **Automatisation & Scheduling** : Apache Airflow (DAGs de collecte quotidienne, nettoyage des doublons et soft-delete synchronisé).
+- **Ingestion & Normalisation en 4 Couches** :
+  - **Zero-Token ATS & JSON-LD Router** : Connecteurs HTTP directs pour Greenhouse, Lever, Workable et Schema.org JSON-LD (Ashby, Teamtailor, Personio, Recruitee) extrayant du JSON structuré à coût token nul (0 token LLM).
+  - **Funnel de Recherche Additif (CrewAI & Tavily)** : Partitionnement équilibré en 3 passes (Job boards nationaux max 12, ATS direct entreprises max 10, LinkedIn Jobs max 8).
+  - **Normalisation en 4 Couches** : Nettoyage syntaxique des scories employeur `(H/F), CDI, [LYON], 🚀`, extraction de séniorité, déduplication floue Levenshtein + Jaccard de descriptions, et fusion multi-sources avec priorité aux URLs ATS et consolidation des salaires et liens alternatifs.
+  - **Découplage Multi-Tenant** : Isolation des statuts personnels (Sauvegardée, Masquée, Postulée, Score de matching) dans `user_offer_interactions` pour préserver l'intégrité du pool partagé `job_offers`.
+- **Évaluation d'Offre Two-Pass (Career-Ops IA)** :
+  - Sas d'évaluation en 2 passages avec Gemini 3.7 Flash : extraction d'exigences pondérées suivie du matching contre le profil candidat complet (CV, stack, formations, projets GitHub).
+  - Score 1.0 à 5.0, citations *verbatim* obligatoires et drapeaux rouges consultables sur `/offers/[id]` et directement dans la sidebar du Kanban.
 - **Génération de Lettres de Motivation (Multi-Agents CrewAI)** :
   - Pipeline à 4 rôles : Analyste de cadrage (GPT-5.6 Luna), Rédacteur de premier jet (GPT-5.6 Sol), Critique de style multi-fournisseur obligatoire (Gemini 3.8 Flash, cross-provider) et Réviseur conditionnel (GPT-5.6 Sol).
+  - Recherche en direct sur l'entreprise via Tavily et intégration du style rédactionnel personnel du candidat (Voice DNA).
   - Garde-fous déterministes stricts (longueur, connecteurs, ponctuation, entités autorisées, anti-hallucination).
-  - Déclenchement automatique non-bloquant lors du passage d'une candidature au statut "En étude".
-  - Gestion résiliente des quotas et crédits API avec détection d'erreurs conviviale.
-- **Intelligence Artificielle & Scraping** :
-  - **CrewAI (v1.x)** : Multi-agents coordonnés pour convertir une intention de recherche en requêtes ciblées et filtrer les URLs pertinentes avec typage Pydantic structuré.
-  - **Tavily Search API** : Moteur de recherche web avec fraîcheur mensuelle et ciblage de job boards qualifiés.
-  - **Crawl4AI** : Web scraper asynchrone Chromium capable d'exécuter du JS (SPAs type APEC, HelloWork, WTTJ), de contourner les bandeaux cookies et d'extraire les données structurées via LLM (`gpt-5.6-luna` ou `gemini-3.8-flash`).
-- **Base de données** : MongoDB avec persistance des tombstones (soft-delete pour ne pas réimporter les offres supprimées).
+- **Base de données** : MongoDB avec index composites uniques, soft-delete (`pipeline_stage: "expired"`), et protection contre la suppression physique des offres liées à des candidatures.
 
 ---
 
