@@ -297,6 +297,8 @@ class JobOfferCreate(BaseModel):
     deletion_reason: Optional[str] = None  # Raison de suppression / expiration
     url: Optional[str] = None
     source_url: Optional[str] = None  # URL de la page où l'offre a été trouvée
+    pipeline_stage: Optional[str] = "discovered"
+    evaluation_score: Optional[float] = None
 
 
 class JobOfferResponse(BaseModel):
@@ -315,6 +317,8 @@ class JobOfferResponse(BaseModel):
     deleted_date: Optional[datetime] = None  # Date de suppression
     deletion_reason: Optional[str] = None  # Raison de suppression / expiration
     source_url: Optional[str] = None
+    pipeline_stage: Optional[str] = "discovered"
+    evaluation_score: Optional[float] = None
     created_at: datetime
     updated_at: datetime
 
@@ -323,8 +327,84 @@ class JobOfferFilter(BaseModel):
     keywords: Optional[List[str]] = None
     locations: Optional[List[str]] = None
     companies: Optional[List[str]] = None
+    min_score: Optional[float] = None
+    pipeline_stage: Optional[str] = None
     limit: int = 50
     skip: int = 0
+
+
+# --- Modèles d'Évaluation d'Offre (Two-Pass Career-Ops) ---
+class RequirementMatch(BaseModel):
+    requirement: str
+    weight: Literal["critical", "high", "meaningful"] = "high"
+    candidate_evidence: str
+    verbatim_quote: str  # Citation exacte de l'offre
+    status: Literal["full_match", "partial_match"] = "full_match"
+    # "stated" : preuve explicite dans le profil (poste, stack, mission listée).
+    # "inferred" : déduction du modèle sans mention explicite. Ne peut jamais à
+    # elle seule justifier un full_match sur une exigence critical/high — voir
+    # le gate déterministe dans evaluator.py::evaluate_offer_two_pass.
+    evidence_tier: Literal["stated", "inferred"] = "stated"
+
+
+class MissingRequirement(BaseModel):
+    requirement: str
+    weight: Literal["critical", "high", "meaningful"] = "high"
+    reason: str
+    impact_on_role: Optional[str] = None
+
+
+class BlocA(BaseModel):
+    summary: str = ""
+    archetype: str = ""
+    red_flags: List[str] = Field(default_factory=list)
+    geo_mismatch: bool = False
+    visa_sponsoring_refused: bool = False
+    notes: Optional[str] = None
+
+
+class BlocB(BaseModel):
+    matched_requirements: List[RequirementMatch] = Field(default_factory=list)
+    missing_requirements: List[MissingRequirement] = Field(default_factory=list)
+    score_justification: str = ""
+
+
+class BlocG(BaseModel):
+    is_ghost_job: bool = False
+    is_scam_risk: bool = False
+    reposted_frequency: Optional[str] = None
+    warnings: List[str] = Field(default_factory=list)
+
+
+class OfferEvaluation(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    user_id: PyObjectId
+    offer_id: PyObjectId
+    score: float = 1.0  # 1.0 to 5.0
+    headline: str = ""
+    pipeline_stage: Literal["discovered", "evaluated", "expired"] = "evaluated"
+    bloc_a: BlocA = Field(default_factory=BlocA)
+    bloc_b: BlocB = Field(default_factory=BlocB)
+    bloc_g: BlocG = Field(default_factory=BlocG)
+    models_used: List[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utcnow_with_timezone)
+    updated_at: datetime = Field(default_factory=utcnow_with_timezone)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class OfferEvaluationResponse(BaseModel):
+    id: Optional[str] = None
+    user_id: str
+    offer_id: str
+    score: float
+    headline: str
+    pipeline_stage: str
+    bloc_a: BlocA
+    bloc_b: BlocB
+    bloc_g: BlocG
+    created_at: datetime
+    updated_at: datetime
 
 
 # Modèles pour le profil candidat et la génération de lettres de motivation

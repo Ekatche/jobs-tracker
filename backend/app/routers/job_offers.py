@@ -2,9 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 from bson import ObjectId
 from datetime import datetime, timezone
-from ..models import JobOfferResponse
+from ..models import JobOfferResponse, OfferEvaluationResponse, UserModel
 from ..database import get_database
+from ..auth import get_current_user
 from ..services.normalization import normalize_city, normalize_company, extract_domain
+from ..services.evaluation.evaluator import evaluate_offer_two_pass
+from ..utils import serialize_mongodb_doc
 
 job_offers_router = APIRouter(prefix="/job-offers", tags=["job-offers"])
 
@@ -120,6 +123,54 @@ async def get_job_offer(offer_id: str, db=Depends(get_database)):
     offer["id"] = str(offer["_id"])
     del offer["_id"]
     return offer
+
+
+@job_offers_router.post("/{offer_id}/evaluate", response_model=OfferEvaluationResponse)
+async def evaluate_job_offer_endpoint(
+    offer_id: str,
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Déclenche l'évaluation Two-Pass de l'offre pour le candidat connecté"""
+    if not ObjectId.is_valid(offer_id):
+        raise HTTPException(status_code=400, detail="ID d'offre invalide")
+
+    evaluation = await evaluate_offer_two_pass(
+        db=db,
+        user_id=str(current_user.id),
+        offer_id=str(offer_id),
+    )
+    result = evaluation.model_dump()
+    if "_id" in result:
+        result["id"] = str(result["_id"])
+    elif not result.get("id"):
+        result["id"] = f"{current_user.id}_{offer_id}"
+    return result
+
+
+@job_offers_router.get("/{offer_id}/evaluation", response_model=OfferEvaluationResponse)
+async def get_job_offer_evaluation_endpoint(
+    offer_id: str,
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Récupère l'évaluation détaillée associée au couple (offer_id, user_id)"""
+    if not ObjectId.is_valid(offer_id):
+        raise HTTPException(status_code=400, detail="ID d'offre invalide")
+
+    evaluation_doc = await db["offer_evaluations"].find_one({
+        "user_id": str(current_user.id),
+        "offer_id": str(offer_id),
+    })
+    if not evaluation_doc:
+        raise HTTPException(
+            status_code=404,
+            detail="Aucune évaluation trouvée pour cette offre et cet utilisateur",
+        )
+
+    if "_id" in evaluation_doc:
+        evaluation_doc["id"] = str(evaluation_doc["_id"])
+    return evaluation_doc
 
 
 @job_offers_router.patch("/{offer_id}/soft-delete")
