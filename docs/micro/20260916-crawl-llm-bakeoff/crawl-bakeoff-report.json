@@ -1,0 +1,305 @@
+[
+  {
+    "model": "openai/gpt-4o-mini",
+    "skipped": false,
+    "duration_s": 59.17,
+    "status_counts": {
+      "success": 4,
+      "grounding_rejected": 2,
+      "empty_crawl": 2
+    },
+    "success_rate": 0.5,
+    "grounding_rejected_rate": 0.25,
+    "usage": {
+      "prompt_tokens": 24179,
+      "completion_tokens": 6029,
+      "total_tokens": 30208
+    },
+    "estimated_cost_usd": 0.007244,
+    "per_url": [
+      {
+        "url": "https://fr.linkedin.com/jobs/view/ai-engineer-at-scaleway-4465566696",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/213WXYS",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=Ing%C3%A9nieur+Plateforme+IA+%2F+MLOps",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83256458.html",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://fr.indeed.com/viewjob?from=app-tracker-saved-appcard&hl=fr&jk=afd42d866addd921&tk=1k2d1c9ri229i000",
+        "status": "empty_crawl",
+        "detail": "Unexpected error in _crawl_web at line 744 in _crawl_web (.venv/lib/python3.12/site-packages/crawl4ai/async_crawler_strategy.py):\nError: Failed on navigating ACS-GOTO:\nPage.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"https://fr.indeed.com/m/viewjob?jk=afd42d866addd921\", waiting until \"networkidle\"\n\n\nCode context:\n 739                       response = await page.goto(\n 740                           url, wait_until=config.wait_until, timeout=config.page_timeout\n 741                       )\n 742                       redirected_url = page.url\n 743                   except Error as e:\n 744 →                     raise RuntimeError(f\"Failed on navigating ACS-GOTO:\\n{str(e)}\")\n 745   \n 746                   await self.execute_hook(\n 747                       \"after_goto\", page, context=context, url=url, response=response, config=config\n 748                   )\n 749   "
+      },
+      {
+        "url": "https://fr.linkedin.com/jobs/view/data-engineer-at-n%C3%A9osoft-4465711480",
+        "status": "empty_crawl",
+        "detail": "Unexpected error in _crawl_web at line 744 in _crawl_web (.venv/lib/python3.12/site-packages/crawl4ai/async_crawler_strategy.py):\nError: Failed on navigating ACS-GOTO:\nPage.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"https://fr.linkedin.com/jobs/view/data-engineer-at-n%C3%A9osoft-4465711480\", waiting until \"networkidle\"\n\n\nCode context:\n 739                       response = await page.goto(\n 740                           url, wait_until=config.wait_until, timeout=config.page_timeout\n 741                       )\n 742                       redirected_url = page.url\n 743                   except Error as e:\n 744 →                     raise RuntimeError(f\"Failed on navigating ACS-GOTO:\\n{str(e)}\")\n 745   \n 746                   await self.execute_hook(\n 747                       \"after_goto\", page, context=context, url=url, response=response, config=config\n 748                   )\n 749   "
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/209VCCG",
+        "status": "success",
+        "offers_count": 1
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/nexton-consulting/jobs/ai-developer-h-f_lyon",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": "AI Developer",
+          "entreprise": "Nexton Consulting"
+        }
+      }
+    ]
+  },
+  {
+    "model": "openai/gpt-5-nano",
+    "skipped": false,
+    "duration_s": 46.61,
+    "status_counts": {
+      "grounding_rejected": 7,
+      "empty_crawl": 1
+    },
+    "success_rate": 0.0,
+    "grounding_rejected_rate": 0.88,
+    "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "estimated_cost_usd": 0.0,
+    "per_url": [
+      {
+        "url": "https://fr.linkedin.com/jobs/view/ai-engineer-at-scaleway-4465566696",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=Ing%C3%A9nieur+Plateforme+IA+%2F+MLOps",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83256458.html",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/209VCCG",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/213WXYS",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://fr.linkedin.com/jobs/view/data-engineer-at-n%C3%A9osoft-4465711480",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/nexton-consulting/jobs/ai-developer-h-f_lyon",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": "Nexton Consulting"
+        }
+      },
+      {
+        "url": "https://fr.indeed.com/viewjob?from=app-tracker-saved-appcard&hl=fr&jk=afd42d866addd921&tk=1k2d1c9ri229i000",
+        "status": "empty_crawl",
+        "detail": "Unexpected error in _crawl_web at line 744 in _crawl_web (.venv/lib/python3.12/site-packages/crawl4ai/async_crawler_strategy.py):\nError: Failed on navigating ACS-GOTO:\nPage.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"https://fr.indeed.com/m/viewjob?jk=afd42d866addd921\", waiting until \"networkidle\"\n\n\nCode context:\n 739                       response = await page.goto(\n 740                           url, wait_until=config.wait_until, timeout=config.page_timeout\n 741                       )\n 742                       redirected_url = page.url\n 743                   except Error as e:\n 744 →                     raise RuntimeError(f\"Failed on navigating ACS-GOTO:\\n{str(e)}\")\n 745   \n 746                   await self.execute_hook(\n 747                       \"after_goto\", page, context=context, url=url, response=response, config=config\n 748                   )\n 749   "
+      }
+    ]
+  },
+  {
+    "model": "openai/gpt-5.6-luna",
+    "skipped": false,
+    "duration_s": 46.87,
+    "status_counts": {
+      "grounding_rejected": 7,
+      "empty_crawl": 1
+    },
+    "success_rate": 0.0,
+    "grounding_rejected_rate": 0.88,
+    "usage": {
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0
+    },
+    "estimated_cost_usd": 0.0,
+    "per_url": [
+      {
+        "url": "https://fr.linkedin.com/jobs/view/ai-engineer-at-scaleway-4465566696",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83256458.html",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/209VCCG",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=Ing%C3%A9nieur+Plateforme+IA+%2F+MLOps",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/213WXYS",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://fr.linkedin.com/jobs/view/data-engineer-at-n%C3%A9osoft-4465711480",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/nexton-consulting/jobs/ai-developer-h-f_lyon",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": "Nexton Consulting"
+        }
+      },
+      {
+        "url": "https://fr.indeed.com/viewjob?from=app-tracker-saved-appcard&hl=fr&jk=afd42d866addd921&tk=1k2d1c9ri229i000",
+        "status": "empty_crawl",
+        "detail": "Unexpected error in _crawl_web at line 744 in _crawl_web (.venv/lib/python3.12/site-packages/crawl4ai/async_crawler_strategy.py):\nError: Failed on navigating ACS-GOTO:\nPage.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"https://fr.indeed.com/m/viewjob?jk=afd42d866addd921\", waiting until \"networkidle\"\n\n\nCode context:\n 739                       response = await page.goto(\n 740                           url, wait_until=config.wait_until, timeout=config.page_timeout\n 741                       )\n 742                       redirected_url = page.url\n 743                   except Error as e:\n 744 →                     raise RuntimeError(f\"Failed on navigating ACS-GOTO:\\n{str(e)}\")\n 745   \n 746                   await self.execute_hook(\n 747                       \"after_goto\", page, context=context, url=url, response=response, config=config\n 748                   )\n 749   "
+      }
+    ]
+  },
+  {
+    "model": "gemini/gemini-3.8-flash",
+    "skipped": false,
+    "duration_s": 59.28,
+    "status_counts": {
+      "grounding_rejected": 6,
+      "empty_extraction": 1,
+      "empty_crawl": 1
+    },
+    "success_rate": 0.0,
+    "grounding_rejected_rate": 0.75,
+    "usage": {
+      "prompt_tokens": 30686,
+      "completion_tokens": 13980,
+      "total_tokens": 44666
+    },
+    "estimated_cost_usd": 0.075439,
+    "per_url": [
+      {
+        "url": "https://fr.linkedin.com/jobs/view/ai-engineer-at-scaleway-4465566696",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/213WXYS",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=Ing%C3%A9nieur+Plateforme+IA+%2F+MLOps",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://candidat.francetravail.fr/offres/recherche/detail/209VCCG",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://www.hellowork.com/fr-fr/emplois/83256458.html",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://www.welcometothejungle.com/fr/companies/nexton-consulting/jobs/ai-developer-h-f_lyon",
+        "status": "empty_extraction"
+      },
+      {
+        "url": "https://fr.linkedin.com/jobs/view/data-engineer-at-n%C3%A9osoft-4465711480",
+        "status": "grounding_rejected",
+        "rejected_offer": {
+          "poste": null,
+          "entreprise": null
+        }
+      },
+      {
+        "url": "https://fr.indeed.com/viewjob?from=app-tracker-saved-appcard&hl=fr&jk=afd42d866addd921&tk=1k2d1c9ri229i000",
+        "status": "empty_crawl",
+        "detail": "Unexpected error in _crawl_web at line 744 in _crawl_web (.venv/lib/python3.12/site-packages/crawl4ai/async_crawler_strategy.py):\nError: Failed on navigating ACS-GOTO:\nPage.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"https://fr.indeed.com/m/viewjob?jk=afd42d866addd921\", waiting until \"networkidle\"\n\n\nCode context:\n 739                       response = await page.goto(\n 740                           url, wait_until=config.wait_until, timeout=config.page_timeout\n 741                       )\n 742                       redirected_url = page.url\n 743                   except Error as e:\n 744 →                     raise RuntimeError(f\"Failed on navigating ACS-GOTO:\\n{str(e)}\")\n 745   \n 746                   await self.execute_hook(\n 747                       \"after_goto\", page, context=context, url=url, response=response, config=config\n 748                   )\n 749   "
+      }
+    ]
+  }
+]

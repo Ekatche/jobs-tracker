@@ -9,9 +9,10 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, LLMConfig
 from crawl4ai.async_configs import BrowserConfig, CacheMode
-from crawl4ai.extraction_strategy import LLMExtractionStrategy
+from crawl4ai.extraction_strategy import LLMExtractionStrategy, perform_completion_with_backoff
 from crawl4ai.content_filter_strategy import PruningContentFilter
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
+from crawl4ai.utils import extract_xml_data
 
 from app.services.normalization import (
     extract_company_from_url,
@@ -42,6 +43,80 @@ class JobOffer(BaseModel):
     mode_travail: Optional[str] = "Non spécifié"  # Télétravail, Hybride, Présentiel
     competences_cles: Optional[List[str]] = []    # ex: ["Python", "Docker", "SQL"]
     url: Optional[str] = None
+
+
+class RobustLLMExtractionStrategy(LLMExtractionStrategy):
+    """Contourne un bug de crawl4ai (vérifié 2026-09-16) : les modèles Gemini ne
+    respectent pas la balise <blocks> attendue par PROMPT_EXTRACT_SCHEMA_WITH_INSTRUCTION
+    (ils répondent en ```json``` nu). extract_xml_data renvoie alors une chaîne vide,
+    json.loads('') lève une exception, et le bloc `except` de crawl4ai retente
+    `response.choices[0].message.content` alors que `response` a déjà été réécrasé
+    par une string plus haut dans le même bloc `try` -> crash silencieux
+    ('str' object has no attribute 'choices'), avalé par extract() et transformé
+    en bloc d'erreur (poste/entreprise null côté appelant). Cette sous-classe
+    ajoute un repli : extraire le JSON d'un fence ```json``` ou du texte brut
+    si <blocks> est absent, sans jamais réutiliser `response` après réassignation."""
+
+    def extract(self, url: str, ix: int, html: str):
+        if self.verbose:
+            print(f"[LOG] Call LLM for {url} - block index: {ix}")
+
+        from crawl4ai.prompts import (
+            PROMPT_EXTRACT_BLOCKS,
+            PROMPT_EXTRACT_BLOCKS_WITH_INSTRUCTION,
+            PROMPT_EXTRACT_SCHEMA_WITH_INSTRUCTION,
+            PROMPT_EXTRACT_INFERRED_SCHEMA,
+        )
+        from crawl4ai.utils import escape_json_string, sanitize_html
+
+        variable_values = {"URL": url, "HTML": escape_json_string(sanitize_html(html))}
+        prompt_with_variables = PROMPT_EXTRACT_BLOCKS
+        if self.instruction:
+            variable_values["REQUEST"] = self.instruction
+            prompt_with_variables = PROMPT_EXTRACT_BLOCKS_WITH_INSTRUCTION
+        if self.extract_type == "schema" and self.schema:
+            variable_values["SCHEMA"] = json.dumps(self.schema, indent=2)
+            prompt_with_variables = PROMPT_EXTRACT_SCHEMA_WITH_INSTRUCTION
+        if self.extract_type == "schema" and not self.schema:
+            prompt_with_variables = PROMPT_EXTRACT_INFERRED_SCHEMA
+        for variable in variable_values:
+            prompt_with_variables = prompt_with_variables.replace(
+                "{" + variable + "}", variable_values[variable]
+            )
+
+        try:
+            response = perform_completion_with_backoff(
+                self.llm_config.provider,
+                prompt_with_variables,
+                self.llm_config.api_token,
+                base_url=self.llm_config.base_url,
+                json_response=self.force_json_response,
+                extra_args=self.extra_args,
+            )
+            usage = response.usage
+            self.total_usage.completion_tokens += usage.completion_tokens
+            self.total_usage.prompt_tokens += usage.prompt_tokens
+            self.total_usage.total_tokens += usage.total_tokens
+
+            raw_content = response.choices[0].message.content
+
+            blocks_str = extract_xml_data(["blocks"], raw_content)["blocks"]
+            if not blocks_str:
+                fence_match = re.search(r"```(?:json)?\s*(.*?)```", raw_content, re.DOTALL)
+                blocks_str = fence_match.group(1).strip() if fence_match else raw_content.strip()
+
+            blocks = json.loads(blocks_str)
+            if isinstance(blocks, dict):
+                blocks = [blocks]
+            for block in blocks:
+                block["error"] = False
+            if self.verbose:
+                print("[LOG] Extracted", len(blocks), "blocks from URL:", url, "block index:", ix)
+            return blocks
+        except Exception as e:
+            if self.verbose:
+                print(f"[LOG] Error in LLM extraction: {e}")
+            return [{"index": ix, "error": True, "tags": ["error"], "content": str(e)}]
 
 
 # ✅ Configurations globales réutilisables
@@ -94,33 +169,43 @@ def get_shared_crawl_config(api_key: str) -> CrawlerRunConfig:
         prefer_gemini = os.getenv("PREFER_GEMINI", "").lower() in ("true", "1")
         gemini_key = os.getenv("GEMINI_API_KEY")
 
-        # gpt-4o-mini reste le défaut ici : gpt-5-nano renvoie des champs nuls
-        # sur l'extraction structurée (offres rejetées par le contrôle d'ancrage).
+        # gpt-4o-mini reste le défaut ici : bake-off comparatif sur 16 URLs
+        # réelles (docs/micro/20260916-crawl-llm-bakeoff/) — meilleur taux de
+        # succès (75%) ET le moins cher de tous les candidats testés (OpenAI et
+        # Gemini). Les champs nuls historiquement observés sur gpt-5-nano
+        # n'étaient pas une régression qualité du modèle mais un bug
+        # d'`extra_args` (max_tokens/reasoning_effort rejetés par l'API OpenAI
+        # pour gpt-5*), corrigé ci-dessus.
         openai_model = os.getenv("CRAWL_LLM_MODEL", "openai/gpt-4o-mini")
 
         if api_key and not prefer_gemini:
             llm_provider = openai_model
             llm_token = api_key
         elif gemini_key:
-            llm_provider = "gemini/gemini-flash-latest"
+            # Alias pinné (pas "gemini-flash-latest", qui change de modèle sans
+            # préavis) — gemini-3.8-flash est le Gemini le plus solide du
+            # bake-off (69% combiné, à égalité avec 3.7-flash et flash-lite).
+            llm_provider = "gemini/gemini-3.8-flash"
             llm_token = gemini_key
         else:
             llm_provider = openai_model
             llm_token = api_key
 
-        # Les modèles gpt-5 n'acceptent que temperature=1, et leur raisonnement
-        # consommerait le budget max_tokens de l'extraction.
+        # Les modèles gpt-5 n'acceptent que temperature=1. `reasoning_effort` et
+        # `max_tokens` sont listés comme "supportés" par le mapping openai de
+        # litellm, mais l'API OpenAI les rejette tous les deux pour gpt-5-nano/
+        # gpt-5.6-luna en pratique (vérifié 2026-09-16, litellm.UnsupportedParamsError
+        # puis BadRequestError) : drop_params=True fait tomber silencieusement
+        # reasoning_effort (raisonnement par défaut, pas "minimal"), et
+        # max_completion_tokens remplace max_tokens. Budget relevé à 6000 pour
+        # laisser de la marge après les tokens de raisonnement.
         if "gpt-5" in llm_provider:
-            llm_extra_args = {
-                "temperature": 1,
-                "max_tokens": 4000,
-                "reasoning_effort": "minimal",
-            }
+            llm_extra_args = {"temperature": 1, "max_completion_tokens": 6000, "drop_params": True}
         else:
             llm_extra_args = {"temperature": 0.1, "max_tokens": 4000}
 
         # ✅ Extraction strategy avec LLM unique
-        extraction_strategy = LLMExtractionStrategy(
+        extraction_strategy = RobustLLMExtractionStrategy(
             llm_config=LLMConfig(
                 provider=llm_provider,
                 api_token=llm_token,

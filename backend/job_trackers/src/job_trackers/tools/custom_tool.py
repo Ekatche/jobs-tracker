@@ -84,8 +84,9 @@ class TavilyJobBoardSearchTool(BaseTool):
             "optioncarriere.com",
         ]
 
-        # Job boards français qualifiés et ATS directs d'entreprises
+        # Job boards français qualifiés et ATS directs d'entreprises (Tech, PME et Grands Groupes)
         french_job_boards = [
+            # Job boards généralistes & nationaux
             "welcometothejungle.com",
             "apec.fr",
             "francetravail.fr",
@@ -94,13 +95,25 @@ class TavilyJobBoardSearchTool(BaseTool):
             "cadremploi.fr",
             "free-work.com",
             "lesjeudis.com",
-            # ATS directs d'entreprises (0 anti-bot, données pures)
+            # ATS Grands Groupes & Multinationales (Tous métiers)
             "myworkdayjobs.com",
-            "greenhouse.io",
             "smartrecruiters.com",
-            "lever.co",
+            "jobs2web.com",
+            "taleo.net",
+            "icims.com",
+            # ATS PME & Scale-ups Européennes (Tous métiers)
             "teamtailor.com",
             "recruitee.com",
+            "personio.de",
+            "personio.com",
+            "workable.com",
+            "breezy.hr",
+            "flatchr.io",
+            # ATS Tech, Startups & IA
+            "greenhouse.io",
+            "lever.co",
+            "ashbyhq.com",
+            "bamboohr.com",
         ]
 
 
