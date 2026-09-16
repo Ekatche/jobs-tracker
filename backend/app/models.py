@@ -107,6 +107,7 @@ class ApplicationStatus(str, Enum):
     TECHNICAL_TEST = "Test technique"
     NEGOTIATION = "Négociation"
     OFFER = "Offre reçue"
+    OFFER_RECEIVED = "Offre reçue"
     ACCEPTED = "Offre acceptée"
     REJECTED = "Refusée"
     WITHDRAWN = "Retirée"
@@ -116,6 +117,7 @@ class ApplicationStatus(str, Enum):
 class JobApplication(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     user_id: PyObjectId = Field(...)
+    offer_id: Optional[str] = None
     company: str = Field(...)
     position: str = Field(...)
     location: Optional[str] = None
@@ -149,6 +151,7 @@ class JobApplication(BaseModel):
 class JobApplicationCreate(BaseModel):
     company: str
     position: str
+    offer_id: Optional[str] = None
     url: Optional[HttpUrl] = None
     application_date: Optional[datetime] = None
     location: Optional[str] = None
@@ -166,6 +169,7 @@ class JobApplicationCreate(BaseModel):
                 "application_date": "2025-04-08T10:00:00Z",
                 "status": "Candidature envoyée",
                 "description": "Poste de développeur full stack avec React et Python",
+                "offer_id": "673f1c9d8e5f2a1b3c4d5e6f",
             }
         }
     }
@@ -175,6 +179,7 @@ class JobApplicationCreate(BaseModel):
 class JobApplicationUpdate(BaseModel):
     company: Optional[str] = None
     position: Optional[str] = None
+    offer_id: Optional[str] = None
     location: Optional[str] = None
     url: Optional[HttpUrl] = None
     application_date: Optional[datetime] = None
@@ -201,6 +206,7 @@ class JobApplicationResponse(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     company: str
     position: str
+    offer_id: Optional[str] = None
     url: Optional[HttpUrl] = None
     application_date: datetime
     status: ApplicationStatus
@@ -210,8 +216,21 @@ class JobApplicationResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
     archived: Optional[bool] = False  # Ajout du champ archived
+    days_since_application: Optional[int] = None
+    follow_up_alert: Optional[str] = None  # None, "relance_due" (J+7), "remerciement_due" (J+1)
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
+
+
+class PipelineSummaryResponse(BaseModel):
+    total_active: int
+    total_archived: int
+    status_counts: Dict[str, int]
+    interview_conversion_rate: float
+    offer_conversion_rate: float
+    follow_ups_due_count: int
+    thank_yous_due_count: int
+    evaluated_offers_ready_count: int = 0
 
 
 class TaskStatus(str, Enum):
