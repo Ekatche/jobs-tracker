@@ -195,15 +195,65 @@ def extract_company_from_url(url: Optional[str]) -> Optional[str]:
             if wttj_match:
                 return _clean_company_slug(wttj_match.group(1))
 
-        # 6. Specific ATS subdomains: <company>.(recruitee.com|teamtailor.com|breezy.hr|flatchr.io|workable.com)
+        # 6. Ashby: jobs.ashbyhq.com/<company>/... or ashbyhq.com/<company>/...
+        if "ashbyhq.com" in hostname:
+            parts = [p for p in path.split("/") if p]
+            if parts:
+                return _clean_company_slug(parts[0])
+
+        # 7. Workable: apply.workable.com/<company>/... or <company>.workable.com
+        if "workable.com" in hostname:
+            if hostname.startswith("apply.") or hostname == "workable.com":
+                parts = [p for p in path.split("/") if p]
+                if parts:
+                    return _clean_company_slug(parts[0])
+            elif hostname.endswith(".workable.com"):
+                sub = hostname[: -len(".workable.com")]
+                prefix = sub.split(".")[-1]
+                if prefix and prefix not in ("jobs", "careers", "www", "apply"):
+                    return _clean_company_slug(prefix)
+
+        # 8. Personio: <company>.jobs.personio.de, <company>.personio.de, jobs.personio.de/<company>/...
+        if "personio.de" in hostname or "personio.com" in hostname:
+            parts = [p for p in path.split("/") if p]
+            if parts and parts[0] not in ("job", "jobs", "careers"):
+                return _clean_company_slug(parts[0])
+            for base_domain in (".jobs.personio.de", ".jobs.personio.com", ".personio.de", ".personio.com"):
+                if hostname.endswith(base_domain):
+                    sub = hostname[: -len(base_domain)]
+                    prefix = sub.split(".")[-1]
+                    if prefix and prefix not in ("jobs", "careers", "www"):
+                        return _clean_company_slug(prefix)
+
+        # 9. SAP SuccessFactors: <company>.jobs2web.com
+        if hostname.endswith(".jobs2web.com"):
+            sub = hostname[: -len(".jobs2web.com")]
+            prefix = sub.split(".")[-1]
+            if prefix and prefix not in ("jobs", "careers", "www"):
+                return _clean_company_slug(prefix)
+
+        # 10. Oracle Taleo: <company>.taleo.net/...
+        if hostname.endswith(".taleo.net"):
+            sub = hostname[: -len(".taleo.net")]
+            prefix = sub.split(".")[-1]
+            if prefix and prefix not in ("jobs", "careers", "www"):
+                return _clean_company_slug(prefix)
+
+        # 11. iCIMS: <company>.icims.com, careers-<company>.icims.com, <company>-careers.icims.com
+        if hostname.endswith(".icims.com"):
+            sub = hostname[: -len(".icims.com")]
+            prefix = sub.split(".")[-1]
+            prefix = re.sub(r"^(careers?-|jobs?-)|(-careers?|-jobs?)$", "", prefix, flags=re.IGNORECASE)
+            if prefix and prefix not in ("jobs", "careers", "www"):
+                return _clean_company_slug(prefix)
+
+        # 12. Specific ATS subdomains: <company>.(bamboohr.com|recruitee.com|teamtailor.com|breezy.hr|flatchr.io)
         ats_domains = [
+            "bamboohr.com",
             "recruitee.com",
             "teamtailor.com",
             "breezy.hr",
             "flatchr.io",
-            "workable.com",
-            "personio.de",
-            "personio.com",
         ]
         for ats in ats_domains:
             if hostname.endswith("." + ats):
@@ -212,7 +262,7 @@ def extract_company_from_url(url: Optional[str]) -> Optional[str]:
                 if prefix and prefix not in ("jobs", "careers", "www"):
                     return _clean_company_slug(prefix)
 
-        # 7. Career subdomains: (carrieres|recrutement|jobs|careers|talent).<company>.(com|fr|...)
+        # 13. Career subdomains: (carrieres|recrutement|jobs|careers|talent).<company>.(com|fr|...)
         parts = hostname.split(".")
         if len(parts) >= 3 and parts[0] in ("carrieres", "recrutement", "jobs", "careers", "talent"):
             return _clean_company_slug(parts[1])
