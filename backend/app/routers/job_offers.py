@@ -2,14 +2,92 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 from bson import ObjectId
 from datetime import datetime, timezone
-from ..models import JobOfferResponse, OfferEvaluationResponse, UserModel
+from ..models import (
+    JobOfferResponse,
+    OfferEvaluationResponse,
+    UserModel,
+    UserOfferInteractionRequest,
+    UserOfferInteractionResponse,
+)
 from ..database import get_database
-from ..auth import get_current_user
-from ..services.normalization import normalize_city, normalize_company, extract_domain
+from ..auth import get_current_user, get_current_user_optional
+from ..services.normalization import normalize_city, normalize_company
 from ..services.evaluation.evaluator import evaluate_offer_two_pass
-from ..utils import serialize_mongodb_doc
 
 job_offers_router = APIRouter(prefix="/job-offers", tags=["job-offers"])
+
+
+async def apply_user_interaction_filters(
+    match_filter: dict,
+    db,
+    current_user: Optional[UserModel],
+    only_saved: bool = False,
+    include_hidden: bool = False,
+    min_score: Optional[float] = None,
+) -> tuple[dict, dict, bool]:
+    """
+    Applique les filtres multi-tenant (masquées, sauvegardées, score IA minimum) au filtre MongoDB.
+    Renvoie (match_filter_mis_à_jour, interaction_map, should_return_empty).
+    """
+    interaction_map = {}
+    if not current_user:
+        if only_saved or min_score is not None:
+            return match_filter, interaction_map, True
+        return match_filter, interaction_map, False
+
+    user_id_str = str(current_user.id)
+    user_interactions = await db["user_offer_interactions"].find({"user_id": user_id_str}).to_list(length=None)
+    interaction_map = {doc["offer_id"]: doc.get("status") for doc in user_interactions}
+
+    allowed_oids = None
+
+    # 1. Filtre des offres sauvegardées
+    if only_saved:
+        saved_oids = [
+            ObjectId(oid)
+            for oid, st in interaction_map.items()
+            if st == "saved" and ObjectId.is_valid(oid)
+        ]
+        if not saved_oids:
+            return match_filter, interaction_map, True
+        allowed_oids = set(saved_oids)
+
+    # 2. Filtre par score IA minimum (Two-Pass)
+    if min_score is not None:
+        evals = await db["offer_evaluations"].find(
+            {"user_id": user_id_str, "score": {"$gte": min_score}},
+            {"offer_id": 1},
+        ).to_list(length=None)
+        score_oids = [
+            ObjectId(doc["offer_id"])
+            for doc in evals
+            if doc.get("offer_id") and ObjectId.is_valid(doc["offer_id"])
+        ]
+        if not score_oids:
+            return match_filter, interaction_map, True
+        if allowed_oids is None:
+            allowed_oids = set(score_oids)
+        else:
+            allowed_oids = allowed_oids.intersection(set(score_oids))
+            if not allowed_oids:
+                return match_filter, interaction_map, True
+
+    # 3. Exclusion des offres masquées par l'utilisateur
+    excluded_oids = set()
+    if not include_hidden:
+        for oid, st in interaction_map.items():
+            if st == "hidden" and ObjectId.is_valid(oid):
+                excluded_oids.add(ObjectId(oid))
+
+    if allowed_oids is not None:
+        allowed_oids = allowed_oids - excluded_oids
+        if not allowed_oids:
+            return match_filter, interaction_map, True
+        match_filter["_id"] = {"$in": list(allowed_oids)}
+    elif excluded_oids:
+        match_filter["_id"] = {"$nin": list(excluded_oids)}
+
+    return match_filter, interaction_map, False
 
 
 @job_offers_router.get("/", response_model=List[JobOfferResponse])
@@ -17,18 +95,34 @@ async def get_job_offers(
     keywords: Optional[str] = Query(None),
     location: Optional[str] = Query(None),
     company: Optional[str] = Query(None),
+    only_saved: bool = Query(False),
+    include_hidden: bool = Query(False),
+    min_score: Optional[float] = Query(None),
     limit: int = Query(16, ge=1, le=100),
     skip: int = Query(0, ge=0),
     db=Depends(get_database),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
 ):
-    """Récupère les offres d'emploi avec pagination et déduplication"""
+    """Récupère les offres d'emploi avec pagination, déduplication et statut d'interaction multi-tenant."""
     try:
         collection = db["job_offers"]
 
-        # ✅ ÉTAPE 1: Construire le filtre de base (exclure les supprimées)
+        # ✅ ÉTAPE 1: Construire le filtre de base (exclure les supprimées globales)
         match_filter = {
             "$or": [{"is_deleted": {"$exists": False}}, {"is_deleted": False}]
         }
+
+        # Multi-tenant user filters
+        match_filter, interaction_map, should_return_empty = await apply_user_interaction_filters(
+            match_filter=match_filter,
+            db=db,
+            current_user=current_user,
+            only_saved=only_saved,
+            include_hidden=include_hidden,
+            min_score=min_score,
+        )
+        if should_return_empty:
+            return []
 
         # Ajouter les filtres de recherche
         if keywords:
@@ -51,11 +145,8 @@ async def get_job_offers(
 
         # ✅ ÉTAPE 2: Pipeline d'agrégation avec déduplication
         pipeline = [
-            # Filtrer selon les critères
             {"$match": match_filter},
-            # Trier d'abord par date de création descendante pour que $first prenne le plus récent
             {"$sort": {"created_at": -1}},
-            # ✅ DÉDUPLICATION par groupe d'entreprise + poste + localisation
             {
                 "$addFields": {
                     "dedup_key": {
@@ -74,7 +165,6 @@ async def get_job_offers(
                     }
                 }
             },
-            # Grouper par clé de déduplication et garder le plus récent
             {
                 "$group": {
                     "_id": "$dedup_key",
@@ -82,26 +172,37 @@ async def get_job_offers(
                     "count": {"$sum": 1},
                 }
             },
-            # Récupérer l'offre originale
             {"$replaceRoot": {"newRoot": "$offer"}},
-            # Supprimer le champ temporaire
             {"$unset": "dedup_key"},
-            # ✅ ÉTAPE 3: Trier par date de création pour l'ordre final de pagination
             {"$sort": {"created_at": -1}},
-            # ✅ ÉTAPE 4: Appliquer la pagination APRÈS déduplication
             {"$skip": skip},
             {"$limit": limit},
         ]
 
-        # Exécuter la requête
         cursor = collection.aggregate(pipeline)
         offers = await cursor.to_list(length=None)
 
-        # Formatter les résultats
+        # Récupérer les scores d'évaluation pour la page
+        page_offer_ids = [str(offer["_id"]) for offer in offers]
+        eval_score_map = {}
+        if current_user and page_offer_ids:
+            eval_docs = await db["offer_evaluations"].find(
+                {"user_id": str(current_user.id), "offer_id": {"$in": page_offer_ids}},
+                {"offer_id": 1, "score": 1},
+            ).to_list(length=None)
+            eval_score_map = {doc["offer_id"]: doc.get("score") for doc in eval_docs}
+
         formatted_offers = []
         for offer in offers:
-            offer["id"] = str(offer["_id"])
+            oid_str = str(offer["_id"])
+            offer["id"] = oid_str
             del offer["_id"]
+            if current_user:
+                offer["user_interaction"] = interaction_map.get(oid_str)
+                if oid_str in eval_score_map:
+                    offer["evaluation_score"] = eval_score_map[oid_str]
+            else:
+                offer["user_interaction"] = None
             formatted_offers.append(offer)
 
         return formatted_offers
@@ -110,9 +211,34 @@ async def get_job_offers(
         raise HTTPException(status_code=500, detail=f"Erreur serveur: {e}")
 
 
+@job_offers_router.get("/user/interactions", response_model=List[UserOfferInteractionResponse])
+async def list_user_offer_interactions(
+    status: Optional[str] = Query(None),
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Liste les interactions d'offres de l'utilisateur connecté (saved, hidden, applied, etc.)."""
+    query = {"user_id": str(current_user.id)}
+    if status:
+        query["status"] = status
+
+    cursor = db["user_offer_interactions"].find(query).sort("updated_at", -1)
+    interactions = await cursor.to_list(length=200)
+    result = []
+    for doc in interactions:
+        doc["id"] = str(doc["_id"])
+        del doc["_id"]
+        result.append(UserOfferInteractionResponse(**doc))
+    return result
+
+
 @job_offers_router.get("/{offer_id}", response_model=JobOfferResponse)
-async def get_job_offer(offer_id: str, db=Depends(get_database)):
-    """Récupère une offre d'emploi par son ID"""
+async def get_job_offer(
+    offer_id: str,
+    db=Depends(get_database),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
+):
+    """Récupère une offre d'emploi par son ID avec état d'interaction personnalisé"""
     if not ObjectId.is_valid(offer_id):
         raise HTTPException(status_code=400, detail="ID invalide")
 
@@ -122,7 +248,113 @@ async def get_job_offer(offer_id: str, db=Depends(get_database)):
 
     offer["id"] = str(offer["_id"])
     del offer["_id"]
+
+    if current_user:
+        interaction = await db["user_offer_interactions"].find_one({
+            "user_id": str(current_user.id),
+            "offer_id": str(offer_id),
+        })
+        offer["user_interaction"] = interaction.get("status") if interaction else None
+
+        evaluation = await db["offer_evaluations"].find_one({
+            "user_id": str(current_user.id),
+            "offer_id": str(offer_id),
+        })
+        if evaluation:
+            offer["evaluation_score"] = evaluation.get("score")
+    else:
+        offer["user_interaction"] = None
+
     return offer
+
+
+@job_offers_router.post("/{offer_id}/interaction", response_model=UserOfferInteractionResponse)
+async def set_user_offer_interaction(
+    offer_id: str,
+    payload: UserOfferInteractionRequest,
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Enregistre ou met à jour l'interaction personnelle d'un candidat sur une offre (saved, hidden, applied, none)."""
+    if not ObjectId.is_valid(offer_id):
+        raise HTTPException(status_code=400, detail="ID d'offre invalide")
+
+    offer = await db["job_offers"].find_one({"_id": ObjectId(offer_id)})
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offre non trouvée")
+
+    now = datetime.now(timezone.utc)
+    user_id_str = str(current_user.id)
+    filter_query = {"user_id": user_id_str, "offer_id": str(offer_id)}
+
+    if payload.status == "none":
+        await db["user_offer_interactions"].delete_many(filter_query)
+        return UserOfferInteractionResponse(
+            user_id=user_id_str,
+            offer_id=str(offer_id),
+            status="none",
+            notes=payload.notes,
+            created_at=now,
+            updated_at=now,
+        )
+
+    update_doc = {
+        "$set": {
+            "status": payload.status,
+            "notes": payload.notes,
+            "updated_at": now,
+        },
+        "$setOnInsert": {
+            "created_at": now,
+        },
+    }
+    await db["user_offer_interactions"].update_one(filter_query, update_doc, upsert=True)
+
+    interaction_doc = await db["user_offer_interactions"].find_one(filter_query)
+    if interaction_doc:
+        interaction_doc["id"] = str(interaction_doc["_id"])
+        del interaction_doc["_id"]
+        return UserOfferInteractionResponse(**interaction_doc)
+
+    return UserOfferInteractionResponse(
+        user_id=user_id_str,
+        offer_id=str(offer_id),
+        status=payload.status,
+        notes=payload.notes,
+        created_at=now,
+        updated_at=now,
+    )
+
+
+@job_offers_router.get("/{offer_id}/interaction", response_model=UserOfferInteractionResponse)
+async def get_user_offer_interaction(
+    offer_id: str,
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Récupère l'état d'interaction de l'utilisateur connecté pour une offre donnée."""
+    if not ObjectId.is_valid(offer_id):
+        raise HTTPException(status_code=400, detail="ID d'offre invalide")
+
+    interaction_doc = await db["user_offer_interactions"].find_one({
+        "user_id": str(current_user.id),
+        "offer_id": str(offer_id),
+    })
+
+    now = datetime.now(timezone.utc)
+    if not interaction_doc:
+        return UserOfferInteractionResponse(
+            user_id=str(current_user.id),
+            offer_id=str(offer_id),
+            status="none",
+            notes=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+    interaction_doc["id"] = str(interaction_doc["_id"])
+    del interaction_doc["_id"]
+    return UserOfferInteractionResponse(**interaction_doc)
 
 
 @job_offers_router.post("/{offer_id}/evaluate", response_model=OfferEvaluationResponse)
@@ -370,9 +602,13 @@ async def get_job_offers_count(
     keywords: Optional[str] = Query(None),
     location: Optional[str] = Query(None),
     company: Optional[str] = Query(None),
+    only_saved: bool = Query(False),
+    include_hidden: bool = Query(False),
+    min_score: Optional[float] = Query(None),
     db=Depends(get_database),
+    current_user: Optional[UserModel] = Depends(get_current_user_optional),
 ):
-    """Compte les offres d'emploi dédupliquées"""
+    """Compte les offres d'emploi dédupliquées en tenant compte des filtres multi-tenant."""
     try:
         collection = db["job_offers"]
 
@@ -380,6 +616,18 @@ async def get_job_offers_count(
         match_filter = {
             "$or": [{"is_deleted": {"$exists": False}}, {"is_deleted": False}]
         }
+
+        # Multi-tenant user filters
+        match_filter, _, should_return_empty = await apply_user_interaction_filters(
+            match_filter=match_filter,
+            db=db,
+            current_user=current_user,
+            only_saved=only_saved,
+            include_hidden=include_hidden,
+            min_score=min_score,
+        )
+        if should_return_empty:
+            return {"total": 0}
 
         # Ajouter les filtres de recherche
         if keywords:

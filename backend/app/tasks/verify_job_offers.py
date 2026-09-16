@@ -515,6 +515,7 @@ async def verify_job_offers_workflow(
                     {
                         "$set": {
                             "is_deleted": True,
+                            "pipeline_stage": "expired",
                             "deleted_date": now,
                             "deletion_reason": closed["reason"],
                             "updated_at": now,
@@ -584,6 +585,7 @@ async def restore_falsely_deleted_offers(dry_run: bool = True) -> Dict[str, Any]
             {
                 "$set": {
                     "is_deleted": False,
+                    "pipeline_stage": "discovered",
                     "updated_at": datetime.now(timezone.utc),
                 },
                 "$unset": {

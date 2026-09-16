@@ -30,6 +30,7 @@ REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 
 # Configuration de OAuth2
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="auth/token", auto_error=False)
 
 
 # Modèle pour le token d'accès
@@ -119,3 +120,30 @@ async def get_current_user(
     user["_id"] = str(user["_id"])
 
     return UserModel(**user)
+
+
+async def get_current_user_optional(
+    token: Optional[str] = Depends(oauth2_scheme_optional),
+    db=Depends(get_database),
+) -> Optional[UserModel]:
+    """Extrait l'utilisateur connecté si un token valide est fourni, sinon renvoie None sans lever 401."""
+    if not token:
+        return None
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if not user_id:
+            return None
+    except JWTError:
+        return None
+
+    try:
+        user = await db["users"].find_one({"_id": ObjectId(user_id)})
+        if user is None or user.get("disabled", False):
+            return None
+
+        user["_id"] = str(user["_id"])
+        return UserModel(**user)
+    except Exception:
+        return None

@@ -84,9 +84,8 @@ class TavilyJobBoardSearchTool(BaseTool):
             "optioncarriere.com",
         ]
 
-        # Job boards français qualifiés et ATS directs d'entreprises (Tech, PME et Grands Groupes)
-        french_job_boards = [
-            # Job boards généralistes & nationaux
+        # Palier 1 : Job boards généralistes & nationaux (Volume et couverture locale)
+        national_job_boards = [
             "welcometothejungle.com",
             "apec.fr",
             "francetravail.fr",
@@ -95,64 +94,91 @@ class TavilyJobBoardSearchTool(BaseTool):
             "cadremploi.fr",
             "free-work.com",
             "lesjeudis.com",
-            # ATS Grands Groupes & Multinationales (Tous métiers)
-            "myworkdayjobs.com",
-            "smartrecruiters.com",
-            "jobs2web.com",
-            "taleo.net",
-            "icims.com",
-            # ATS PME & Scale-ups Européennes (Tous métiers)
+        ]
+
+        # Palier 2 : Portails carrières directs & ATS d'entreprises (Zero-Token extraction directe)
+        company_ats_domains = [
+            # ATS Tech & Startups (Greenhouse, Lever, Ashby, Workable)
+            "greenhouse.io",
+            "lever.co",
+            "ashbyhq.com",
+            "workable.com",
+            # ATS PME & Scale-ups Européennes (Teamtailor, Recruitee, Personio, etc.)
             "teamtailor.com",
             "recruitee.com",
             "personio.de",
             "personio.com",
-            "workable.com",
             "breezy.hr",
             "flatchr.io",
-            # ATS Tech, Startups & IA
-            "greenhouse.io",
-            "lever.co",
-            "ashbyhq.com",
             "bamboohr.com",
+            # ATS Grands Groupes & Multinationales (Workday, SmartRecruiters, Taleo, iCIMS)
+            "myworkdayjobs.com",
+            "smartrecruiters.com",
+            "taleo.net",
+            "icims.com",
+            "jobs2web.com",
         ]
 
-
         try:
-            # ✅ PASSE 1: Recherche sur les job boards français qualifiés avec filtre temporel (mois)
+            # ✅ PASSE 1: Recherche sur les job boards français qualifiés (max 12)
             logger.info(f"🇫🇷 Passe 1 - Job boards qualifiés (offres récentes): {clean_query}")
-            response_fr = tavily_client.search(
-                query=clean_query,
-                search_depth="advanced",
-                time_range="month",
-                max_results=15,
-                include_domains=french_job_boards,
-                exclude_domains=spam_aggregators,
-            )
+            try:
+                response_fr = tavily_client.search(
+                    query=clean_query,
+                    search_depth="advanced",
+                    time_range="month",
+                    max_results=12,
+                    include_domains=national_job_boards,
+                    exclude_domains=spam_aggregators,
+                )
+                if response_fr and response_fr.get("results"):
+                    for r in response_fr["results"]:
+                        url = r.get("url")
+                        if url and not any(spam in url.lower() for spam in spam_aggregators):
+                            all_urls.append(url)
+                    logger.info(f"📋 {len(response_fr['results'])} résultats trouvés sur job boards")
+            except Exception as e_fr:
+                logger.warning(f"⚠️ Erreur Passe 1 (Job boards): {e_fr}")
 
-            if response_fr and response_fr.get("results"):
-                for r in response_fr["results"]:
-                    url = r.get("url")
-                    if url and not any(spam in url.lower() for spam in spam_aggregators):
-                        all_urls.append(url)
-                logger.info(f"📋 {len(response_fr['results'])} résultats trouvés sur job boards")
+            # ✅ PASSE 2: Recherche directe sur les ATS & carrières d'entreprises (max 10)
+            logger.info(f"🏢 Passe 2 - ATS & Carrières directs d'entreprises: {clean_query}")
+            try:
+                response_ats = tavily_client.search(
+                    query=clean_query,
+                    search_depth="advanced",
+                    time_range="month",
+                    max_results=10,
+                    include_domains=company_ats_domains,
+                    exclude_domains=spam_aggregators,
+                )
+                if response_ats and response_ats.get("results"):
+                    for r in response_ats["results"]:
+                        url = r.get("url")
+                        if url and not any(spam in url.lower() for spam in spam_aggregators):
+                            all_urls.append(url)
+                    logger.info(f"🏢 {len(response_ats['results'])} résultats trouvés sur ATS entreprises")
+            except Exception as e_ats:
+                logger.warning(f"⚠️ Erreur Passe 2 (ATS): {e_ats}")
 
-            # ✅ PASSE 2: Recherche ciblée LinkedIn Jobs
+            # ✅ PASSE 3: Recherche ciblée LinkedIn Jobs (max 8)
             linkedin_query = f"site:linkedin.com/jobs {clean_query}"
-            logger.info(f"💼 Passe 2 - LinkedIn Jobs récents: {linkedin_query}")
-            response_linkedin = tavily_client.search(
-                query=linkedin_query,
-                search_depth="advanced",
-                time_range="month",
-                max_results=10,
-                exclude_domains=spam_aggregators,
-            )
-
-            if response_linkedin and response_linkedin.get("results"):
-                for r in response_linkedin["results"]:
-                    url = r.get("url")
-                    if url and "linkedin.com/jobs" in url:
-                        all_urls.append(url)
-                logger.info(f"💼 {len(response_linkedin['results'])} résultats trouvés sur LinkedIn")
+            logger.info(f"💼 Passe 3 - LinkedIn Jobs récents: {linkedin_query}")
+            try:
+                response_linkedin = tavily_client.search(
+                    query=linkedin_query,
+                    search_depth="advanced",
+                    time_range="month",
+                    max_results=8,
+                    exclude_domains=spam_aggregators,
+                )
+                if response_linkedin and response_linkedin.get("results"):
+                    for r in response_linkedin["results"]:
+                        url = r.get("url")
+                        if url and "linkedin.com/jobs" in url:
+                            all_urls.append(url)
+                    logger.info(f"💼 {len(response_linkedin['results'])} résultats trouvés sur LinkedIn")
+            except Exception as e_li:
+                logger.warning(f"⚠️ Erreur Passe 3 (LinkedIn): {e_li}")
 
             # Dédoublonnage en conservant l'ordre
             seen = set()

@@ -1,4 +1,3 @@
-import pytest
 import sys
 import os
 
@@ -64,6 +63,77 @@ class TestTavilyTool:
         assert result == []
         result_none = tool._run()
         assert result_none == []
+
+    def test_funnel_three_passes_balanced_and_deduplicated(self):
+        from unittest.mock import MagicMock
+        tool = TavilyJobBoardSearchTool()
+        mock_client = MagicMock()
+
+        # Mock 3 passes
+        def mock_search(query, **kwargs):
+            inc_domains = kwargs.get("include_domains") or []
+            if "welcometothejungle.com" in inc_domains:
+                # Pass 1: National Job Boards
+                return {
+                    "results": [
+                        {"url": "https://www.welcometothejungle.com/fr/jobs/1"},
+                        {"url": "https://fr.jooble.org/spam-listing"},
+                    ]
+                }
+            elif "greenhouse.io" in inc_domains:
+                # Pass 2: Company ATS
+                return {
+                    "results": [
+                        {"url": "https://boards.greenhouse.io/acme/jobs/123"},
+                        {"url": "https://www.welcometothejungle.com/fr/jobs/1"},  # duplicate
+                    ]
+                }
+            else:
+                # Pass 3: LinkedIn Jobs
+                return {
+                    "results": [
+                        {"url": "https://www.linkedin.com/jobs/view/456"},
+                    ]
+                }
+
+        mock_client.search.side_effect = mock_search
+        tool.client = mock_client
+
+        results = tool._run(query="Data Engineer Lyon")
+
+        assert mock_client.search.call_count == 3
+        # Jooble filtered out, WTTJ deduplicated
+        assert len(results) == 3
+        assert results == [
+            "https://www.welcometothejungle.com/fr/jobs/1",
+            "https://boards.greenhouse.io/acme/jobs/123",
+            "https://www.linkedin.com/jobs/view/456",
+        ]
+
+    def test_funnel_handles_partial_pass_failure(self):
+        from unittest.mock import MagicMock
+        tool = TavilyJobBoardSearchTool()
+        mock_client = MagicMock()
+
+        # Pass 1 fails, but Pass 2 (ATS) succeeds
+        def mock_search(query, **kwargs):
+            inc_domains = kwargs.get("include_domains") or []
+            if "welcometothejungle.com" in inc_domains:
+                raise RuntimeError("Pass 1 API timeout")
+            elif "greenhouse.io" in inc_domains:
+                return {
+                    "results": [
+                        {"url": "https://jobs.lever.co/corp/789"},
+                    ]
+                }
+            return {"results": []}
+
+        mock_client.search.side_effect = mock_search
+        tool.client = mock_client
+
+        results = tool._run(query="DevOps Paris")
+        assert len(results) == 1
+        assert results[0] == "https://jobs.lever.co/corp/789"
 
 
 class TestExtractUrlsFromCrew:
