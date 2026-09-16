@@ -126,17 +126,50 @@ async def _default_fetch(url: str, total_timeout: float = FETCH_TIMEOUT) -> Opti
     return None
 
 
+_STATIC_ASSET_EXTENSIONS = (
+    ".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp", ".ico",
+    ".css", ".js", ".mjs", ".pdf", ".zip", ".tar", ".gz",
+    ".mp4", ".mov", ".avi", ".mp3", ".wav", ".woff", ".woff2", ".ttf", ".eot",
+)
+
+
+def _extract_internal_links_from_html(html: str, base_url: str) -> List[str]:
+    """Extrait tous les liens href d'une page HTML appartenant au même domaine."""
+    if not html:
+        return []
+    base_parsed = urlparse(base_url)
+    raw_hrefs = re.findall(r'<a\s+(?:[^>]*?\s+)?href=["\']([^"\']+)["\']', html, re.IGNORECASE)
+    discovered_paths: List[str] = []
+    for href in raw_hrefs:
+        clean_href = href.strip()
+        if not clean_href or clean_href.startswith(("#", "javascript:", "mailto:", "tel:")):
+            continue
+        joined = urljoin(base_url + "/", clean_href)
+        parsed = urlparse(joined)
+        # Ne conserver que les liens internes au même domaine
+        if parsed.netloc.lower() != base_parsed.netloc.lower():
+            continue
+        path = parsed.path or "/"
+        clean_path = path.lower()
+        if any(clean_path.endswith(ext) for ext in _STATIC_ASSET_EXTENSIONS):
+            continue
+        if any(skip in clean_path for skip in SKIP_PATTERNS):
+            continue
+        if path not in discovered_paths:
+            discovered_paths.append(path)
+    return discovered_paths
+
+
 async def discover_pages(
     base_url: str,
     fetch: Optional[Callable[[str], Awaitable[Optional[str]]]] = None,
 ) -> List[str]:
     """Liste les pages à crawler, plafonnée à MAX_PAGES.
 
-    Les chemins viennent du sitemap quand il existe, mais toujours résolus sur
-    le domaine demandé : un sitemap peut citer un domaine voisin. Si le
-    sitemap est absent ou inexploitable, on retombe sur une liste de chemins
-    usuels plutôt que de renvoyer une liste vide — un site sans sitemap doit
-    quand même produire des pages.
+    Les chemins viennent du sitemap quand il existe, mais aussi des liens HTML
+    découverts sur la page d'accueil pour couvrir les portfolios dynamiques
+    ou statiques sans sitemap. Si aucun lien n'est trouvé, on retombe sur la
+    liste de chemins usuels (FALLBACK_PATHS).
     """
     base = (await validate_public_url_async(base_url)).rstrip("/")
     fetch = fetch or _default_fetch
@@ -146,7 +179,16 @@ async def discover_pages(
     if sitemap:
         for loc in re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", sitemap):
             path = urlparse(loc).path or "/"
-            paths.append(path)
+            if path not in paths:
+                paths.append(path)
+
+    # Extraction des liens internes depuis la page d'accueil
+    root_html = await fetch(base)
+    if root_html:
+        for p in _extract_internal_links_from_html(root_html, base):
+            if p not in paths:
+                paths.append(p)
+
     if not paths:
         paths = list(FALLBACK_PATHS)
 

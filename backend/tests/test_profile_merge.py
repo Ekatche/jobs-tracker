@@ -214,3 +214,259 @@ def test_skills_are_unioned_by_category_across_sources():
     profile, _ = build_profile_from_sources({"cv": cv_skills, "website": website_skills})
     assert profile["skills"]["languages"] == ["Python", "SQL"]
     assert profile["skills"]["tools"] == ["Docker"]
+
+
+def test_experience_start_and_end_date_keys_are_normalized():
+    """Vérifie que les clés 'start_date' et 'end_date' du CV sont bien prises en compte et normalisées."""
+    cv_payload = {
+        "experiences": [
+            {
+                "company": "Agence Nile",
+                "role": "Data Engineer",
+                "start_date": "August 2025",
+                "end_date": "2026",
+            },
+            {
+                "company": "Centre Léon Bérard",
+                "role": "Data Scientist",
+                "start_date": "Fev 2023",
+                "end_date": "June 2024",
+            },
+        ]
+    }
+    profile, _ = build_profile_from_sources({"cv": cv_payload})
+    assert len(profile["experiences"]) == 2
+    nile = next(e for e in profile["experiences"] if "nile" in e["company"].lower())
+    assert nile["start"] == "2025-08"
+    assert nile["end"] == "2026"
+
+    clb = next(e for e in profile["experiences"] if "bérard" in e["company"].lower() or "berard" in e["company"].lower())
+    assert clb["start"] == "2023-02"
+    assert clb["end"] == "2024-06"
+
+
+def test_experience_reconciliation_fills_missing_start_from_other_source():
+    """Si une entrée manuelle a start: None, la source CV fournit la date réelle sans créer de doublon."""
+    manual_payload = {
+        "experiences": [
+            {
+                "company": "Agence Nile",
+                "role": "Lead Data Engineer",
+                "start": None,
+                "end": None,
+            }
+        ]
+    }
+    cv_payload = {
+        "experiences": [
+            {
+                "company": "Agence Nile",
+                "role": "Data Engineer",
+                "start_date": "August 2025",
+                "end_date": "2026",
+            }
+        ]
+    }
+    profile, _ = build_profile_from_sources({"manual": manual_payload, "cv": cv_payload})
+    assert len(profile["experiences"]) == 1
+    exp = profile["experiences"][0]
+    assert exp["role"] == "Lead Data Engineer"  # manual > cv
+    assert exp["start"] == "2025-08"            # cv supplied missing start
+    assert exp["end"] == "2026"                 # cv supplied missing end
+    assert set(exp["sources"]) == {"manual", "cv"}
+
+
+def test_projects_merge_preserves_repo_context_and_highlights():
+    """Tous les attributs des projets scrappés ou manuels (repo, context, highlights) sont conservés."""
+    site_payload = {
+        "projects": [
+            {
+                "name": "WideDocs",
+                "description": "Plateforme documentaire pour avocats.",
+                "context": "perso",
+                "stack": ["Python", "FastAPI"],
+                "url": "https://widedocs.fr/",
+                "repo": "https://github.com/Ekatche/widedocs",
+                "highlights": ["OCR automatique", "RGPD"],
+            }
+        ]
+    }
+    manual_payload = {
+        "projects": [
+            {
+                "name": "WideDocs",
+                "description": "Plateforme complète avec IA souveraine.",
+                "stack": ["PostgreSQL", "React"],
+            }
+        ]
+    }
+    profile, _ = build_profile_from_sources({"manual": manual_payload, "website": site_payload})
+    assert len(profile["projects"]) == 1
+    proj = profile["projects"][0]
+    assert proj["name"] == "WideDocs"
+    assert proj["url"] == "https://widedocs.fr/"
+    assert proj["repo"] == "https://github.com/Ekatche/widedocs"
+    assert proj["context"] == "perso"
+    assert "OCR automatique" in proj["highlights"]
+    assert "FastAPI" in proj["stack"]
+    assert "PostgreSQL" in proj["stack"]
+
+
+def test_headline_derived_automatically_when_missing():
+    """Un titre cohérent est dérivé depuis le résumé ou les expériences si non fourni."""
+    sources_with_summary = {
+        "cv": {
+            "summary": "Data Scientist et AI Engineer expérimenté dans la conception de solutions...",
+            "experiences": [{"company": "A", "role": "Data Engineer", "start": "2025-01"}],
+        }
+    }
+    profile1, _ = build_profile_from_sources(sources_with_summary)
+    assert profile1["headline"] == "Data Scientist & AI Engineer"
+
+    sources_with_role_only = {
+        "cv": {
+            "experiences": [{"company": "A", "role": "Data Engineer", "start": "2025-01"}],
+            "skills": {"ia": ["RAG", "Machine Learning"]},
+        }
+    }
+    profile2, _ = build_profile_from_sources(sources_with_role_only)
+    assert profile2["headline"] == "Data Engineer & AI Specialist"
+
+
+def test_education_merges_with_institution_and_dates_keys():
+    """Vérifie que les formations avec 'institution' et 'dates' (CV) sont bien intégrées et normalisées."""
+    cv_payload = {
+        "education": [
+            {
+                "degree": "Spécialisation en Intelligence Artificielle",
+                "institution": "CNAM Lyon",
+                "dates": "2024 - 2025",
+                "details": "Outils mathématiques pour l'optimisation numérique, IA avancée, IA pour données multimédias.",
+            },
+            {
+                "degree": "Master Data Science",
+                "institution": "Nexa Digital School Lyon",
+                "dates": "2022",
+                "details": "Algèbre linéaire, statistiques, machine learning, NLP, computer vision, big data.",
+            },
+        ]
+    }
+    profile, _ = build_profile_from_sources({"cv": cv_payload})
+    assert len(profile["education"]) == 2
+    cnam = next(e for e in profile["education"] if "cnam" in e["school"].lower())
+    assert cnam["school"] == "CNAM Lyon"
+    assert cnam["degree"] == "Spécialisation en Intelligence Artificielle"
+    assert cnam["years"] == "2024 - 2025"
+    assert any("optimisation numérique" in t for t in cnam["topics"])
+
+    nexa = next(e for e in profile["education"] if "nexa" in e["school"].lower())
+    assert nexa["school"] == "Nexa Digital School Lyon"
+    assert nexa["years"] == "2022"
+    assert any("machine learning" in t for t in nexa["topics"])
+
+
+def test_education_deduplicates_and_merges_across_sources():
+    """Une même école/diplôme présent dans plusieurs sources fusionne les informations sans doublon."""
+    cv_payload = {
+        "education": [
+            {
+                "institution": "CNAM Lyon",
+                "degree": "Spécialisation IA",
+                "dates": "2024 - 2025",
+                "details": "IA avancée",
+            }
+        ]
+    }
+    website_payload = {
+        "education": [
+            {
+                "school": "CNAM Lyon",
+                "degree": "Spécialisation IA",
+                "topics": ["Deep Learning", "Vision par ordinateur"],
+            }
+        ]
+    }
+    profile, _ = build_profile_from_sources({"cv": cv_payload, "website": website_payload})
+    assert len(profile["education"]) == 1
+    item = profile["education"][0]
+    assert item["school"] == "CNAM Lyon"
+    assert item["years"] == "2024 - 2025"
+    assert "IA avancée" in item["topics"]
+    assert "Deep Learning" in item["topics"]
+
+
+def test_languages_extracted_from_personal_info_and_normalized():
+    """Les langues déclarées dans personal_info sous forme d'objets sont normalisées en liste de strings."""
+    cv_payload = {
+        "personal_info": {
+            "languages": [
+                {"language": "English", "proficiency": "Fluent"},
+                {"language": "Français", "proficiency": "Natif"},
+            ]
+        }
+    }
+    profile, _ = build_profile_from_sources({"cv": cv_payload})
+    assert "English (Fluent)" in profile["languages"]
+    assert "Français (Natif)" in profile["languages"]
+
+
+def test_projects_deduplicate_across_casing_and_separators():
+    """Vérifie que 'Jobs Tracker' et 'jobs-tracker' fusionnent en conservant les métadonnées riches."""
+    website_payload = {
+        "projects": [
+            {
+                "name": "Jobs Tracker",
+                "description": "Plateforme moderne de suivi des candidatures IA.",
+                "context": "perso",
+                "stack": ["Next.js", "FastAPI"],
+            }
+        ]
+    }
+    github_payload = {
+        "projects": [
+            {
+                "name": "jobs-tracker",
+                "description": "Backend and frontend repo",
+                "stack": ["Python", "TypeScript"],
+                "url": "https://github.com/Ekatche/jobs-tracker",
+                "repo": "https://github.com/Ekatche/jobs-tracker",
+            }
+        ]
+    }
+    profile, _ = build_profile_from_sources({"website": website_payload, "github": github_payload})
+    assert len(profile["projects"]) == 1
+    proj = profile["projects"][0]
+    # Doit retenir le nom le plus soigné (avec majuscules/espaces)
+    assert proj["name"] == "Jobs Tracker"
+    # Doit retenir la description la plus informative
+    assert "Plateforme moderne" in proj["description"]
+    # Doit fusionner les stacks sans doublon
+    assert set(proj["stack"]) == {"Next.js", "FastAPI", "Python", "TypeScript"}
+    # Doit fusionner le repo GitHub
+    assert proj["repo"] == "https://github.com/Ekatche/jobs-tracker"
+
+
+def test_trivial_projects_and_excluded_projects_are_filtered():
+    """Les dépôts triviaux (cv, pytests) et les projets exclus manuellement sont ignorés."""
+    sources = {
+        "manual": {
+            "excluded_projects": ["active-learning"],
+        },
+        "github": {
+            "projects": [
+                {"name": "cv", "description": "mon cv html", "stack": ["CSS"]},
+                {"name": "pytests", "description": "sandbox tests", "stack": ["Python"]},
+                {"name": "Active_learning", "description": "Recherche IA semi-supervisée", "stack": ["PyTorch"]},
+                {"name": "WideDocs", "description": "Plateforme juridique IA", "stack": ["FastAPI"]},
+            ]
+        },
+    }
+    profile, _ = build_profile_from_sources(sources)
+    names = [p["name"] for p in profile["projects"]]
+    assert "cv" not in names
+    assert "pytests" not in names
+    assert "Active_learning" not in names  # Exclu manuellement
+    assert "WideDocs" in names
+
+
+

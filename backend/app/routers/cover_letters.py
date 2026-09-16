@@ -255,6 +255,28 @@ async def update_candidate_profile(
         raise HTTPException(status_code=502, detail="La mise à jour du profil a échoué")
 
 
+@cover_letters_router.put("/profile/candidate/preferences")
+async def update_candidate_preferences(
+    preferences_data: dict = Body(...),
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Mise à jour ciblée des critères de recherche et préférences du candidat."""
+    try:
+        from app.models import CandidatePreferences
+        validated_pref = CandidatePreferences.model_validate(preferences_data)
+        existing = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)}) or {}
+        sources = dict(existing.get("sources") or {})
+        manual = dict(sources.get("manual") or {})
+        manual["preferences"] = validated_pref.model_dump()
+        return await _store_source(db, str(current_user.id), "manual", manual)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Échec de la mise à jour des préférences pour %s", current_user.id)
+        raise HTTPException(status_code=502, detail="La mise à jour des préférences a échoué")
+
+
 @cover_letters_router.get("/profile/api-status")
 async def check_api_accounts_status(
     current_user: UserModel = Depends(get_current_user),

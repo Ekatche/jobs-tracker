@@ -570,3 +570,39 @@ async def test_github_never_produces_experiences():
     """GitHub documente des projets, pas des emplois : ne pas inventer d'expérience."""
     payload = await collect_github("Ekatche", client=FakeGitHubClient())
     assert payload.get("experiences", []) == []
+
+
+@pytest.mark.asyncio
+async def test_discover_pages_extracts_internal_html_links_from_root():
+    """Vérifie que les liens internes de la page d'accueil sont bien découverts et filtrés."""
+    html_page = """
+    <html>
+        <body>
+            <nav>
+                <a href="/projects/career-ops">Projet Career Ops</a>
+                <a href="/work/senior-ml">Expérience ML</a>
+                <a href="https://example.com/certifications">Certifs</a>
+                <a href="https://external-blog.com/article">Lien Externe</a>
+                <a href="/static/cv.pdf">Mon CV (PDF exclu)</a>
+                <a href="/images/photo.png">Photo (Image exclue)</a>
+                <a href="/legal">Mentions légales (skip)</a>
+                <a href="mailto:test@example.com">Email</a>
+            </nav>
+        </body>
+    </html>
+    """
+
+    async def fake_fetch(url):
+        if url.endswith("sitemap.xml"):
+            return None
+        return html_page
+
+    pages = await discover_pages("https://example.com", fetch=fake_fetch)
+    assert "https://example.com/projects/career-ops" in pages
+    assert "https://example.com/work/senior-ml" in pages
+    assert "https://example.com/certifications" in pages
+    assert not any("external-blog.com" in p for p in pages)
+    assert not any(p.endswith(".pdf") for p in pages)
+    assert not any(p.endswith(".png") for p in pages)
+    assert not any("/legal" in p for p in pages)
+

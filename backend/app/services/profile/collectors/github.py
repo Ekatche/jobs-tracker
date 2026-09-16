@@ -106,6 +106,7 @@ async def collect_github(url_or_handle: str, client=None) -> Dict[str, Any]:
                 "description": description,
                 "stack": stack,
                 "url": repo.get("html_url"),
+                "repo": repo.get("html_url"),
                 "context": "perso",
             }
         )

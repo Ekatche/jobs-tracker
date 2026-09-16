@@ -4,6 +4,7 @@ Fonction pure : aucun I/O, aucun LLM, aucune base. Un seul endroit décide quell
 source gagne sur quel champ, ce qui rend la règle lisible et testable.
 """
 
+import re
 from typing import Any, Dict, List, Tuple
 
 from app.services.profile.periods import company_slug, is_open_ended, normalize_month
@@ -30,14 +31,51 @@ def _dedup_preserving_order(values: List[str]) -> List[str]:
     return result
 
 
+def _normalize_key(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+
+
+
+def _derive_headline(
+    experiences: List[Dict[str, Any]],
+    summary: str,
+    skills: Dict[str, List[str]],
+) -> str:
+    """Dérive un titre professionnel cohérent à partir du résumé ou du rôle le plus récent."""
+    if summary:
+        first_sentence = summary.split(".")[0].strip()
+        match = re.match(
+            r"^([A-ZÀ-ÖØ-öø-ÿ][a-zA-ZÀ-ÖØ-öø-ÿ0-9\s&/,\-\+]+?)(?:\s+(?:expérimenté[e]?|senior|confirmé[e]?|avec|spécialisé[e]?|passionné[e]?|dans|ayant|\.|\,)|$)",
+            first_sentence,
+            re.IGNORECASE,
+        )
+        if match:
+            candidate = match.group(1).strip()
+            if 3 <= len(candidate) <= 60 and not candidate.lower().startswith(("je ", "mon ", "le ", "un ")):
+                candidate = re.sub(r"\s+et\s+", " & ", candidate, flags=re.IGNORECASE)
+                return candidate
+
+    if experiences:
+        top_role = (experiences[0].get("role") or "").strip()
+        if top_role:
+            lower_role = top_role.lower()
+            all_skills = [s.lower() for cat in skills.values() for s in cat]
+            has_ai = any(kw in all_skills for kw in ("rag", "machine learning", "ia", "deep learning", "llm"))
+            if has_ai and "ia" not in lower_role and "ai" not in lower_role and "ml" not in lower_role and "machine learning" not in lower_role:
+                return f"{top_role} & AI Specialist"
+            return top_role
+
+    return "Ingénieur Data & IA"
+
+
 def _first_non_empty(
     field: str, contributions: List[Tuple[str, Dict[str, Any]]]
 ) -> Tuple[str | None, Any]:
-    """Returns the (source, value) of the first contribution with a truthy value.
+    """Retourne (source, valeur) du premier champ renseigné dans l'ordre de priorité.
 
-    Returning the source alongside the value lets callers attribute a conflict
-    to the source that actually supplied the kept value — which is not always
-    `contributions[0]` when the highest-priority source is silent on this field.
+    Utilisé pour tous les scalaires (rôle, lieu, contrat, secteur) : `manual` gagne
+    s'il a renseigné la valeur, sinon `cv`, sinon `website`. Ne retombe PAS sur
+    `contributions[0]` lorsque la source de plus forte priorité est muette sur ce champ.
     """
     for source, payload in contributions:
         value = payload.get(field)
@@ -51,9 +89,17 @@ def _merge_one_experience(
     conflicts: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
     winner_source, winner = contributions[0]
+
+    # Date de début : chercher la première source non nulle dans l'ordre de priorité
+    starts = [
+        normalize_month(payload.get("start") or payload.get("start_date"))
+        for _, payload in contributions
+    ]
+    start_date = next((s for s in starts if s), None)
+
     merged: Dict[str, Any] = {
         "company": winner.get("company", ""),
-        "start": normalize_month(winner.get("start")),
+        "start": start_date,
         "sources": [source for source, _ in contributions],
     }
 
@@ -78,9 +124,9 @@ def _merge_one_experience(
 
     # Fin de période : une date réelle bat une période ouverte.
     ends = [
-        (source, normalize_month(payload.get("end")))
+        (source, normalize_month(payload.get("end") or payload.get("end_date")))
         for source, payload in contributions
-        if not is_open_ended(payload.get("end"))
+        if not is_open_ended(payload.get("end") or payload.get("end_date"))
     ]
     merged["end"] = ends[0][1] if ends else None
     distinct_ends = {value for _source, value in ends if value}
@@ -135,41 +181,102 @@ def _merge_experiences(
 
     for source in order:
         for experience in sources[source].get("experiences") or []:
-            key = (
-                company_slug(experience.get("company", "")),
-                normalize_month(experience.get("start")),
-            )
-            if key not in grouped:
-                grouped[key] = []
-                key_order.append(key)
-            grouped[key].append((source, experience))
+            c_slug = company_slug(experience.get("company", ""))
+            s_date = normalize_month(experience.get("start") or experience.get("start_date"))
+
+            # Rapprochement avec un groupe existant de la même entreprise
+            matched_key = None
+            for key in key_order:
+                existing_company, existing_start = key
+                if existing_company == c_slug:
+                    if existing_start == s_date or existing_start is None or s_date is None:
+                        matched_key = key
+                        break
+
+            if matched_key is None:
+                new_key = (c_slug, s_date)
+                grouped[new_key] = [(source, experience)]
+                key_order.append(new_key)
+            else:
+                grouped[matched_key].append((source, experience))
+                # Si le groupe existant n'avait pas de date de début et que la nouvelle en a une, mettre à jour la clé
+                if matched_key[1] is None and s_date is not None:
+                    idx = key_order.index(matched_key)
+                    updated_key = (c_slug, s_date)
+                    key_order[idx] = updated_key
+                    grouped[updated_key] = grouped.pop(matched_key)
 
     merged = [_merge_one_experience(grouped[key], conflicts) for key in key_order]
     # Ordre stable et lisible : du poste le plus récent au plus ancien.
     return sorted(merged, key=lambda e: e["start"] or "", reverse=True)
 
 
+IGNORED_PROJECT_NAMES = {"cv", "pytests", "test", "tests", "demo", "sandbox"}
+
+
+def _is_prettier_name(new_name: str, current_name: str) -> bool:
+    """Favorise un libellé formaté (avec espaces et majuscules) sur un slug technique tout en minuscules."""
+    if " " in new_name and " " not in current_name:
+        return True
+    if any(c.isupper() for c in new_name) and not any(c.isupper() for c in current_name):
+        return True
+    return False
+
+
 def _merge_projects(
     sources: Dict[str, Dict[str, Any]], order: List[str]
 ) -> List[Dict[str, Any]]:
+    excluded_keys = set()
+    for source in order:
+        for exc in sources[source].get("excluded_projects") or []:
+            if isinstance(exc, str):
+                excluded_keys.add(_normalize_key(exc))
+
     grouped: Dict[str, Dict[str, Any]] = {}
     for source in order:
         for project in sources[source].get("projects") or []:
             name = (project.get("name") or "").strip()
             if not name:
                 continue
-            key = name.lower()
+            key = _normalize_key(name)
+            if not key or key in excluded_keys:
+                continue
+
+            # Filtrage des dépôts triviaux ou utilitaires non pertinents
+            if key in IGNORED_PROJECT_NAMES:
+                continue
+
+            desc = (project.get("description") or "").strip()
+            stack = project.get("stack") or []
+            # Filtrage des dépôts vides sans description ni technologies
+            if not desc and not stack and not project.get("highlights"):
+                continue
+
             if key not in grouped:
                 grouped[key] = dict(project)
+                grouped[key]["name"] = name
                 grouped[key]["sources"] = [source]
                 continue
+
             current = grouped[key]
-            current["sources"].append(source)
-            if len(project.get("description") or "") > len(current.get("description") or ""):
+            if source not in current.get("sources", []):
+                current.setdefault("sources", []).append(source)
+
+            # Privilégie un nom d'affichage plus lisible (ex: "Jobs Tracker" vs "jobs-tracker")
+            if _is_prettier_name(name, current.get("name", "")):
+                current["name"] = name
+
+            if len(desc) > len(current.get("description") or ""):
                 current["description"] = project["description"]
+
             current["url"] = current.get("url") or project.get("url")
+            current["repo"] = current.get("repo") or project.get("repo")
+            current["context"] = current.get("context") or project.get("context") or "perso"
             current["stack"] = _dedup_preserving_order(
-                (current.get("stack") or []) + (project.get("stack") or [])
+                (current.get("stack") or []) + stack
+            )
+            current["highlights"] = _dedup_preserving_order(
+                (current.get("highlights") or []) + (project.get("highlights") or [])
             )
     return list(grouped.values())
 
@@ -184,15 +291,109 @@ def _merge_skills(
     return {cat: _dedup_preserving_order(values) for cat, values in merged.items()}
 
 
-def _merge_simple_list(
-    field: str, sources: Dict[str, Dict[str, Any]], order: List[str], key: str
+def _extract_languages(source_payload: Dict[str, Any]) -> List[str]:
+    raw = source_payload.get("languages") or []
+    if not raw and "personal_info" in source_payload:
+        raw = source_payload["personal_info"].get("languages") or []
+    normalized: List[str] = []
+    for item in raw:
+        if isinstance(item, str):
+            clean = item.strip()
+            if clean:
+                normalized.append(clean)
+        elif isinstance(item, dict):
+            lang = item.get("language") or item.get("name") or ""
+            prof = item.get("proficiency") or item.get("level") or ""
+            if lang:
+                normalized.append(f"{lang} ({prof})" if prof else lang)
+    return normalized
+
+
+def _merge_education(
+    sources: Dict[str, Dict[str, Any]], order: List[str]
 ) -> List[Dict[str, Any]]:
     grouped: Dict[str, Dict[str, Any]] = {}
     for source in order:
-        for item in sources[source].get(field) or []:
-            identity = (item.get(key) or "").strip().lower()
-            if identity and identity not in grouped:
-                grouped[identity] = dict(item)
+        for item in sources[source].get("education") or []:
+            school = (item.get("school") or item.get("institution") or "").strip()
+            degree = (item.get("degree") or "").strip()
+            years = (item.get("years") or item.get("dates") or "").strip() or None
+
+            raw_topics = item.get("topics") or []
+            if isinstance(raw_topics, str):
+                raw_topics = [t.strip() for t in raw_topics.split(",") if t.strip()]
+            elif not isinstance(raw_topics, list):
+                raw_topics = []
+
+            raw_details = item.get("details")
+            if raw_details and isinstance(raw_details, str):
+                details_list = [d.strip() for d in re.split(r"[,;.]\s*", raw_details) if d.strip()]
+                topics = _dedup_preserving_order(raw_topics + details_list)
+            else:
+                topics = _dedup_preserving_order(raw_topics)
+
+            if not school and not degree:
+                continue
+
+            school_slug = _normalize_key(school)
+            degree_slug = _normalize_key(degree)
+            key = f"{school_slug}::{degree_slug}" if degree_slug else school_slug
+
+            if key not in grouped:
+                grouped[key] = {
+                    "school": school,
+                    "degree": degree,
+                    "years": years,
+                    "topics": topics,
+                }
+            else:
+                current = grouped[key]
+                if not current.get("school") and school:
+                    current["school"] = school
+                if not current.get("degree") and degree:
+                    current["degree"] = degree
+                if not current.get("years") and years:
+                    current["years"] = years
+                current["topics"] = _dedup_preserving_order(current.get("topics", []) + topics)
+
+    return list(grouped.values())
+
+
+def _merge_certifications(
+    sources: Dict[str, Dict[str, Any]], order: List[str]
+) -> List[Dict[str, Any]]:
+    grouped: Dict[str, Dict[str, Any]] = {}
+    for source in order:
+        for item in sources[source].get("certifications") or []:
+            name = (item.get("name") or item.get("title") or "").strip()
+            issuer = (item.get("issuer") or item.get("organization") or "").strip()
+            year = (item.get("year") or item.get("date") or "").strip() or None
+
+            topics = item.get("topics") or []
+            if isinstance(topics, str):
+                topics = [t.strip() for t in topics.split(",") if t.strip()]
+            elif not isinstance(topics, list):
+                topics = []
+
+            if not name:
+                continue
+
+            key = _normalize_key(name)
+            if key not in grouped:
+                grouped[key] = {
+                    "name": name,
+                    "issuer": issuer,
+                    "year": year,
+                    "topics": _dedup_preserving_order(topics),
+                }
+            else:
+                current = grouped[key]
+                if not current.get("issuer") and issuer:
+                    current["issuer"] = issuer
+                if not current.get("year") and year:
+                    current["year"] = year
+                current["topics"] = _dedup_preserving_order(current.get("topics", []) + topics)
+
     return list(grouped.values())
 
 
@@ -212,24 +413,36 @@ def build_profile_from_sources(
 
     contact: Dict[str, Any] = {}
     for source in reversed(order):  # la priorité la plus forte écrit en dernier
-        contact.update({k: v for k, v in (sources[source].get("contact") or {}).items() if v})
+        src_payload = sources[source]
+        src_contact = src_payload.get("contact") or src_payload.get("personal_info") or {}
+        contact.update({k: v for k, v in src_contact.items() if v and k != "languages"})
 
     languages: List[str] = []
     for source in order:
-        languages.extend(sources[source].get("languages") or [])
+        languages.extend(_extract_languages(sources[source]))
 
     _, headline = _first_non_empty("headline", contributions)
     _, summary = _first_non_empty("summary", contributions)
+    _, preferences = _first_non_empty("preferences", contributions)
+
+    experiences = _merge_experiences(sources, order, conflicts)
+    skills = _merge_skills(sources, order)
+
+    if not headline:
+        headline = _derive_headline(experiences, summary or "", skills)
 
     profile = {
         "headline": headline or "",
         "summary": summary or "",
         "contact": contact,
-        "experiences": _merge_experiences(sources, order, conflicts),
+        "preferences": preferences or {},
+        "experiences": experiences,
         "projects": _merge_projects(sources, order),
-        "education": _merge_simple_list("education", sources, order, "school"),
-        "certifications": _merge_simple_list("certifications", sources, order, "name"),
+        "education": _merge_education(sources, order),
+        "certifications": _merge_certifications(sources, order),
         "languages": _dedup_preserving_order(languages),
-        "skills": _merge_skills(sources, order),
+        "skills": skills,
+        "excluded_projects": list(sources.get("manual", {}).get("excluded_projects", []) or []),
     }
     return profile, conflicts
+

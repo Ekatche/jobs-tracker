@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 from bson import ObjectId
-from pydantic import BaseModel, Field, GetCoreSchemaHandler, HttpUrl, ConfigDict
+from pydantic import BaseModel, Field, GetCoreSchemaHandler, HttpUrl, ConfigDict, model_validator
 from pydantic_core import core_schema
 
 
@@ -439,8 +439,10 @@ class CandidateProject(BaseModel):
     description: str = ""
     stack: List[str] = Field(default_factory=list)
     url: Optional[str] = None
+    repo: Optional[str] = None
     year: Optional[str] = None
     context: Literal["perso", "client", "recherche", "consortium"] = "perso"
+    highlights: List[str] = Field(default_factory=list)
     sources: List[str] = Field(default_factory=list)
 
 
@@ -472,12 +474,44 @@ class CandidateProvenance(BaseModel):
     source: CandidateProvenanceSource
 
 
+class RemotePolicy(str, Enum):
+    FULL_REMOTE = "full_remote"
+    HYBRID = "hybrid"
+    ON_SITE = "on_site"
+    FLEXIBLE = "flexible"
+
+
+class CandidatePreferences(BaseModel):
+    target_roles: List[str] = Field(default_factory=list)
+    seniority_level: Optional[str] = None
+    seniority_levels: List[str] = Field(default_factory=list)
+    locations: List[str] = Field(default_factory=list)
+    remote_policy: RemotePolicy = RemotePolicy.FLEXIBLE
+    min_salary: Optional[int] = None
+    target_salary: Optional[int] = None
+    currency: str = "EUR"
+    contract_types: List[str] = Field(default_factory=list)
+    notice_period: Optional[str] = None
+    work_authorization: Optional[str] = None
+    excluded_keywords: List[str] = Field(default_factory=list)
+    preferred_industries: List[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def sync_seniority(self) -> "CandidatePreferences":
+        if self.seniority_levels and not self.seniority_level:
+            self.seniority_level = self.seniority_levels[0]
+        elif self.seniority_level and not self.seniority_levels:
+            self.seniority_levels = [self.seniority_level]
+        return self
+
+
 class CandidateProfile(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     user_id: PyObjectId
     headline: str = ""
     summary: str = ""
     contact: Dict[str, Optional[str]] = Field(default_factory=dict)
+    preferences: CandidatePreferences = Field(default_factory=CandidatePreferences)
     experiences: List[CandidateExperience] = Field(default_factory=list)
     projects: List[CandidateProject] = Field(default_factory=list)
     education: List[CandidateEducation] = Field(default_factory=list)
@@ -487,6 +521,8 @@ class CandidateProfile(BaseModel):
     provenance: List[CandidateProvenance] = Field(default_factory=list)
     sources: Dict[str, dict] = Field(default_factory=dict)
     conflicts: List[CandidateConflict] = Field(default_factory=list)
+    excluded_projects: List[str] = Field(default_factory=list)
+    writing_style: Optional[str] = None
     updated_at: datetime = Field(default_factory=utcnow_with_timezone)
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
