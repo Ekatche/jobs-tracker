@@ -76,10 +76,10 @@ assumé et documenté là où ça ne l'est pas (`applications.py` → commit C5)
       opérations `git apply --cached`).
 - [x] Tests backend : `cd backend && uv run pytest` → tous verts (316 tests
       passés).
-- [ ] Merge : `git checkout main && git merge --no-ff fix/profile-multi-sources`
+- [x] Merge : `git checkout main && git merge --no-ff fix/profile-multi-sources`
       sans conflit.
 - [ ] Push : `git push origin main` accepté par le remote.
-- [ ] Docker : `docker compose build && docker compose up -d` (ou
+- [x] Docker : `docker compose build && docker compose up -d` (ou
       équivalent déjà en place dans `docker-compose.yml`) démarre sans erreur.
 
 ## Steps
@@ -244,12 +244,12 @@ l'étape), puis `git apply --cached <patch>`. Vérifier avant de committer avec
 - [x] **Vérification finale** : `git status --porcelain=v1 -uall` vide,
   `cd backend && uv run pytest` vert (316 tests passés).
 
-- [ ] **Merge** : `git checkout main`, `git merge --no-ff fix/profile-multi-sources`.
+- [x] **Merge** : `git checkout main`, `git merge --no-ff fix/profile-multi-sources`.
 
 - [ ] **Push** : `git push origin main` (demander confirmation avant, action à
   fort blast radius sur remote partagé).
 
-- [ ] **Rebuild docker local** : reconstruire les images (`docker-compose.yml`
+- [x] **Rebuild docker local** : reconstruire les images (`docker-compose.yml`
   modifié dans C12) et redémarrer les conteneurs.
 
 ## Code Review
