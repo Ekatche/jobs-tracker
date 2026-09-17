@@ -218,9 +218,56 @@ async def test_extract_ats_or_jsonld_offer_cascade():
 
     url = "https://jobs.ashbyhq.com/swile/789"
     result = await extract_ats_or_jsonld_offer(url, client=client)
-
     assert result is not None
     assert result["poste"] == "Fullstack Developer"
     assert result["entreprise"] == "Swile"
     assert result["localisation"] == "Montpellier"
     assert result["ats_platform"] == "ashby"
+
+
+def test_clean_html_to_text_with_encoded_entities():
+    # Test avec entités HTML encodées comme sur LinkedIn (&lt;p&gt;&lt;em&gt;...)
+    raw_linkedin_html = "&lt;p&gt;&lt;em&gt;&lt;strong&gt;Qui sommes nous ?&lt;br&gt;&lt;br&gt;&lt;/strong&gt;&lt;/em&gt;&lt;/p&gt;&lt;p&gt;Fondé en France, Talan est un groupe international.&lt;/p&gt;"
+    text = clean_html_to_text(raw_linkedin_html)
+    assert "Qui sommes nous ?" in text
+    assert "Fondé en France, Talan" in text
+    assert "<p>" not in text
+    assert "&lt;" not in text
+    assert "<em>" not in text
+    assert "<strong>" not in text
+
+
+@pytest.mark.asyncio
+async def test_summarize_ats_offer_description_success(monkeypatch):
+    from app.tasks.job_offers_collectors import summarize_ats_offer_description
+
+    mock_resp = MagicMock()
+    mock_resp.choices = [
+        MagicMock(
+            message=MagicMock(
+                content="• Contexte : Équipe Cloud 4 Data\n• Missions : Industrialisation plateformes AWS\n• Profil : 4+ ans exp"
+            )
+        )
+    ]
+
+    import litellm
+    monkeypatch.setattr(litellm, "acompletion", AsyncMock(return_value=mock_resp))
+
+    long_raw = "<p>Qui sommes nous ?</p>" * 20
+    summary = await summarize_ats_offer_description(long_raw, poste="Data Ops", entreprise="Talan")
+    assert "Contexte : Équipe Cloud 4 Data" in summary
+    assert "Missions : Industrialisation" in summary
+
+
+@pytest.mark.asyncio
+async def test_summarize_ats_offer_description_fallback_on_error(monkeypatch):
+    from app.tasks.job_offers_collectors import summarize_ats_offer_description
+
+    import litellm
+    monkeypatch.setattr(litellm, "acompletion", AsyncMock(side_effect=RuntimeError("API quota exceeded")))
+
+    long_raw = "<p>Fondé en France, Talan est un groupe international.</p>" * 10
+    fallback = await summarize_ats_offer_description(long_raw, poste="Data Ops", entreprise="Talan")
+    assert "Fondé en France, Talan est un groupe international." in fallback
+    assert "<p>" not in fallback
+

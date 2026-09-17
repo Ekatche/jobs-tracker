@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   jobOffersApi,
@@ -25,6 +25,10 @@ import {
   FiX,
   FiBookmark,
   FiEyeOff,
+  FiClock,
+  FiStar,
+  FiLayers,
+  FiCheckCircle,
 } from "react-icons/fi";
 import { PrefilledData } from "@/components/dashboard/NewApplicationModal";
 
@@ -42,6 +46,47 @@ function cleanDescriptionPreview(text: string | undefined): string {
     .trim();
 }
 
+function getRecentBadgeInfo(createdAtStr?: string) {
+  if (!createdAtStr) return null;
+  const createdDate = new Date(createdAtStr);
+  if (isNaN(createdDate.getTime())) return null;
+
+  const now = new Date();
+  const diffMs = now.getTime() - createdDate.getTime();
+  const diffHours = diffMs / (1000 * 60 * 60);
+
+  if (diffHours <= 24) {
+    return { label: "Nouveau (< 24h)", isFresh: true };
+  } else if (diffHours <= 48) {
+    return { label: "Nouveau (< 48h)", isFresh: false };
+  } else if (diffHours <= 7 * 24) {
+    return { label: "Récent (< 7j)", isFresh: false };
+  }
+  return null;
+}
+
+function formatAddedDate(createdAtStr?: string): string | null {
+  if (!createdAtStr) return null;
+  try {
+    const d = new Date(createdAtStr);
+    if (isNaN(d.getTime())) return null;
+    const now = new Date();
+    const diffHours = (now.getTime() - d.getTime()) / (1000 * 60 * 60);
+    if (diffHours < 1) {
+      return "Ajoutée à l'instant";
+    }
+    if (diffHours < 24) {
+      return `Ajoutée il y a ${Math.max(1, Math.round(diffHours))}h`;
+    }
+    if (diffHours < 48) {
+      return "Ajoutée hier";
+    }
+    return `Ajoutée le ${d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}`;
+  } catch {
+    return null;
+  }
+}
+
 const ITEMS_PER_PAGE = 16; // 4x4 grille
 
 export default function OffersPage() {
@@ -53,7 +98,11 @@ export default function OffersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [companyFilter, setCompanyFilter] = useState("");
+  const [contractTypeFilter, setContractTypeFilter] = useState("");
+  const [workModeFilter, setWorkModeFilter] = useState("");
+  const [daysRecentFilter, setDaysRecentFilter] = useState<number | undefined>(undefined);
   const [onlySaved, setOnlySaved] = useState(false);
+  const [interactionStatus, setInteractionStatus] = useState<"saved" | "applied" | "hidden" | undefined>(undefined);
   const [minScoreFilter, setMinScoreFilter] = useState<number | undefined>(undefined);
 
   // Pagination
@@ -69,37 +118,50 @@ export default function OffersPage() {
   const [stats, setStats] = useState<JobOfferStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
+  // Filtres normalisés et mémorisés
+  const currentFilters = useMemo((): JobOfferFilter => {
+    const f: JobOfferFilter = {};
+    if (searchTerm) f.keywords = searchTerm;
+    if (locationFilter) f.location = locationFilter;
+    if (companyFilter) f.company = companyFilter;
+    if (contractTypeFilter) f.contract_type = contractTypeFilter;
+    if (workModeFilter) f.work_mode = workModeFilter;
+    if (daysRecentFilter !== undefined) f.days_recent = daysRecentFilter;
+    if (onlySaved) f.only_saved = true;
+    if (interactionStatus) f.interaction_status = interactionStatus;
+    if (minScoreFilter !== undefined) f.min_score = minScoreFilter;
+    return f;
+  }, [
+    searchTerm,
+    locationFilter,
+    companyFilter,
+    contractTypeFilter,
+    workModeFilter,
+    daysRecentFilter,
+    onlySaved,
+    interactionStatus,
+    minScoreFilter,
+  ]);
+
   // Fonction pour charger le nombre total d'offres
   const fetchTotalCount = useCallback(async () => {
     try {
-      const filters = {
-        keywords: searchTerm || undefined,
-        location: locationFilter || undefined,
-        company: companyFilter || undefined,
-        only_saved: onlySaved || undefined,
-        min_score: minScoreFilter,
-      };
-
-      const countData = await jobOffersApi.getCount(filters);
+      const countData = await jobOffersApi.getCount(currentFilters);
       setTotalOffers(countData.total);
     } catch (err) {
       console.error("Erreur lors du comptage des offres:", err);
       setTotalOffers(0);
     }
-  }, [searchTerm, locationFilter, companyFilter, onlySaved, minScoreFilter]);
+  }, [currentFilters]);
 
-  // Fonction pour charger les offres
+  // Fonction pour charger les offres avec pagination
   const fetchOffers = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
       const filters: JobOfferFilter = {
-        keywords: searchTerm || undefined,
-        location: locationFilter || undefined,
-        company: companyFilter || undefined,
-        only_saved: onlySaved || undefined,
-        min_score: minScoreFilter,
+        ...currentFilters,
         limit: ITEMS_PER_PAGE,
         skip: (currentPage - 1) * ITEMS_PER_PAGE,
       };
@@ -112,7 +174,7 @@ export default function OffersPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, locationFilter, companyFilter, onlySaved, minScoreFilter, currentPage]);
+  }, [currentFilters, currentPage]);
 
   // Fonction pour charger les statistiques
   const fetchStats = useCallback(async () => {
@@ -215,19 +277,44 @@ export default function OffersPage() {
     window.dispatchEvent(event);
   };
 
-  // Charger les offres et le total au montage et quand les filtres changent
+  // Charger le total au montage et quand les filtres changent
   useEffect(() => {
     if (activeTab === "offers") {
-      Promise.all([fetchOffers(), fetchTotalCount()]);
+      fetchTotalCount();
+    }
+  }, [fetchTotalCount, activeTab]);
+
+  // Charger les offres au montage, quand les filtres OU currentPage changent
+  useEffect(() => {
+    if (activeTab === "offers") {
+      fetchOffers();
     } else if (activeTab === "stats") {
       fetchStats();
     }
-  }, [fetchOffers, fetchTotalCount, fetchStats, activeTab]);
+  }, [fetchOffers, fetchStats, activeTab]);
 
-  // Reset pagination quand on change les filtres
+  // Reset pagination sur modification des filtres
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, locationFilter, companyFilter]);
+  }, [
+    searchTerm,
+    locationFilter,
+    companyFilter,
+    contractTypeFilter,
+    workModeFilter,
+    daysRecentFilter,
+    onlySaved,
+    interactionStatus,
+    minScoreFilter,
+  ]);
+
+  // Clamping automatique si currentPage dépasse totalPages (ex: filtre restreignant les résultats)
+  useEffect(() => {
+    const totalPages = Math.ceil(totalOffers / ITEMS_PER_PAGE);
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalOffers, currentPage]);
 
   // Fonction pour formater la date
   const formatDate = (dateString: string) => {
@@ -258,6 +345,8 @@ export default function OffersPage() {
     const cleanedDescription = cleanDescriptionPreview(offer.description);
 
     const isSaved = offer.user_interaction === "saved";
+    const recentBadge = getRecentBadgeInfo(offer.created_at);
+    const addedDateText = formatAddedDate(offer.created_at);
 
     return (
       <div className="bg-slate-900/80 hover:bg-slate-900/95 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all duration-200 border border-slate-800 hover:border-blue-500/40 relative group flex flex-col justify-between backdrop-blur-sm">
@@ -318,8 +407,22 @@ export default function OffersPage() {
               </h3>
             </Link>
 
-            {/* Badges: Match Score, Contrat, Mode de travail, Salaire */}
+            {/* Badges: Nouveau (<24h / <48h), Match Score, Contrat, Mode de travail, Salaire */}
             <div className="flex flex-wrap gap-1.5 mb-3 items-center">
+              {recentBadge && (
+                <span
+                  className={`px-2 py-0.5 text-xs font-bold rounded-lg border flex items-center gap-1 shadow-sm ${
+                    recentBadge.isFresh
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-emerald-500/10"
+                      : "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-cyan-500/10"
+                  }`}
+                  title={`Offre ajoutée en base récemment (${recentBadge.label})`}
+                >
+                  <FiZap className="w-3 h-3 fill-current text-emerald-400" />
+                  <span>{recentBadge.label}</span>
+                </span>
+              )}
+
               {offer.evaluation_score !== undefined && offer.evaluation_score !== null ? (
                 <span
                   className={`px-2.5 py-0.5 text-xs font-bold rounded-lg border flex items-center gap-1.5 shadow-sm ${
@@ -420,11 +523,18 @@ export default function OffersPage() {
               </div>
             )}
 
-            <div className="flex items-center gap-1.5 mb-4">
-              <FiCalendar className="text-slate-400 flex-shrink-0 text-xs" />
-              <span className="text-slate-400 text-xs">
-                {formatDate(offer.date || "")}
-              </span>
+            {/* Dates: Ajout en base + Date publication */}
+            <div className="flex flex-col gap-1 mb-4 text-xs text-slate-400">
+              {addedDateText && (
+                <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                  <FiClock className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                  <span>{addedDateText}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5 text-slate-400">
+                <FiCalendar className="w-3.5 h-3.5 shrink-0" />
+                <span>Publication : {formatDate(offer.date || "")}</span>
+              </div>
             </div>
           </div>
 
@@ -465,36 +575,84 @@ export default function OffersPage() {
     );
   };
 
-
-  // Composant pagination
+  // Composant pagination enrichi et déterministe
   const Pagination = () => {
     const totalPages = Math.ceil(totalOffers / ITEMS_PER_PAGE);
 
     if (totalPages <= 1) return null;
 
+    const handlePageClick = (page: number) => {
+      setCurrentPage(page);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    // Générer les numéros de page avec ellipses
+    const getPageNumbers = () => {
+      const delta = 1;
+      const range: number[] = [];
+      for (
+        let i = Math.max(2, currentPage - delta);
+        i <= Math.min(totalPages - 1, currentPage + delta);
+        i++
+      ) {
+        range.push(i);
+      }
+
+      const pages: (number | string)[] = [1];
+      if (currentPage - delta > 2) {
+        pages.push("...");
+      }
+      pages.push(...range);
+      if (currentPage + delta < totalPages - 1) {
+        pages.push("...");
+      }
+      if (totalPages > 1 && !pages.includes(totalPages)) {
+        pages.push(totalPages);
+      }
+      return pages;
+    };
+
     return (
-      <div className="flex justify-center items-center gap-2 mt-8">
+      <div className="flex flex-wrap justify-center items-center gap-1.5 mt-8 pb-10">
         <button
-          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+          onClick={() => handlePageClick(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
-          className="px-4 py-2 rounded-lg bg-blue-night-lighter text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
+          className="px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/70 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 hover:text-white transition-all text-xs font-semibold shadow-sm"
         >
           Précédent
         </button>
 
-        <span className="px-4 py-2 text-gray-300">
-          Page {currentPage} sur {totalPages}
-        </span>
+        {getPageNumbers().map((p, idx) =>
+          typeof p === "string" ? (
+            <span key={idx} className="px-2 py-1 text-slate-500 text-xs select-none">
+              •••
+            </span>
+          ) : (
+            <button
+              key={idx}
+              onClick={() => handlePageClick(p)}
+              className={`min-w-[34px] h-[34px] px-2 rounded-xl text-xs font-semibold transition-all border shadow-sm ${
+                currentPage === p
+                  ? "bg-blue-600 text-white border-blue-500 shadow-blue-500/20"
+                  : "bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-700 hover:text-white"
+              }`}
+            >
+              {p}
+            </button>
+          )
+        )}
 
         <button
-          onClick={() =>
-            setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-          }
+          onClick={() => handlePageClick(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
-          className="px-4 py-2 rounded-lg bg-blue-night-lighter text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
+          className="px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/70 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 hover:text-white transition-all text-xs font-semibold shadow-sm"
         >
           Suivant
         </button>
+
+        <span className="ml-2 text-xs text-slate-400">
+          Page {currentPage} sur {totalPages}
+        </span>
       </div>
     );
   };
@@ -678,6 +836,7 @@ export default function OffersPage() {
         </div>
 
         {/* Contenu conditionnel selon l'onglet */}
+        {/* Filtres & Barre d'action */}
         {activeTab === "offers" && (
           <>
             {/* Barre de recherche et filtres */}
@@ -702,13 +861,33 @@ export default function OffersPage() {
                 )}
               </div>
 
-              {/* Quick filter pills */}
+              {/* Pilules de filtres rapides */}
               <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-800/80">
+                {/* Toutes */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOnlySaved(false);
+                    setInteractionStatus(undefined);
+                    setDaysRecentFilter(undefined);
+                    setMinScoreFilter(undefined);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
+                    !onlySaved && !interactionStatus && !daysRecentFilter && minScoreFilter === undefined
+                      ? "bg-blue-600 text-white border-blue-500 shadow-sm shadow-blue-500/20"
+                      : "bg-slate-800/70 text-slate-400 hover:text-white border-slate-700/60 hover:bg-slate-800"
+                  }`}
+                >
+                  <FiLayers className="w-3.5 h-3.5" />
+                  <span>Toutes</span>
+                </button>
+
+                {/* Favoris */}
                 <button
                   type="button"
                   onClick={() => {
                     setOnlySaved(!onlySaved);
-                    setCurrentPage(1);
+                    setInteractionStatus(undefined);
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
                     onlySaved
@@ -717,53 +896,140 @@ export default function OffersPage() {
                   }`}
                 >
                   <FiBookmark className={`w-3.5 h-3.5 ${onlySaved ? "fill-amber-400 text-amber-400" : ""}`} />
-                  <span>Favoris uniquement</span>
+                  <span>⭐ Favoris</span>
                 </button>
 
+                {/* Nouvelles (< 48h) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDaysRecentFilter(daysRecentFilter === 2 ? undefined : 2);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
+                    daysRecentFilter === 2
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/10"
+                      : "bg-slate-800/70 text-slate-400 hover:text-white border-slate-700/60 hover:bg-slate-800"
+                  }`}
+                  title="Offres ajoutées dans votre base au cours des dernières 48 heures"
+                >
+                  <FiZap className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>✨ Nouvelles (&lt; 48h)</span>
+                </button>
+
+                {/* Score IA >= 4.0 */}
                 <button
                   type="button"
                   onClick={() => {
                     setMinScoreFilter(minScoreFilter === 4.0 ? undefined : 4.0);
-                    setCurrentPage(1);
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
                     minScoreFilter === 4.0
-                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/10"
+                      ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/40 shadow-sm shadow-indigo-500/10"
                       : "bg-slate-800/70 text-slate-400 hover:text-white border-slate-700/60 hover:bg-slate-800"
                   }`}
                 >
-                  <FiZap className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Score IA ≥ 4.0</span>
+                  <FiStar className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Match IA ≥ 4.0</span>
+                </button>
+
+                {/* Postulées */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInteractionStatus(interactionStatus === "applied" ? undefined : "applied");
+                    setOnlySaved(false);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
+                    interactionStatus === "applied"
+                      ? "bg-teal-500/20 text-teal-300 border-teal-500/40 shadow-sm shadow-teal-500/10"
+                      : "bg-slate-800/70 text-slate-400 hover:text-white border-slate-700/60 hover:bg-slate-800"
+                  }`}
+                >
+                  <FiCheckCircle className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Postulées</span>
                 </button>
               </div>
 
               {/* Filtres détaillés */}
               {showFilters && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 mt-4 border-t border-slate-800">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 pt-4 mt-4 border-t border-slate-800 text-xs">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                    <label className="block font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                       Localisation
                     </label>
                     <input
                       type="text"
-                      placeholder="Paris, Lyon, Télétravail..."
+                      placeholder="Paris, Lyon, Distanciel..."
                       value={locationFilter}
                       onChange={(e) => setLocationFilter(e.target.value)}
-                      className="w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm"
+                      className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                    <label className="block font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                       Entreprise
                     </label>
                     <input
                       type="text"
-                      placeholder="Google, Alan, Doctolib..."
+                      placeholder="Google, Thales, Doctolib..."
                       value={companyFilter}
                       onChange={(e) => setCompanyFilter(e.target.value)}
-                      className="w-full px-3.5 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm"
+                      className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Contrat
+                    </label>
+                    <select
+                      value={contractTypeFilter}
+                      onChange={(e) => setContractTypeFilter(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    >
+                      <option value="">Tous les contrats</option>
+                      <option value="CDI">CDI</option>
+                      <option value="CDD">CDD</option>
+                      <option value="Freelance">Freelance</option>
+                      <option value="Stage">Stage</option>
+                      <option value="Alternance">Alternance</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Mode de travail
+                    </label>
+                    <select
+                      value={workModeFilter}
+                      onChange={(e) => setWorkModeFilter(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    >
+                      <option value="">Tous les modes</option>
+                      <option value="Télétravail">Télétravail / Full Remote</option>
+                      <option value="Hybride">Hybride</option>
+                      <option value="Présentiel">Présentiel</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Ajoutée en base
+                    </label>
+                    <select
+                      value={daysRecentFilter ?? ""}
+                      onChange={(e) =>
+                        setDaysRecentFilter(e.target.value ? Number(e.target.value) : undefined)
+                      }
+                      className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    >
+                      <option value="">Toute la période</option>
+                      <option value="1">Dernières 24 heures</option>
+                      <option value="2">Dernières 48 heures</option>
+                      <option value="7">7 derniers jours</option>
+                      <option value="30">30 derniers jours</option>
+                    </select>
                   </div>
                 </div>
               )}
@@ -774,16 +1040,28 @@ export default function OffersPage() {
               <p className="text-xs font-medium text-slate-400">
                 {loading
                   ? "Chargement des offres..."
-                  : `${totalOffers} offres au total • ${offers.length} affichées`}
+                  : `${totalOffers.toLocaleString()} offre${totalOffers > 1 ? "s" : ""} au total • ${offers.length} affichée${offers.length > 1 ? "s" : ""}`}
               </p>
 
-              {(searchTerm || locationFilter || companyFilter || onlySaved || minScoreFilter !== undefined) && (
+              {(searchTerm ||
+                locationFilter ||
+                companyFilter ||
+                contractTypeFilter ||
+                workModeFilter ||
+                daysRecentFilter !== undefined ||
+                onlySaved ||
+                interactionStatus ||
+                minScoreFilter !== undefined) && (
                 <button
                   onClick={() => {
                     setSearchTerm("");
                     setLocationFilter("");
                     setCompanyFilter("");
+                    setContractTypeFilter("");
+                    setWorkModeFilter("");
+                    setDaysRecentFilter(undefined);
                     setOnlySaved(false);
+                    setInteractionStatus(undefined);
                     setMinScoreFilter(undefined);
                   }}
                   className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"

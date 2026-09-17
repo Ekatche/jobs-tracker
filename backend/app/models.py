@@ -326,8 +326,8 @@ class JobOfferResponse(BaseModel):
     seniority_level: Optional[str] = None
     alternative_urls: Optional[List[str]] = None
     user_interaction: Optional[str] = None  # Interaction: "saved", "hidden", "applied", "dismissed"
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class UserOfferInteractionRequest(BaseModel):

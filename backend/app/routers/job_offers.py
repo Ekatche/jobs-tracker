@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 from bson import ObjectId
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from ..models import (
     JobOfferResponse,
     OfferEvaluationResponse,
@@ -24,14 +24,17 @@ async def apply_user_interaction_filters(
     only_saved: bool = False,
     include_hidden: bool = False,
     min_score: Optional[float] = None,
+    interaction_status: Optional[str] = None,
 ) -> tuple[dict, dict, bool]:
     """
-    Applique les filtres multi-tenant (masquées, sauvegardées, score IA minimum) au filtre MongoDB.
+    Applique les filtres multi-tenant (masquées, sauvegardées, statut d'interaction, score IA minimum) au filtre MongoDB.
     Renvoie (match_filter_mis_à_jour, interaction_map, should_return_empty).
     """
+    target_status = "saved" if only_saved else interaction_status
+
     interaction_map = {}
     if not current_user:
-        if only_saved or min_score is not None:
+        if target_status or min_score is not None:
             return match_filter, interaction_map, True
         return match_filter, interaction_map, False
 
@@ -41,16 +44,16 @@ async def apply_user_interaction_filters(
 
     allowed_oids = None
 
-    # 1. Filtre des offres sauvegardées
-    if only_saved:
-        saved_oids = [
+    # 1. Filtre par statut d'interaction (saved, applied, etc.)
+    if target_status:
+        matching_oids = [
             ObjectId(oid)
             for oid, st in interaction_map.items()
-            if st == "saved" and ObjectId.is_valid(oid)
+            if st == target_status and ObjectId.is_valid(oid)
         ]
-        if not saved_oids:
+        if not matching_oids:
             return match_filter, interaction_map, True
-        allowed_oids = set(saved_oids)
+        allowed_oids = set(matching_oids)
 
     # 2. Filtre par score IA minimum (Two-Pass)
     if min_score is not None:
@@ -74,7 +77,7 @@ async def apply_user_interaction_filters(
 
     # 3. Exclusion des offres masquées par l'utilisateur
     excluded_oids = set()
-    if not include_hidden:
+    if not include_hidden and target_status != "hidden":
         for oid, st in interaction_map.items():
             if st == "hidden" and ObjectId.is_valid(oid):
                 excluded_oids.add(ObjectId(oid))
@@ -95,6 +98,10 @@ async def get_job_offers(
     keywords: Optional[str] = Query(None),
     location: Optional[str] = Query(None),
     company: Optional[str] = Query(None),
+    contract_type: Optional[str] = Query(None),
+    work_mode: Optional[str] = Query(None),
+    days_recent: Optional[int] = Query(None),
+    interaction_status: Optional[str] = Query(None),
     only_saved: bool = Query(False),
     include_hidden: bool = Query(False),
     min_score: Optional[float] = Query(None),
@@ -120,6 +127,7 @@ async def get_job_offers(
             only_saved=only_saved,
             include_hidden=include_hidden,
             min_score=min_score,
+            interaction_status=interaction_status,
         )
         if should_return_empty:
             return []
@@ -143,10 +151,29 @@ async def get_job_offers(
         if company:
             match_filter["entreprise"] = {"$regex": company, "$options": "i"}
 
-        # ✅ ÉTAPE 2: Pipeline d'agrégation avec déduplication
+        if contract_type:
+            match_filter["type_contrat"] = {"$regex": contract_type, "$options": "i"}
+
+        if work_mode:
+            match_filter["mode_travail"] = {"$regex": work_mode, "$options": "i"}
+
+        if days_recent and days_recent > 0:
+            threshold_dt = datetime.now(timezone.utc) - timedelta(days=days_recent)
+            iso_str = threshold_dt.isoformat()
+            match_filter["$and"] = match_filter.get("$and", [])
+            match_filter["$and"].append(
+                {
+                    "$or": [
+                        {"created_at": {"$gte": threshold_dt}},
+                        {"created_at": {"$gte": iso_str}},
+                    ]
+                }
+            )
+
+        # ✅ ÉTAPE 2: Pipeline d'agrégation avec déduplication et tri déterministe (tiebreaker _id)
         pipeline = [
             {"$match": match_filter},
-            {"$sort": {"created_at": -1}},
+            {"$sort": {"created_at": -1, "_id": -1}},
             {
                 "$addFields": {
                     "dedup_key": {
@@ -174,7 +201,7 @@ async def get_job_offers(
             },
             {"$replaceRoot": {"newRoot": "$offer"}},
             {"$unset": "dedup_key"},
-            {"$sort": {"created_at": -1}},
+            {"$sort": {"created_at": -1, "_id": -1}},
             {"$skip": skip},
             {"$limit": limit},
         ]
@@ -602,6 +629,10 @@ async def get_job_offers_count(
     keywords: Optional[str] = Query(None),
     location: Optional[str] = Query(None),
     company: Optional[str] = Query(None),
+    contract_type: Optional[str] = Query(None),
+    work_mode: Optional[str] = Query(None),
+    days_recent: Optional[int] = Query(None),
+    interaction_status: Optional[str] = Query(None),
     only_saved: bool = Query(False),
     include_hidden: bool = Query(False),
     min_score: Optional[float] = Query(None),
@@ -625,6 +656,7 @@ async def get_job_offers_count(
             only_saved=only_saved,
             include_hidden=include_hidden,
             min_score=min_score,
+            interaction_status=interaction_status,
         )
         if should_return_empty:
             return {"total": 0}
@@ -648,19 +680,43 @@ async def get_job_offers_count(
         if company:
             match_filter["entreprise"] = {"$regex": company, "$options": "i"}
 
-        # ✅ PIPELINE pour compter les offres dédupliquées
+        if contract_type:
+            match_filter["type_contrat"] = {"$regex": contract_type, "$options": "i"}
+
+        if work_mode:
+            match_filter["mode_travail"] = {"$regex": work_mode, "$options": "i"}
+
+        if days_recent and days_recent > 0:
+            threshold_dt = datetime.now(timezone.utc) - timedelta(days=days_recent)
+            iso_str = threshold_dt.isoformat()
+            match_filter["$and"] = match_filter.get("$and", [])
+            match_filter["$and"].append(
+                {
+                    "$or": [
+                        {"created_at": {"$gte": threshold_dt}},
+                        {"created_at": {"$gte": iso_str}},
+                    ]
+                }
+            )
+
+        # ✅ PIPELINE pour compter les offres dédupliquées (synchronisé avec get_job_offers)
         count_pipeline = [
             {"$match": match_filter},
             # Déduplication
             {
                 "$addFields": {
                     "dedup_key": {
-                        "$concat": [
-                            {"$toLower": {"$ifNull": ["$entreprise", ""]}},
-                            "|||",
-                            {"$toLower": {"$ifNull": ["$poste", ""]}},
-                            "|||",
-                            {"$toLower": {"$ifNull": ["$localisation", ""]}},
+                        "$ifNull": [
+                            "$unique_key",
+                            {
+                                "$concat": [
+                                    {"$toLower": {"$ifNull": ["$entreprise", ""]}},
+                                    "|||",
+                                    {"$toLower": {"$ifNull": ["$poste", ""]}},
+                                    "|||",
+                                    {"$toLower": {"$ifNull": ["$localisation", ""]}},
+                                ]
+                            },
                         ]
                     }
                 }

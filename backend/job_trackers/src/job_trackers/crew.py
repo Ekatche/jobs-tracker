@@ -18,15 +18,63 @@ logger = logging.getLogger(__name__)
 tavily_search = TavilyJobBoardSearchTool()
 
 
+REASONING_MODEL_PREFIXES = ("o1", "o3", "gpt-5", "gpt-o")
+
+
+def is_reasoning_model(model: Optional[str]) -> bool:
+    short = (model or "").split("/")[-1].lower()
+    return any(short.startswith(p) for p in REASONING_MODEL_PREFIXES)
+
+
+def _get_openai_temperature(model: str) -> Optional[float]:
+    short = (model or "").split("/")[-1].lower()
+    if any(short.startswith(p) for p in ("o1", "o3", "gpt-o")):
+        return None
+    if short.startswith("gpt-5"):
+        return 1.0
+    return 0.1
+
+
+class JobTrackerLLM(LLM):
+    """CrewAI LLM subclass designed for reasoning models (o1/o3/gpt-5).
+
+    LiteLLM's static capability table incorrectly lists 'stop' as supported for
+    OpenAI reasoning models, causing CrewAI to inject 'stop' sequences into calls.
+    This subclass:
+    1. Returns False for supports_stop_words() on reasoning models, letting CrewAI
+       handle stop parsing post-response.
+    2. Strips 'stop' from _prepare_completion_params() so neither stop=[] nor
+       stop=['...'] is sent to the OpenAI endpoint.
+    3. Adds drop_params=True to drop any other unsupported parameter gracefully.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if is_reasoning_model(self.model):
+            self.stop = None
+
+    def supports_stop_words(self) -> bool:
+        if is_reasoning_model(self.model):
+            return False
+        return super().supports_stop_words()
+
+    def _prepare_completion_params(self, messages, tools=None):
+        params = super()._prepare_completion_params(messages, tools)
+        if is_reasoning_model(self.model):
+            params.pop("stop", None)
+            params["drop_params"] = True
+        return params
+
+
 def _openai_llm(api_key: str) -> LLM:
-    """LLM OpenAI pour CrewAI. Les modèles gpt-5 n'acceptent que temperature=1."""
+    """LLM OpenAI pour CrewAI. Les modèles gpt-5 n'acceptent que temperature=1, o1/o3 aucun temp."""
     model = os.getenv("CREW_LLM_MODEL", "gpt-5.6-luna")
-    temperature = 1 if model.startswith("gpt-5") else 0.1
-    return LLM(model=model, api_key=api_key, temperature=temperature)
+    temperature = _get_openai_temperature(model)
+    return JobTrackerLLM(model=model, api_key=api_key, temperature=temperature)
 
 
 def _gemini_llm(api_key: str) -> LLM:
-    return LLM(
+    return JobTrackerLLM(
         model=os.getenv("CREW_LLM_MODEL_GEMINI", "gemini/gemini-3.8-flash"),
         api_key=api_key,
         temperature=0.1,
@@ -74,8 +122,8 @@ def get_search_executor_llm() -> LLM:
     if not api_key:
         raise ValueError("OPENAI_API_KEY requise pour search_executor (CREW_LLM_MODEL_SEARCH).")
     model = os.getenv("CREW_LLM_MODEL_SEARCH", "gpt-5-nano")
-    temperature = 1 if model.startswith("gpt-5") else 0.1
-    return LLM(model=model, api_key=api_key, temperature=temperature)
+    temperature = _get_openai_temperature(model)
+    return JobTrackerLLM(model=model, api_key=api_key, temperature=temperature)
 
 
 @CrewBase

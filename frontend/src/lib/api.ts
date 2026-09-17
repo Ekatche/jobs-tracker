@@ -345,6 +345,10 @@ export interface JobOfferFilter {
   keywords?: string;
   location?: string;
   company?: string;
+  contract_type?: string;
+  work_mode?: string;
+  days_recent?: number;
+  interaction_status?: "saved" | "hidden" | "applied" | "dismissed" | "none";
   limit?: number;
   skip?: number;
   only_saved?: boolean;
@@ -564,6 +568,12 @@ export const jobOffersApi = {
     if (filters.keywords) params.append("keywords", filters.keywords);
     if (filters.location) params.append("location", filters.location);
     if (filters.company) params.append("company", filters.company);
+    if (filters.contract_type) params.append("contract_type", filters.contract_type);
+    if (filters.work_mode) params.append("work_mode", filters.work_mode);
+    if (filters.days_recent !== undefined && filters.days_recent !== null) {
+      params.append("days_recent", filters.days_recent.toString());
+    }
+    if (filters.interaction_status) params.append("interaction_status", filters.interaction_status);
     if (filters.only_saved) params.append("only_saved", "true");
     if (filters.include_hidden) params.append("include_hidden", "true");
     if (filters.min_score !== undefined && filters.min_score !== null) {
@@ -656,6 +666,12 @@ export const jobOffersApi = {
     if (filters.keywords) params.append("keywords", filters.keywords);
     if (filters.location) params.append("location", filters.location);
     if (filters.company) params.append("company", filters.company);
+    if (filters.contract_type) params.append("contract_type", filters.contract_type);
+    if (filters.work_mode) params.append("work_mode", filters.work_mode);
+    if (filters.days_recent !== undefined && filters.days_recent !== null) {
+      params.append("days_recent", filters.days_recent.toString());
+    }
+    if (filters.interaction_status) params.append("interaction_status", filters.interaction_status);
     if (filters.only_saved) params.append("only_saved", "true");
     if (filters.include_hidden) params.append("include_hidden", "true");
     if (filters.min_score !== undefined && filters.min_score !== null) {

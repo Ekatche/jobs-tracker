@@ -346,5 +346,128 @@ def test_structured_description_preservation():
     assert "**Avantages & Modalités** :" in saved_desc
 
 
+@pytest.mark.asyncio
+async def test_apply_user_interaction_filters_saved_and_status():
+    from unittest.mock import AsyncMock, MagicMock
+    from bson import ObjectId
+    from app.routers.job_offers import apply_user_interaction_filters
+    from app.models import UserModel
 
+    user = UserModel(
+        id="650000000000000000000001",
+        username="testuser",
+        email="test@example.com",
+        hashed_password="fakehashedpassword",
+    )
+
+    mock_db = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.to_list = AsyncMock(return_value=[
+        {"offer_id": "650000000000000000000010", "status": "saved"},
+        {"offer_id": "650000000000000000000020", "status": "applied"},
+        {"offer_id": "650000000000000000000030", "status": "hidden"},
+    ])
+    mock_db.__getitem__.return_value.find.return_value = mock_cursor
+
+    # 1. Test only_saved = True
+    match_f, inter_map, empty = await apply_user_interaction_filters(
+        match_filter={},
+        db=mock_db,
+        current_user=user,
+        only_saved=True,
+    )
+    assert not empty
+    assert inter_map["650000000000000000000010"] == "saved"
+    assert ObjectId("650000000000000000000010") in match_f["_id"]["$in"]
+    assert ObjectId("650000000000000000000020") not in match_f["_id"]["$in"]
+
+    # 2. Test interaction_status = "applied"
+    match_f_app, _, empty_app = await apply_user_interaction_filters(
+        match_filter={},
+        db=mock_db,
+        current_user=user,
+        interaction_status="applied",
+    )
+    assert not empty_app
+    assert ObjectId("650000000000000000000020") in match_f_app["_id"]["$in"]
+
+    # 3. Test hidden exclusion when not requested
+    match_f_all, _, _ = await apply_user_interaction_filters(
+        match_filter={},
+        db=mock_db,
+        current_user=user,
+    )
+    assert ObjectId("650000000000000000000030") in match_f_all["_id"]["$nin"]
+
+
+def test_deterministic_sorting_keys():
+    # Documents with identical created_at must be strictly ordered by _id descending
+    same_dt = datetime(2026, 9, 17, 10, 0, 0, tzinfo=timezone.utc)
+    docs = [
+        {"_id": "002", "created_at": same_dt, "poste": "B"},
+        {"_id": "003", "created_at": same_dt, "poste": "C"},
+        {"_id": "001", "created_at": same_dt, "poste": "A"},
+    ]
+    # Emulate MongoDB sort {"created_at": -1, "_id": -1}
+    sorted_docs = sorted(docs, key=lambda d: (d["created_at"], d["_id"]), reverse=True)
+    ids = [d["_id"] for d in sorted_docs]
+    assert ids == ["003", "002", "001"]
+
+
+@pytest.mark.asyncio
+async def test_save_offers_to_database_cross_source_dedup(monkeypatch):
+    from unittest.mock import AsyncMock, MagicMock
+    from bson import ObjectId
+    from app.tasks.job_offers_collectors import save_offers_to_database
+
+    existing_wttj_doc = {
+        "_id": ObjectId("6aaa8ed40a4a13cc5c4a7b1f"),
+        "poste": "Ai Engineer / Scientist Confirmé F/h",
+        "entreprise": "Deloitte",
+        "localisation": "Lyon",
+        "url": "https://www.welcometothejungle.com/fr/companies/deloitte/jobs/ai-engineer-scientist-confirme-f-h_lyon",
+        "unique_key": "deloitte|ai confirmé engineer scientist|lyon",
+        "evaluation": {"score": 5.0, "match": "Excellent"},
+        "user_interaction": "saved",
+        "created_at": datetime(2026, 9, 16, 12, 0, 0, tzinfo=timezone.utc),
+    }
+
+    mock_collection = MagicMock()
+    # find_one returns the existing document when matching unique_key
+    mock_collection.find_one = AsyncMock(return_value=existing_wttj_doc)
+    mock_collection.update_one = AsyncMock(return_value=MagicMock(modified_count=1))
+    mock_collection.insert_one = AsyncMock()
+
+    mock_db = {"job_offers": mock_collection}
+
+    async def mock_get_database():
+        return mock_db
+
+    monkeypatch.setattr("app.tasks.job_offers_collectors.get_database", mock_get_database)
+
+    incoming_linkedin_offer = {
+        "poste": "AI Engineer / Scientist confirmé",
+        "entreprise": "Deloitte",
+        "localisation": "Lyon",
+        "url": "https://fr.linkedin.com/jobs/view/ai-engineer-scientist-confirm%C3%A9-f-h-at-deloitte-4463883002",
+        "description": "Détails complets de l'offre LinkedIn",
+    }
+
+    res = await save_offers_to_database([incoming_linkedin_offer])
+
+    # Should update the existing document, not insert a duplicate
+    assert res["updated"] == 1
+    assert res["saved"] == 0
+    assert mock_collection.update_one.called
+    assert not mock_collection.insert_one.called
+
+    # Check updated fields
+    call_args = mock_collection.update_one.call_args
+    filter_arg = call_args[0][0]
+    update_arg = call_args[0][1]["$set"]
+
+    assert filter_arg == {"_id": existing_wttj_doc["_id"]}
+    assert update_arg["url"] == existing_wttj_doc["url"]  # WTTJ stays primary
+    assert incoming_linkedin_offer["url"] in update_arg["alternative_urls"]
+    assert update_arg["evaluation"] == existing_wttj_doc["evaluation"]
 

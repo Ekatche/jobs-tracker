@@ -1,7 +1,29 @@
+import html
 import re
 import string
 from typing import Optional, List, Dict, Any, Set
 from difflib import SequenceMatcher
+
+
+def clean_html_entities_and_tags(text: Optional[str]) -> str:
+    """Nettoie les entités HTML (ex: &amp; -> &) et supprime les balises HTML résiduelles."""
+    if not text:
+        return ""
+    val = str(text)
+    # 1. Supprimer les balises HTML réelles d'abord (ex: <b>, <h3>, <p>, <br/>, <div ...>)
+    # pour ne pas détruire les brackets légitimes issus de &lt;...&gt;
+    val = re.sub(r"<(?:/[a-zA-Z][a-zA-Z0-9]*|[a-zA-Z][a-zA-Z0-9]*(?:\s+[^>]*)?)>", " ", val)
+    # 2. Remplacer les espaces insécables et caractères invisibles
+    val = val.replace("\u00a0", " ").replace("\u200b", "").replace("\ufeff", "")
+    # 3. Décoder les entités HTML (jusqu'à 2 passes pour le double encodage ex: &amp;amp;)
+    for _ in range(2):
+        unescaped = html.unescape(val)
+        if unescaped == val:
+            break
+        val = unescaped
+    val = re.sub(r"\s+", " ", val)
+    return val.strip()
+
 
 
 def normalize_city(city: Optional[str]) -> str:
@@ -99,17 +121,13 @@ def extract_domain(url: Optional[str]) -> str:
 
 def compute_unique_key(company: str, position: str, location: Optional[str] = None, url: Optional[str] = None) -> str:
     """
-    Génère une clé d'upsert robuste pour une offre d'emploi.
-    Si une URL spécifique est présente, elle fait partie de l'unicité.
-    Sinon, elle se base sur le triplet normalisé Entreprise | Poste | Localisation.
+    Génère une clé d'unicité canonique et sémantique pour une offre d'emploi.
+    La clé est basée sur le triplet normalisé Entreprise | Poste | Localisation,
+    permettant la réconciliation cross-plateformes (ex: Welcome to the Jungle vs LinkedIn).
     """
     norm_comp = normalize_company(company).lower()
     norm_pos = normalize_position(position).lower()
     norm_loc = normalize_city(location).lower() if location else "non-specifie"
-
-    if url and len(url.strip()) > 10:
-        clean_url = url.strip().rstrip("/")
-        return f"{norm_comp}|{norm_pos}|{clean_url}"
 
     return f"{norm_comp}|{norm_pos}|{norm_loc}"
 
@@ -356,13 +374,17 @@ def restore_canonical_job_url(url: Optional[str]) -> str:
 def clean_job_title_syntax(title: Optional[str]) -> str:
     """Couche 1 : Nettoyage syntaxique déterministe de l'intitulé de poste.
 
-    Supprime les mentions légales (H/F), types de contrat (CDI, CDD, etc.),
-    localisations/balises polluantes ([Paris], - Lyon), et éléments marketing (emojis, URGENT).
+    Déséchappe les entités HTML (ex: &amp; -> &), supprime les mentions légales (H/F),
+    types de contrat (CDI, CDD), balises marketing/crochets ([Paris], [CDI]),
+    parenthèses orphelines et ponctuation résiduelle.
     """
     if not title or not isinstance(title, str):
         return "Non spécifié"
 
-    cleaned = title.strip()
+    # 0. Déséchapper les entités HTML (2 passes pour &amp;amp;) et supprimer balises
+    cleaned = clean_html_entities_and_tags(title)
+    if not cleaned:
+        return "Non spécifié"
 
     # 1. Emojis et caractères décoratifs Unicode
     emoji_pattern = re.compile(
@@ -393,14 +415,14 @@ def clean_job_title_syntax(title: Optional[str]) -> str:
     for pat in marketing_patterns:
         cleaned = re.sub(pat, " ", cleaned, flags=re.IGNORECASE)
 
-    # 3. Mentions légales H/F, F/H, M/F/D, etc.
+    # 3. Mentions légales H/F, F/H, M/F/D, H/F/NB, F/H/NB, etc.
     legal_patterns = [
-        r"\(\s*h\s*[\/\-]?\s*f(?:\s*[\/\-]\s*x)?\s*\)",
-        r"\(\s*f\s*[\/\-]?\s*h(?:\s*[\/\-]\s*x)?\s*\)",
-        r"\(\s*m\s*[\/\-]?\s*f(?:\s*[\/\-]\s*[dx])?\s*\)",
-        r"\(\s*m\s*[\/\-]?\s*w(?:\s*[\/\-]\s*d)?\s*\)",
+        r"\(\s*(?:h|f|m)\s*[\/\-]?\s*(?:h|f|w)(?:\s*[\/\-]\s*(?:[dxn]|nb|non[\s\-]binaire))?\s*\)",
+        r"\b(?:h\/f\/nb|f\/h\/nb|h\/f\/d|f\/h\/d|h\/f\/x|f\/h\/x|h\/f\/n|f\/h\/n)\b",
         r"\b(?:h\/f|f\/h|hf|fh|h\-f|f\-h|m\/f|m\/w\/d|m\/f\/d)\b",
         r"\b(?:homme\s*[\/\-]?\s*femme|femme\s*[\/\-]?\s*homme)\b",
+        r"\(\s*[\/\-]\s*(?:nb|non[\s\-]binaire|[dxn])?\s*\)",  # parenthèses résiduelles commençant par un slash/tiret ex: ( /NB)
+        r"\s*[\/\-–—]\s*(?:nb|non[\s\-]binaire|n)\b",  # suffixe orphelin /NB ou /N
     ]
     for pat in legal_patterns:
         cleaned = re.sub(pat, " ", cleaned, flags=re.IGNORECASE)
@@ -425,11 +447,66 @@ def clean_job_title_syntax(title: Optional[str]) -> str:
     for pat in loc_remote_patterns:
         cleaned = re.sub(pat, " ", cleaned, flags=re.IGNORECASE)
 
-    # 7. Nettoyage de ponctuation résiduelle en début/fin et espaces multiples
+    # 7. Nettoyage des parenthèses/crochets vides ou orphelins (ex: "()", "( )", "[]", "{}")
+    cleaned = re.sub(r"\(\s*\)", " ", cleaned)
+    cleaned = re.sub(r"\[\s*\]", " ", cleaned)
+    cleaned = re.sub(r"\{\s*\}", " ", cleaned)
+
+    # 8. Normaliser les guillemets et tirets typographiques
+    cleaned = cleaned.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"')
+    cleaned = cleaned.replace("–", "-").replace("—", "-")
+
+    # 9. Nettoyage de ponctuation résiduelle en début/fin et espaces multiples
     cleaned = re.sub(r"^[\s\-–—\|\/,\.:;]+|[\s\-–—\|\/,\.:;]+$", "", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
 
     return cleaned if cleaned else (title.strip() or "Non spécifié")
+
+
+def normalize_offer_fields(offer: Dict[str, Any]) -> Dict[str, Any]:
+    """Nettoie et normalise l'ensemble des champs d'une offre (titre, entreprise, ville, contrat, etc.) hors IA."""
+    if not offer or not isinstance(offer, dict):
+        return offer
+
+    cleaned = dict(offer)
+
+    # 1. Intitulé de poste
+    if "poste" in cleaned and cleaned["poste"]:
+        cleaned["poste"] = clean_job_title_syntax(cleaned["poste"])
+
+    # 2. Entreprise
+    if "entreprise" in cleaned and cleaned["entreprise"]:
+        ent = clean_html_entities_and_tags(str(cleaned["entreprise"]))
+        cleaned["entreprise"] = ent if ent else "Non spécifié"
+
+    # 3. Localisation
+    if "localisation" in cleaned and cleaned["localisation"]:
+        loc = clean_html_entities_and_tags(str(cleaned["localisation"]))
+        cleaned["localisation"] = normalize_city(loc) if loc else "Non spécifié"
+
+    # 4. Type de contrat, salaire, mode de travail
+    for field in ("type_contrat", "salaire", "mode_travail"):
+        if field in cleaned and cleaned[field]:
+            val = clean_html_entities_and_tags(str(cleaned[field]))
+            cleaned[field] = val if val else "Non spécifié"
+
+    # 5. Description
+    if "description" in cleaned and cleaned["description"]:
+        desc = str(cleaned["description"])
+        if "<" in desc or "&" in desc:
+            from app.services.ats.router import clean_html_to_text
+            cleaned["description"] = clean_html_to_text(desc)
+
+    # 6. Recalcul de la clé unique
+    cleaned["unique_key"] = compute_unique_key(
+        company=cleaned.get("entreprise", ""),
+        position=cleaned.get("poste", ""),
+        location=cleaned.get("localisation"),
+        url=cleaned.get("url"),
+    )
+
+    return cleaned
+
 
 
 def extract_seniority(title: Optional[str], description: Optional[str] = None) -> Optional[str]:
@@ -654,6 +731,21 @@ def merge_multidiffusion_offers(primary: Dict[str, Any], secondary: Dict[str, An
             p_copy["created_at"] = min(p_copy["created_at"], s_copy["created_at"])
         except Exception:
             pass
+
+    # 10. Préservation de l'évaluation / scoring
+    if not p_copy.get("evaluation") and s_copy.get("evaluation"):
+        p_copy["evaluation"] = s_copy["evaluation"]
+
+    # 11. Préservation de l'interaction utilisateur (favori, archivé, postulé)
+    if not p_copy.get("user_interaction") and s_copy.get("user_interaction"):
+        p_copy["user_interaction"] = s_copy["user_interaction"]
+
+    # 12. Clé canonique d'unicité garantie
+    p_copy["unique_key"] = compute_unique_key(
+        company=p_copy.get("entreprise", ""),
+        position=p_copy.get("poste", ""),
+        location=p_copy.get("localisation"),
+    )
 
     return p_copy
 

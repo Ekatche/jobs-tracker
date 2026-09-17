@@ -8,6 +8,9 @@ from app.services.normalization import (
     extract_company_from_url,
     optimize_crawl_url,
     restore_canonical_job_url,
+    clean_html_entities_and_tags,
+    clean_job_title_syntax,
+    normalize_offer_fields,
 )
 
 
@@ -41,6 +44,18 @@ def test_compute_unique_key():
     key_url1 = compute_unique_key("Acme", "Data Scientist", url="https://acme.com/jobs/123/")
     key_url2 = compute_unique_key("Acme SAS", "Data Scientist H/F", url="https://acme.com/jobs/123")
     assert key_url1 == key_url2
+
+    # Cross-source URLs (WTTJ vs LinkedIn) for same company and role
+    key_wttj = compute_unique_key(
+        "Deloitte", "Ai Engineer / Scientist Confirmé F/h", "Lyon",
+        url="https://www.welcometothejungle.com/fr/companies/deloitte/jobs/ai-engineer-scientist-confirme-f-h_lyon"
+    )
+    key_linkedin = compute_unique_key(
+        "Deloitte", "AI Engineer / Scientist confirmé", "Lyon",
+        url="https://fr.linkedin.com/jobs/view/ai-engineer-scientist-confirm%C3%A9-f-h-at-deloitte-4463883002"
+    )
+    assert key_wttj == key_linkedin
+    assert key_wttj == "deloitte|ai confirmé engineer scientist|lyon"
 
 
 def test_extract_company_from_url():
@@ -142,5 +157,101 @@ def test_restore_canonical_job_url():
     # Other URLs untouched
     wttj = "https://www.welcometothejungle.com/fr/companies/alan/jobs/123"
     assert restore_canonical_job_url(wttj) == wttj
+
+
+def test_merge_multidiffusion_offers_preserves_metadata():
+    from app.services.normalization import merge_multidiffusion_offers
+
+    wttj_offer = {
+        "poste": "Ai Engineer / Scientist Confirmé F/h",
+        "entreprise": "Deloitte",
+        "localisation": "Lyon",
+        "url": "https://www.welcometothejungle.com/fr/companies/deloitte/jobs/ai-engineer-scientist-confirme-f-h_lyon",
+        "evaluation": {"score": 5.0, "match": "Excellent"},
+        "user_interaction": "saved",
+        "description": "Court descriptif WTTJ",
+        "competences_cles": ["Python", "PyTorch"],
+    }
+
+    linkedin_offer = {
+        "poste": "AI Engineer / Scientist confirmé",
+        "entreprise": "Deloitte",
+        "localisation": "Lyon",
+        "url": "https://fr.linkedin.com/jobs/view/ai-engineer-scientist-confirm%C3%A9-f-h-at-deloitte-4463883002",
+        "description": "Descriptif beaucoup plus long et détaillé issu de LinkedIn avec tous les éléments du poste...",
+        "competences_cles": ["Python", "MLOps", "Docker"],
+    }
+
+    merged = merge_multidiffusion_offers(wttj_offer, linkedin_offer)
+
+    # WTTJ has priority 80 over LinkedIn 50
+    assert merged["url"] == wttj_offer["url"]
+    assert linkedin_offer["url"] in merged["alternative_urls"]
+    # Preserves evaluation & user_interaction
+    assert merged["evaluation"] == {"score": 5.0, "match": "Excellent"}
+    assert merged["user_interaction"] == "saved"
+    # Merges skills
+    assert set(merged["competences_cles"]) == {"Python", "PyTorch", "MLOps", "Docker"}
+    # Keeps longest description
+    assert merged["description"] == linkedin_offer["description"]
+    # Clean canonical unique_key
+    assert merged["unique_key"] == "deloitte|ai confirmé engineer scientist|lyon"
+
+
+def test_clean_html_entities_and_tags():
+    assert clean_html_entities_and_tags("Junior Data Scientist / ML Engineer (R&amp;D)") == "Junior Data Scientist / ML Engineer (R&D)"
+    assert clean_html_entities_and_tags("Ingénieur &lt;Cloud&gt; &amp; DevOps") == "Ingénieur <Cloud> & DevOps"
+    assert clean_html_entities_and_tags("Lead&#39;s Team &quot;AI&quot;") == "Lead's Team \"AI\""
+    assert clean_html_entities_and_tags("<strong>Data Analyst</strong>") == "Data Analyst"
+    assert clean_html_entities_and_tags("Espace\u00a0insécable\u200b") == "Espace insécable"
+    assert clean_html_entities_and_tags(None) == ""
+    assert clean_html_entities_and_tags("") == ""
+
+
+def test_clean_job_title_syntax():
+    # HTML entities in title
+    raw = "Junior Data Scientist / ML Engineer (R&amp;D)"
+    assert clean_job_title_syntax(raw) == "Junior Data Scientist / ML Engineer (R&D)"
+
+    # HTML tags in title
+    assert clean_job_title_syntax("<h3>Data Engineer</h3> (H/F)") == "Data Engineer"
+
+    # Residual empty brackets and parentheses
+    assert clean_job_title_syntax("Data Scientist (H/F) ()") == "Data Scientist"
+    assert clean_job_title_syntax("ML Engineer [ ]") == "ML Engineer"
+    assert clean_job_title_syntax("Data Analyst (CDI) (Paris)") == "Data Analyst"
+
+    # Typographic punctuation & legal mentions
+    assert clean_job_title_syntax("Data Trust & AI Governance Manager (H/F/NB)") == "Data Trust & AI Governance Manager"
+    assert clean_job_title_syntax("Data Scientist – Remote") == "Data Scientist"
+    assert clean_job_title_syntax("Data Scientist - -") == "Data Scientist"
+
+
+def test_normalize_offer_fields():
+    polluted_offer = {
+        "poste": "Junior Data Scientist / ML Engineer (R&amp;D) (H/F)",
+        "entreprise": "Recupere Metals &amp; Co",
+        "localisation": "Paris (75) &amp; Remote",
+        "description": "<p>Superbe poste de <strong>Data Scientist</strong> chez Recupere Metals &amp; Co.</p>",
+        "type_contrat": "CDI &amp; Plein temps",
+        "salaire": "45k&euro; - 55k&euro;",
+        "mode_travail": "Hybride &amp; Flexible",
+        "url": "https://recuperemetals.com/jobs/1",
+    }
+
+    cleaned = normalize_offer_fields(polluted_offer)
+
+    assert cleaned["poste"] == "Junior Data Scientist / ML Engineer (R&D)"
+    assert cleaned["entreprise"] == "Recupere Metals & Co"
+    assert cleaned["localisation"] == "Paris & Remote"
+    assert "<p>" not in cleaned["description"]
+    assert "<strong>" not in cleaned["description"]
+    assert "Recupere Metals & Co" in cleaned["description"]
+    assert cleaned["type_contrat"] == "CDI & Plein temps"
+    assert "€" in cleaned["salaire"]
+    assert cleaned["mode_travail"] == "Hybride & Flexible"
+    assert cleaned["unique_key"] is not None
+    assert "recupere metals & co" in cleaned["unique_key"]
+
 
 

@@ -6,13 +6,14 @@ Job Tracker est une application web moderne et automatisée pour centraliser vos
 
 ## 🏗️ Architecture & Technologies
 
-- **Frontend** : Next.js (App Router), React, TailwindCSS, Axios, React Icons, Cookies de session proactifs, Vue unifiée Kanban & Tableau (`/applications`), Wizard d'onboarding (`/onboarding`).
+- **Frontend** : Next.js (App Router), React, TailwindCSS, Axios, React Icons, Cookies de session proactifs, Vue unifiée Kanban & Tableau (`/applications`), Wizard d'onboarding (`/onboarding`), Catalogue des offres (`/offers`) avec pagination chiffrée déterministe (`_id: -1`), badges d'offres récentes (`< 24h`, `< 48h`), date d'ajout explicite et filtres multicritères (Favoris/Sauvegardées, Récence, Type de contrat, Télétravail).
 - **Backend API** : FastAPI, Pydantic v2, Motor / PyMongo, JWT Auth (Access + Refresh Tokens avec support optionnel pour catalogue).
 - **Automatisation & Scheduling** : Apache Airflow (DAGs de collecte quotidienne, nettoyage des doublons et soft-delete synchronisé).
 - **Ingestion & Normalisation en 4 Couches** :
   - **Zero-Token ATS & JSON-LD Router** : Connecteurs HTTP directs pour Greenhouse, Lever, Workable et Schema.org JSON-LD (Ashby, Teamtailor, Personio, Recruitee) extrayant du JSON structuré à coût token nul (0 token LLM).
   - **Funnel de Recherche Additif (CrewAI & Tavily)** : Partitionnement équilibré en 3 passes (Job boards nationaux max 12, ATS direct entreprises max 10, LinkedIn Jobs max 8).
-  - **Normalisation en 4 Couches** : Nettoyage syntaxique des scories employeur `(H/F), CDI, [LYON], 🚀`, extraction de séniorité, déduplication floue Levenshtein + Jaccard de descriptions, et fusion multi-sources avec priorité aux URLs ATS et consolidation des salaires et liens alternatifs.
+  - **Nettoyage Déterministe Hors-IA & Normalisation** : Déséchappement HTML double passe (`&amp;` $\rightarrow$ `&`), suppression des balises résiduelles, nettoyage syntaxique des intitulés (préservation des termes techniques réels `(R&D)`, suppression propre des mentions légales `(H/F)`, `(H/F/NB)` et parenthèses orphelines), normalisation des villes et salaires.
+  - **Déduplication Cross-Source Sémantique** : Clé d'unicité normalisée indépendante des URLs (`{company}|{sorted_tokens}|{city}`), fusion automatique multi-diffusions (WTTJ, LinkedIn, Indeed, ATS) préservant l'URL prioritaire, les liens alternatifs, les évaluations Career-Ops et les statuts d'interaction candidat.
   - **Découplage Multi-Tenant** : Isolation des statuts personnels (Sauvegardée, Masquée, Postulée, Score de matching) dans `user_offer_interactions` pour préserver l'intégrité du pool partagé `job_offers`.
 - **Évaluation d'Offre Two-Pass (Career-Ops IA)** :
   - Sas d'évaluation en 2 passages avec Gemini 3.7 Flash : extraction d'exigences pondérées suivie du matching contre le profil candidat complet (CV, stack, formations, projets GitHub).
@@ -181,17 +182,20 @@ Le générateur de lettres s'appuie sur une critique inter-fournisseurs obligato
 
 ## 🧪 Tests
 
-Les tests du backend s'exécutent avec `uv` :
+Les tests du backend s'exécutent avec `docker` ou directement avec `uv` :
 
 ```bash
+# Via Docker (recommandé si les conteneurs tournent) :
+docker exec jobtracker-backend pytest tests/test_normalization.py tests/test_job_offers_pipeline.py -v
+
+# En local avec uv :
 cd backend
 # Tests de génération de lettres de motivation
 uv run --no-sync pytest tests/test_letter_guards.py tests/test_cover_letter_models.py tests/test_profile_seed.py tests/test_letter_llm.py tests/test_cover_letter_crew.py tests/test_cover_letter_trigger.py tests/test_cover_letters_api.py -v
 
-# Tests de normalisation et scraping
+# Tests de normalisation, pipelines et déduplication
 uv run --no-sync pytest tests/test_normalization.py tests/test_job_offers_pipeline.py tests/test_crew_models_and_tools.py -v
 ```
-
 
 ---
 
@@ -204,6 +208,13 @@ docker compose logs -f airflow
 
 # Forcer l'exécution manuelle de la collecte d'offres via Airflow
 docker compose exec airflow airflow dags trigger collect_job_offers_granular
+
+# Maintenance & Assainissement des offres en base MongoDB
+# 1. Nettoyage déterministe hors-IA (déséchappement HTML, nettoyage syntaxique des titres, normalisation)
+docker exec jobtracker-backend python scripts/sanitize_existing_offers.py
+
+# 2. Déduplication sémantique multi-sources rétroactive
+docker exec jobtracker-backend python retroactive_dedup_job_offers.py
 
 # Arrêter les services
 docker compose down

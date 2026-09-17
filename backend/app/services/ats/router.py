@@ -22,10 +22,18 @@ DEFAULT_HEADERS = {
 
 
 def clean_html_to_text(raw_html: str) -> str:
-    """Convertit du HTML brut en texte lisible avec retours à la ligne propres."""
+    """Convertit du HTML brut (ou encodé en entités) en texte lisible avec retours à la ligne propres."""
     if not raw_html:
         return "Non spécifié"
-    text = re.sub(r"<(script|style|svg)[^>]*>.*?</\1>", "", raw_html, flags=re.DOTALL | re.IGNORECASE)
+    text = raw_html
+    # Déséchapper au préalable pour que les balises encodées (&lt;p&gt;) soient traitées par le regex
+    for _ in range(2):
+        unescaped = html.unescape(text)
+        if unescaped == text:
+            break
+        text = unescaped
+
+    text = re.sub(r"<(script|style|svg)[^>]*>.*?</\1>", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"</(p|div|li|h[1-6]|tr)>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"<li[^>]*>", "• ", text, flags=re.IGNORECASE)

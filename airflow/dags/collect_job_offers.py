@@ -73,8 +73,15 @@ def execute_collection_pipeline(validated_queries: list) -> dict:
             logger.error(f"💥 Erreur lors de la collecte pour '{query}': {e}")
             query_results.append({"query": query, "status": "error", "error": str(e)})
 
+    failed_queries = [r for r in query_results if r.get("status") == "error"]
+    if failed_queries and len(failed_queries) == len(validated_queries):
+        error_details = "; ".join(f"[{r['query']}]: {r.get('error')}" for r in failed_queries)
+        raise RuntimeError(
+            f"Échec total du pipeline de collecte ({len(failed_queries)}/{len(validated_queries)} requêtes en erreur): {error_details}"
+        )
+
     summary = {
-        "status": "completed",
+        "status": "partial_failure" if failed_queries else "completed",
         "total_saved": total_saved,
         "total_updated": total_updated,
         "results": query_results,

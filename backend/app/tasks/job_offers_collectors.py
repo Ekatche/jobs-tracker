@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import logging
 from datetime import datetime, timezone
 from app.services.job_offers import (
@@ -13,8 +14,14 @@ from app.services.normalization import (
     compute_unique_key,
     extract_company_from_url,
     clean_job_title_syntax,
+    clean_html_entities_and_tags,
+    normalize_offer_fields,
+    normalize_city,
     extract_seniority,
     deduplicate_and_merge_offers,
+    merge_multidiffusion_offers,
+    are_offers_duplicates,
+    normalize_company,
 )
 from app.services.role_normalizer import normalize_role
 from app.services.relevance import (
@@ -101,6 +108,65 @@ async def get_urls_for_query(query: str) -> list:
         raise
 
 
+async def summarize_ats_offer_description(
+    raw_description: str,
+    poste: str = "",
+    entreprise: str = "",
+) -> str:
+    """Génère une synthèse structurée en 5 sections pour une offre extraite via Zero-Token.
+
+    Si la description est déjà très courte ou si l'appel LLM échoue,
+    retourne la description nettoyée en repli gracieux.
+    """
+    from app.services.ats.router import clean_html_to_text
+
+    cleaned_desc = clean_html_to_text(raw_description)
+    if not cleaned_desc or cleaned_desc == "Non spécifié" or len(cleaned_desc) < 120:
+        return cleaned_desc
+
+    model_name = os.getenv("SUMMARY_MODEL", "gpt-5-nano")
+    prompt = f"""Tu es un expert en recrutement et analyse d'offres d'emploi.
+À partir de la description brute ci-dessous pour le poste "{poste}" chez "{entreprise}", génère une synthèse structurée, riche et directement exploitable rédigée en français avec des puces Markdown, organisée en sections claires :
+
+• Contexte & Enjeux : 1 à 2 phrases sur l'entreprise, l'équipe et la mission générale.
+• Missions principales : 3 à 5 puces concrètes décrivant les responsabilités quotidiennes et les livrables attendus.
+• Profil recherché : niveau d'expérience requis, formation et critères indispensables.
+• Stack & Outils : technologies, frameworks, cloud et méthodologies utilisés.
+• Avantages & Modalités : politique de télétravail, salaire ou package si mentionnés (sinon omettre ce point).
+
+Règles impératives :
+- N'inclus aucune balise HTML (ni <p>, ni <br>, ni <em>). Utilise uniquement du Markdown propre.
+- Reste factuel et fidèle au texte d'origine. Ne spécule pas sur des technologies ou avantages non mentionnés.
+- Si une section n'est pas mentionnée dans l'offre, omettre ou indiquer "Non spécifié".
+
+Description brute :
+{cleaned_desc[:4000]}
+"""
+    try:
+        from litellm import acompletion
+
+        extra_kwargs = {"drop_params": True}
+        short = model_name.split("/")[-1].lower()
+        if not any(short.startswith(p) for p in ("o1", "o3", "gpt-5", "gpt-o")):
+            extra_kwargs["temperature"] = 0.2
+
+        resp = await acompletion(
+            model=model_name,
+            messages=[{"role": "user", "content": prompt}],
+            **extra_kwargs,
+        )
+        content = resp.choices[0].message.content or ""
+        content = content.strip()
+        if content:
+            return content
+        return cleaned_desc
+    except Exception as e:
+        logger.warning(
+            f"Repli sur description brute (échec résumé LLM pour '{poste} - {entreprise}'): {e}"
+        )
+        return cleaned_desc
+
+
 async def crawl_urls_for_offers(urls: list) -> list:
     """Étape 2: Crawling des URLs pour extraire les offres (Zero-Token ATS/JSON-LD prioritaire)."""
     logger.info(f"🕷️ Traitement de {len(urls)} URLs")
@@ -130,6 +196,17 @@ async def crawl_urls_for_offers(urls: list) -> list:
 
         if ats_offers:
             logger.info(f"⚡ {len(ats_offers)} offres extraites via Zero-Token ATS / JSON-LD (0 token LLM)")
+            logger.info(f"✨ Structuration et résumé LLM pour {len(ats_offers)} offres Zero-Token...")
+
+            async def _summarize_single(offer: dict) -> dict:
+                desc = offer.get("description", "")
+                poste = offer.get("poste", "")
+                entreprise = offer.get("entreprise", "")
+                summary = await summarize_ats_offer_description(desc, poste=poste, entreprise=entreprise)
+                offer["description"] = summary
+                return offer
+
+            ats_offers = list(await asyncio.gather(*[_summarize_single(o) for o in ats_offers]))
 
         crawled_offers = []
         if remaining_urls:
@@ -176,19 +253,30 @@ async def enrich_offers(offers: list, query: str) -> list:
                         invalid_count += 1
                         continue
 
-                    # Nettoyage des champs texte de base
-                    poste = str(offer.get("poste", "")).strip()
-                    entreprise = str(offer.get("entreprise", "")).strip()
-                    description = str(offer.get("description", "")).strip() or "Non spécifié"
-                    localisation = str(offer.get("localisation", "")).strip()
-                    date = str(offer.get("date", "")).strip()
-                    type_contrat = str(offer.get("type_contrat", "")).strip()
-                    salaire = str(offer.get("salaire", "")).strip()
-                    mode_travail = str(offer.get("mode_travail", "")).strip()
+                    # Nettoyage des champs texte de base (entités HTML, balises, espaces insécables)
+                    poste = clean_html_entities_and_tags(str(offer.get("poste", "")).strip())
+                    entreprise = clean_html_entities_and_tags(str(offer.get("entreprise", "")).strip())
+                    raw_description = str(offer.get("description", "")).strip()
+                    if raw_description and ("<" in raw_description or "&" in raw_description):
+                        from app.services.ats.router import clean_html_to_text
+                        description = clean_html_to_text(raw_description) or "Non spécifié"
+                    else:
+                        description = clean_html_entities_and_tags(raw_description) or "Non spécifié"
+
+                    localisation = clean_html_entities_and_tags(str(offer.get("localisation", "")).strip())
+                    if localisation and localisation.lower() not in {"non spécifié", "inconnu", "none", "null"}:
+                        localisation = normalize_city(localisation)
+
+                    date = clean_html_entities_and_tags(str(offer.get("date", "")).strip())
+                    type_contrat = clean_html_entities_and_tags(str(offer.get("type_contrat", "")).strip())
+                    salaire = clean_html_entities_and_tags(str(offer.get("salaire", "")).strip())
+                    mode_travail = clean_html_entities_and_tags(str(offer.get("mode_travail", "")).strip())
                     competences_cles = offer.get("competences_cles", [])
                     if isinstance(competences_cles, str):
-                        competences_cles = [c.strip() for c in competences_cles.split(",") if c.strip()]
-                    elif not isinstance(competences_cles, list):
+                        competences_cles = [clean_html_entities_and_tags(c.strip()) for c in competences_cles.split(",") if c.strip()]
+                    elif isinstance(competences_cles, list):
+                        competences_cles = [clean_html_entities_and_tags(str(c).strip()) for c in competences_cles if str(c).strip()]
+                    else:
                         competences_cles = []
 
                     url = str(offer.get("url", "")).strip() or None
@@ -324,7 +412,7 @@ async def clean_duplicate_offers(offers: list) -> list:
 
 
 async def save_offers_to_database(offers: list) -> dict:
-    """Étape 6: Sauvegarde en base de données avec upsert non destructif"""
+    """Étape 6: Sauvegarde en base de données avec réconciliation cross-sources et fusion intelligente"""
     logger.info(f"💾 Sauvegarde de {len(offers)} offres")
 
     if not offers:
@@ -335,73 +423,91 @@ async def save_offers_to_database(offers: list) -> dict:
         db = await get_database()
         collection = db["job_offers"]
 
+        # 1. Déduplication multi-critères en mémoire sur le lot entrant
+        consolidated_offers = deduplicate_and_merge_offers(offers)
+
         saved_count = 0
         updated_count = 0
         error_count = 0
 
-        # Traitement par batch pour la base de données
-        db_batch_size = 10
+        for offer in consolidated_offers:
+            try:
+                offer_url = (offer.get("url") or "").strip()
+                company = offer.get("entreprise", "")
+                position = offer.get("poste", "")
+                location = offer.get("localisation")
 
-        for batch_start in range(0, len(offers), db_batch_size):
-            batch = offers[batch_start : batch_start + db_batch_size]
-            operations = []
+                unique_key = offer.get("unique_key") or compute_unique_key(
+                    company=company,
+                    position=position,
+                    location=location,
+                    url=offer_url,
+                )
+                offer["unique_key"] = unique_key
 
-            for offer in batch:
-                try:
-                    unique_key = offer.get("unique_key") or compute_unique_key(
-                        company=offer.get("entreprise", ""),
-                        position=offer.get("poste", ""),
-                        location=offer.get("localisation"),
-                        url=offer.get("url"),
+                # Recherche directe en base par clé unique ou URL (principale ou alternative)
+                query_conditions = [{"unique_key": unique_key}]
+                if offer_url:
+                    query_conditions.append({"url": offer_url})
+                    query_conditions.append({"alternative_urls": offer_url})
+                if offer.get("alternative_urls"):
+                    query_conditions.append({"url": {"$in": offer["alternative_urls"]}})
+
+                existing_doc = await collection.find_one({"$or": query_conditions})
+
+                # Si non trouvé directement, recherche sémantique parmi les offres de la même entreprise
+                if not existing_doc and company:
+                    norm_comp = normalize_company(company).lower()
+                    if norm_comp and norm_comp != "non spécifié":
+                        company_candidates = await collection.find(
+                            {"entreprise": {"$regex": f"^{re.escape(norm_comp)}$", "$options": "i"}}
+                        ).to_list(20)
+                        for candidate in company_candidates:
+                            if are_offers_duplicates(candidate, offer):
+                                existing_doc = candidate
+                                break
+
+                if existing_doc:
+                    # Fusion des offres avec conservation de la source prioritaire et des métadonnées
+                    merged = merge_multidiffusion_offers(existing_doc, offer)
+                    update_fields = {
+                        k: v for k, v in merged.items()
+                        if k not in {"_id", "created_at", "date_creation"}
+                    }
+                    update_fields["unique_key"] = unique_key
+                    update_fields["updated_at"] = datetime.now(timezone.utc)
+
+                    await collection.update_one(
+                        {"_id": existing_doc["_id"]},
+                        {"$set": update_fields}
                     )
+                    updated_count += 1
+                else:
+                    # Nouvelle offre
+                    new_doc = dict(offer)
+                    new_doc["unique_key"] = unique_key
+                    new_doc["created_at"] = offer.get("created_at") or datetime.now(timezone.utc)
+                    new_doc["updated_at"] = datetime.now(timezone.utc)
+                    try:
+                        await collection.insert_one(new_doc)
+                        saved_count += 1
+                    except Exception as ins_err:
+                        # En cas de conflit rare d'index unique (ex: course concurrente), repli sur mise à jour
+                        logger.warning(f"⚠️ Conflit d'insertion pour {unique_key}, repli sur update: {ins_err}")
+                        fallback_filter = {"unique_key": unique_key}
+                        if offer_url:
+                            fallback_filter = {"$or": [{"url": offer_url}, {"unique_key": unique_key}]}
+                        await collection.update_one(
+                            fallback_filter,
+                            {"$set": {k: v for k, v in new_doc.items() if k != "_id"}},
+                            upsert=True,
+                        )
+                        updated_count += 1
 
-                    filter_clause = {"unique_key": unique_key}
-                    if offer.get("url"):
-                        filter_clause = {
-                            "$or": [
-                                {"url": offer["url"]},
-                                {"unique_key": unique_key},
-                            ]
-                        }
-
-                    # Isoler created_at pour ne jamais écraser la date de création d'une offre existante
-                    offer_set_fields = {k: v for k, v in offer.items() if k not in {"created_at", "date_creation"}}
-                    offer_set_fields["unique_key"] = unique_key
-                    offer_set_fields["updated_at"] = datetime.now(timezone.utc)
-
-                    operation = UpdateOne(
-                        filter_clause,
-                        {
-                            "$set": offer_set_fields,
-                            "$setOnInsert": {
-                                "created_at": offer.get("created_at") or datetime.now(timezone.utc),
-                            },
-                        },
-                        upsert=True,
-                    )
-                    operations.append(operation)
-
-                except Exception as e:
-                    logger.warning(f"⚠️ Erreur préparation offre: {e}")
-                    error_count += 1
-                    continue
-
-            # Exécution du batch avec capture fine des erreurs
-            if operations:
-                try:
-                    result = await collection.bulk_write(operations, ordered=False)
-                    saved_count += result.upserted_count
-                    updated_count += result.modified_count
-                except BulkWriteError as bwe:
-                    details = bwe.details or {}
-                    saved_count += details.get("nUpserted", 0)
-                    updated_count += details.get("nModified", 0)
-                    write_errors = details.get("writeErrors", [])
-                    error_count += len(write_errors)
-                    logger.warning(f"⚠️ BulkWriteError partiel: {len(write_errors)} erreurs sur {len(operations)} opérations")
-                except Exception as e:
-                    logger.error(f"💥 Erreur sauvegarde batch: {e}")
-                    error_count += len(operations)
+            except Exception as e:
+                logger.warning(f"⚠️ Erreur traitement offre {offer.get('poste')}: {e}")
+                error_count += 1
+                continue
 
         logger.info(
             f"✅ Sauvegarde terminée: {saved_count} créées, {updated_count} mises à jour"

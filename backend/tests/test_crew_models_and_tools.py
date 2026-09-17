@@ -214,3 +214,86 @@ class TestExtractUrlsFromCrew:
 
         extracted = extract_urls_from_crew(MockRawOutput(dict_json))
         assert extracted == ["https://www.welcometothejungle.com/fr/companies/abc/jobs/ds"]
+
+
+class TestJobTrackerLLM:
+    def test_reasoning_models_neutralize_stop_and_add_drop_params(self):
+        from crew import JobTrackerLLM, is_reasoning_model, _get_openai_temperature
+
+        # Test reasoning model detection
+        assert is_reasoning_model("gpt-5.6-luna") is True
+        assert is_reasoning_model("openai/gpt-5-nano") is True
+        assert is_reasoning_model("o1-mini") is True
+        assert is_reasoning_model("o3-mini") is True
+        assert is_reasoning_model("gemini/gemini-3.8-flash") is False
+        assert is_reasoning_model("gpt-4o-mini") is False
+
+        # Test temperature configuration
+        assert _get_openai_temperature("o1-mini") is None
+        assert _get_openai_temperature("o3-mini") is None
+        assert _get_openai_temperature("gpt-5.6-luna") == 1.0
+        assert _get_openai_temperature("gpt-4o-mini") == 0.1
+
+        # Test JobTrackerLLM behavior for reasoning models
+        llm_reasoning = JobTrackerLLM(model="gpt-5.6-luna", api_key="dummy")
+        assert llm_reasoning.supports_stop_words() is False
+        params = llm_reasoning._prepare_completion_params("hello")
+        assert "stop" not in params
+        assert params.get("drop_params") is True
+
+        # Test JobTrackerLLM behavior for non-reasoning models
+        llm_standard = JobTrackerLLM(model="gemini/gemini-3.8-flash", api_key="dummy")
+        assert llm_standard.supports_stop_words() is True
+        params_std = llm_standard._prepare_completion_params("hello")
+        assert "stop" in params_std
+
+
+class TestAirflowCollectionPipeline:
+    def test_total_failure_raises_runtime_error(self, monkeypatch):
+        import pytest
+
+        # Import the execute_collection_pipeline function
+        dags_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../airflow/dags"))
+        if not os.path.exists(dags_path):
+            pytest.skip("Airflow DAGs not mounted in current environment")
+        sys.path.append(dags_path)
+        try:
+            from collect_job_offers import execute_collection_pipeline
+        except ImportError:
+            pytest.skip("collect_job_offers DAG not importable")
+
+        def mock_failing_collect(query):
+            raise ValueError("LLM stop error")
+
+        import app.tasks.job_offers_collectors
+        monkeypatch.setattr(app.tasks.job_offers_collectors, "collect_offers_sync", mock_failing_collect)
+
+        with pytest.raises(RuntimeError, match="Échec total du pipeline de collecte"):
+            execute_collection_pipeline.function(["query 1", "query 2"])
+
+    def test_partial_failure_returns_partial_failure_status(self, monkeypatch):
+        import pytest
+
+        dags_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../airflow/dags"))
+        if not os.path.exists(dags_path):
+            pytest.skip("Airflow DAGs not mounted in current environment")
+        sys.path.append(dags_path)
+        try:
+            from collect_job_offers import execute_collection_pipeline
+        except ImportError:
+            pytest.skip("collect_job_offers DAG not importable")
+
+        def mock_mixed_collect(query):
+            if "query 1" in query:
+                return {"saved": 2, "updated": 1}
+            raise ValueError("LLM stop error")
+
+        import app.tasks.job_offers_collectors
+        monkeypatch.setattr(app.tasks.job_offers_collectors, "collect_offers_sync", mock_mixed_collect)
+
+        summary = execute_collection_pipeline.function(["query 1", "query 2"])
+        assert summary["status"] == "partial_failure"
+        assert summary["total_saved"] == 2
+        assert summary["total_updated"] == 1
+        assert len(summary["results"]) == 2
+
