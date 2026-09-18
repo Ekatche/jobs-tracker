@@ -55,9 +55,25 @@ def verify_cv_honesty(
 
     # 2. Extraction des compétences connues
     known_skills: Set[str] = set()
-    for s in source_profile.get("skills", []):
-        if s:
-            known_skills.add(str(s).strip())
+
+    def _extract_skills_recursive(data: Any) -> None:
+        if isinstance(data, list):
+            for item in data:
+                _extract_skills_recursive(item)
+        elif isinstance(data, dict):
+            for k, v in data.items():
+                if isinstance(k, str) and not k.lower().endswith(("_skills", "skills", "langages")):
+                    known_skills.add(k.strip())
+                _extract_skills_recursive(v)
+        elif isinstance(data, str) and data.strip():
+            known_skills.add(data.strip())
+            # Split compound strings such as "Python (Pandas, NumPy, PyTorch)"
+            tokens = re.findall(r"[\w\.\+#\-]+", data)
+            for token in tokens:
+                if len(token) > 1:
+                    known_skills.add(token.strip())
+
+    _extract_skills_recursive(source_profile.get("skills"))
 
     for exp in source_profile.get("experiences", []):
         for t in exp.get("technologies", []) or []:

@@ -64,7 +64,10 @@ async def generate_resume(
     await require_user_quota(db, current_user.id, ApiUsageAction.CV_TAILORING)
 
     # Validate candidate profile
-    profile_doc = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)})
+    profile_query = [{"user_id": str(current_user.id)}]
+    if ObjectId.is_valid(str(current_user.id)):
+        profile_query.append({"user_id": ObjectId(current_user.id)})
+    profile_doc = await db["candidate_profile"].find_one({"$or": profile_query})
     if not profile_doc:
         raise HTTPException(
             status_code=400,
@@ -202,21 +205,24 @@ async def get_resume_pdf(
         raise HTTPException(status_code=403, detail="Accès non autorisé à ce CV.")
 
     # Candidate profile info for contact details & photo
-    profile_doc = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)}) or {}
-    personal_info = profile_doc.get("personal_info") or {}
+    profile_query = [{"user_id": str(current_user.id)}]
+    if ObjectId.is_valid(str(current_user.id)):
+        profile_query.append({"user_id": ObjectId(current_user.id)})
+    profile_doc = await db["candidate_profile"].find_one({"$or": profile_query}) or {}
+    contact_info = profile_doc.get("personal_info") or profile_doc.get("contact") or {}
 
     candidate = {
-        "full_name": personal_info.get("full_name") or profile_doc.get("full_name") or current_user.username,
-        "email": personal_info.get("email") or profile_doc.get("email") or current_user.email,
-        "phone": personal_info.get("phone") or profile_doc.get("phone"),
-        "location": personal_info.get("location") or profile_doc.get("location"),
-        "linkedin_url": personal_info.get("linkedin_url") or profile_doc.get("linkedin_url"),
-        "github_url": personal_info.get("github_url") or profile_doc.get("github_url"),
+        "full_name": contact_info.get("full_name") or profile_doc.get("full_name") or current_user.username,
+        "email": contact_info.get("email") or profile_doc.get("email") or current_user.email,
+        "phone": contact_info.get("phone") or profile_doc.get("phone"),
+        "location": contact_info.get("location") or profile_doc.get("location"),
+        "linkedin_url": contact_info.get("linkedin_url") or contact_info.get("linkedin") or profile_doc.get("linkedin_url"),
+        "github_url": contact_info.get("github_url") or contact_info.get("github") or profile_doc.get("github_url"),
     }
 
     chosen_template = template or resume.get("template", "sidebar_elegance")
     chosen_with_photo = with_photo if with_photo is not None else resume.get("with_photo", False)
-    photo_url = personal_info.get("photo_url") or profile_doc.get("photo_url")
+    photo_url = contact_info.get("photo_url") or profile_doc.get("photo_url")
 
     # Render HTML
     html_content = render_cv_html(

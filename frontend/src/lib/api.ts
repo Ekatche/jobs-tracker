@@ -783,7 +783,8 @@ export const resumeApi = {
     const query = params.toString() ? `?${params.toString()}` : "";
     const token = getToken();
 
-    const response = await fetch(`${API_URL}/resumes/${id}/pdf${query}`, {
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/resumes/${id}/pdf${query}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
 
@@ -808,7 +809,8 @@ export const resumeApi = {
     const query = params.toString() ? `?${params.toString()}` : "";
     const token = getToken();
 
-    const response = await fetch(`${API_URL}/resumes/${id}/pdf${query}`, {
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/resumes/${id}/pdf${query}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
 
