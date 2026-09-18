@@ -20,9 +20,12 @@ export interface UserQuotaSummary {
   tier: UserTier | string;
   year: number;
   month: number;
-  quotas: Record<string, ActionQuotaUsage>;
-  total_estimated_cost_usd: number;
-  total_tokens_month: number;
+  usage: Record<string, ActionQuotaUsage>;
+  total_cost_usd: number;
+  total_tokens: number;
+  quotas?: Record<string, ActionQuotaUsage>;
+  total_estimated_cost_usd?: number;
+  total_tokens_month?: number;
 }
 
 export interface ApiUsageRecord {

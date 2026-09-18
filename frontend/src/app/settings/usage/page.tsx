@@ -207,13 +207,13 @@ export default function UsageSettingsPage() {
               <div>
                 <span className="text-xs text-slate-500 font-medium block">Tokens consommés</span>
                 <span className="text-lg sm:text-xl font-extrabold text-white">
-                  {(summary?.total_tokens_month || 0).toLocaleString()}
+                  {(summary?.total_tokens ?? summary?.total_tokens_month ?? 0).toLocaleString()}
                 </span>
               </div>
               <div>
                 <span className="text-xs text-slate-500 font-medium block">Coût LLM estimé</span>
                 <span className="text-lg sm:text-xl font-extrabold text-indigo-400">
-                  ${(summary?.total_estimated_cost_usd || 0).toFixed(4)}
+                  ${(summary?.total_cost_usd ?? summary?.total_estimated_cost_usd ?? 0).toFixed(4)}
                 </span>
               </div>
             </div>
@@ -231,7 +231,7 @@ export default function UsageSettingsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {Object.entries(ACTION_CONFIG).map(([actionKey, config]) => {
-              const quota: ActionQuotaUsage | undefined = summary?.quotas?.[actionKey];
+              const quota: ActionQuotaUsage | undefined = summary?.usage?.[actionKey] ?? summary?.quotas?.[actionKey];
               const used = quota?.used ?? 0;
               const limit = quota?.monthly_limit;
               const remaining = quota?.remaining;
