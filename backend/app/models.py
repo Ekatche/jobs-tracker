@@ -624,3 +624,67 @@ class UserQuotaSummary(BaseModel):
     usage: Dict[str, ActionQuotaUsage]
     total_cost_usd: float = 0.0
     total_tokens: int = 0
+
+
+# --- Tailored CV Models ---
+
+class TailoredExperienceItem(BaseModel):
+    title: str
+    company: str
+    location: Optional[str] = None
+    start_date: str
+    end_date: Optional[str] = "Présent"
+    bullet_points: List[str] = Field(default_factory=list, description="Puces d'impact réordonnées et alignées sur l'offre")
+    relevant_technologies: List[str] = Field(default_factory=list)
+
+
+class TailoredProjectItem(BaseModel):
+    name: str
+    description: str
+    technologies: List[str] = Field(default_factory=list)
+    url: Optional[str] = None
+
+
+class TailoredSkillGroup(BaseModel):
+    category: str
+    skills: List[str] = Field(default_factory=list)
+
+
+class TailoredLanguage(BaseModel):
+    language: str
+    level: str  # ex: "Natif", "C1 - Professionnel courant"
+
+
+class TailoredEducationItem(BaseModel):
+    degree: str
+    institution: str
+    year: str
+    details: Optional[str] = None
+
+
+class TailoredCVSchema(BaseModel):
+    target_role_title: str
+    professional_summary: str = Field(..., description="Accroche ciblée 3-4 lignes")
+    prioritized_skills: List[TailoredSkillGroup] = Field(default_factory=list)
+    experiences: List[TailoredExperienceItem] = Field(default_factory=list)
+    featured_projects: List[TailoredProjectItem] = Field(default_factory=list)
+    education: List[TailoredEducationItem] = Field(default_factory=list)
+    languages: List[TailoredLanguage] = Field(default_factory=list)
+    certifications: List[str] = Field(default_factory=list)
+
+
+class TailoredResumeInDB(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    user_id: PyObjectId
+    offer_id: PyObjectId
+    application_id: Optional[PyObjectId] = None
+    target_role: str
+    target_company: str
+    template: str = "sidebar_elegance"  # "sidebar_elegance" or "executive_minimalist"
+    with_photo: bool = False
+    content: TailoredCVSchema
+    created_at: datetime = Field(default_factory=utcnow_with_timezone)
+    updated_at: datetime = Field(default_factory=utcnow_with_timezone)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
