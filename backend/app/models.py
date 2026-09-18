@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
+import uuid
 from bson import ObjectId
 from pydantic import BaseModel, Field, GetCoreSchemaHandler, HttpUrl, ConfigDict, model_validator
 from pydantic_core import core_schema
@@ -17,8 +18,16 @@ class PyObjectId(str):
     def __get_pydantic_core_schema__(
         cls, _source_type: Any, _handler: GetCoreSchemaHandler
     ) -> core_schema.CoreSchema:
-        return core_schema.str_schema(
-            metadata={"title": "ObjectId", "description": "MongoDB ObjectId"}
+        def validate(value: Any) -> str:
+            if isinstance(value, ObjectId):
+                return str(value)
+            if isinstance(value, str) and ObjectId.is_valid(value):
+                return value
+            raise ValueError(f"Invalid ObjectId: {value}")
+
+        return core_schema.no_info_plain_validator_function(
+            validate,
+            metadata={"title": "ObjectId", "description": "MongoDB ObjectId"},
         )
 
     @classmethod
@@ -687,4 +696,82 @@ class TailoredResumeInDB(BaseModel):
     updated_at: datetime = Field(default_factory=utcnow_with_timezone)
 
     model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+# --- Phase 6: Interview Prep Models ---
+class StarRStory(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    theme: str  # ex: Architecture, Leadership, Gestion de crise, Optimisation
+    target_requirement: str  # Exigence ciblée du Bloc B
+    situation: str
+    task: str
+    action: str
+    result: str
+    reflection: str  # Enseignement / ce qu'on ferait différemment
+    key_tags: List[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class AudiencePackRecruiter(BaseModel):
+    pitch_30s: str
+    comp_strategy: Dict[str, str] = Field(default_factory=dict)  # "volunteer", "avoid"
+    red_flags_they_screen_for: List[str] = Field(default_factory=list)
+    key_questions_to_ask_recruiter: List[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class AudiencePackHiringManager(BaseModel):
+    strategic_alignment: str
+    internal_vocabulary: List[str] = Field(default_factory=list)
+    sharp_questions: List[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class AudiencePackTechPanel(BaseModel):
+    architecture_points: List[str] = Field(default_factory=list)
+    tradeoffs_and_risks: List[str] = Field(default_factory=list)
+    reverse_questions: List[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class AnticipatedQuestion(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    category: str  # "behavioral" | "technical"
+    question: str
+    why_it_will_be_asked: str  # Source Bloc B ou "[inferred from JD]"
+    mapped_story_id: Optional[str] = None
+    key_points_to_cover: List[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class ReverseQuestion(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    category: str  # "Culture & Rythme", "Dette Technique", "Organisation & Autonomie"
+    question: str
+    probe_intent: str
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class InterviewPrep(BaseModel):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    offer_id: PyObjectId
+    user_id: PyObjectId
+    stories: List[StarRStory] = Field(default_factory=list)
+    recruiter_pack: Optional[AudiencePackRecruiter] = None
+    hm_pack: Optional[AudiencePackHiringManager] = None
+    tech_pack: Optional[AudiencePackTechPanel] = None
+    anticipated_questions: List[AnticipatedQuestion] = Field(default_factory=list)
+    reverse_questions: List[ReverseQuestion] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utcnow_with_timezone)
+    updated_at: datetime = Field(default_factory=utcnow_with_timezone)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
 
