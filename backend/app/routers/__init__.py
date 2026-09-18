@@ -6,6 +6,7 @@ from .job_offers import job_offers_router
 from .cover_letters import cover_letters_router
 from .usage import usage_router
 from .resumes import resumes_router
+from .interview_prep import interview_prep_router
 
 __all__ = [
     "auth_router",
@@ -16,5 +17,6 @@ __all__ = [
     "cover_letters_router",
     "usage_router",
     "resumes_router",
+    "interview_prep_router",
 ]
 
