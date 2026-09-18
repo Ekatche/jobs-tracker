@@ -21,23 +21,50 @@ L'objectif de cette fonctionnalité est de générer automatiquement un **CV vec
 
 ---
 
-## 2. Parcours Utilisateur (UX)
+## 2. Parcours Utilisateur (UX) : Le "Resume Hub" Dédié (`/resumes`)
 
-### 2.1 Points d'accès dans l'application
-- **Page détaillée de l'offre** (`/offers/[id]`) : Bouton d'action principal *"Générer mon CV sur-mesure"*.
-- **Sidebar Kanban** (`/applications`) : Onglet ou bouton direct *"CV adapté"* sur la carte de candidature.
+Plutôt que d'enfouir les CVs dans des sous-modales du Kanban, la plateforme propose une **page dédiée de premier ordre** pour gérer l'ensemble des documents professionnels générés : `/resumes`.
 
-### 2.2 Modale de prévisualisation & personnalisation
-Lorsque l'utilisateur déclenche la génération :
-1. **Contrôle de quota** : Appel backend vérifiant le quota mensuel (`require_user_quota(user, "cv_tailoring")`).
-2. **Sélecteur de template (Option B)** :
-   - Radio buttons interactifs : `Sidebar Elegance` (sélectionné par défaut) ou `Executive Minimalist`.
-3. **Options de mise en page** :
-   - `Toggle Photo` : Bascule entre photo de profil circulaire ou monogramme/initiales sobres (respect des préférences personnelles et contextes régionaux).
-4. **Viewer PDF intégré** : Aperçu temps réel du document A4 généré dans le navigateur.
-5. **Actions** :
-   - `Télécharger le PDF` (nommé `CV_<Nom>_<Entreprise>_<Poste>.pdf`).
-   - `Régénérer avec ajustements` (permet de forcer l'accent sur un projet ou une compétence précise).
+```
+  Catalogue Offres (/offers/[id]) ─────────┐
+                                           ▼
+                                   [Bouton "Créer CV adapté"]
+                                           │
+                                           ▼
+                 ┌──────────────────────────────────────────────────┐
+                 │       Page Dédiée : /resumes ("Mes CVs")         │
+                 │                                                  │
+                 │  • Galerie de cartes pour chaque CV généré       │
+                 │  • Sélecteur de Template (Sidebar vs Minimalist) │
+                 │  • Toggle Photo / Monogramme                     │
+                 │  • Viewer PDF en direct & Téléchargement 1-clic  │
+                 │  • Historique des versions et date               │
+                 └──────────────────────────────────────────────────┘
+                                           │
+                     Lien automatique      │  (Si candidature active)
+                                           ▼
+                           Carte Kanban dans /applications
+                          [Lien : "CV associé : Voir/DL"]
+```
+
+### 2.1 La Page Principale `/resumes`
+- **Galerie de CVs** : Cartes visuelles présentant chaque déclinaison (*Deloitte - AI Engineer*, *Sanofi - MLOps Lead*, etc.).
+- **Métadonnées sur chaque carte** :
+  - Entreprise ciblée & Poste adapté.
+  - Template actif (*Sidebar Elegance* / *Executive Minimalist*).
+  - Date de création et dernière modification.
+  - Badge de statut (*Candidature active* ou *Brouillon préparé*).
+- **Actions directes en 1 clic** :
+  - `Télécharger le PDF` instantané.
+  - `Aperçu interactif` (viewer PDF A4 intégré).
+  - `Bascule de template` en temps réel.
+  - `Éditer / Personnaliser` les sections (résumé, bullet points, compétences).
+  - `Supprimer` ou `Dupliquer`.
+
+### 2.2 Points d'accès transverses
+- **Depuis l'offre (`/offers/[id]`)** : Le bouton *"Générer mon CV sur-mesure"* lance l'adaptation et redirige directement vers `/resumes` avec le CV pré-généré et prêt au téléchargement.
+- **Depuis le Kanban (`/applications`)** : Chaque carte de candidature dont le CV existe affiche un badge cliquable *"CV adapté"* pour l'ouvrir ou le télécharger en 1 clic sans quitter son tableau de bord.
+
 
 ---
 
@@ -173,10 +200,13 @@ h2 {
 
 | Méthode | Route | Description |
 |---|---|---|
-| `POST` | `/applications/{id}/tailored-cv/generate` | Déclenche l'Agent LLM d'adaptation et stocke le contenu structuré dans MongoDB. |
-| `GET` | `/applications/{id}/tailored-cv` | Récupère le contenu JSON du CV sur-mesure pour prévisualisation ou édition. |
-| `PUT` | `/applications/{id}/tailored-cv` | Permet à l'utilisateur de retoucher manuellement un champ avant export. |
-| `GET` | `/applications/{id}/tailored-cv/pdf` | Retourne le flux binaire `application/pdf` avec query params `template=sidebar_elegance|executive_minimalist` et `with_photo=true|false`. |
+| `GET` | `/resumes` | Liste tous les CVs adaptés créés par l'utilisateur connecté. |
+| `POST` | `/resumes/generate` | Déclenche l'Agent LLM d'adaptation avec `{ offer_id: str, application_id?: str, template?: str }` et crée le document dans MongoDB. |
+| `GET` | `/resumes/{id}` | Récupère la structure JSON complète d'un CV pour aperçu et formulaire d'édition. |
+| `PUT` | `/resumes/{id}` | Permet à l'utilisateur de modifier manuellement les textes ou puces avant export. |
+| `GET` | `/resumes/{id}/pdf` | Retourne le flux binaire `application/pdf` vectoriel avec query params `template=sidebar_elegance|executive_minimalist` et `with_photo=true|false`. |
+| `DELETE` | `/resumes/{id}` | Supprime un CV généré. |
+
 
 ---
 
