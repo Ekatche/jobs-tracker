@@ -164,11 +164,21 @@ Lorsque le statut passe à "Entretien programmé" (`interview`).
 
 > **Dépendance** : Phase 3 (évaluation / Bloc B) et Phase 1 (profil candidat avec expériences détaillées).
 
+### Déjà implémenté ✅
+| Composant | Fichier(s) | Notes |
+|---|---|---|
+| Modèles Pydantic `InterviewPrep` | `app/models.py` | `StarRStory`, `AudiencePack*`, `AnticipatedQuestion`, `ReverseQuestion` |
+| Prompts modulaires Career-Ops | `app/llm/prompts/interview/` | `star_stories.md`, `audience_packs.md`, `anticipated_questions.md`, `reverse_questions.md` |
+| Service de génération & Quotas | `app/services/interview_prep_service.py` | LiteLLM Gemini 3.7 Flash, extraction JSON déterministe, décompte `ApiUsageAction.INTERVIEW_PREP` |
+| Exporteur Markdown complet | `app/services/interview_prep_service.py` | Rendu mémo complet prêt à l'export/impression |
+| Endpoints REST FastAPI | `app/routers/interview_prep.py` | Routes `/offers/{id}/interview-prep/*` (GET, POST modular, PUT, export) |
+| Client frontend & Types | `frontend/src/types/interview.ts`, `frontend/src/lib/api.ts` | `interviewPrepApi` complet avec export et téléchargement direct |
+| Composants UI Interactifs | `frontend/src/components/interview/` | Accordéons STAR+R, sélecteur 3-segments d'audience, filtres de questions, questions inversées |
+| Onglet dédié `/offers/[id]` | `frontend/src/app/offers/[id]/page.tsx` | Onglet "🎯 Préparation Entretien" avec ouverture automatique via `?tab=interview` |
+| Raccourci Kanban `/applications` | `frontend/src/components/applications/ApplicationDetails.tsx` | Bouton direct "🎯 Préparer l'entretien" dans le tiroir latéral |
+
 ### Reste à faire ⬜
-- [ ] Agent STAR+R (sélection d'histoires dans le profil)
-- [ ] Agent Questions Anticipées (comportementales + techniques)
-- [ ] Agent Red-Flags Employeur
-- [ ] Interface UI dans la vue `/offers/[id]` ou `/applications/[id]`
+- Aucun (Phase 6 100% complétée)
 
 ---
 
