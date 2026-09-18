@@ -23,6 +23,7 @@ import {
   FiArrowRight,
   FiShield,
   FiFileText,
+  FiTarget,
 } from "react-icons/fi";
 
 interface ApplicationDetailsProps {
@@ -449,13 +450,21 @@ export default function ApplicationDetails({
                   </div>
                 </div>
 
-                {/* Link to full report */}
-                <div className="mt-3 flex items-center justify-end">
+                {/* Link to full report & interview prep */}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80 pt-3">
+                  <Link
+                    href={`/offers/${evaluation.offer_id || application.offer_id}?tab=interview`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-colors"
+                  >
+                    <FiTarget className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>🎯 Préparer l'entretien</span>
+                  </Link>
+
                   <Link
                     href={`/offers/${evaluation.offer_id || application.offer_id}`}
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
                   >
-                    <span>Consulter l'analyse détaillée complète</span>
+                    <span>Analyse complète</span>
                     <FiArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>

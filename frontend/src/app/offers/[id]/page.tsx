@@ -26,10 +26,12 @@ import {
   FiFileText,
   FiAward,
   FiInfo,
+  FiTarget,
 } from "react-icons/fi";
 import NewApplicationModal, {
   PrefilledData,
 } from "@/components/dashboard/NewApplicationModal";
+import InterviewPrepTab from "@/components/interview/InterviewPrepTab";
 
 export default function OfferDetailPage() {
   const params = useParams();
@@ -41,7 +43,7 @@ export default function OfferDetailPage() {
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"matching" | "analysis" | "job">("matching");
+  const [activeTab, setActiveTab] = useState<"matching" | "analysis" | "job" | "interview">("matching");
 
   // Modal application
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
@@ -85,6 +87,12 @@ export default function OfferDetailPage() {
 
   useEffect(() => {
     loadOfferAndEvaluation();
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("tab") === "interview") {
+        setActiveTab("interview");
+      }
+    }
   }, [loadOfferAndEvaluation]);
 
   // Déclencher l'évaluation Two-Pass
@@ -453,6 +461,18 @@ export default function OfferDetailPage() {
                 <FiFileText className="w-4 h-4" />
                 Annonce du Poste
               </button>
+
+              <button
+                onClick={() => setActiveTab("interview")}
+                className={`px-4 py-2.5 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
+                  activeTab === "interview"
+                    ? "border-indigo-500 text-indigo-400"
+                    : "border-transparent text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                <FiTarget className="w-4 h-4 text-indigo-400" />
+                🎯 Préparation Entretien
+              </button>
             </div>
 
             {/* CONTENU ONGLET 1: MATCHING EXIGENCES (BLOC B) */}
@@ -711,6 +731,15 @@ export default function OfferDetailPage() {
                   {offer.description || "Aucune description détaillée disponible."}
                 </div>
               </div>
+            )}
+
+            {/* CONTENU ONGLET 4: PRÉPARATION D'ENTRETIEN (PHASE 6) */}
+            {activeTab === "interview" && (
+              <InterviewPrepTab
+                offerId={offerId}
+                targetRole={offer.poste}
+                targetCompany={offer.entreprise}
+              />
             )}
           </div>
         )}
