@@ -235,6 +235,15 @@ export default function OfferDetailPage() {
                 : "Évaluer l'offre"}
             </button>
 
+            <Link
+              href={`/resumes?generate_offer_id=${offerId}`}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors shadow-sm"
+              title="Générer un CV adapté sur-mesure pour cette offre"
+            >
+              <FiFileText className="w-4 h-4" />
+              <span>CV Adapté</span>
+            </Link>
+
             <button
               onClick={handleOpenApplyModal}
               className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-medium transition-colors shadow-sm"

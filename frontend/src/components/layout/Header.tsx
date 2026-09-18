@@ -192,6 +192,16 @@ export default function Header() {
                 >
                   Offres d'emploi
                 </Link>
+                <Link
+                  href="/resumes"
+                  className={`text-sm font-medium transition-colors ${
+                    isActive("/resumes")
+                      ? "text-white border-b-2 border-blue-400"
+                      : "text-gray-300 hover:text-white"
+                  }`}
+                >
+                  CV Adaptés
+                </Link>
               </>
             ) : (
               <></>
@@ -319,6 +329,20 @@ export default function Header() {
                   onClick={closeMenu}
                 >
                   Mes candidatures
+                </Link>
+                <Link
+                  href="/offers"
+                  className="block py-2 text-base font-medium text-gray-200 hover:text-white"
+                  onClick={closeMenu}
+                >
+                  Offres d'emploi
+                </Link>
+                <Link
+                  href="/resumes"
+                  className="block py-2 text-base font-medium text-gray-200 hover:text-white"
+                  onClick={closeMenu}
+                >
+                  CV Adaptés
                 </Link>
                 <button
                   onClick={() => {

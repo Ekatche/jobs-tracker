@@ -17,11 +17,19 @@ import {
 } from "./auth";
 import { Task } from "@/types/tasks";
 import { CoverLetter, CandidateProfile, CandidatePreferences } from "@/types/coverLetter";
+import { TailoredResume, GenerateResumeRequest, UpdateResumeRequest } from "@/types/resume";
 import Cookies from "js-cookie";
 // Ajoutez cet import au début du fichier
 import { getLastActivityTime } from "./activityTracker";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const getApiBaseUrl = (): string => {
+  if (typeof window === "undefined") {
+    return process.env.INTERNAL_API_URL || "http://backend:8000";
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+};
+
+const API_URL = getApiBaseUrl();
 
 // Ajouter cette constante au début du fichier, après les imports
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes en millisecondes
@@ -40,6 +48,7 @@ const apiClient: AxiosInstance = axios.create({
 
 // Intercepteur pour ajouter le token d'authentification à chaque requête
 apiClient.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
   const token = getToken();
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -126,17 +135,27 @@ async function fetchApi<T, D = Record<string, unknown>>(
   }
 }
 
+// Timer unique de rafraîchissement proactif
+let refreshTimerId: ReturnType<typeof setTimeout> | null = null;
+
 // Ajouter cette fonction de rafraîchissement proactif
 export const setupTokenRefresh = () => {
+  // Ignorer côté serveur (SSR / Node.js)
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  // Annuler tout timer précédent pour éviter l'accumulation
+  if (refreshTimerId !== null) {
+    clearTimeout(refreshTimerId);
+    refreshTimerId = null;
+  }
+
   const token = getToken();
   if (!token) {
-    // Le cookie d'acces a disparu (expiration, nettoyage navigateur...) mais
-    // un refresh token valide peut encore exister : on tente de restaurer la
-    // session au lieu de laisser l'utilisateur bloque sur /auth/login.
+    // Le cookie d'accès a disparu mais un refresh token valide peut exister
     if (getRefreshToken()) {
-      refreshAccessToken().then((ok) => {
-        if (ok) setupTokenRefresh();
-      });
+      runRefresh();
     }
     return;
   }
@@ -146,76 +165,86 @@ export const setupTokenRefresh = () => {
     const expiryTime = payload.exp * 1000;
     const now = Date.now();
     const msToExpiry = expiryTime - now;
-    if (msToExpiry <= 0) return; // deja expire
 
-    // Planifier la tentative de refresh msToExpiry - REFRESH_THRESHOLD a partir de maintenant
-    const delay = Math.max(msToExpiry - REFRESH_THRESHOLD, 0);
-    setTimeout(async () => {
-      // "Se souvenir de moi" : la session doit survivre a une inactivite
-      // prolongee (c'est tout le but des 7 jours), donc pas de coupure idle.
+    if (msToExpiry <= 0) {
+      // Déjà expiré : tenter un rafraîchissement immédiat sans multi-lancement
+      runRefresh();
+      return;
+    }
+
+    // Planifier la tentative de refresh (msToExpiry - REFRESH_THRESHOLD) avec plancher de sécurité de 15 secondes
+    const rawDelay = msToExpiry - REFRESH_THRESHOLD;
+    const delay = Math.max(rawDelay, 15000);
+
+    refreshTimerId = setTimeout(async () => {
+      refreshTimerId = null;
+      // "Se souvenir de moi" : la session survit à l'inactivité prolongée
       const idle = Date.now() - getLastActivityTime();
       if (getRememberMe() || idle < INACTIVITY_TIMEOUT) {
-        const ok = await refreshAccessToken();
-        if (ok) {
-          setupTokenRefresh(); // re-planifier
-        }
+        await runRefresh();
       } else {
-        // Inactif > 30 min -> forcer logout
+        // Inactif > 30 min sans remember me -> déconnexion
         removeToken();
         removeRefreshToken();
         window.location.href = "/auth/login?session=expired";
       }
     }, delay);
   } catch (err) {
-    console.error("Erreur setupTokenRefresh", err);
+    console.warn("Erreur analyse token dans setupTokenRefresh:", err);
   }
 };
 
-// Fonction pour rafraîchir le token - corrigée
+// Fonction pour rafraîchir le token
 export const refreshAccessToken = async (): Promise<boolean> => {
-  const refreshToken = getRefreshToken();
+  // Ignorer côté serveur (pas de localStorage ni de session interactive)
+  if (typeof window === "undefined") {
+    return false;
+  }
 
+  const refreshToken = getRefreshToken();
   if (!refreshToken) {
-    console.warn("Impossible de rafraîchir : aucun refresh token");
     return false;
   }
 
   try {
-    console.log(
-      "Tentative refresh avec token:",
-      refreshToken.substring(0, 10) + "...",
-    );
+    const endpoint = `${getApiBaseUrl()}/auth/refresh`;
 
-    // Utilisez directement axios plutôt que votre apiClient
-    // qui ajoute des headers d'autorisation qui peuvent être invalides
     const response = await axios({
       method: "post",
-      url: `${API_URL}/auth/refresh`,
+      url: endpoint,
       data: { refresh_token: refreshToken },
       headers: { "Content-Type": "application/json" },
+      timeout: 10000, // Timeout strict de 10s pour ne pas bloquer l'UI
     });
 
-    // Vérifiez le contenu de la réponse
-    console.log("Réponse refresh:", response.data);
+    if (response.data && response.data.access_token) {
+      setToken(
+        response.data.access_token,
+        getRememberMe() ? REMEMBERED_SESSION_DAYS : DEFAULT_SESSION_DAYS,
+      );
+      if (response.data.refresh_token) {
+        setRefreshToken(response.data.refresh_token);
+      }
 
-    setToken(
-      response.data.access_token,
-      getRememberMe() ? REMEMBERED_SESSION_DAYS : DEFAULT_SESSION_DAYS,
-    );
-    setRefreshToken(response.data.refresh_token);
+      // Re-planifier proprement le prochain refresh
+      setupTokenRefresh();
+      return true;
+    }
 
-    // Re-planifier le prochain refresh
-    setupTokenRefresh();
-    return true;
+    return false;
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
-      console.error("Erreur refresh:", error.response?.data || error);
-      if (error.response?.status === 401) {
+      const status = error.response?.status;
+      const detail = error.response?.data?.detail || error.message || "Erreur de connexion";
+      console.warn(`[Auth] Rafraîchissement impossible (${status || "Réseau"}): ${detail}`);
+
+      // Déconnecter uniquement si le token est formellement rejeté par le serveur
+      if (status === 401 || status === 403) {
         removeToken();
         removeRefreshToken();
       }
     } else {
-      console.error("Erreur refresh:", error);
+      console.warn("[Auth] Erreur inattendue rafraîchissement:", error);
     }
     return false;
   }
@@ -730,6 +759,68 @@ export const coverLetterApi = {
     fetchApi<CandidateProfile>("/profile/candidate/sources/website", "POST", { url }),
 };
 
+// API Tailored Resumes (CV Adaptés)
+export const resumeApi = {
+  getAll: async (): Promise<TailoredResume[]> => {
+    return fetchApi<TailoredResume[]>("/resumes", "GET");
+  },
+  getById: async (id: string): Promise<TailoredResume> => {
+    return fetchApi<TailoredResume>(`/resumes/${id}`, "GET");
+  },
+  generate: async (data: GenerateResumeRequest): Promise<TailoredResume> => {
+    return fetchApi<TailoredResume, GenerateResumeRequest>("/resumes/generate", "POST", data);
+  },
+  update: async (id: string, data: UpdateResumeRequest): Promise<TailoredResume> => {
+    return fetchApi<TailoredResume, UpdateResumeRequest>(`/resumes/${id}`, "PUT", data);
+  },
+  delete: async (id: string): Promise<{ status: string }> => {
+    return fetchApi<{ status: string }>(`/resumes/${id}`, "DELETE");
+  },
+  downloadPdf: async (id: string, template?: string, withPhoto?: boolean, filename?: string): Promise<void> => {
+    const params = new URLSearchParams();
+    if (template) params.append("template", template);
+    if (withPhoto !== undefined) params.append("with_photo", withPhoto ? "true" : "false");
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const token = getToken();
+
+    const response = await fetch(`${API_URL}/resumes/${id}/pdf${query}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erreur lors du téléchargement du PDF (${response.status})`);
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename || `CV_adapte_${id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+  getPdfBlobUrl: async (id: string, template?: string, withPhoto?: boolean): Promise<string> => {
+    const params = new URLSearchParams();
+    if (template) params.append("template", template);
+    if (withPhoto !== undefined) params.append("with_photo", withPhoto ? "true" : "false");
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const token = getToken();
+
+    const response = await fetch(`${API_URL}/resumes/${id}/pdf${query}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+    if (!response.ok) {
+      throw new Error(`Impossible de charger le PDF du CV (${response.status})`);
+    }
+
+    const blob = await response.blob();
+    return window.URL.createObjectURL(blob);
+  },
+};
+
 // Exportations par défaut
 const api = {
   auth: authApi,
@@ -738,6 +829,7 @@ const api = {
   tasks: taskApi,
   jobOffers: jobOffersApi,
   coverLetters: coverLetterApi,
+  resumes: resumeApi,
 };
 
 export default api;
