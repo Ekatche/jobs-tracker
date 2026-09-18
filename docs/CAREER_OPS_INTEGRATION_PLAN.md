@@ -140,10 +140,15 @@ Lorsqu'une offre est validée par l'utilisateur (Score >= 4.0).
 | API cover letter (CRUD + regen) | `app/routers/cover_letters.py` | GET, POST regen, PATCH edit |
 | Background generation | `app/routers/applications.py` | `_generate_cover_letter_bg()` via BackgroundTasks |
 | Versioning cover letters | `app/models.py` (CoverLetter/CoverLetterVersion) | guard_report, critic_verdict, models used |
+| CV Tailoring IA (Bloc B fusion) | `app/services/cv_tailor.py` | Alignement offre + Bloc B, verbes d'action, métriques |
+| Garde-fous anti-hallucination CV | `app/services/cv_guards.py` | Vérification stricte des entreprises et compétences réelles |
+| Modèles A4 Européens (Jinja2 + CSS) | `app/templates/cv/` | `sidebar_elegance` & `executive_minimalist` (CECRL, typographie Inter) |
+| Rendu PDF vectoriel A4 | `app/services/cv_pdf_renderer.py` | Playwright headless Chromium, texte vectoriel sélectionnable |
+| API REST CV & Quotas | `app/routers/resumes.py` | CRUD, `/generate`, streaming `/pdf`, tracking `cv_tailoring` |
+| Hub Frontend `/resumes` | `frontend/src/app/resumes/` | Galerie de cartes, modal d'aperçu PDF, switcher de template, téléchargement 1-clic |
 
 ### Reste à faire ⬜
-- [ ] Génération CV (Tailored ATS PDF) — choix moteur : WeasyPrint ou LaTeX
-- [ ] Alimentation avec le Bloc B de l'évaluation (Phase 3)
+- Aucun (Phase 5 100% complétée)
 
 ---
 
