@@ -1,7 +1,9 @@
 import logging
 from typing import Any, Dict, List, Optional
 
+from bson import ObjectId
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 
 from app.auth import get_current_user
 from app.database import get_database
@@ -11,6 +13,7 @@ from app.models import (
     UserModel,
     UserQuotaSummary,
     UserTier,
+    utcnow_with_timezone,
 )
 from app.services.usage_tracker import (
     TIER_MONTHLY_LIMITS,
@@ -80,3 +83,23 @@ async def get_my_usage_summary(
 async def get_available_tiers():
     """Public endpoint returning available subscription tiers and their respective limits."""
     return TIER_PRICING_INFO
+
+
+class UpdateUserTierRequest(BaseModel):
+    tier: UserTier
+
+
+@usage_router.put("/me/tier", response_model=UserQuotaSummary)
+async def update_my_tier(
+    payload: UpdateUserTierRequest,
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Update current user subscription tier (for simulated upgrades / testing)."""
+    user_id_obj = ObjectId(str(current_user.id)) if ObjectId.is_valid(str(current_user.id)) else str(current_user.id)
+    await db["users"].update_one(
+        {"$or": [{"_id": user_id_obj}, {"_id": str(current_user.id)}]},
+        {"$set": {"tier": payload.tier.value, "updated_at": utcnow_with_timezone()}},
+    )
+    summary = await get_user_monthly_usage(db, current_user.id)
+    return summary
