@@ -19,6 +19,7 @@ import { Task } from "@/types/tasks";
 import { CoverLetter, CandidateProfile, CandidatePreferences } from "@/types/coverLetter";
 import { TailoredResume, GenerateResumeRequest, UpdateResumeRequest } from "@/types/resume";
 import { InterviewPrep, UpdateInterviewPrepPayload } from "@/types/interview";
+import { UserQuotaSummary, ApiUsageRecord, TierPricingInfo, UserTier } from "@/types/usage";
 import Cookies from "js-cookie";
 // Ajoutez cet import au début du fichier
 import { getLastActivityTime } from "./activityTracker";
@@ -886,6 +887,32 @@ export const interviewPrepApi = {
   },
 };
 
+export const usageApi = {
+  getSummary: async (year?: number, month?: number) => {
+    const params = new URLSearchParams();
+    if (year !== undefined) params.append("year", year.toString());
+    if (month !== undefined) params.append("month", month.toString());
+    const query = params.toString() ? `?${params.toString()}` : "";
+    return fetchApi<UserQuotaSummary>(`/usage/me/summary${query}`, "GET");
+  },
+
+  getRecords: async (skip = 0, limit = 50, action?: string) => {
+    const params = new URLSearchParams();
+    params.append("skip", skip.toString());
+    params.append("limit", limit.toString());
+    if (action) params.append("action", action);
+    return fetchApi<ApiUsageRecord[]>(`/usage/me?${params.toString()}`, "GET");
+  },
+
+  getTiers: async () => {
+    return fetchApi<Record<string, TierPricingInfo>>("/usage/tiers", "GET");
+  },
+
+  updateTier: async (tier: UserTier | string) => {
+    return fetchApi<UserQuotaSummary>("/usage/me/tier", "PUT", { tier });
+  },
+};
+
 // Exportations par défaut
 const api = {
   auth: authApi,
@@ -896,6 +923,7 @@ const api = {
   coverLetters: coverLetterApi,
   resumes: resumeApi,
   interviewPrep: interviewPrepApi,
+  usage: usageApi,
 };
 
 export default api;
