@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ candidate.full_name }} - {{ cv.target_role_title }}</title>
+  <style>
+    {{ base_css }}
+
+    .cv-executive-container {
+      max-width: 100%;
+      margin: 0 auto;
+    }
+
+    .exec-header {
+      border-bottom: 2px solid var(--color-slate-900);
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .exec-name {
+      font-size: 20pt;
+      font-weight: 700;
+      color: var(--color-slate-900);
+      letter-spacing: -0.4px;
+      line-height: 1.1;
+    }
+
+    .exec-title {
+      font-size: 11pt;
+      font-weight: 600;
+      color: var(--color-primary);
+      margin-top: 3px;
+    }
+
+    .exec-contact {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 8pt;
+      color: var(--color-slate-600);
+      margin-top: 6px;
+    }
+
+    .exec-contact-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .exec-summary {
+      font-size: 8.8pt;
+      line-height: 1.45;
+      color: var(--color-slate-700);
+      margin-bottom: 14px;
+      padding: 6px 12px;
+      background-color: var(--color-slate-50);
+      border-left: 3px solid var(--color-slate-900);
+    }
+
+    .section-block {
+      margin-bottom: 13px;
+      break-inside: avoid;
+    }
+
+    .exec-exp-item {
+      margin-bottom: 11px;
+      break-inside: avoid;
+    }
+
+    .exec-exp-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 2px;
+    }
+
+    .exec-exp-role {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: var(--color-slate-900);
+    }
+
+    .exec-exp-company {
+      font-size: 8.8pt;
+      font-weight: 600;
+      color: var(--color-primary);
+    }
+
+    .exec-exp-dates {
+      font-size: 8pt;
+      color: var(--color-slate-500);
+      font-weight: 500;
+    }
+
+    .exec-exp-bullets {
+      list-style-type: disc;
+      padding-left: 15px;
+      margin-top: 3px;
+      margin-bottom: 4px;
+    }
+
+    .exec-exp-bullets li {
+      font-size: 8.5pt;
+      color: var(--color-slate-700);
+      margin-bottom: 2px;
+      line-height: 1.35;
+    }
+
+    /* Skills Grid */
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .skill-cat-title {
+      font-size: 8pt;
+      font-weight: 600;
+      color: var(--color-slate-700);
+      margin-bottom: 3px;
+      text-transform: uppercase;
+    }
+
+    /* 2 Columns Footer for Education & Languages */
+    .footer-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="cv-executive-container">
+    <!-- Header -->
+    <header class="exec-header">
+      <div>
+        <h1 class="exec-name">{{ candidate.full_name }}</h1>
+        <div class="exec-title">{{ cv.target_role_title }}</div>
+        <div class="exec-contact">
+          {% if candidate.email %}<span class="exec-contact-item">✉ {{ candidate.email }}</span>{% endif %}
+          {% if candidate.phone %}<span class="exec-contact-item">☎ {{ candidate.phone }}</span>{% endif %}
+          {% if candidate.location %}<span class="exec-contact-item">📍 {{ candidate.location }}</span>{% endif %}
+          {% if candidate.linkedin_url %}<span class="exec-contact-item">🔗 {{ candidate.linkedin_url }}</span>{% endif %}
+          {% if candidate.github_url %}<span class="exec-contact-item">💻 {{ candidate.github_url }}</span>{% endif %}
+        </div>
+      </div>
+      {% if with_photo and photo_url %}
+        <img class="avatar-img" src="{{ photo_url }}" alt="{{ candidate.full_name }}" />
+      {% endif %}
+    </header>
+
+    <!-- Professional Summary -->
+    {% if cv.professional_summary %}
+    <section class="exec-summary">
+      {{ cv.professional_summary }}
+    </section>
+    {% endif %}
+
+    <!-- Expériences -->
+    {% if cv.experiences %}
+    <section class="section-block">
+      <h2 class="section-title">Expérience Professionnelle</h2>
+      {% for exp in cv.experiences %}
+      <article class="exec-exp-item">
+        <div class="exec-exp-head">
+          <div>
+            <span class="exec-exp-role">{{ exp.title }}</span>
+            <span style="color: var(--color-slate-400);"> · </span>
+            <span class="exec-exp-company">{{ exp.company }}</span>
+            {% if exp.location %}<span style="font-size: 7.5pt; color: var(--color-slate-500);">({{ exp.location }})</span>{% endif %}
+          </div>
+          <span class="exec-exp-dates">{{ exp.start_date }} – {{ exp.end_date or 'Présent' }}</span>
+        </div>
+        {% if exp.bullet_points %}
+        <ul class="exec-exp-bullets">
+          {% for bp in exp.bullet_points %}
+          <li>{{ bp }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% if exp.relevant_technologies %}
+        <div style="margin-top: 3px;">
+          {% for tech in exp.relevant_technologies %}
+          <span class="badge badge-primary">{{ tech }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    <!-- Compétences Priorisées -->
+    {% if cv.prioritized_skills %}
+    <section class="section-block">
+      <h2 class="section-title">Compétences Techniques</h2>
+      <div class="skills-grid">
+        {% for group in cv.prioritized_skills %}
+        <div>
+          <div class="skill-cat-title">{{ group.category }}</div>
+          {% for s in group.skills %}
+            <span class="badge">{{ s }}</span>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- Projets Clés -->
+    {% if cv.featured_projects %}
+    <section class="section-block">
+      <h2 class="section-title">Projets Clés & Réalisations</h2>
+      {% for proj in cv.featured_projects %}
+      <div style="margin-bottom: 7px; break-inside: avoid;">
+        <div style="font-size: 8.8pt; font-weight: 600; color: var(--color-slate-900);">
+          {{ proj.name }}
+          {% if proj.url %}<span style="font-weight: normal; font-size: 7.5pt; color: var(--color-slate-500);">({{ proj.url }})</span>{% endif %}
+        </div>
+        <div style="font-size: 8pt; color: var(--color-slate-600);">{{ proj.description }}</div>
+        {% if proj.technologies %}
+        <div style="margin-top: 2px;">
+          {% for tech in proj.technologies %}
+          <span class="badge">{{ tech }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    <!-- Formation & Langues -->
+    <div class="footer-split section-block">
+      <!-- Formation -->
+      <div>
+        <h2 class="section-title">Formation</h2>
+        {% for edu in cv.education %}
+        <div style="margin-bottom: 5px; font-size: 8pt;">
+          <div style="font-weight: 600; color: var(--color-slate-800);">{{ edu.degree }}</div>
+          <div style="color: var(--color-slate-600); font-size: 7.5pt;">{{ edu.institution }} — {{ edu.year }}</div>
+          {% if edu.details %}<div style="color: var(--color-slate-500); font-size: 7.5pt;">{{ edu.details }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Langues & Certifications -->
+      <div>
+        <h2 class="section-title">Langues & Certifications</h2>
+        {% for lang in cv.languages %}
+        <div style="font-size: 8pt; margin-bottom: 3px;">
+          <strong>{{ lang.language }}</strong> : <span style="color: var(--color-slate-600);">{{ lang.level }}</span>
+        </div>
+        {% endfor %}
+        {% for cert in cv.certifications %}
+        <div style="font-size: 8pt; margin-top: 3px; color: var(--color-slate-700);">
+          🏅 {{ cert }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</body>
+</html>

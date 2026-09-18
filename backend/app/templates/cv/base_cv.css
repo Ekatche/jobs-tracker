@@ -1,0 +1,108 @@
+/* Base European A4 Print & ATS Stylesheet */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --color-slate-900: #0f172a;
+  --color-slate-800: #1e293b;
+  --color-slate-700: #334155;
+  --color-slate-600: #475569;
+  --color-slate-500: #64748b;
+  --color-slate-400: #94a3b8;
+  --color-slate-200: #e2e8f0;
+  --color-slate-100: #f1f5f9;
+  --color-slate-50: #f8fafc;
+  --color-primary: #1e3a8a;
+  --color-primary-light: #eff6ff;
+  --color-accent: #0284c7;
+  --color-border: #cbd5e1;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 10mm 12mm;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: var(--color-slate-800);
+  background: #ffffff;
+  line-height: 1.45;
+  font-size: 9.5pt;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media print {
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    background: transparent;
+  }
+  .page-break-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Common Components */
+.badge {
+  display: inline-block;
+  padding: 2px 7px;
+  font-size: 8pt;
+  font-weight: 500;
+  border-radius: 4px;
+  background-color: var(--color-slate-100);
+  color: var(--color-slate-700);
+  border: 1px solid var(--color-slate-200);
+  margin-right: 4px;
+  margin-bottom: 4px;
+}
+
+.badge-primary {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: #bfdbfe;
+}
+
+.monogram {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-slate-800) 0%, var(--color-primary) 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16pt;
+  letter-spacing: 0.5px;
+}
+
+.avatar-img {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--color-slate-200);
+}
+
+.section-title {
+  font-size: 10.5pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--color-slate-900);
+  border-bottom: 1.5px solid var(--color-slate-200);
+  padding-bottom: 3px;
+  margin-bottom: 8px;
+}

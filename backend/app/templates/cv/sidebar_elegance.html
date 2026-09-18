@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ candidate.full_name }} - {{ cv.target_role_title }}</title>
+  <style>
+    {{ base_css }}
+
+    .cv-layout-sidebar {
+      display: grid;
+      grid-template-columns: 31% 69%;
+      min-height: 100%;
+      column-gap: 16px;
+    }
+
+    .cv-sidebar {
+      background-color: #f8fafc;
+      border-right: 1px solid var(--color-slate-200);
+      padding: 4px 14px 12px 2px;
+    }
+
+    .cv-main {
+      padding: 4px 2px 12px 8px;
+    }
+
+    /* Sidebar Components */
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .sidebar-block {
+      margin-bottom: 14px;
+      break-inside: avoid;
+    }
+
+    .sidebar-block-title {
+      font-size: 8.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--color-slate-900);
+      border-bottom: 1px solid var(--color-slate-200);
+      padding-bottom: 2px;
+      margin-bottom: 6px;
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      font-size: 8pt;
+      color: var(--color-slate-600);
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .skill-category {
+      margin-bottom: 8px;
+    }
+
+    .skill-category-name {
+      font-size: 7.5pt;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--color-slate-500);
+      margin-bottom: 3px;
+    }
+
+    .lang-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 8pt;
+      margin-bottom: 3px;
+    }
+
+    .lang-level {
+      font-size: 7.5pt;
+      color: var(--color-slate-500);
+      font-weight: 500;
+    }
+
+    .edu-item {
+      margin-bottom: 6px;
+      font-size: 8pt;
+    }
+
+    .edu-degree {
+      font-weight: 600;
+      color: var(--color-slate-800);
+    }
+
+    .edu-inst {
+      color: var(--color-slate-600);
+      font-size: 7.5pt;
+    }
+
+    /* Main Column */
+    .main-header {
+      margin-bottom: 12px;
+      border-bottom: 2px solid var(--color-slate-900);
+      padding-bottom: 6px;
+    }
+
+    .main-candidate-name {
+      font-size: 18pt;
+      font-weight: 700;
+      color: var(--color-slate-900);
+      letter-spacing: -0.3px;
+      line-height: 1.1;
+    }
+
+    .main-role-title {
+      font-size: 11pt;
+      font-weight: 600;
+      color: var(--color-primary);
+      margin-top: 3px;
+    }
+
+    .summary-box {
+      background-color: var(--color-slate-50);
+      border-left: 3px solid var(--color-primary);
+      padding: 6px 10px;
+      margin-bottom: 14px;
+      font-size: 8.5pt;
+      color: var(--color-slate-700);
+      line-height: 1.45;
+      text-align: justify;
+    }
+
+    .experience-item {
+      margin-bottom: 11px;
+      break-inside: avoid;
+    }
+
+    .exp-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 2px;
+    }
+
+    .exp-title {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: var(--color-slate-900);
+    }
+
+    .exp-dates {
+      font-size: 8pt;
+      color: var(--color-slate-500);
+      font-weight: 500;
+    }
+
+    .exp-subtitle {
+      font-size: 8.5pt;
+      color: var(--color-primary);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .exp-location {
+      font-weight: 400;
+      color: var(--color-slate-500);
+    }
+
+    .exp-bullets {
+      list-style-type: disc;
+      padding-left: 14px;
+      margin-bottom: 4px;
+    }
+
+    .exp-bullets li {
+      font-size: 8.5pt;
+      color: var(--color-slate-700);
+      margin-bottom: 2px;
+      line-height: 1.35;
+    }
+
+    .exp-techs {
+      margin-top: 3px;
+    }
+
+    .project-item {
+      margin-bottom: 8px;
+      break-inside: avoid;
+    }
+
+    .project-title {
+      font-size: 9pt;
+      font-weight: 600;
+      color: var(--color-slate-900);
+    }
+
+    .project-desc {
+      font-size: 8pt;
+      color: var(--color-slate-600);
+      margin-top: 1px;
+    }
+  </style>
+</head>
+<body>
+  <div class="cv-layout-sidebar">
+    <!-- Colonne Gauche (Sidebar) -->
+    <aside class="cv-sidebar">
+      <div class="sidebar-header">
+        {% if with_photo and photo_url %}
+          <img class="avatar-img" src="{{ photo_url }}" alt="{{ candidate.full_name }}" />
+        {% else %}
+          <div class="monogram">{{ monogram }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Coordonnées -->
+      <div class="sidebar-block">
+        <div class="sidebar-block-title">Contact</div>
+        {% if candidate.email %}
+          <div class="contact-item">✉ {{ candidate.email }}</div>
+        {% endif %}
+        {% if candidate.phone %}
+          <div class="contact-item">☎ {{ candidate.phone }}</div>
+        {% endif %}
+        {% if candidate.location %}
+          <div class="contact-item">📍 {{ candidate.location }}</div>
+        {% endif %}
+        {% if candidate.linkedin_url %}
+          <div class="contact-item">🔗 {{ candidate.linkedin_url }}</div>
+        {% endif %}
+        {% if candidate.github_url %}
+          <div class="contact-item">💻 {{ candidate.github_url }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Compétences Priorisées -->
+      {% if cv.prioritized_skills %}
+      <div class="sidebar-block">
+        <div class="sidebar-block-title">Compétences Clés</div>
+        {% for group in cv.prioritized_skills %}
+          <div class="skill-category">
+            <div class="skill-category-name">{{ group.category }}</div>
+            {% for s in group.skills %}
+              <span class="badge">{{ s }}</span>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Langues (CECRL) -->
+      {% if cv.languages %}
+      <div class="sidebar-block">
+        <div class="sidebar-block-title">Langues</div>
+        {% for lang in cv.languages %}
+          <div class="lang-item">
+            <strong>{{ lang.language }}</strong>
+            <span class="lang-level">{{ lang.level }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Formation -->
+      {% if cv.education %}
+      <div class="sidebar-block">
+        <div class="sidebar-block-title">Formation</div>
+        {% for edu in cv.education %}
+          <div class="edu-item">
+            <div class="edu-degree">{{ edu.degree }}</div>
+            <div class="edu-inst">{{ edu.institution }} — {{ edu.year }}</div>
+            {% if edu.details %}<div class="edu-inst">{{ edu.details }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Certifications -->
+      {% if cv.certifications %}
+      <div class="sidebar-block">
+        <div class="sidebar-block-title">Certifications</div>
+        {% for cert in cv.certifications %}
+          <div class="edu-item">
+            <div class="edu-degree">{{ cert }}</div>
+          </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </aside>
+
+    <!-- Colonne Droite (Contenu Principal) -->
+    <main class="cv-main">
+      <header class="main-header">
+        <h1 class="main-candidate-name">{{ candidate.full_name }}</h1>
+        <div class="main-role-title">{{ cv.target_role_title }}</div>
+      </header>
+
+      {% if cv.professional_summary %}
+      <section class="summary-box">
+        {{ cv.professional_summary }}
+      </section>
+      {% endif %}
+
+      <!-- Expériences Professionnelles -->
+      {% if cv.experiences %}
+      <section class="page-break-avoid" style="margin-bottom: 12px;">
+        <h2 class="section-title">Expérience Professionnelle</h2>
+        {% for exp in cv.experiences %}
+        <article class="experience-item">
+          <div class="exp-header">
+            <h3 class="exp-title">{{ exp.title }}</h3>
+            <span class="exp-dates">{{ exp.start_date }} – {{ exp.end_date or 'Présent' }}</span>
+          </div>
+          <div class="exp-subtitle">
+            {{ exp.company }}{% if exp.location %} <span class="exp-location">· {{ exp.location }}</span>{% endif %}
+          </div>
+          {% if exp.bullet_points %}
+          <ul class="exp-bullets">
+            {% for bp in exp.bullet_points %}
+            <li>{{ bp }}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+          {% if exp.relevant_technologies %}
+          <div class="exp-techs">
+            {% for tech in exp.relevant_technologies %}
+            <span class="badge badge-primary">{{ tech }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </article>
+        {% endfor %}
+      </section>
+      {% endif %}
+
+      <!-- Projets Marquants -->
+      {% if cv.featured_projects %}
+      <section class="page-break-avoid">
+        <h2 class="section-title">Projets Clés & Réalisations</h2>
+        {% for proj in cv.featured_projects %}
+        <div class="project-item">
+          <div class="project-title">
+            {{ proj.name }}
+            {% if proj.url %}<span style="font-weight: normal; font-size: 7.5pt; color: var(--color-slate-500);">({{ proj.url }})</span>{% endif %}
+          </div>
+          <div class="project-desc">{{ proj.description }}</div>
+          {% if proj.technologies %}
+          <div style="margin-top: 2px;">
+            {% for tech in proj.technologies %}
+            <span class="badge">{{ tech }}</span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </section>
+      {% endif %}
+    </main>
+  </div>
+</body>
+</html>
