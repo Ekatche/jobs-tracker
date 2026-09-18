@@ -18,6 +18,7 @@ import {
 import { Task } from "@/types/tasks";
 import { CoverLetter, CandidateProfile, CandidatePreferences } from "@/types/coverLetter";
 import { TailoredResume, GenerateResumeRequest, UpdateResumeRequest } from "@/types/resume";
+import { InterviewPrep, UpdateInterviewPrepPayload } from "@/types/interview";
 import Cookies from "js-cookie";
 // Ajoutez cet import au début du fichier
 import { getLastActivityTime } from "./activityTracker";
@@ -823,6 +824,68 @@ export const resumeApi = {
   },
 };
 
+export const interviewPrepApi = {
+  get: async (offerId: string) => {
+    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep`, "GET");
+  },
+
+  generateStories: async (offerId: string) => {
+    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/stories`, "POST");
+  },
+
+  generateAudiencePacks: async (offerId: string) => {
+    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/audience-packs`, "POST");
+  },
+
+  generateQuestions: async (offerId: string) => {
+    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/questions`, "POST");
+  },
+
+  generateReverseQuestions: async (offerId: string) => {
+    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/reverse-questions`, "POST");
+  },
+
+  generateAll: async (offerId: string) => {
+    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/all`, "POST");
+  },
+
+  update: async (offerId: string, data: UpdateInterviewPrepPayload) => {
+    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep`, "PUT", data);
+  },
+
+  exportMarkdown: async (offerId: string): Promise<string> => {
+    const token = getToken();
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/offers/${offerId}/interview-prep/export`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      throw new Error(`Erreur lors de l'export Markdown (${response.status})`);
+    }
+    return response.text();
+  },
+
+  downloadMarkdown: async (offerId: string, filename?: string): Promise<void> => {
+    const token = getToken();
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/offers/${offerId}/interview-prep/export`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) {
+      throw new Error(`Erreur lors du téléchargement du Markdown (${response.status})`);
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename || `prep_${offerId.slice(0, 6)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+};
+
 // Exportations par défaut
 const api = {
   auth: authApi,
@@ -832,6 +895,7 @@ const api = {
   jobOffers: jobOffersApi,
   coverLetters: coverLetterApi,
   resumes: resumeApi,
+  interviewPrep: interviewPrepApi,
 };
 
 export default api;
