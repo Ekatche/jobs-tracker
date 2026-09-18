@@ -83,3 +83,38 @@ def test_delete_task(client, auth_headers, create_task):
     """
     response = client.delete(f"tasks/{create_task['_id']}/", headers=auth_headers)
     assert response.status_code == 204
+
+
+def test_create_and_update_standalone_task_with_metadata(client, auth_headers):
+    """
+    Teste la création et la mise à jour d'une tâche autonome avec priorité, catégorie et entreprise.
+    """
+    payload = {
+        "title": "Préparer questions entretien",
+        "description": "Relire la stack et les projets",
+        "status": "À faire",
+        "priority": "haute",
+        "category": "Entretien",
+        "company": "TechCorp",
+        "due_date": "2026-10-01T09:00:00Z",
+    }
+    create_res = client.post("tasks/", json=payload, headers=auth_headers)
+    assert create_res.status_code == 201
+    created = create_res.json()
+    assert created["title"] == payload["title"]
+    assert created["priority"] == "haute"
+    assert created["category"] == "Entretien"
+    assert created["company"] == "TechCorp"
+
+    update_payload = {
+        "priority": "normale",
+        "category": "Général",
+        "status": "En cours",
+    }
+    update_res = client.put(f"tasks/{created['_id']}/", json=update_payload, headers=auth_headers)
+    assert update_res.status_code == 200
+    updated = update_res.json()
+    assert updated["priority"] == "normale"
+    assert updated["category"] == "Général"
+    assert updated["status"] == "En cours"
+    assert updated["company"] == "TechCorp"  # preserved

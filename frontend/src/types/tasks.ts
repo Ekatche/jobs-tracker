@@ -9,7 +9,10 @@ export interface ApiTask {
   title: string;
   description?: string;
   status: string;
-  user_id?: string; // Rendre optionnel pour correspondre à Task
+  priority?: "haute" | "normale" | "basse" | string;
+  category?: string;
+  company?: string;
+  user_id?: string;
   created_at?: string;
   updated_at?: string;
   due_date?: string;
@@ -22,11 +25,14 @@ export interface Task {
   title: string;
   description?: string;
   status: TaskStatus;
+  priority?: "haute" | "normale" | "basse" | string;
+  category?: string;
+  company?: string;
   due_date?: string;
   created_at?: string;
   updated_at?: string;
   attached_files?: string[];
-  archived?: boolean; // ← AJOUTE cette ligne si elle n'existe pas
+  archived?: boolean;
 }
 
 export const getStatusColor = (status: string) => {

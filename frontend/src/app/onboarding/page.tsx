@@ -115,11 +115,11 @@ function OnboardingContent() {
     setIsCompleting(true);
     try {
       await userApi.completeOnboarding();
-      router.push("/dashboard");
+      router.push("/applications");
     } catch (err) {
       console.error("Erreur finalisation onboarding:", err);
       // Même en cas d'erreur de flag, rediriger pour ne pas bloquer l'utilisateur
-      router.push("/dashboard");
+      router.push("/applications");
     } finally {
       setIsCompleting(false);
     }

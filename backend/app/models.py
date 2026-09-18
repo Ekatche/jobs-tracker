@@ -254,6 +254,9 @@ class Task(BaseModel):
     title: str = Field(...)
     description: Optional[str] = None
     status: TaskStatus = Field(default=TaskStatus.TODO)
+    priority: Optional[str] = "normale"  # "haute", "normale", "basse"
+    category: Optional[str] = "Général"  # "Général", "Candidature", "Réseau", "Entretien", "Administratif", "Formation"
+    company: Optional[str] = None
     archived: Optional[bool] = False
     due_date: Optional[datetime] = None
     created_at: datetime = Field(default_factory=utcnow_with_timezone)
@@ -267,6 +270,8 @@ class Task(BaseModel):
                 "title": "Préparer le CV",
                 "description": "Mettre à jour le CV avec les dernières expériences.",
                 "status": "À faire",
+                "priority": "haute",
+                "category": "Candidature",
                 "due_date": "2025-04-10T10:00:00Z",
             }
         },
@@ -277,8 +282,11 @@ class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
+    priority: Optional[str] = None
+    category: Optional[str] = None
+    company: Optional[str] = None
     due_date: Optional[datetime] = None
-    # Ajoute d'autres champs si besoin (ex: attached_files, etc.)
+    archived: Optional[bool] = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -287,6 +295,9 @@ class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
     status: Optional[str] = None
+    priority: Optional[str] = "normale"
+    category: Optional[str] = "Général"
+    company: Optional[str] = None
     due_date: Optional[datetime] = None
     model_config = ConfigDict(extra="forbid")
 

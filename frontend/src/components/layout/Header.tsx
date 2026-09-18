@@ -153,16 +153,6 @@ export default function Header() {
             {isLoggedIn ? (
               <>
                 <Link
-                  href="/dashboard"
-                  className={`text-sm font-medium transition-colors ${
-                    isActive("/dashboard")
-                      ? "text-white border-b-2 border-blue-400"
-                      : "text-gray-300 hover:text-white"
-                  }`}
-                >
-                  Tableau de bord
-                </Link>
-                <Link
                   href="/applications"
                   className={`text-sm font-medium transition-colors ${
                     isActive("/applications")
@@ -324,18 +314,18 @@ export default function Header() {
                   </div>
                 )}
                 <Link
-                  href="/dashboard"
-                  className="block py-2 text-base font-medium text-gray-200 hover:text-white"
-                  onClick={closeMenu}
-                >
-                  Tableau de bord
-                </Link>
-                <Link
                   href="/applications"
                   className="block py-2 text-base font-medium text-gray-200 hover:text-white"
                   onClick={closeMenu}
                 >
                   Mes candidatures
+                </Link>
+                <Link
+                  href="/tasks"
+                  className="block py-2 text-base font-medium text-gray-200 hover:text-white"
+                  onClick={closeMenu}
+                >
+                  Mes démarches
                 </Link>
                 <Link
                   href="/offers"
