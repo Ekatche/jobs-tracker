@@ -253,6 +253,19 @@ export default function OfferDetailPage() {
             </Link>
 
             <button
+              onClick={() => setActiveTab("interview")}
+              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors shadow-sm ${
+                activeTab === "interview"
+                  ? "bg-purple-600 text-white shadow-purple-500/20"
+                  : "bg-purple-900/40 hover:bg-purple-800/60 text-purple-200 border border-purple-500/30"
+              }`}
+              title="Préparer l'entretien (STAR+R, packs d'audience, questions)"
+            >
+              <FiTarget className="w-4 h-4" />
+              <span>Entretien</span>
+            </button>
+
+            <button
               onClick={handleOpenApplyModal}
               className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-medium transition-colors shadow-sm"
             >
@@ -373,8 +386,88 @@ export default function OfferDetailPage() {
           </div>
         </div>
 
-        {/* Section Évaluation IA Two-Pass */}
-        {!evaluation ? (
+        {/* Drapeaux rouges Bloc A (s'il y en a) */}
+        {evaluation &&
+          (evaluation.bloc_a.geo_mismatch ||
+            evaluation.bloc_a.visa_sponsoring_refused ||
+            (evaluation.bloc_a.red_flags && evaluation.bloc_a.red_flags.length > 0)) && (
+            <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-5 mb-6 text-rose-200">
+              <div className="flex items-center gap-2.5 font-bold text-rose-400 mb-2">
+                <FiAlertTriangle className="w-5 h-5 flex-shrink-0" />
+                Drapeaux rouges identifiés (Bloc A)
+              </div>
+              <ul className="list-disc list-inside space-y-1 text-sm pl-2">
+                {evaluation.bloc_a.geo_mismatch && (
+                  <li>Incompatibilité géographique ou de télétravail sévère.</li>
+                )}
+                {evaluation.bloc_a.visa_sponsoring_refused && (
+                  <li>Sponsoring de visa non assuré par l'entreprise.</li>
+                )}
+                {evaluation.bloc_a.red_flags?.map((flag, idx) => (
+                  <li key={idx}>{flag}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+        {/* Onglets de Navigation Unifiés */}
+        <div className="flex border-b border-gray-700/80 mb-6 gap-2 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab("matching")}
+            className={`px-4 py-2.5 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === "matching"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            <FiAward className="w-4 h-4" />
+            Adéquation Exigences (Bloc B)
+            {evaluation && (
+              <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
+                {evaluation.bloc_b.matched_requirements.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab("analysis")}
+            className={`px-4 py-2.5 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === "analysis"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            <FiShield className="w-4 h-4" />
+            Stratégie & Intégrité (Blocs A & G)
+          </button>
+
+          <button
+            onClick={() => setActiveTab("job")}
+            className={`px-4 py-2.5 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === "job"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            <FiFileText className="w-4 h-4" />
+            Annonce du Poste
+          </button>
+
+          <button
+            onClick={() => setActiveTab("interview")}
+            className={`px-4 py-2.5 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === "interview"
+                ? "border-purple-500 text-purple-400"
+                : "border-transparent text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            <FiTarget className="w-4 h-4 text-purple-400" />
+            🎯 Préparation Entretien
+          </button>
+        </div>
+
+        {/* Section Évaluation IA Non Effectuée (pour onglets matching/analysis) */}
+        {!evaluation && (activeTab === "matching" || activeTab === "analysis") && (
           <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/20 border border-blue-500/30 rounded-2xl p-8 text-center my-8 shadow-md">
             <div className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-4 border border-blue-500/40">
               <FiZap className="w-6 h-6" />
@@ -396,88 +489,11 @@ export default function OfferDetailPage() {
               {evaluating ? "Analyse Two-Pass en cours..." : "Lancer l'évaluation complète"}
             </button>
           </div>
-        ) : (
-          <div>
-            {/* Drapeaux rouges Bloc A (s'il y en a) */}
-            {(evaluation.bloc_a.geo_mismatch ||
-              evaluation.bloc_a.visa_sponsoring_refused ||
-              (evaluation.bloc_a.red_flags && evaluation.bloc_a.red_flags.length > 0)) && (
-              <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-5 mb-6 text-rose-200">
-                <div className="flex items-center gap-2.5 font-bold text-rose-400 mb-2">
-                  <FiAlertTriangle className="w-5 h-5 flex-shrink-0" />
-                  Drapeaux rouges identifiés (Bloc A)
-                </div>
-                <ul className="list-disc list-inside space-y-1 text-sm pl-2">
-                  {evaluation.bloc_a.geo_mismatch && (
-                    <li>Incompatibilité géographique ou de télétravail sévère.</li>
-                  )}
-                  {evaluation.bloc_a.visa_sponsoring_refused && (
-                    <li>Sponsoring de visa non assuré par l'entreprise.</li>
-                  )}
-                  {evaluation.bloc_a.red_flags?.map((flag, idx) => (
-                    <li key={idx}>{flag}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+        )}
 
-            {/* Onglets de Navigation de l'Analyse */}
-            <div className="flex border-b border-gray-700/80 mb-6 gap-2">
-              <button
-                onClick={() => setActiveTab("matching")}
-                className={`px-4 py-2.5 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
-                  activeTab === "matching"
-                    ? "border-blue-500 text-blue-400"
-                    : "border-transparent text-gray-400 hover:text-gray-200"
-                }`}
-              >
-                <FiAward className="w-4 h-4" />
-                Adéquation Exigences (Bloc B)
-                <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
-                  {evaluation.bloc_b.matched_requirements.length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab("analysis")}
-                className={`px-4 py-2.5 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
-                  activeTab === "analysis"
-                    ? "border-blue-500 text-blue-400"
-                    : "border-transparent text-gray-400 hover:text-gray-200"
-                }`}
-              >
-                <FiShield className="w-4 h-4" />
-                Stratégie & Intégrité (Blocs A & G)
-              </button>
-
-              <button
-                onClick={() => setActiveTab("job")}
-                className={`px-4 py-2.5 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
-                  activeTab === "job"
-                    ? "border-blue-500 text-blue-400"
-                    : "border-transparent text-gray-400 hover:text-gray-200"
-                }`}
-              >
-                <FiFileText className="w-4 h-4" />
-                Annonce du Poste
-              </button>
-
-              <button
-                onClick={() => setActiveTab("interview")}
-                className={`px-4 py-2.5 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors ${
-                  activeTab === "interview"
-                    ? "border-indigo-500 text-indigo-400"
-                    : "border-transparent text-gray-400 hover:text-gray-200"
-                }`}
-              >
-                <FiTarget className="w-4 h-4 text-indigo-400" />
-                🎯 Préparation Entretien
-              </button>
-            </div>
-
-            {/* CONTENU ONGLET 1: MATCHING EXIGENCES (BLOC B) */}
-            {activeTab === "matching" && (
-              <div className="space-y-6">
+        {/* CONTENU ONGLET 1: MATCHING EXIGENCES (BLOC B) */}
+        {evaluation && activeTab === "matching" && (
+          <div className="space-y-6">
                 {/* Synthèse du matching */}
                 {evaluation.bloc_b.score_justification && (
                   <div className="bg-blue-night-lighter/70 border border-gray-700/70 rounded-xl p-5">
@@ -600,7 +616,7 @@ export default function OfferDetailPage() {
             )}
 
             {/* CONTENU ONGLET 2: STRATÉGIE & INTÉGRITÉ (BLOCS A & G) */}
-            {activeTab === "analysis" && (
+            {evaluation && activeTab === "analysis" && (
               <div className="space-y-6">
                 {/* Bloc A: Archétype & Résumé exécutif */}
                 <div className="bg-blue-night-lighter rounded-xl p-6 border border-gray-700/60 shadow-md">
@@ -741,8 +757,6 @@ export default function OfferDetailPage() {
                 targetCompany={offer.entreprise}
               />
             )}
-          </div>
-        )}
       </div>
 
       {/* Modal Candidature */}
