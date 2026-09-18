@@ -249,6 +249,13 @@ export default function Header() {
                       >
                         Profil
                       </Link>
+                      <Link
+                        href="/settings/usage"
+                        className="block px-4 py-2 text-sm text-gray-200 hover:bg-blue-800/40"
+                        onClick={closeMenu}
+                      >
+                        Quotas & Abonnement
+                      </Link>
                       <button
                         onClick={handleLogout}
                         className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-blue-800/40 flex items-center gap-2"
@@ -360,6 +367,13 @@ export default function Header() {
                   onClick={closeMenu}
                 >
                   Profil
+                </Link>
+                <Link
+                  href="/settings/usage"
+                  className="block py-2 text-base font-medium text-gray-200 hover:text-white"
+                  onClick={closeMenu}
+                >
+                  Quotas & Abonnement
                 </Link>
                 <button
                   onClick={handleLogout}
