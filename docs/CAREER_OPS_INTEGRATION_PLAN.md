@@ -202,13 +202,20 @@ Système de tracking et de quotas pour contrôler les coûts LLM et permettre la
 
 > **Dépendance** : Aucune — à implémenter en priorité (chaque jour sans tracking = coûts invisibles).
 
+### Déjà implémenté ✅
+| Composant | Fichier(s) | Notes |
+|---|---|---|
+| Modèles Pydantic & Enums | `app/models.py` | `UserTier`, `ApiUsageAction`, `ApiUsageRecord`, `UserQuotaSummary`, `TierPricingInfo` |
+| Tracker LLM & Quotas Guards | `app/llm/tracker.py` | `track_api_usage()`, `check_action_quota()` (limite 429), callbacks LiteLLM & LangChain |
+| Instrumentation des actions IA | `app/services/` & `app/routers/` | Tracking 6 actions : `interview_prep`, `cv_tailoring`, `cover_letter`, `job_evaluation`, `cv_parsing`, `offer_summary` |
+| API REST Usage & Tier Switcher | `app/routers/usage.py` | Routes `/usage/me`, `/usage/me/records`, `/usage/pricing-tiers`, `PUT /usage/me/tier` |
+| Tests d'intégration & Unité | `tests/test_usage_tier_api.py`, `tests/test_usage_tracker.py` | Couverture TDD complète des quotas, décomptes et switch de tiers |
+| Types Frontend & Client API | `frontend/src/types/usage.ts`, `frontend/src/lib/api.ts` | `usageApi` complet (summary, records, tiers, updateTier) |
+| Dashboard Quotas & Abonnement | `frontend/src/app/settings/usage/page.tsx` | Jauges d'utilisation avec seuils de couleur, sélecteur 3 tiers (Free/Adv/Pro), table d'audit LLM |
+| Navigation & Redirections | `frontend/src/app/settings/page.tsx`, `Header.tsx` | Redirection transparente `/settings` → `/settings/usage`, lien direct menu profil |
+
 ### Reste à faire ⬜
-- [ ] Modèles `ApiUsageRecord`, `UserTier`, `UserQuota` dans `models.py`
-- [ ] Module `app/llm/tracker.py` (callback LiteLLM + wrapper LangChain)
-- [ ] Instrumentation des 3 stacks LLM existantes
-- [ ] Router `app/routers/usage.py`
-- [ ] Guard middleware `check_quota()`
-- [ ] Route `/settings/usage` (UI)
+- Aucun (Phase 7 et Master Plan 100% complétés)
 
 ---
 
