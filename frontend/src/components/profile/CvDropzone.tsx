@@ -133,7 +133,7 @@ export default function CvDropzone({
             </div>
             <p className="text-xs text-slate-400 mt-1">
               Déposez votre CV au format PDF. Notre moteur IA extrait automatiquement vos expériences,
-              projets et compétences techniques.
+              projets et compétences.
             </p>
           </div>
         </div>
@@ -177,8 +177,8 @@ export default function CvDropzone({
             </div>
             <div className="text-sm font-medium text-white">{uploadStep}</div>
             <p className="text-xs text-slate-400 max-w-md">
-              Traitement par les agents LLM (normalisation des dates, déduplication et mapping de
-              la stack technique).
+              Traitement par les agents LLM (normalisation des dates, déduplication et mapping des
+              compétences).
             </p>
           </div>
         ) : (

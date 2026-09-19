@@ -292,7 +292,7 @@ function OnboardingContent() {
                 </h2>
                 <p className="text-sm text-gray-400 mt-1">
                   Chargez votre CV au format PDF. Le parseur multi-modal (Mistral VLM + LLM) extrait automatiquement
-                  vos expériences, stacks techniques, réalisations et formations.
+                  vos expériences, compétences, réalisations et formations.
                 </p>
               </div>
 
@@ -385,7 +385,7 @@ function OnboardingContent() {
                   <span>Présence Web & Finalisation</span>
                 </h2>
                 <p className="text-sm text-gray-400 mt-1">
-                  Connectez vos profils publics pour consolider vos réalisations techniques réelles.
+                  Connectez vos profils publics pour consolider vos réalisations concrètes.
                 </p>
               </div>
 
