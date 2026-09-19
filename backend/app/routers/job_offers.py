@@ -392,6 +392,11 @@ async def get_job_offers(
             oid_str = str(offer["_id"])
             offer["id"] = oid_str
             del offer["_id"]
+            # evaluation_score sur le doc job_offers brut est écrit globalement par
+            # le dernier utilisateur à avoir évalué l'offre (evaluator.py) : ne
+            # jamais le laisser fuiter tel quel, ne renvoyer que le score propre
+            # à l'utilisateur courant.
+            offer.pop("evaluation_score", None)
             if current_user:
                 offer["user_interaction"] = interaction_map.get(oid_str)
                 if oid_str in eval_score_map:
@@ -443,6 +448,9 @@ async def get_job_offer(
 
     offer["id"] = str(offer["_id"])
     del offer["_id"]
+    # Même précaution que sur la liste : evaluation_score brut est global à
+    # l'offre (dernier utilisateur à l'avoir évaluée), jamais scopé par tenant.
+    offer.pop("evaluation_score", None)
 
     if current_user:
         interaction = await db["user_offer_interactions"].find_one({
