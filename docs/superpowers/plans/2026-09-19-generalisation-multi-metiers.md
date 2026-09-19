@@ -886,7 +886,7 @@ async def test_evaluate_offer_two_pass_short_circuits_on_domain_mismatch():
 
     api_usage_col = AsyncMock()
     api_usage_col.aggregate = MagicMock(side_effect=lambda *a, **k: mock_cursor())
-    api_usage_col.insert_one = AsyncMock(return_value=MagicMock(inserted_id="rec_anim"))
+    api_usage_col.insert_one = AsyncMock(return_value=MagicMock(inserted_id=ObjectId()))
 
     def db_getitem(name):
         mapping = {
