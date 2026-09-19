@@ -115,12 +115,17 @@ def _build_keywords_filter(keywords: str) -> dict:
         return {}
 
     if "|" in clean_kw:
+        escaped_terms = "|".join(
+            re.escape(term.strip()) for term in clean_kw.split("|") if term.strip()
+        )
+        if not escaped_terms:
+            return {}
         return {
             "$or": [
-                {"poste": {"$regex": clean_kw, "$options": "i"}},
-                {"description": {"$regex": clean_kw, "$options": "i"}},
-                {"entreprise": {"$regex": clean_kw, "$options": "i"}},
-                {"competences_cles": {"$regex": clean_kw, "$options": "i"}},
+                {"poste": {"$regex": escaped_terms, "$options": "i"}},
+                {"description": {"$regex": escaped_terms, "$options": "i"}},
+                {"entreprise": {"$regex": escaped_terms, "$options": "i"}},
+                {"competences_cles": {"$regex": escaped_terms, "$options": "i"}},
             ]
         }
 
