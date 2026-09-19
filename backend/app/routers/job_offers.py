@@ -115,19 +115,21 @@ def _build_keywords_filter(keywords: str) -> dict:
         return {}
 
     if "|" in clean_kw:
-        escaped_terms = "|".join(
-            re.escape(term.strip()) for term in clean_kw.split("|") if term.strip()
-        )
-        if not escaped_terms:
+        # Une alternance de plusieurs métiers (ex: filtre "selon mon profil" avec
+        # plusieurs rôles) doit bénéficier du même tolérant matching (stemming,
+        # mots de domaine) que chaque rôle pris seul, pas d'un match de phrase
+        # exacte qui échoue dès que l'intitulé réel diffère légèrement.
+        sub_filters = [
+            _build_keywords_filter(term.strip())
+            for term in clean_kw.split("|")
+            if term.strip()
+        ]
+        sub_filters = [f for f in sub_filters if f]
+        if not sub_filters:
             return {}
-        return {
-            "$or": [
-                {"poste": {"$regex": escaped_terms, "$options": "i"}},
-                {"description": {"$regex": escaped_terms, "$options": "i"}},
-                {"entreprise": {"$regex": escaped_terms, "$options": "i"}},
-                {"competences_cles": {"$regex": escaped_terms, "$options": "i"}},
-            ]
-        }
+        if len(sub_filters) == 1:
+            return sub_filters[0]
+        return {"$or": sub_filters}
 
     words = re.findall(r"[a-zA-ZÀ-ÿ0-9]+", clean_kw.lower())
     meaningful = [w for w in words if len(w) >= 2 and w not in STOPWORDS]
