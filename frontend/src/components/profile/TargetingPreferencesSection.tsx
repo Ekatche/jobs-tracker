@@ -42,15 +42,6 @@ const SENIORITY_OPTIONS = [
   { value: "head_of", label: "Direction / Head of", desc: "Management & stratégie" },
 ];
 
-const SUGGESTED_ROLES = [
-  "Data Engineer",
-  "Machine Learning Engineer",
-  "Data Scientist",
-  "MLOps Engineer",
-  "Data Architect",
-  "Tech Lead IA",
-];
-
 const SUGGESTED_LOCATIONS = [
   "Paris",
   "Lyon",
@@ -66,6 +57,7 @@ export default function TargetingPreferencesSection({
   isSaving = false,
 }: TargetingPreferencesSectionProps) {
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
+  const [suggestedRoles, setSuggestedRoles] = useState<string[]>([]);
   const [newRoleInput, setNewRoleInput] = useState("");
 
   const [locations, setLocations] = useState<string[]>([]);
@@ -112,16 +104,27 @@ export default function TargetingPreferencesSection({
   useEffect(() => {
     if (initialPreferences) {
       applyPreferences(initialPreferences);
-    } else {
-      coverLetterApi
-        .getCandidateProfile()
-        .then((data) => {
-          if (data && data.preferences) {
-            applyPreferences(data.preferences);
-          }
-        })
-        .catch(() => {});
     }
+    coverLetterApi
+      .getCandidateProfile()
+      .then((data) => {
+        if (!initialPreferences && data && data.preferences) {
+          applyPreferences(data.preferences);
+        }
+        if (data) {
+          const roles = new Set<string>();
+          if (data.headline && data.headline.trim()) {
+            roles.add(data.headline.trim());
+          }
+          (data.experiences || []).forEach((exp) => {
+            if (exp.role && exp.role.trim()) {
+              roles.add(exp.role.trim());
+            }
+          });
+          setSuggestedRoles(Array.from(roles));
+        }
+      })
+      .catch(() => {});
   }, [initialPreferences]);
 
   const handleAddRole = (e: React.KeyboardEvent | React.MouseEvent) => {
@@ -294,7 +297,7 @@ export default function TargetingPreferencesSection({
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-              Intitulés recherchés (ex: Data Engineer, ML Engineer)
+              Intitulés recherchés (ex: Développeur Fullstack, Chef de Projet, Consultant...)
             </label>
             <div className="flex gap-2">
               <input
@@ -314,30 +317,32 @@ export default function TargetingPreferencesSection({
               </button>
             </div>
 
-            {/* Suggestions rapides de postes */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-              <span className="text-[11px] text-slate-400 mr-1">Suggestions :</span>
-              {SUGGESTED_ROLES.map((role) => {
-                const isSelected = targetRoles.includes(role);
-                return (
-                  <button
-                    key={role}
-                    type="button"
-                    onClick={() => {
-                      if (!isSelected) setTargetRoles([...targetRoles, role]);
-                    }}
-                    disabled={isSelected}
-                    className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-all ${
-                      isSelected
-                        ? "bg-slate-800/80 text-slate-500 border-slate-700/50 cursor-default"
-                        : "bg-blue-950/40 text-blue-300 border-blue-800/60 hover:bg-blue-900/60 hover:border-blue-500 cursor-pointer"
-                    }`}
-                  >
-                    + {role}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Suggestions dynamiques basées sur le profil */}
+            {suggestedRoles.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                <span className="text-[11px] text-slate-400 mr-1">Suggestions basées sur votre profil :</span>
+                {suggestedRoles.map((role) => {
+                  const isSelected = targetRoles.includes(role);
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      onClick={() => {
+                        if (!isSelected) setTargetRoles([...targetRoles, role]);
+                      }}
+                      disabled={isSelected}
+                      className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-all ${
+                        isSelected
+                          ? "bg-slate-800/80 text-slate-500 border-slate-700/50 cursor-default"
+                          : "bg-blue-950/40 text-blue-300 border-blue-800/60 hover:bg-blue-900/60 hover:border-blue-500 cursor-pointer"
+                      }`}
+                    >
+                      + {role}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {targetRoles.length > 0 ? (
               <div className="flex flex-wrap gap-2 mt-3">

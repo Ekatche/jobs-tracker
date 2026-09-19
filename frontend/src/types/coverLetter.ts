@@ -56,6 +56,7 @@ export interface CandidateProfile {
   education?: Array<{ school: string; degree: string; years?: string; topics?: string[] }>;
   certifications?: Array<{ name: string; issuer: string; year?: string; topics?: string[] }>;
   languages?: string[];
+  interests?: string[];
   skills?: Record<string, string[]>;
   conflicts?: CandidateConflict[];
   sources?: Record<string, unknown>;

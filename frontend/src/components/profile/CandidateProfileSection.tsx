@@ -21,6 +21,7 @@ import {
   FiBook,
   FiPlus,
   FiTrash2,
+  FiHeart,
 } from "react-icons/fi";
 import { coverLetterApi } from "@/lib/api";
 import { CandidateProfile, CandidateExperience, CandidateProject, CandidateConflict } from "@/types/coverLetter";
@@ -73,6 +74,8 @@ export default function CandidateProfileSection() {
   const [github, setGithub] = useState("");
   const [linkedin, setLinkedin] = useState("");
   const [skillsText, setSkillsText] = useState("");
+  const [languagesText, setLanguagesText] = useState("");
+  const [interestsText, setInterestsText] = useState("");
   const [experiences, setExperiences] = useState<CandidateExperience[]>([]);
   const [projects, setProjects] = useState<CandidateProject[]>([]);
   const [excludedProjects, setExcludedProjects] = useState<string[]>([]);
@@ -118,6 +121,8 @@ export default function CandidateProfileSection() {
     setExperiences(data.experiences || []);
     setProjects(data.projects || []);
     setExcludedProjects(data.excluded_projects || []);
+    setLanguagesText((data.languages || []).join(", "));
+    setInterestsText((data.interests || []).join(", "));
   };
 
   const handleUpdateExperience = (
@@ -287,7 +292,14 @@ export default function CandidateProfileSection() {
       excluded_projects: excludedProjects,
       education: profile?.education || [],
       certifications: profile?.certifications || [],
-      languages: profile?.languages || ["Français", "Anglais"],
+      languages: languagesText
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      interests: interestsText
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
     };
 
     try {
@@ -396,7 +408,7 @@ export default function CandidateProfileSection() {
               )}
             </div>
             <div className="text-lg font-bold text-white mb-2 tracking-tight">
-              {profile?.headline || "Data Engineer & AI Specialist"}
+              {profile?.headline || "Titre professionnel non renseigné"}
             </div>
             <p className="text-slate-300 leading-relaxed whitespace-pre-line text-xs sm:text-sm">
               {profile?.summary || "Aucun résumé professionnel enregistré."}
@@ -568,7 +580,9 @@ export default function CandidateProfileSection() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {Object.entries(profile.skills).map(([category, items]) => (
                   <div key={category} className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800/90">
-                    <span className="text-xs font-bold uppercase tracking-wider text-blue-400">{category}</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-blue-400">
+                      {category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                    </span>
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {items.map((skill, i) => (
                         <span key={i} className="px-2.5 py-0.5 rounded-lg text-xs bg-slate-800 text-slate-200 border border-slate-700/70 font-medium">
@@ -823,6 +837,41 @@ export default function CandidateProfileSection() {
               </div>
             </div>
           )}
+
+          {/* Langues & Centres d'intérêt */}
+          {((profile?.languages && profile.languages.length > 0) || (profile?.interests && profile.interests.length > 0)) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {profile?.languages && profile.languages.length > 0 && (
+                <div className="bg-slate-950/40 p-5 rounded-xl border border-slate-800/80">
+                  <h3 className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-3 flex items-center">
+                    <FiGlobe className="mr-2 text-cyan-400" /> Langues ({profile.languages.length})
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.languages.map((lang, idx) => (
+                      <span key={idx} className="px-3 py-1 rounded-lg text-xs bg-slate-900 text-cyan-300 border border-cyan-800/40 font-medium">
+                        {lang}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {profile?.interests && profile.interests.length > 0 && (
+                <div className="bg-slate-950/40 p-5 rounded-xl border border-slate-800/80">
+                  <h3 className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-3 flex items-center">
+                    <FiHeart className="mr-2 text-rose-400" /> Centres d&apos;intérêt ({profile.interests.length})
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.interests.map((item, idx) => (
+                      <span key={idx} className="px-3 py-1 rounded-lg text-xs bg-slate-900 text-rose-300 border border-rose-800/40 font-medium">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         // Mode Édition
@@ -837,7 +886,7 @@ export default function CandidateProfileSection() {
                 type="text"
                 value={headline}
                 onChange={(e) => setHeadline(e.target.value)}
-                placeholder="ex: Ingénieur Data & IA"
+                placeholder="ex: Développeur Fullstack, Chef de Projet, Designer UI/UX, Consultant..."
                 className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -977,16 +1026,46 @@ export default function CandidateProfileSection() {
 
           <div>
             <label htmlFor="candidate_skills" className="block text-xs font-semibold text-gray-300 uppercase mb-1 flex items-center">
-              <FiCode className="mr-1.5 text-blue-400" /> Compétences (Format "catégorie: item1, item2")
+              <FiCode className="mr-1.5 text-blue-400" /> Compétences (Format libre "catégorie: item1, item2")
             </label>
             <textarea
               id="candidate_skills"
               rows={4}
               value={skillsText}
               onChange={(e) => setSkillsText(e.target.value)}
-              placeholder="langages: Python, JavaScript, SQL&#10;cloud: Azure, AWS&#10;frameworks: FastAPI, LangChain"
+              placeholder="compétences clés: Gestion de projet, Communication, Négociation&#10;outils: Excel, Figma, Notion, Git&#10;méthodologies: Agile, Scrum, Lean"
               className="w-full font-mono text-xs rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="candidate_languages" className="block text-xs font-semibold text-gray-300 uppercase mb-1 flex items-center">
+                <FiGlobe className="mr-1.5 text-cyan-400" /> Langues maîtrisées (séparées par virgule)
+              </label>
+              <input
+                id="candidate_languages"
+                type="text"
+                value={languagesText}
+                onChange={(e) => setLanguagesText(e.target.value)}
+                placeholder="ex: Français (natif), Anglais (courant C1), Espagnol"
+                className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="candidate_interests" className="block text-xs font-semibold text-gray-300 uppercase mb-1 flex items-center">
+                <FiHeart className="mr-1.5 text-rose-400" /> Centres d&apos;intérêt & Engagements (séparés par virgule)
+              </label>
+              <input
+                id="candidate_interests"
+                type="text"
+                value={interestsText}
+                onChange={(e) => setInterestsText(e.target.value)}
+                placeholder="ex: Course à pied, Échecs, Bénévolat associatif, Photographie"
+                className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
+              />
+            </div>
           </div>
 
           {/* Édition des Expériences */}

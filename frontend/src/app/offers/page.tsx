@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
   jobOffersApi,
+  coverLetterApi,
   type JobOffer,
   type JobOfferFilter,
   type JobOfferStats,
@@ -29,6 +30,7 @@ import {
   FiStar,
   FiLayers,
   FiCheckCircle,
+  FiTarget,
 } from "react-icons/fi";
 import { PrefilledData } from "@/components/dashboard/NewApplicationModal";
 
@@ -275,6 +277,47 @@ export default function OffersPage() {
       detail: prefilledData,
     });
     window.dispatchEvent(event);
+  };
+
+  const [profileRoles, setProfileRoles] = useState<string[]>([]);
+  const [profileLocations, setProfileLocations] = useState<string[]>([]);
+  const [isProfileFilterActive, setIsProfileFilterActive] = useState(false);
+
+  // Appliquer automatiquement les critères enregistrés dans le profil du candidat
+  const handleApplyProfileCriteria = async () => {
+    try {
+      const profile = await coverLetterApi.getCandidateProfile();
+      if (!profile) return;
+
+      const prefs = profile.preferences || {};
+      const roles = prefs.target_roles || [];
+      const headline = profile.headline || "";
+      const allRoles = Array.from(new Set([...roles, headline].filter(Boolean)));
+      const locs = prefs.locations || [];
+
+      setProfileRoles(allRoles);
+      setProfileLocations(locs);
+      setIsProfileFilterActive(true);
+
+      // Si le candidat a des rôles cibles, on applique le premier ou le headline
+      if (allRoles.length > 0) {
+        setSearchTerm(allRoles[0]);
+      } else {
+        setSearchTerm("");
+      }
+
+      // Réinitialiser les filtres annexes trop restrictifs
+      setLocationFilter("");
+      setContractTypeFilter("");
+      setCompanyFilter("");
+      setWorkModeFilter("");
+      setDaysRecentFilter(undefined);
+      setMinScoreFilter(undefined);
+      setOnlySaved(false);
+      setInteractionStatus(undefined);
+    } catch (err) {
+      console.error("Erreur lors de la récupération des critères du profil:", err);
+    }
   };
 
   // Charger le total au montage et quand les filtres changent
@@ -882,6 +925,17 @@ export default function OffersPage() {
                   <span>Toutes</span>
                 </button>
 
+                {/* Mon profil */}
+                <button
+                  type="button"
+                  onClick={handleApplyProfileCriteria}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border bg-indigo-600/20 text-indigo-300 hover:text-white border-indigo-500/40 hover:bg-indigo-600/30 shadow-sm"
+                  title="Appliquer automatiquement mes critères de profil"
+                >
+                  <FiTarget className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>🎯 Selon mon profil</span>
+                </button>
+
                 {/* Favoris */}
                 <button
                   type="button"
@@ -949,6 +1003,49 @@ export default function OffersPage() {
                   <span>Postulées</span>
                 </button>
               </div>
+
+              {/* Rôles et critères issus du profil candidat */}
+              {profileRoles.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-800/80">
+                  <span className="text-[11px] text-slate-400 flex items-center gap-1 font-medium mr-1">
+                    <FiTarget className="w-3 h-3 text-indigo-400" /> Postes cibles de votre profil :
+                  </span>
+                  {profileRoles.map((role, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSearchTerm(role)}
+                      className={`px-2.5 py-1 rounded-lg text-xs transition-all border ${
+                        searchTerm.toLowerCase() === role.toLowerCase()
+                          ? "bg-indigo-600 text-white border-indigo-500 font-semibold shadow-sm shadow-indigo-500/30"
+                          : "bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700 border-slate-700/60"
+                      }`}
+                    >
+                      {role}
+                    </button>
+                  ))}
+                  {profileLocations.length > 0 && (
+                    <div className="flex items-center gap-1 ml-2">
+                      <span className="text-[11px] text-slate-500">|</span>
+                      {profileLocations.map((loc, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setLocationFilter(locationFilter.toLowerCase() === loc.toLowerCase() ? "" : loc)}
+                          className={`px-2 py-0.5 rounded-md text-[11px] transition-all border flex items-center gap-1 ${
+                            locationFilter.toLowerCase() === loc.toLowerCase()
+                              ? "bg-blue-600 text-white border-blue-500 font-semibold"
+                              : "bg-slate-800/50 text-slate-400 hover:text-slate-200 border-slate-700/50"
+                          }`}
+                        >
+                          <FiMapPin className="w-2.5 h-2.5" />
+                          <span>{loc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Filtres détaillés */}
               {showFilters && (
