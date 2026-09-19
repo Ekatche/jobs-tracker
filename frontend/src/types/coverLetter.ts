@@ -24,6 +24,20 @@ export interface CandidateProject {
   sources?: string[];
 }
 
+export interface CandidateEducation {
+  school: string;
+  degree: string;
+  years?: string;
+  topics?: string[];
+}
+
+export interface CandidateCertification {
+  name: string;
+  issuer: string;
+  year?: string;
+  topics?: string[];
+}
+
 export type RemotePolicy = "full_remote" | "hybrid" | "on_site" | "flexible";
 
 export interface CandidatePreferences {
@@ -53,8 +67,8 @@ export interface CandidateProfile {
   preferences?: CandidatePreferences;
   experiences?: CandidateExperience[];
   projects?: CandidateProject[];
-  education?: Array<{ school: string; degree: string; years?: string; topics?: string[] }>;
-  certifications?: Array<{ name: string; issuer: string; year?: string; topics?: string[] }>;
+  education?: CandidateEducation[];
+  certifications?: CandidateCertification[];
   languages?: string[];
   interests?: string[];
   skills?: Record<string, string[]>;

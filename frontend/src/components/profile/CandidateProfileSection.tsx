@@ -24,7 +24,14 @@ import {
   FiHeart,
 } from "react-icons/fi";
 import { coverLetterApi } from "@/lib/api";
-import { CandidateProfile, CandidateExperience, CandidateProject, CandidateConflict } from "@/types/coverLetter";
+import {
+  CandidateProfile,
+  CandidateExperience,
+  CandidateProject,
+  CandidateConflict,
+  CandidateEducation,
+  CandidateCertification,
+} from "@/types/coverLetter";
 import CvDropzone from "./CvDropzone";
 
 function formatMonthYear(val?: string | null): string {
@@ -79,6 +86,8 @@ export default function CandidateProfileSection() {
   const [experiences, setExperiences] = useState<CandidateExperience[]>([]);
   const [projects, setProjects] = useState<CandidateProject[]>([]);
   const [excludedProjects, setExcludedProjects] = useState<string[]>([]);
+  const [education, setEducation] = useState<CandidateEducation[]>([]);
+  const [certifications, setCertifications] = useState<CandidateCertification[]>([]);
 
   const loadProfile = async () => {
     setLoading(true);
@@ -121,6 +130,8 @@ export default function CandidateProfileSection() {
     setExperiences(data.experiences || []);
     setProjects(data.projects || []);
     setExcludedProjects(data.excluded_projects || []);
+    setEducation(data.education || []);
+    setCertifications(data.certifications || []);
     setLanguagesText((data.languages || []).join(", "));
     setInterestsText((data.interests || []).join(", "));
   };
@@ -219,6 +230,60 @@ export default function CandidateProfileSection() {
     setProjects((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleUpdateEducation = (
+    index: number,
+    field: keyof CandidateEducation,
+    value: string
+  ) => {
+    setEducation((prev) => {
+      const copy = [...prev];
+      if (field === "topics") {
+        copy[index] = {
+          ...copy[index],
+          topics: value.split(",").map((s) => s.trim()).filter(Boolean),
+        };
+      } else {
+        copy[index] = { ...copy[index], [field]: value };
+      }
+      return copy;
+    });
+  };
+
+  const handleAddEducation = () => {
+    setEducation((prev) => [{ school: "", degree: "", years: "", topics: [] }, ...prev]);
+  };
+
+  const handleRemoveEducation = (index: number) => {
+    setEducation((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateCertification = (
+    index: number,
+    field: keyof CandidateCertification,
+    value: string
+  ) => {
+    setCertifications((prev) => {
+      const copy = [...prev];
+      if (field === "topics") {
+        copy[index] = {
+          ...copy[index],
+          topics: value.split(",").map((s) => s.trim()).filter(Boolean),
+        };
+      } else {
+        copy[index] = { ...copy[index], [field]: value };
+      }
+      return copy;
+    });
+  };
+
+  const handleAddCertification = () => {
+    setCertifications((prev) => [{ name: "", issuer: "", year: "", topics: [] }, ...prev]);
+  };
+
+  const handleRemoveCertification = (index: number) => {
+    setCertifications((prev) => prev.filter((_, i) => i !== index));
+  };
+
   useEffect(() => {
     loadProfile();
   }, []);
@@ -290,8 +355,8 @@ export default function CandidateProfileSection() {
       experiences,
       projects,
       excluded_projects: excludedProjects,
-      education: profile?.education || [],
-      certifications: profile?.certifications || [],
+      education,
+      certifications,
       languages: languagesText
         .split(",")
         .map((s) => s.trim())
@@ -572,29 +637,34 @@ export default function CandidateProfileSection() {
           </div>
 
           {/* Compétences structurées */}
-          {profile?.skills && Object.keys(profile.skills).length > 0 && (
-            <div className="bg-slate-950/40 p-5 rounded-xl border border-slate-800/80">
-              <h3 className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-3.5 flex items-center">
-                <FiCode className="mr-2 text-blue-400" /> Compétences structurées
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {Object.entries(profile.skills).map(([category, items]) => (
-                  <div key={category} className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800/90">
-                    <span className="text-xs font-bold uppercase tracking-wider text-blue-400">
-                      {category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </span>
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {items.map((skill, i) => (
-                        <span key={i} className="px-2.5 py-0.5 rounded-lg text-xs bg-slate-800 text-slate-200 border border-slate-700/70 font-medium">
-                          {skill}
-                        </span>
-                      ))}
+          {(() => {
+            const nonEmptySkills = Object.entries(profile?.skills || {}).filter(
+              ([, items]) => items && items.length > 0
+            );
+            return nonEmptySkills.length > 0 ? (
+              <div className="bg-slate-950/40 p-5 rounded-xl border border-slate-800/80">
+                <h3 className="text-xs uppercase tracking-wider font-semibold text-slate-400 mb-3.5 flex items-center">
+                  <FiCode className="mr-2 text-blue-400" /> Compétences structurées
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {nonEmptySkills.map(([category, items]) => (
+                    <div key={category} className="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800/90">
+                      <span className="text-xs font-bold uppercase tracking-wider text-blue-400">
+                        {category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {items.map((skill, i) => (
+                          <span key={i} className="px-2.5 py-0.5 rounded-lg text-xs bg-slate-800 text-slate-200 border border-slate-700/70 font-medium">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            ) : null;
+          })()}
 
           {/* Expériences clés */}
           {profile?.experiences && profile.experiences.length > 0 && (
@@ -1247,7 +1317,7 @@ export default function CandidateProfileSection() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Lien public (Démo / Site)</label>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Lien / Preuve (site, article, portfolio...)</label>
                       <input
                         type="text"
                         value={proj.url || ""}
@@ -1257,7 +1327,7 @@ export default function CandidateProfileSection() {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Dépôt GitHub (Code source)</label>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Code source (optionnel, si applicable)</label>
                       <input
                         type="text"
                         value={proj.repo || ""}
@@ -1276,6 +1346,168 @@ export default function CandidateProfileSection() {
                       placeholder="React, FastAPI, PostgreSQL / ou : Storyboard, Animation 2D, After Effects"
                       className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
                     />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Édition des Formations & Diplômes */}
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-xs font-semibold text-gray-300 uppercase flex items-center">
+                <FiBook className="mr-2 text-blue-400" /> Formations & Diplômes ({education.length})
+              </label>
+              <button
+                type="button"
+                onClick={handleAddEducation}
+                className="inline-flex items-center gap-1 text-xs font-medium bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 border border-blue-500/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <FiPlus className="w-3.5 h-3.5" />
+                <span>Ajouter une formation</span>
+              </button>
+            </div>
+
+            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1.5 custom-scrollbar">
+              {education.map((edu, idx) => (
+                <div key={idx} className="bg-slate-900/90 p-3 rounded-lg border border-slate-800 space-y-2 relative">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                      Formation #{idx + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveEducation(idx)}
+                      className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-950/40 transition-colors cursor-pointer"
+                      title="Supprimer cette formation"
+                    >
+                      <FiTrash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Diplôme / Formation</label>
+                      <input
+                        type="text"
+                        value={edu.degree || ""}
+                        onChange={(e) => handleUpdateEducation(idx, "degree", e.target.value)}
+                        placeholder="ex: DEUST AGAPSC, Master Informatique"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">École / Université</label>
+                      <input
+                        type="text"
+                        value={edu.school || ""}
+                        onChange={(e) => handleUpdateEducation(idx, "school", e.target.value)}
+                        placeholder="ex: Université de Lyon 1"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Période</label>
+                      <input
+                        type="text"
+                        value={edu.years || ""}
+                        onChange={(e) => handleUpdateEducation(idx, "years", e.target.value)}
+                        placeholder="ex: septembre 2016 - juin 2018"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Spécialités / Sujets (séparés par virgule)</label>
+                      <input
+                        type="text"
+                        value={(edu.topics || []).join(", ")}
+                        onChange={(e) => handleUpdateEducation(idx, "topics", e.target.value)}
+                        placeholder="ex: Parcours Animation et PSC1"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Édition des Certifications */}
+          <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-xs font-semibold text-gray-300 uppercase flex items-center">
+                <FiAward className="mr-2 text-emerald-400" /> Certifications ({certifications.length})
+              </label>
+              <button
+                type="button"
+                onClick={handleAddCertification}
+                className="inline-flex items-center gap-1 text-xs font-medium bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 border border-blue-500/30 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+              >
+                <FiPlus className="w-3.5 h-3.5" />
+                <span>Ajouter une certification</span>
+              </button>
+            </div>
+
+            <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1.5 custom-scrollbar">
+              {certifications.map((cert, idx) => (
+                <div key={idx} className="bg-slate-900/90 p-3 rounded-lg border border-slate-800 space-y-2 relative">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
+                      Certification #{idx + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCertification(idx)}
+                      className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-950/40 transition-colors cursor-pointer"
+                      title="Supprimer cette certification"
+                    >
+                      <FiTrash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Nom</label>
+                      <input
+                        type="text"
+                        value={cert.name || ""}
+                        onChange={(e) => handleUpdateCertification(idx, "name", e.target.value)}
+                        placeholder="ex: BAFA, AWS Certified Solutions Architect"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Organisme</label>
+                      <input
+                        type="text"
+                        value={cert.issuer || ""}
+                        onChange={(e) => handleUpdateCertification(idx, "issuer", e.target.value)}
+                        placeholder="ex: Familles Rurales Rhône Alpes"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Année</label>
+                      <input
+                        type="text"
+                        value={cert.year || ""}
+                        onChange={(e) => handleUpdateCertification(idx, "year", e.target.value)}
+                        placeholder="ex: 2015"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Détails (séparés par virgule)</label>
+                      <input
+                        type="text"
+                        value={(cert.topics || []).join(", ")}
+                        onChange={(e) => handleUpdateCertification(idx, "topics", e.target.value)}
+                        placeholder="ex: Secourisme, Encadrement de groupe"
+                        className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
