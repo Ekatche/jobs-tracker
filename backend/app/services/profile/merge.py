@@ -307,7 +307,11 @@ def _merge_skills(
     for source in order:
         for category, skills in (sources[source].get("skills") or {}).items():
             merged.setdefault(category, []).extend(skills or [])
-    return {cat: _dedup_preserving_order(values) for cat, values in merged.items()}
+    return {
+        cat: _dedup_preserving_order(values)
+        for cat, values in merged.items()
+        if any(str(v).strip() for v in values)
+    }
 
 
 def _extract_languages(source_payload: Dict[str, Any]) -> List[str]:

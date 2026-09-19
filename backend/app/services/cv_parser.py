@@ -157,6 +157,14 @@ def _clean_parsed_cv(data: Dict[str, Any]) -> Dict[str, Any]:
     else:
         data["languages"] = []
 
+    raw_skills = data.get("skills")
+    if isinstance(raw_skills, dict):
+        data["skills"] = {
+            category: items
+            for category, items in raw_skills.items()
+            if isinstance(items, list) and any(str(i).strip() for i in items)
+        }
+
     return data
 
 
