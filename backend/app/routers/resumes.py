@@ -102,12 +102,15 @@ async def generate_resume(
         raise HTTPException(status_code=500, detail="Échec de la génération automatique du CV.")
 
     # Record API quota usage
-    await record_api_usage(
-        user_id=current_user.id,
-        action=ApiUsageAction.CV_TAILORING,
-        model=DEFAULT_CV_MODEL,
-        db=db
-    )
+    try:
+        await record_api_usage(
+            db=db,
+            user_id=current_user.id,
+            action=ApiUsageAction.CV_TAILORING,
+            models_used=[DEFAULT_CV_MODEL],
+        )
+    except Exception as usage_err:
+        logger.warning(f"Failed to record API usage for CV tailoring: {usage_err}")
 
     # Persist in MongoDB
     now = utcnow_with_timezone()
@@ -115,8 +118,8 @@ async def generate_resume(
         "user_id": ObjectId(current_user.id),
         "offer_id": ObjectId(request.offer_id),
         "application_id": ObjectId(request.application_id) if request.application_id and ObjectId.is_valid(request.application_id) else None,
-        "target_role": offer_doc.get("title", tailored_cv.target_role_title),
-        "target_company": offer_doc.get("company", ""),
+        "target_role": offer_doc.get("poste") or offer_doc.get("title") or tailored_cv.target_role_title,
+        "target_company": offer_doc.get("entreprise") or offer_doc.get("company") or "",
         "template": request.template,
         "with_photo": request.with_photo,
         "content": tailored_cv.model_dump(),

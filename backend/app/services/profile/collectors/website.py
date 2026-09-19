@@ -207,10 +207,10 @@ async def discover_pages(
 async def _extract_with_llm(pages_markdown: Dict[str, str]) -> Dict[str, Any]:
     llm = get_letter_llm("site_extractor")
     corpus = "\n\n".join(
-        f"### Page : {url}\n{markdown[:6000]}" for url, markdown in pages_markdown.items()
+        f"### Page : {url}\n{markdown[:30000]}" for url, markdown in pages_markdown.items()
     )
     prompt = f"""Voici le contenu de plusieurs pages du site personnel d'un candidat.
-Extrais les faits, sans rien inventer et sans reformuler en langage commercial.
+Extrais TOUS les faits et TOUTES les expériences professionnelles de manière exhaustive (y compris les postes plus anciens, stages, alternances, postes achats/supply chain ou non-tech, et postes multiples au sein d'une même entreprise), sans rien omettre, sans rien inventer et sans reformuler en langage commercial.
 
 {corpus}
 
@@ -235,6 +235,22 @@ Si une information est absente, rends une liste vide."""
     content = response.choices[0].message.content.strip()
     content = re.sub(r"^```(?:json)?|```$", "", content, flags=re.MULTILINE).strip()
     return json.loads(content)
+
+
+def _html_to_markdown(html: str) -> str:
+    """Convertit du HTML en markdown propre, sans dépendre d'un navigateur."""
+    if not html:
+        return ""
+    try:
+        from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
+
+        res = DefaultMarkdownGenerator().generate_markdown(html)
+        return getattr(res, "raw_markdown", str(res))
+    except Exception:
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(html, "html.parser")
+        return soup.get_text(separator="\n", strip=True)
 
 
 async def collect_website(
@@ -263,9 +279,28 @@ async def collect_website(
     markdown_by_url: Dict[str, str] = {}
     for result in results:
         markdown = getattr(result, "markdown", None)
-        if not markdown:
-            continue
+        html = getattr(result, "html", "") or ""
         url = getattr(result, "url", "")
+
+        is_error = (
+            not markdown
+            or "couldn’t load" in str(markdown).lower()
+            or "could not load" in str(markdown).lower()
+            or "__next_error__" in str(html)
+        )
+
+        if is_error and url:
+            # Fallback HTTP SSR : si le navigateur a crashé (ex: WebGL Three.js headless),
+            # on récupère le HTML statique directement servi par le serveur
+            raw_html = await _default_fetch(url)
+            if raw_html:
+                fallback_md = _html_to_markdown(raw_html)
+                if fallback_md and len(fallback_md.strip()) > len(str(markdown or "").strip()):
+                    markdown = fallback_md
+
+        if not markdown or "couldn’t load" in str(markdown).lower() or "could not load" in str(markdown).lower():
+            continue
+
         # Crawl4AI suit ses propres redirections internes sans repasser par
         # `validate_public_url` : `result.url` peut donc différer de l'URL
         # déjà validée dans `pages`. Sans cette revalidation, une page qui

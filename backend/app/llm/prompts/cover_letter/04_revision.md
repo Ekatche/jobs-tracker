@@ -18,13 +18,13 @@ Conserve autant que possible :
 * le ton ;
 * le vocabulaire ;
 * les idées ;
-* la structure ;
 * le niveau de précision ;
 * la personnalité de la lettre.
 
 Ne réécris pas toute la lettre lorsqu'une seule phrase doit être corrigée.
 
-Une bonne révision doit ressembler à une amélioration de la lettre originale, pas à une nouvelle lettre.
+EXCEPTION DE RESTRUCTURATION : Si le critique signale un « CV déguisé (Catalogue) », ou si les garde-fous relèvent une ouverture d'employeur interdite, le principe de révision minimale NE S'APPLIQUE PAS à la structure. Tu dois alors réorganiser entièrement les paragraphes autour du fil rouge (synthèse thématique) du JSON, en supprimant toute énumération chronologique ou par employeur, et en construisant une véritable argumentation transverse.
+
 
 ## Accroche
 

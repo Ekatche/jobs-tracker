@@ -92,7 +92,10 @@ def _merge_one_experience(
 
     # Date de début : chercher la première source non nulle dans l'ordre de priorité
     starts = [
-        normalize_month(payload.get("start") or payload.get("start_date"))
+        normalize_month(
+            payload.get("start") or payload.get("start_date"),
+            fallback_year=payload.get("end") or payload.get("end_date"),
+        )
         for _, payload in contributions
     ]
     start_date = next((s for s in starts if s), None)
@@ -182,19 +185,40 @@ def _merge_experiences(
     for source in order:
         for experience in sources[source].get("experiences") or []:
             c_slug = company_slug(experience.get("company", ""))
-            s_date = normalize_month(experience.get("start") or experience.get("start_date"))
+            s_date = normalize_month(
+                experience.get("start") or experience.get("start_date"),
+                fallback_year=experience.get("end") or experience.get("end_date"),
+            )
 
             # Rapprochement avec un groupe existant de la même entreprise
             matched_key = None
             for key in key_order:
                 existing_company, existing_start = key
                 if existing_company == c_slug:
-                    if existing_start == s_date or existing_start is None or s_date is None:
+                    # Ne jamais fusionner deux expériences distinctes provenant de la même source
+                    if any(s == source for s, _ in grouped[key]):
+                        continue
+                    if existing_start == s_date or (existing_start is None and s_date is None):
+                        matched_key = key
+                        break
+                    if existing_start is None or s_date is None:
+                        matched_key = key
+                        break
+                    # Même année (ex: 2022-09 vs 2022-10 pour une seule expérience Nodya par source)
+                    if (
+                        existing_start
+                        and s_date
+                        and len(existing_start) >= 4
+                        and len(s_date) >= 4
+                        and existing_start[:4] == s_date[:4]
+                    ):
                         matched_key = key
                         break
 
             if matched_key is None:
                 new_key = (c_slug, s_date)
+                if new_key in grouped:
+                    new_key = (f"{c_slug}-{len(key_order)}", s_date)
                 grouped[new_key] = [(source, experience)]
                 key_order.append(new_key)
             else:

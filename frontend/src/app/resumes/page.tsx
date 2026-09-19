@@ -11,7 +11,7 @@ import {
   FiFilter,
   FiCheckCircle,
 } from "react-icons/fi";
-import { TailoredResume } from "@/types/resume";
+import { TailoredResume, TailoredCVSchema } from "@/types/resume";
 import { resumeApi, jobOffersApi, type JobOffer } from "@/lib/api";
 import ResumeCard from "@/components/resumes/ResumeCard";
 import ResumePreviewModal from "@/components/resumes/ResumePreviewModal";
@@ -25,10 +25,12 @@ function ResumesContent() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [templateFilter, setTemplateFilter] = useState<string>("all");
   const [activeResumeForPreview, setActiveResumeForPreview] = useState<TailoredResume | null>(null);
+  const [modalInitialTab, setModalInitialTab] = useState<"preview" | "edit">("preview");
 
   // New CV Generation Modal State
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState<boolean>(false);
   const [availableOffers, setAvailableOffers] = useState<JobOffer[]>([]);
+  const [offerSearchQuery, setOfferSearchQuery] = useState<string>("" );
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
   const [selectedTemplate, setSelectedTemplate] = useState<string>("sidebar_elegance");
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -53,8 +55,9 @@ function ResumesContent() {
   const openGenerateModal = async (initialOfferId?: string) => {
     setIsGenerateModalOpen(true);
     setGenerateError(null);
+    setOfferSearchQuery("");
     try {
-      const offers = await jobOffersApi.getAll({ limit: 40 });
+      const offers = await jobOffersApi.getAll({ limit: 100 });
       setAvailableOffers(offers);
       if (initialOfferId) {
         setSelectedOfferId(initialOfferId);
@@ -65,6 +68,17 @@ function ResumesContent() {
       console.error("Failed to fetch job offers:", err);
     }
   };
+
+  const filteredOffersForModal = availableOffers.filter((o) => {
+    if (!offerSearchQuery.trim()) return true;
+    const q = offerSearchQuery.toLowerCase();
+    return (
+      (o.poste && o.poste.toLowerCase().includes(q)) ||
+      (o.entreprise && o.entreprise.toLowerCase().includes(q)) ||
+      (o.localisation && o.localisation.toLowerCase().includes(q))
+    );
+  });
+
 
   useEffect(() => {
     if (preselectedOfferId) {
@@ -90,7 +104,9 @@ function ResumesContent() {
     } catch (err: unknown) {
       console.error("CV generation failed:", err);
       const errorDetail =
-        err && typeof err === "object" && "response" in err
+        err instanceof Error
+          ? err.message
+          : err && typeof err === "object" && "response" in err
           ? ((err as { response?: { data?: { detail?: string } } }).response?.data?.detail)
           : null;
       setGenerateError(
@@ -118,6 +134,39 @@ function ResumesContent() {
       }
     } catch (err) {
       console.error("Failed to update template:", err);
+    }
+  };
+
+  const handleUpdateResumeContent = async (id: string, content: TailoredCVSchema) => {
+    try {
+      const updated = await resumeApi.update(id, { content });
+      setResumes((prev) => prev.map((r) => ((r.id || r._id) === id ? updated : r)));
+      if ((activeResumeForPreview?.id || activeResumeForPreview?._id) === id) {
+        setActiveResumeForPreview(updated);
+      }
+    } catch (err) {
+      console.error("Failed to update resume content:", err);
+      throw err;
+    }
+  };
+
+  const handleRegenerateResume = async (resume: TailoredResume) => {
+    try {
+      const newResume = await resumeApi.generate({
+        offer_id: resume.offer_id,
+        template: resume.template,
+        with_photo: resume.with_photo,
+        application_id: resume.application_id,
+      });
+      setResumes((prev) => [newResume, ...prev]);
+      if ((activeResumeForPreview?.id || activeResumeForPreview?._id) === (resume.id || resume._id)) {
+        setActiveResumeForPreview(newResume);
+      }
+    } catch (err: unknown) {
+      console.error("Failed to regenerate resume:", err);
+      const msg = err instanceof Error ? err.message : "Erreur lors de la régénération du CV.";
+      alert(msg);
+      throw err;
     }
   };
 
@@ -222,19 +271,30 @@ function ResumesContent() {
             <ResumeCard
               key={resume.id || resume._id}
               resume={resume}
-              onPreview={(r) => setActiveResumeForPreview(r)}
+              onPreview={(r) => {
+                setModalInitialTab("preview");
+                setActiveResumeForPreview(r);
+              }}
+              onEdit={(r) => {
+                setModalInitialTab("edit");
+                setActiveResumeForPreview(r);
+              }}
+              onRegenerate={handleRegenerateResume}
               onDelete={handleDeleteResume}
             />
           ))}
         </div>
       )}
 
-      {/* Preview Modal */}
+      {/* Preview & Edit Modal */}
       <ResumePreviewModal
         resume={activeResumeForPreview}
         isOpen={!!activeResumeForPreview}
         onClose={() => setActiveResumeForPreview(null)}
         onUpdateTemplate={handleUpdateTemplate}
+        onUpdateContent={handleUpdateResumeContent}
+        onRegenerate={handleRegenerateResume}
+        initialTab={modalInitialTab}
       />
 
       {/* Generator Modal */}
@@ -257,9 +317,17 @@ function ResumesContent() {
 
             <form onSubmit={handleGenerateSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Offre d'emploi cible
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Offre d'emploi cible
+                  </label>
+                  {availableOffers.length > 0 && (
+                    <span className="text-[11px] text-slate-400">
+                      {filteredOffersForModal.length} / {availableOffers.length} offres
+                    </span>
+                  )}
+                </div>
+
                 {availableOffers.length === 0 ? (
                   <div className="text-xs text-slate-400 p-3 bg-slate-900/60 rounded-lg border border-slate-800">
                     Aucune offre trouvée.{" "}
@@ -269,20 +337,62 @@ function ResumesContent() {
                     .
                   </div>
                 ) : (
-                  <select
-                    value={selectedOfferId}
-                    onChange={(e) => setSelectedOfferId(e.target.value)}
-                    className="w-full bg-slate-900/80 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
-                    required
-                  >
-                    {availableOffers.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.poste} — {o.entreprise} ({o.localisation || "France"})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
+                      <input
+                        type="text"
+                        placeholder="Rechercher par poste, entreprise, ville..."
+                        value={offerSearchQuery}
+                        onChange={(e) => setOfferSearchQuery(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 bg-slate-900/90 border border-slate-700/80 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      />
+                    </div>
+
+                    <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 border border-slate-800/80 bg-slate-900/50 rounded-xl p-1.5">
+                      {filteredOffersForModal.length === 0 ? (
+                        <div className="text-center py-5 text-xs text-slate-500">
+                          Aucune offre trouvée pour &quot;{offerSearchQuery}&quot;
+                        </div>
+                      ) : (
+                        filteredOffersForModal.map((o) => {
+                          const isSelected = selectedOfferId === o.id;
+                          return (
+                            <div
+                              key={o.id}
+                              onClick={() => setSelectedOfferId(o.id)}
+                              className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-start justify-between gap-2 ${
+                                isSelected
+                                  ? "bg-blue-600/20 border-blue-500 text-white shadow-sm"
+                                  : "bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700 hover:bg-slate-800/60"
+                              }`}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium text-xs truncate">
+                                  <span className={isSelected ? "text-blue-300 font-semibold" : "text-slate-200"}>
+                                    {o.poste || "Poste sans titre"}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-slate-400 truncate mt-0.5 flex items-center gap-2">
+                                  <span className="text-slate-300 font-medium">{o.entreprise || "Entreprise"}</span>
+                                  <span>•</span>
+                                  <span>{o.localisation || "France"}</span>
+                                </div>
+                              </div>
+                              {isSelected && (
+                                <div className="p-1 rounded-full bg-blue-500/20 text-blue-400 mt-0.5 shrink-0">
+                                  <FiCheckCircle className="text-xs" />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
+
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">

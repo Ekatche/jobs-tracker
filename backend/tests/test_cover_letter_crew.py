@@ -66,7 +66,8 @@ async def test_completion_uses_max_completion_tokens():
         assert mock_comp.called
         assert "max_completion_tokens" in mock_comp.call_args.kwargs
         assert "max_tokens" not in mock_comp.call_args.kwargs
-        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 400
+        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 1000
+
 
     with patch("cover_letter_crew.acompletion", return_value=mock_resp) as mock_comp:
         await _call_reviser("Lettre...", {"missions": []}, ["Flaw 1"], {"violations": ["V1"]})

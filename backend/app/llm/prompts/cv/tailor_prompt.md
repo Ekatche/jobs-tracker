@@ -24,29 +24,33 @@ Description :
 
 ### DIRECTIVES CRITIQUES :
 
-1. **RÈGLE D'OR - ANTI-HALLUCINATION ABSOLUE** :
+1. **INTITULÉ DU POSTE VISÉ (target_role_title)** :
+   - L'intitulé de poste (`target_role_title`) doit reprendre STRICTEMENT l'intitulé officiel de l'offre ({target_role}), simplement épuré de la forme inclusive éventuelle (ex: "Ingénieur IA" si l'offre indique "Ingénieure / Ingénieur IA" ou "Data Scientist H/F").
+   - Tu ne dois JAMAIS angliciser l'intitulé si l'offre est en français (ex: ne pas changer "Ingénieur IA" en "Software Engineer IA"), ni lui accoler de sous-titres ou de spécialités supplémentaires (ex: INTERDICTION d'ajouter "- Frameworks d'Agents & LLM"). Les spécialités et frameworks ont leur place dans le résumé ou les compétences, JAMAIS dans l'intitulé principal.
+
+2. **RÈGLE D'OR - ANTI-HALLUCINATION ABSOLUE** :
    - Tu ne dois JAMAIS inventer d'entreprises, de dates, de diplômes, ni de technologies non mentionnées dans le profil candidat.
    - Si le candidat ne possède pas une compétence demandée par l'offre, NE L'AJOUTE PAS. Mets plutôt en valeur ses compétences réelles connexes.
    - Chaque entreprise présente dans la section `experiences` doit provenir rigoureusement de la liste des entreprises du profil candidat.
 
-2. **ACCROCHE PROFESSIONNELLE (Summary)** :
+3. **ACCROCHE PROFESSIONNELLE (Summary)** :
    - Rédige un paragraphe percutant de 3 à 4 lignes (en français, ou dans la langue de l'offre si l'offre est en anglais).
    - Positionne le candidat avec exactitude par rapport au poste ciblé chez {target_company}.
    - Souligne les accomplissements majeurs et la proposition de valeur directement alignés avec les besoins de l'offre.
 
-3. **EXPÉRIENCES PROFESSIONNELLES** :
+4. **EXPÉRIENCES PROFESSIONNELLES** :
    - Pour chaque expérience pertinente, réordonne et formule les bullet points (3 à 5 par poste) avec des verbes d'action et des résultats quantifiés (métriques, ROI, latence, volume de données, taille d'équipe).
    - Réaligne le vocabulaire technique sur celui de l'offre si le candidat a effectivement manipulé ces concepts.
    - Isole les `relevant_technologies` les plus percutantes pour chaque poste.
 
-4. **COMPÉTENCES GROUPÉES (prioritized_skills)** :
+5. **COMPÉTENCES GROUPÉES (prioritized_skills)** :
    - Structure les compétences en 2 à 4 catégories cohérentes (ex: "Backend & Microservices", "Cloud & DevOps", "Data & IA", "Frontend & UI").
    - Mets en tête de liste les compétences requises par l'offre que le candidat possède réellement.
 
-5. **PROJETS CLÉS (featured_projects)** :
+6. **PROJETS CLÉS (featured_projects)** :
    - Sélectionne 1 à 3 projets concrets du candidat démontrant sa capacité à délivrer sur les enjeux de l'offre.
 
-6. **FORMATION & LANGUES** :
+7. **FORMATION & LANGUES** :
    - Conserve les diplômes réels avec diplôme, établissement et année.
    - Présente les langues avec leur niveau européen CECRL (ex: "Natif", "C1 - Professionnel", "B2 - Intermédiaire").
 

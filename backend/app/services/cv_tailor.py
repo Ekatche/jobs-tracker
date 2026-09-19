@@ -13,7 +13,8 @@ from app.services.cv_guards import verify_cv_honesty
 logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).resolve().parents[1] / "llm" / "prompts"
-DEFAULT_CV_MODEL = os.getenv("CV_TAILOR_MODEL", os.getenv("EVALUATION_MODEL", "gemini/gemini-2.5-flash"))
+DEFAULT_CV_MODEL = os.getenv("CV_TAILOR_MODEL", os.getenv("EVALUATION_MODEL", "gemini/gemini-3.8-flash"))
+
 
 
 def _clean_json_output(raw_text: str) -> Dict[str, Any]:
@@ -64,12 +65,17 @@ def load_tailor_prompt(
         if k not in ["_id", "id", "user_id", "created_at", "updated_at"]
     }
 
+    target_company = offer.get("entreprise") or offer.get("company") or "L'entreprise cible"
+    target_role = offer.get("poste") or offer.get("title") or "Poste visé"
+    job_location = offer.get("localisation") or offer.get("location") or "Non spécifié"
+    offer_desc = offer.get("description") or offer.get("job_description") or ""
+
     return template.format(
         candidate_profile=json.dumps(profile_for_prompt, ensure_ascii=False, indent=2),
-        target_company=offer.get("company", "L'entreprise cible"),
-        target_role=offer.get("title", "Poste visé"),
-        job_location=offer.get("location", "Non spécifié"),
-        offer_description=offer.get("description", offer.get("job_description", "")),
+        target_company=target_company,
+        target_role=target_role,
+        job_location=job_location,
+        offer_description=offer_desc,
         evaluation_context=eval_context_str,
     )
 
@@ -87,14 +93,19 @@ async def generate_tailored_cv_content(
     prompt = load_tailor_prompt(profile, offer, evaluation)
     chosen_model = model or DEFAULT_CV_MODEL
 
-    logger.info(f"Generating tailored CV for {offer.get('title')} at {offer.get('company')} with model {chosen_model}")
+    log_role = offer.get("poste") or offer.get("title") or "Poste"
+    log_company = offer.get("entreprise") or offer.get("company") or "Entreprise"
+    logger.info(f"Generating tailored CV for {log_role} at {log_company} with model {chosen_model}")
 
     try:
         response = await acompletion(
             model=chosen_model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
+            response_format={"type": "json_object"},
+            drop_params=True,
         )
+
         content_text = response.choices[0].message.content
     except Exception as e:
         logger.error(f"Error calling LLM for CV tailoring: {e}", exc_info=True)

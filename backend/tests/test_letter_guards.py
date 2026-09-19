@@ -224,3 +224,69 @@ def test_guards_new_career_ops_banned_lexicon_fails():
         assert report.is_blocking is True
         assert any(term in v for v in report.violations), f"Le terme banni '{term}' n'a pas été détecté"
 
+
+def test_guards_forbidden_employer_openings_fail():
+    openings = [
+        "À l'Agence Nile, j'ai développé des agents IA.",
+        "Au Centre Léon Bérard, j'ai participé à des études.",
+        "Chez Nodya Group, j'ai optimisé les pipelines.",
+        "Au sein de Doctolib, j'ai encadré une équipe.",
+        "Mon expérience à Nile m'a appris l'architecture de données.",
+        "Lors de mon passage chez Google, j'ai conçu des flux.",
+    ]
+    for op in openings:
+        letter = f"Madame, Monsieur,\n\n{op}\n\nCordialement"
+        report = evaluate_letter_guards(letter, "offre", {})
+        assert report.is_blocking is True
+        assert any("Paragraphe débutant par une formule d'ouverture d'employeur" in v for v in report.violations), (
+            f"L'ouverture '{op}' n'a pas été bloquée"
+        )
+
+
+def test_guards_too_many_candidate_companies_fail():
+    letter = (
+        "Madame, Monsieur,\n\n"
+        "J'ai mené des projets avec Agence Nile sur l'architecture de données. "
+        "Plus tard au Centre Léon Bérard, j'ai travaillé en recherche clinique. "
+        "Enfin avec Nodya Group, j'ai consolidé des bases multi-sources.\n\n"
+        "Cordialement"
+    )
+    analyst_data = {
+        "companies": ["Agence Nile", "Centre Léon Bérard", "Nodya Group"],
+        "company_name": "Excelleria",
+        "stacks": [],
+        "selected_experiences": [],
+    }
+    report = evaluate_letter_guards(letter, "offre", analyst_data)
+    assert report.is_blocking is True
+    assert any("Trop d'employeurs candidats cités" in v for v in report.violations)
+
+
+def test_guards_user_counter_example_is_blocked():
+    letter = """Madame, Monsieur,
+
+Développer un agent IA utile ne consiste pas seulement à connecter un modèle à des documents. Il faut d’abord organiser les données, assurer leur circulation et rendre le service accessible à ceux qui l’utilisent. À l’Agence Nile, j’ai travaillé sur des applications IA prêtes pour la production, en concevant des pipelines ETL/ELT et une architecture Medallion sur Microsoft Fabric. J’ai également développé des agents IA et des systèmes RAG reliés à des sources de données d’entreprise, ainsi que des interfaces pour exposer ces services. Ce travail m’a appris à considérer le modèle comme une partie d’un ensemble cohérent, qui doit rester lisible, maintenable et adapté aux processus métier.
+
+Le poste proposé par Excelleria m’intéresse pour cette articulation entre architectures data-centric, développement de solutions d’IA et déploiement en production. Je souhaite travailler sur des systèmes où la qualité des pipelines conditionne directement la fiabilité des moteurs d’IA, depuis le prototypage jusqu’à l’usage réel. La dimension transverse du poste compte aussi pour moi : une solution technique prend réellement forme lorsqu’elle répond à un besoin compris avec les équipes qui la portent. J’ai déjà retrouvé cette exigence dans des contextes différents.
+
+Au Centre Léon Bérard, j’ai participé à des solutions de machine learning destinées à l’aide à la décision clinique et présenté des résultats devant un consortium européen, en lien avec des oncologues, biologistes et bioinformaticiens. J’y ai également contribué à un prototype RAG pour interroger des bases d’essais cliniques. Plus tôt, chez Nodya Group, j’ai travaillé sur la structuration de bases de données et l’optimisation de processus ETL multi-sources pour des analyses avancées. Je cherche désormais à poursuivre ce travail sur des projets où les choix de données, de modèles et d’intégration se construisent avec les utilisateurs et les équipes techniques.
+
+eliel Katche"""
+
+    analyst_data = {
+        "companies": ["Agence Nile", "Centre Léon Bérard", "Nodya Group"],
+        "company_name": "Excelleria",
+        "candidate_name": "eliel Katche",
+        "stacks": ["ETL/ELT", "Microsoft Fabric", "RAG", "machine learning"],
+        "selected_experiences": [],
+    }
+    report = evaluate_letter_guards(letter, "offre", analyst_data)
+    assert report.is_blocking is True
+    # Doit détecter l'ouverture de paragraphe au Centre Léon Bérard
+    assert any("Paragraphe débutant par une formule d'ouverture d'employeur" in v for v in report.violations)
+    # Doit détecter l'excès d'employeurs cités (3 employeurs candidats)
+    assert any("Trop d'employeurs candidats cités" in v for v in report.violations)
+    # Doit détecter "plus tôt, chez"
+    assert any("plus tôt, chez" in v for v in report.violations)
+
+

@@ -480,5 +480,55 @@ def test_writing_style_propagates_from_manual_source():
     assert profile.get("writing_style") == "Style concis et direct, voix active."
 
 
+def test_full_eight_experiences_from_portfolio_are_preserved():
+    """Toutes les expériences du portfolio (tech et non-tech, anciennes) sont conservées lors du merge."""
+    sources = {
+        "cv": {
+            "experiences": [
+                {"company": "Agence Nile (VIE)", "role": "Data Engineer", "start": "2025-08", "end": "2026-08"},
+                {"company": "Centre Léon Bérard", "role": "Data Scientist", "start": "2023-02", "end": "2024-06"},
+            ]
+        },
+        "website": {
+            "experiences": [
+                {"company": "Agence Nile (CDI)", "role": "Data Engineer", "start": "2026-08", "end": None},
+                {"company": "Agence Nile (VIE)", "role": "Data Engineer", "start": "2025-08", "end": "2026-08"},
+                {"company": "Centre Léon Bérard", "role": "Data Scientist", "start": "2023-02", "end": "2024-06"},
+                {"company": "Nodya Group", "role": "Data Scientist / Consultant", "start": "2022-10", "end": "2023-02"},
+                {"company": "Bimedoc", "role": "Data Scientist / Data Engineer", "start": "2021-09", "end": "2022"},
+                {"company": "bioMérieux", "role": "Data Analyst Supply Chain", "start": "2021-03", "end": "2021-09"},
+                {"company": "Sanofi Aventis Group", "role": "Assistant Achats Globaux", "start": "2019", "end": "2020"},
+                {"company": "Framatome", "role": "Acheteur Équipements", "start": "2018", "end": "2019"},
+            ]
+        }
+    }
+    profile, _ = build_profile_from_sources(sources)
+    assert len(profile["experiences"]) == 8
+    companies = [e["company"] for e in profile["experiences"]]
+    assert any("Sanofi" in c for c in companies)
+    assert any("Framatome" in c for c in companies)
+    assert any("bioMérieux" in c or "bioMerieux" in c for c in companies)
+    assert any("Bimedoc" in c for c in companies)
+    nile_exps = [e for e in profile["experiences"] if "nile" in e["company"].lower()]
+    assert len(nile_exps) == 2
+
+
+def test_multiple_roles_at_same_company_same_source_not_collapsed():
+    """Deux rôles au sein de la même entreprise dans une même source ne doivent jamais être fusionnés."""
+    sources = {
+        "website": {
+            "experiences": [
+                {"company": "Entreprise X", "role": "Junior Engineer", "start": "2020-01", "end": "2021-01"},
+                {"company": "Entreprise X", "role": "Senior Engineer", "start": "2021-01", "end": None},
+            ]
+        }
+    }
+    profile, _ = build_profile_from_sources(sources)
+    assert len(profile["experiences"]) == 2
+    roles = {e["role"] for e in profile["experiences"]}
+    assert roles == {"Junior Engineer", "Senior Engineer"}
+
+
+
 
 

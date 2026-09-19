@@ -14,7 +14,14 @@ BANNED_LEXICON = [
     "permettez-moi de vous présenter", "polyvalent",
     "synergie", "actionable insights", "valeur ajoutée", "alignement stratégique",
     "opportunité unique", "profil idéal", "mettre à profit",
+    "plus tôt chez", "plus tôt, chez", "auparavant chez", "précédemment chez",
 ]
+
+_FORBIDDEN_EMPLOYER_OPENING = re.compile(
+    r"^(?:À\s+(?:l[’']\s*)?|Au\s+(?:sein\s+de\s+)?|Chez\s+|Mon\s+expérience\s+(?:à|chez|au)\s+|Lors\s+de\s+mon\s+passage\s+(?:chez|à|au)\s+)[A-ZÀ-Ý]",
+    re.IGNORECASE,
+)
+
 
 BANNED_OPENINGS = [
     "je vous adresse ma candidature", "actuellement à la recherche",
@@ -262,6 +269,35 @@ def evaluate_letter_guards(
         if number in (offer_description or "") or number in experiences_json:
             continue
         violations.append(f"Chiffre non vérifiable cité dans la lettre : '{number}'")
+
+    # 14. Débuts de paragraphe centrés sur un employeur
+    for p in paragraphs:
+        # Ignore la salutation
+        p_clean = p.strip()
+        if p_clean.lower().startswith("madame") or p_clean.lower().startswith("monsieur"):
+            continue
+        if _FORBIDDEN_EMPLOYER_OPENING.match(p_clean):
+            violations.append(
+                f"Paragraphe débutant par une formule d'ouverture d'employeur/expérience interdite : '{p_clean[:45]}...'"
+            )
+
+    # 15. Nombre d'employeurs candidats cités (max 2 pour éviter l'effet catalogue de CV)
+    target_company = (analyst_data.get("company_name") or "").strip().lower()
+    candidate_companies = {
+        c.strip()
+        for c in (analyst_data.get("companies") or [])
+        if c and c.strip().lower() != target_company
+    }
+    if candidate_companies:
+        cited_companies = []
+        for comp in candidate_companies:
+            if re.search(r"\b" + re.escape(comp) + r"\b", letter_text, re.IGNORECASE):
+                cited_companies.append(comp)
+        if len(cited_companies) > 2:
+            violations.append(
+                f"Trop d'employeurs candidats cités ({len(cited_companies)} cités : {cited_companies}, maximum 2 autorisé pour éviter l'effet catalogue)"
+            )
+
 
     # --- Contrôles d'avertissement (non bloquants) ---
     sentence_lengths = [len(re.findall(r"\b\w+\b", s)) for s in sentences if s]

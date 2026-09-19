@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -107,11 +108,14 @@ async def record_api_usage(
     success: bool = True,
     error_message: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
+    model: Optional[str] = None,
 ) -> ApiUsageRecord:
     """Record an API usage event in the api_usage collection."""
     if isinstance(action, str):
         action = ApiUsageAction(action)
 
+    if models_used is None and model:
+        models_used = [model]
     models_list = models_used or []
     total_tokens = input_tokens + output_tokens
 
@@ -270,7 +274,13 @@ async def require_user_quota(
     user_id: Union[str, ObjectId, PyObjectId],
     action: Union[ApiUsageAction, str],
 ) -> None:
-    """Raise HTTP 429 if the user has reached their monthly quota limit."""
+    """
+    Raise HTTP 429 if the user has reached their monthly quota limit.
+    Bypassed when DISABLE_QUOTA_BLOCKING is enabled (default: True).
+    """
+    if os.getenv("DISABLE_QUOTA_BLOCKING", "true").lower() in ("true", "1", "yes"):
+        return
+
     allowed, used, limit = await check_user_quota(db, user_id, action)
     if not allowed:
         action_name = action.value if isinstance(action, ApiUsageAction) else str(action)

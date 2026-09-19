@@ -20,15 +20,26 @@ Ne cherche pas à utiliser toutes les informations disponibles. Sélectionne uni
 
 {voice_style_block}
 
+## Angle d'attaque et thèse
+
+Défi prioritaire de l'offre :
+{target_challenge}
+
+Idée directrice (thèse de conviction à prouver) :
+{guiding_thesis}
+
+Angle spécifique sur l'expérience pivot :
+{career_thread}
+
 ## Voix et style
 
-Utilise principalement la voix active.
-
-Privilégie :
+Utilise principalement la voix active avec des verbes d'action variés et précis :
+« J'ai structuré... »
 « J'ai conçu... »
-« J'ai développé... »
-« J'ai travaillé sur... »
-« Je souhaite aujourd'hui... »
+« J'ai déployé... »
+« Cette approche a permis de... »
+
+Évite d'enchaîner mécaniquement les phrases commençant par « J'ai ». Varie les sujets de phrase et les constructions syntaxiques.
 
 Évite les formulations passives lorsque la formulation active est naturelle.
 
@@ -52,24 +63,56 @@ Une technologie ne doit apparaître que si elle sert à expliquer une réalisati
 
 ## Accroche
 
-Le premier paragraphe doit expliquer rapidement pourquoi le poste et l'entreprise ont retenu l'attention du candidat.
+La première phrase ne nomme pas l'entreprise et ne parle pas de candidature. Elle part d'une situation concrète vécue par le candidat : un problème rencontré, un système construit, une contrainte qui a changé sa façon de travailler.
 
-Si un contexte entreprise est fourni, ancre l'accroche dans un enjeu réel qu'il mentionne plutôt que dans les seules missions de l'offre ; sinon, pars d'un élément concret de l'offre : une mission, un produit, un problème technique, un domaine d'application ou un type de système.
+C'est le paragraphe suivant qui fait le lien avec l'entreprise, en reliant cette situation à un enjeu réel du contexte entreprise fourni, ou à défaut à un élément concret de l'offre : un produit, un problème technique, un domaine d'application.
 
-Relie immédiatement cet élément à une expérience réelle du candidat.
+Ce lien doit être argumenté, pas affirmé. Écris une motivation qui serait fausse ailleurs : si la phrase reste vraie en remplaçant le nom de l'entreprise par celui d'un concurrent, elle ne dit rien et doit être réécrite.
+
+Les formulations d'écho sont interdites :
+« font écho à mon parcours »
+« résonne avec mon expérience »
+« correspond à ce que je recherche »
 
 Évite les introductions du type :
 « Je souhaite vous adresser ma candidature... »
 « Votre entreprise m'intéresse particulièrement... »
 « C'est avec grand intérêt que... »
 
-L'accroche ne doit pas simplement dire que l'entreprise est intéressante. Elle doit montrer pourquoi le contenu du poste fait écho au parcours du candidat.
+L'accroche ne doit pas simplement dire que l'entreprise est intéressante. Elle part d'une conviction ou d'un enjeu technique concret lié au défi du poste, sans formule de politesse creuse.
+
+## Structure narrative
+
+La lettre suit l'idée directrice fournie : une conviction forte qui résout le défi du poste. Chaque paragraphe fait progresser cette démonstration.
+
+Un paragraphe porte une idée ou un thème transverse, jamais un employeur.
+
+Tu dois synthétiser l'ensemble du parcours du candidat autour de la thèse directrice. Regroupe les expériences par thèmes (ex: "De la conception à la mise en production", "L'évolution vers l'architecture", "La gestion de la complexité dans divers contextes") plutôt que de les raconter l'une après l'autre. Montre la richesse de ce parcours sans jamais énumérer.
+
+Test à appliquer avant de rendre la lettre : retire mentalement tous les noms d'employeurs. Si un paragraphe n'avait d'existence que parce qu'il portait un nom d'entreprise, la structure est un CV déguisé et doit être refondue autour des idées et des thèmes transverses.
+
+Ne commence aucun paragraphe par le nom d'un employeur ni par une formule d'ouverture d'expérience :
+« À <entreprise>... »
+« Chez <entreprise>... »
+« Au sein de... »
+« Mon expérience à... »
+« Lors de mon passage chez... »
+
+L'ordre des paragraphes suit la logique de l'argument (Conviction -> Défi entreprise -> Synthèse de l'expérience -> Projection), jamais la chronologie du parcours.
+
+Trois technologies nommées au maximum dans toute la lettre.
+
+### Exemple contrastif (Ce qu'il faut faire vs ne pas faire)
+
+❌ À PROSCRIRE (Catalogue de CV déguisé) :
+« À Initech, j'ai travaillé sur des pipelines de données sous Kafka. Au sein de DataCorp, j'ai développé des modèles de machine learning. Plus tôt, chez PartnerTech, j'ai optimisé des bases relationnelles. »
+
+✅ ATTENDU (Synthèse thématique transverse) :
+« Développer un système d'IA fiable en production exige avant tout des flux de données continus et gouvernés. De l'optimisation des bases relationnelles jusqu'à l'industrialisation de modèles d'apprentissage, j'ai pu constater que la robustesse de l'ingestion conditionne directement la cohérence des prédictions. Cette conviction, forgée au contact des pipelines de données complexes chez Initech et DataCorp, structure aujourd'hui mon approche de l'ingénierie. »
 
 ## Développement
 
-Les paragraphes suivants doivent construire un raisonnement plutôt qu'une succession de blocs de CV.
-
-Lorsqu'une expérience est mentionnée, explique ce que le candidat a réellement fait et pourquoi cette expérience est pertinente pour le poste.
+Lorsqu'une expérience est mentionnée, explique ce que le candidat a réellement fait et ce qu'il en a retenu, sans énoncer en quoi cela correspond au poste.
 
 Privilégie les réalisations concrètes aux déclarations de compétence.
 
@@ -137,9 +180,9 @@ Privilégie :
 
 Ne transforme pas chaque paragraphe en démonstration de compatibilité avec l'offre.
 
-La lettre doit raconter un parcours professionnel cohérent, pas répondre point par point à l'annonce.
+La lettre est un argumentaire de conviction, pas un résumé biographique.
 
-Le candidat raconte son parcours ; le lien avec le poste se comprend de lui-même.
+Le candidat n'énumère pas ses employeurs de manière chronologique : il démontre sa capacité à traiter le défi clé de l'entreprise en synthétisant la richesse de son parcours global autour d'un fil rouge logique.
 
 ## Interdictions
 
@@ -185,9 +228,12 @@ Commence par :
 
 « Madame, Monsieur, »
 
-Termine par :
+Termine par une courte phrase d'ouverture et une salutation simple :
 
-« {candidate_name} »
+« Je serais ravi d'en discuter de vive voix.
+Cordialement,
+
+{candidate_name} »
 
 ## Faits autorisés
 

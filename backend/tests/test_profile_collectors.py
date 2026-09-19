@@ -606,3 +606,26 @@ async def test_discover_pages_extracts_internal_html_links_from_root():
     assert not any(p.endswith(".png") for p in pages)
     assert not any("/legal" in p for p in pages)
 
+
+@pytest.mark.asyncio
+async def test_extract_with_llm_preserves_large_markdown(monkeypatch):
+    """Vérifie que le corpus passé au LLM préserve le texte long jusqu'à 30 000 caractères."""
+    captured_prompt = []
+
+    async def fake_acompletion(*args, **kwargs):
+        messages = kwargs.get("messages", [])
+        if messages:
+            captured_prompt.append(messages[0]["content"])
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content='{"experiences": [], "projects": []}'))]
+        )
+
+    monkeypatch.setattr("app.services.profile.collectors.website.acompletion", fake_acompletion)
+
+    long_text = "Expérience détaillée : " + ("x" * 20000) + " FIN_EXPERIENCE"
+    await website._extract_with_llm({"https://example.com/experience": long_text})
+
+    assert len(captured_prompt) == 1
+    assert "FIN_EXPERIENCE" in captured_prompt[0]
+
+

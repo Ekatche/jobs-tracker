@@ -18,7 +18,12 @@ PROMPTS_DIR = Path(__file__).resolve().parents[3] / "app" / "llm" / "prompts" / 
 # fenêtre d'acceptation plus large des garde-fous côté letter_guards.py).
 MIN_WORDS = 270
 MAX_WORDS = 330
-PROMPT_VERSION = "01_fond+02_style+03_critique+04_revision-v1"
+PROMPT_VERSION = "01_fond+02_style+03_critique+04_revision-v3"
+
+
+class _SafePromptDict(dict):
+    def __missing__(self, key: str) -> str:
+        return ""
 
 
 def load_prompt(name: str, **context: object) -> str:
@@ -28,7 +33,8 @@ def load_prompt(name: str, **context: object) -> str:
     reformule pas les règles, il les interpole.
     """
     template = (PROMPTS_DIR / f"{name}.md").read_text(encoding="utf-8")
-    return template.format(**context)
+    return template.format_map(_SafePromptDict(context))
+
 
 def _track_usage(usage_acc: Optional[List[Tuple[int, int]]], resp: Any) -> None:
     if usage_acc is None:
@@ -40,6 +46,12 @@ def _track_usage(usage_acc: Optional[List[Tuple[int, int]]], resp: Any) -> None:
     ))
 
 
+def _find_anchor_exp(anchor_company_str: str, exps: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    # Déprécié : la logique thématique utilise désormais toutes les expériences
+    pass
+
+
+
 async def _call_analyst(
     offer_description: str,
     candidate_profile: Dict[str, Any],
@@ -48,8 +60,8 @@ async def _call_analyst(
 ) -> Dict[str, Any]:
     llm = get_letter_llm("offer_analyst")
     exps = candidate_profile.get("experiences", [])
-    selected_exps = exps[:3] if exps else []
-    companies = [e.get("company", "") for e in selected_exps if e.get("company")]
+    raw_exps = exps  # On prend toutes les expériences pour la synthèse thématique
+    companies = [e.get("company", "") for e in raw_exps if e.get("company")]
     projects = [p.get("name", "") for p in candidate_profile.get("projects", []) if p.get("name")]
 
     candidate_stacks = set()
@@ -61,9 +73,15 @@ async def _call_analyst(
             for s in cat_skills:
                 candidate_stacks.add(s)
 
-    prompt = f"""Tu es un analyste d'offres de recrutement technique.
-À partir de l'offre d'emploi ci-dessous, identifie 2 à 4 missions clés recherchées par l'employeur.
-Associe-les aux expériences du candidat : {json.dumps(selected_exps, ensure_ascii=False)}
+    prompt = f"""Tu es un analyste et stratège de recrutement technique.
+À partir de l'offre d'emploi ci-dessous et des expériences du candidat :
+1. Identifie le défi technique n°1 (le problème central) recherché par l'employeur.
+2. Formule une idée directrice unique (thèse) : une conviction technique montrant comment le candidat répond à ce défi.
+3. Dégage une synthèse thématique (fil rouge) qui relie l'ensemble du parcours du candidat (ou ses expériences les plus pertinentes) à cette thèse, SANS lister les expériences chronologiquement.
+4. Extrais 2 à 3 missions clés de l'offre.
+
+Expériences candidates disponibles :
+{json.dumps(raw_exps, ensure_ascii=False)}
 
 Offre d'emploi :
 {offer_description[:3000]}
@@ -71,7 +89,9 @@ Offre d'emploi :
 Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
 {{
     "missions": ["Mission 1", "Mission 2", "Mission 3"],
-    "summary": "synthèse de correspondance"
+    "target_challenge": "Défi technique central du poste",
+    "guiding_thesis": "Conviction technique directe du candidat face à ce défi",
+    "career_thread": "Synthèse thématique liant le parcours du candidat à cette conviction (pas de chronologie)"
 }}"""
 
     # Aucun fallback silencieux ici : une panne de l'analyste ne doit jamais
@@ -93,16 +113,26 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
         clean = clean[clean.find("{"):clean.rfind("}")+1]
     data = json.loads(clean)
     missions = data.get("missions", ["Conception de pipelines de données", "Industrialisation de modèles ML/IA"])
+    target_challenge = data.get("target_challenge", "")
+    guiding_thesis = data.get("guiding_thesis", "")
+    career_thread = data.get("career_thread", "")
+
+    selected_exps = raw_exps
+    selected_companies = companies
 
     return {
         "missions": missions,
+        "target_challenge": target_challenge,
+        "guiding_thesis": guiding_thesis,
+        "career_thread": career_thread,
         "selected_experiences": selected_exps,
         "stacks": list(candidate_stacks),
-        "companies": companies,
+        "companies": selected_companies,
         "projects": projects,
         "candidate_name": candidate_name or (candidate_profile.get("contact") or {}).get("email", ""),
         "candidate_headline": candidate_profile.get("headline", ""),
     }
+
 
 
 async def _search_company_web(company_name: str) -> List[str]:
@@ -227,6 +257,9 @@ async def _call_writer(
         company_name=company_name,
         min_words=MIN_WORDS,
         max_words=MAX_WORDS,
+        target_challenge=analyst_json.get("target_challenge", ""),
+        guiding_thesis=analyst_json.get("guiding_thesis", ""),
+        career_thread=analyst_json.get("career_thread", ""),
         missions=json.dumps(analyst_json.get("missions", []), ensure_ascii=False),
         experiences=json.dumps(analyst_json.get("selected_experiences", []), ensure_ascii=False),
         stacks=", ".join(analyst_json.get("stacks", [])[:15]),
@@ -235,6 +268,7 @@ async def _call_writer(
         company_context_block=company_context_block,
         voice_style_block=voice_style_block,
     )
+
     prompt = f"{fond}\n\n{style}"
 
     resp = await acompletion(
@@ -271,11 +305,13 @@ async def _call_critic(
             model=llm.model,
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
-            max_completion_tokens=400,
+            max_completion_tokens=1000,
+            response_format={"type": "json_object"},
             drop_params=True,
             **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["critic"]),
         )
         _track_usage(usage_acc, resp)
+
         clean = resp.choices[0].message.content.strip()
         if "{" in clean:
             clean = clean[clean.find("{"):clean.rfind("}")+1]

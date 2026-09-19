@@ -43,12 +43,14 @@ def is_open_ended(raw: str | None) -> bool:
     return _strip_accents(raw).strip().lower() in _OPEN_ENDED
 
 
-def normalize_month(raw: str | None) -> str | None:
+def normalize_month(raw: str | None, fallback_year: str | None = None) -> str | None:
     """Retourne 'YYYY-MM', ou 'YYYY' si le mois est absent, ou None si sans fin.
 
     None signifie « pas de date exploitable » : période ouverte, chaîne vide,
     ou format non reconnu. L'appelant traite None comme une information absente,
     jamais comme une erreur.
+    Si le mois est présent mais que l'année est omise (ex: "Mars" pour "Mars — Sept. 2021"),
+    fallback_year permet de déduire l'année depuis la date de fin.
     """
     if is_open_ended(raw):
         return None
@@ -74,6 +76,8 @@ def normalize_month(raw: str | None) -> str | None:
             return None
 
     year_match = re.search(r"(19|20)\d{2}", text)
+    if not year_match and fallback_year:
+        year_match = re.search(r"(19|20)\d{2}", str(fallback_year))
     if not year_match:
         return None
     year = year_match.group(0)

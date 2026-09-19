@@ -37,7 +37,10 @@ services:
       - SUMMARY_MODEL=${SUMMARY_MODEL:-gpt-5-nano}
       - CRAWL_LLM_MODEL=${CRAWL_LLM_MODEL:-openai/gpt-4o-mini}
       - CREW_LLM_MODEL=${CREW_LLM_MODEL:-gpt-5.6-luna}
+      - EVALUATION_MODEL=${EVALUATION_MODEL:-gemini/gemini-3.8-flash}
+      - CV_TAILOR_MODEL=${CV_TAILOR_MODEL:-gemini/gemini-3.8-flash}
       - PATH=/app/.venv/bin:$PATH
+
       - UV_CACHE_DIR=/app/.cache/uv
       - UV_LINK_MODE=copy
     depends_on:
@@ -100,6 +103,7 @@ services:
       - /app/.next
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - INTERNAL_API_URL=http://backend:8000
       - HOSTNAME=0.0.0.0
       - PORT=3875
       - WATCHPACK_POLLING=true

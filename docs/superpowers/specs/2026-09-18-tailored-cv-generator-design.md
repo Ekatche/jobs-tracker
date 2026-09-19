@@ -58,8 +58,9 @@ Plutôt que d'enfouir les CVs dans des sous-modales du Kanban, la plateforme pro
   - `Télécharger le PDF` instantané.
   - `Aperçu interactif` (viewer PDF A4 intégré).
   - `Bascule de template` en temps réel.
-  - `Éditer / Personnaliser` les sections (résumé, bullet points, compétences).
-  - `Supprimer` ou `Dupliquer`.
+  - `Éditer / Personnaliser` les sections (titre, résumé, bullet points, compétences).
+  - `Régénérer` : relance l'adaptation IA sur l'offre pour produire une nouvelle version.
+  - `Supprimer`.
 
 ### 2.2 Points d'accès transverses
 - **Depuis l'offre (`/offers/[id]`)** : Le bouton *"Générer mon CV sur-mesure"* lance l'adaptation et redirige directement vers `/resumes` avec le CV pré-généré et prêt au téléchargement.
@@ -78,7 +79,8 @@ Plutôt que d'enfouir les CVs dans des sous-modales du Kanban, la plateforme pro
   - `education` & `certifications` : diplômes, écoles/universités, années.
   - `languages` : langues et niveaux CECRL (Natif, C1, B2, etc.).
 - **`JobOffer`** :
-  - `poste`, `entreprise`, `localisation`, `type_contrat`, `description`.
+  - `poste` (ou `title`), `entreprise` (ou `company`), `localisation` (ou `location`), `type_contrat`, `description`.
+  - Résilience bilingue pour garantir l'intégrité des champs quel que soit le modèle source.
 - **`OfferEvaluationInDB` (Bloc B)** :
   - `requirement_matches` : exigences satisfaites avec niveau de priorité (`critical`, `high`, `meaningful`).
   - `missing_requirements` : points faibles ou exigences non couvertes (à ne surtout pas inventer).
@@ -212,7 +214,8 @@ h2 {
 
 ## 6. Sécurité, Quotas et Multi-Tenant
 - Chaque document et requête vérifie la correspondance stricte du `user_id` avec le token JWT actif.
-- Chaque génération décompte une unité de quota sur `user_quotas.cv_tailoring` via le middleware existant `require_user_quota`.
+- Chaque génération décompte une unité de quota sur `user_quotas.cv_tailoring` via `require_user_quota`.
+- **Désactivation temporaire du blocage (HTTP 429)** : La variable d'environnement `DISABLE_QUOTA_BLOCKING="true"` (activée par défaut) permet de générer des CVs et lettres sans blocage tout en conservant le logging des métriques de coût et tokens dans `api_usage`.
 - Les appels LLM sont tracés dans `api_usage` avec le modèle utilisé, la latence et le nombre de tokens.
 
 ---

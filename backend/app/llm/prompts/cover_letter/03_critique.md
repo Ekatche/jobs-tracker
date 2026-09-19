@@ -8,6 +8,25 @@ Une phrase professionnelle, simple et directe n'est pas un défaut.
 
 ## Critères d'évaluation
 
+### 0. Structure : CV déguisé (Catalogue d'expériences)
+
+Ce critère prime sur tous les autres. Applique-le mécaniquement avant de lire la lettre pour le style.
+
+Relève pour chaque paragraphe la façon dont les expériences sont introduites.
+Si la lettre :
+* fonctionne comme une liste d'épicerie en consacrant un paragraphe par employeur ("D'abord chez X... Ensuite chez Y...") ;
+* commence un paragraphe par « À », « Chez », « Au », « Au sein de », « Mon expérience à », « Lors de mon passage chez » suivi d'un nom d'entreprise ;
+* énumère chronologiquement des expériences (« Plus tôt chez... », « Auparavant... ») :
+
+Verdict OBLIGATOIRE : « revise ». Ajoute impérativement dans "flaws" : « CV déguisé (Catalogue) : la lettre énumère chronologiquement les expériences ou consacre un paragraphe par employeur au lieu de proposer une synthèse thématique fluide (fil rouge). »
+
+Note : Il est autorisé, et même encouragé, de mentionner plusieurs expériences (entreprises) dans la lettre, TANT QUE cela s'inscrit dans une synthèse thématique transverse plutôt qu'une liste chronologique.
+
+Vérifie aussi :
+* plus de trois technologies nommées dans toute la lettre ;
+* l'absence d'idée directrice : si l'on ne peut pas résumer en une phrase ce que la lettre soutient, signale-le.
+
+
 ### 1. Impression humaine
 
 La lettre semble-t-elle réellement écrite par le candidat ?

@@ -65,6 +65,78 @@ def test_verify_cv_honesty_valid():
     assert len(violations) == 0
 
 
+def test_verify_cv_honesty_with_missions_and_stack_extraction():
+    source_profile = {
+        "experiences": [
+            {
+                "company": "Tech Corp",
+                "role": "Data Engineer",
+                "stack": ["Python", "FastAPI", "Microsoft Fabric", "Power BI"],
+                "missions": [
+                    "Développement d'APIs REST exposant des services de données.",
+                    "Création de tableaux de bord Power BI et de modèles sémantiques.",
+                ],
+            }
+        ],
+        "projects": [
+            {
+                "name": "DataHub",
+                "stack": ["PostgreSQL", "Next.js"],
+                "description": "Optimisation de pipelines multi-sources pour des analyses avancées.",
+            }
+        ],
+        "skills": {
+            "technical_skills": ["Data Modeling", "ETL/ELT"],
+        },
+        "education": [
+            {"degree": "Ingénieur", "institution": "Polytech"}
+        ],
+    }
+    tailored = TailoredCVSchema(
+        target_role_title="Lead Data Engineer",
+        professional_summary="Ingénieur data spécialisé en API et modélisation.",
+        prioritized_skills=[
+            TailoredSkillGroup(
+                category="Backend",
+                skills=["Conception d'APIs REST", "FastAPI", "Python"],
+            ),
+            TailoredSkillGroup(
+                category="Data & BI",
+                skills=["Modélisation de données", "Pipelines multi-sources", "Modèles sémantiques"],
+            ),
+        ],
+        experiences=[
+            TailoredExperienceItem(
+                title="Data Engineer",
+                company="Tech Corp",
+                start_date="2023",
+                end_date="Présent",
+                bullet_points=["Built REST APIs and semantic models."],
+                relevant_technologies=["Python", "FastAPI"],
+            )
+        ],
+        featured_projects=[
+            TailoredProjectItem(
+                name="DataHub",
+                description="Pipelines multi-sources",
+                technologies=["PostgreSQL"],
+            )
+        ],
+        education=[
+            TailoredEducationItem(
+                degree="Ingénieur",
+                institution="Polytech",
+                year="2022",
+            )
+        ],
+        languages=[],
+        certifications=[],
+    )
+    is_valid, violations = verify_cv_honesty(tailored, source_profile)
+    assert is_valid is True
+    assert len(violations) == 0
+
+
 def test_verify_cv_honesty_flags_invented_company_and_skills():
     source_profile = {
         "experiences": [

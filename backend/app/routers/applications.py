@@ -22,6 +22,7 @@ from ..auth import get_current_user
 from ..llm.utils import fetch_documents, split_documents, summarize_chunks
 from ..services.evaluation.evaluator import evaluate_offer_two_pass
 from ..services.usage_tracker import record_api_usage, require_user_quota
+from ..services.normalization import compute_unique_key
 
 logger = logging.getLogger(__name__)
 
@@ -646,27 +647,75 @@ async def evaluate_application_offer(
         raise HTTPException(status_code=403, detail="Accès non autorisé")
 
     offer_id = app_doc.get("offer_id")
-
-    # Si pas d'offer_id ou si l'offre n'existe pas en base, créer une entrée job_offers
+    now = datetime.now(timezone.utc)
     existing_offer = None
+
+    # 1. Chercher par offer_id si déjà renseigné
     if offer_id and ObjectId.is_valid(offer_id):
         existing_offer = await db["job_offers"].find_one({"_id": ObjectId(offer_id)})
 
+    app_url = app_doc.get("url")
+
+    # 2. Si non trouvée, chercher par URL si renseignée
+    if not existing_offer and app_url:
+        existing_offer = await db["job_offers"].find_one({"url": app_url})
+        if existing_offer:
+            offer_id = str(existing_offer["_id"])
+            await db["applications"].update_one(
+                {"_id": ObjectId(application_id)},
+                {"$set": {"offer_id": offer_id, "updated_at": now}}
+            )
+
+    # 3. Si toujours non trouvée, chercher par clé d'unicité sémantique
+    poste = app_doc.get("position") or "Poste non spécifié"
+    entreprise = app_doc.get("company") or "Entreprise"
+    localisation = app_doc.get("location") or "France"
+    computed_key = compute_unique_key(
+        company=entreprise,
+        position=poste,
+        location=localisation,
+        url=app_url,
+    )
+
     if not existing_offer:
-        now = datetime.now(timezone.utc)
+        existing_offer = await db["job_offers"].find_one({"unique_key": computed_key})
+        if existing_offer:
+            offer_id = str(existing_offer["_id"])
+            await db["applications"].update_one(
+                {"_id": ObjectId(application_id)},
+                {"$set": {"offer_id": offer_id, "updated_at": now}}
+            )
+
+    # 4. Si vraiment aucune offre n'existe, insérer avec gestion des collisions d'index
+    if not existing_offer:
         new_offer_doc = {
-            "poste": app_doc.get("position") or "Poste non spécifié",
-            "entreprise": app_doc.get("company") or "Entreprise",
-            "localisation": app_doc.get("location") or "France",
+            "poste": poste,
+            "entreprise": entreprise,
+            "localisation": localisation,
             "description": app_doc.get("description") or "Description non disponible",
-            "url": str(app_doc.get("url")) if app_doc.get("url") else "https://placeholder.local",
+            "url": str(app_url) if app_url else f"https://placeholder.local/{application_id}",
+            "unique_key": computed_key,
             "pipeline_stage": "discovered",
             "created_at": now,
             "updated_at": now,
             "is_deleted": False,
         }
-        res = await db["job_offers"].insert_one(new_offer_doc)
-        offer_id = str(res.inserted_id)
+        try:
+            res = await db["job_offers"].insert_one(new_offer_doc)
+            offer_id = str(res.inserted_id)
+        except pymongo.errors.DuplicateKeyError:
+            # En cas de collision d'index unique (url ou unique_key), récupérer le document existant
+            match_query = []
+            if app_url:
+                match_query.append({"url": str(app_url)})
+            if computed_key:
+                match_query.append({"unique_key": computed_key})
+            fallback = await db["job_offers"].find_one({"$or": match_query}) if match_query else None
+            if fallback:
+                offer_id = str(fallback["_id"])
+            else:
+                logger.error(f"[evaluate_application_offer] DuplicateKeyError sans document correspondant pour app {application_id}")
+                raise HTTPException(status_code=500, detail="Conflit de clé d'offre dans la base de données")
 
         # Lier l'offer_id à l'application
         await db["applications"].update_one(
@@ -675,13 +724,21 @@ async def evaluate_application_offer(
         )
 
     # Exécuter l'évaluation Two-Pass
-    evaluation = await evaluate_offer_two_pass(
-        offer_id=offer_id,
-        user_id=str(current_user.id),
-        db=db,
-    )
-
-    return evaluation
+    try:
+        evaluation = await evaluate_offer_two_pass(
+            offer_id=offer_id,
+            user_id=str(current_user.id),
+            db=db,
+        )
+        return evaluation
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[evaluate_application_offer] Erreur Two-Pass pour app {application_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors du scoring IA : {str(e)}"
+        )
 
 
 @job_router.get("/{application_id}/evaluation", response_model=Optional[OfferEvaluationResponse])

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FiDownload, FiEye, FiTrash2, FiCalendar, FiBriefcase, FiLayers, FiRefreshCw } from "react-icons/fi";
+import { FiDownload, FiEye, FiTrash2, FiCalendar, FiBriefcase, FiLayers, FiRefreshCw, FiEdit3 } from "react-icons/fi";
 import { TailoredResume } from "@/types/resume";
 import { resumeApi } from "@/lib/api";
 
@@ -9,13 +9,32 @@ interface ResumeCardProps {
   resume: TailoredResume;
   onPreview: (resume: TailoredResume) => void;
   onDelete: (id: string) => Promise<void>;
+  onRegenerate?: (resume: TailoredResume) => Promise<void>;
+  onEdit?: (resume: TailoredResume) => void;
 }
 
-export default function ResumeCard({ resume, onPreview, onDelete }: ResumeCardProps) {
+export default function ResumeCard({ resume, onPreview, onDelete, onRegenerate, onEdit }: ResumeCardProps) {
   const [downloading, setDownloading] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
+  const [regenerating, setRegenerating] = useState<boolean>(false);
 
   const resumeId = resume.id || resume._id || "";
+
+  const handleRegenerateClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onRegenerate) return;
+    if (!confirm(`Régénérer une nouvelle version du CV pour "${resume.target_role}" chez ${resume.target_company} ?`)) {
+      return;
+    }
+    setRegenerating(true);
+    try {
+      await onRegenerate(resume);
+    } catch (err) {
+      console.error("Regenerate failed:", err);
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   const handleDirectDownload = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -111,16 +130,44 @@ export default function ResumeCard({ resume, onPreview, onDelete }: ResumeCardPr
 
       {/* Action Footer */}
       <div className="flex items-center justify-between pt-4 border-t border-slate-800/80 mt-2">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onPreview(resume);
-          }}
-          className="flex items-center gap-1 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
-        >
-          <FiEye />
-          <span>Aperçu PDF</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onPreview(resume);
+            }}
+            className="flex items-center gap-1 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            <FiEye />
+            <span>Aperçu</span>
+          </button>
+
+          {onEdit && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(resume);
+              }}
+              className="flex items-center gap-1 text-xs text-slate-300 hover:text-white px-2 py-1 rounded-md hover:bg-slate-800/80 transition-colors"
+              title="Modifier les textes du CV"
+            >
+              <FiEdit3 className="text-xs text-amber-400" />
+              <span>Éditer</span>
+            </button>
+          )}
+
+          {onRegenerate && (
+            <button
+              onClick={handleRegenerateClick}
+              disabled={regenerating}
+              className="flex items-center gap-1 text-xs text-slate-300 hover:text-white px-2 py-1 rounded-md hover:bg-slate-800/80 disabled:opacity-50 transition-colors"
+              title="Régénérer une nouvelle version adaptée"
+            >
+              <FiRefreshCw className={`text-xs text-emerald-400 ${regenerating ? "animate-spin" : ""}`} />
+              <span>{regenerating ? "Génération..." : "Régénérer"}</span>
+            </button>
+          )}
+        </div>
 
         <div className="flex items-center gap-2">
           <button

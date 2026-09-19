@@ -167,10 +167,16 @@ async def test_check_user_quota_limits():
     assert used == 5
     assert limit == 5
 
-    # Check require_user_quota raises 429
-    with pytest.raises(HTTPException) as exc_info:
-        await require_user_quota(mock_db, TEST_USER_ID, ApiUsageAction.COVER_LETTER)
-    assert exc_info.value.status_code == 429
+    # Default behavior: blocking is disabled (no HTTPException raised)
+    await require_user_quota(mock_db, TEST_USER_ID, ApiUsageAction.COVER_LETTER)
+
+    # When blocking is explicitly enabled, raises 429
+    import os
+    from unittest.mock import patch
+    with patch.dict(os.environ, {"DISABLE_QUOTA_BLOCKING": "false"}):
+        with pytest.raises(HTTPException) as exc_info:
+            await require_user_quota(mock_db, TEST_USER_ID, ApiUsageAction.COVER_LETTER)
+        assert exc_info.value.status_code == 429
 
 
 @pytest.mark.asyncio

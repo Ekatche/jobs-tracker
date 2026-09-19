@@ -185,3 +185,21 @@ async def test_generate_tailored_cv_content_flags_hallucinations():
                 offer=SAMPLE_OFFER,
                 evaluation=SAMPLE_EVALUATION
             )
+
+
+def test_load_tailor_prompt_french_job_offer_fields():
+    from app.services.cv_tailor import load_tailor_prompt
+
+    french_offer = {
+        "poste": "Ingénieure / Ingénieur IA",
+        "entreprise": "DeepTech France",
+        "localisation": "Paris (Télétravail)",
+        "description": "Poste orienté frameworks d'agents et LLM.",
+    }
+    prompt = load_tailor_prompt(SAMPLE_PROFILE, french_offer)
+
+    assert "DeepTech France" in prompt
+    assert "Ingénieure / Ingénieur IA" in prompt
+    assert "Paris (Télétravail)" in prompt
+    assert "Poste visé" not in prompt
+    assert "L'entreprise cible" not in prompt
