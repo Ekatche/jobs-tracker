@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 from bson import ObjectId
@@ -15,6 +16,172 @@ from ..services.normalization import normalize_city, normalize_company
 from ..services.evaluation.evaluator import evaluate_offer_two_pass
 
 job_offers_router = APIRouter(prefix="/job-offers", tags=["job-offers"])
+
+
+GENERIC_ROLE_MODIFIERS = {
+    "responsable",
+    "directeur",
+    "directrice",
+    "chef",
+    "manager",
+    "charge",
+    "chargée",
+    "chargee",
+    "assistant",
+    "assistante",
+    "coordinateur",
+    "coordinatrice",
+    "consultant",
+    "consultante",
+    "junior",
+    "senior",
+    "lead",
+    "head",
+    "officer",
+    "analyst",
+    "analyste",
+    "espace",
+    "pole",
+    "pôle",
+    "service",
+    "departement",
+    "secteur",
+    "centre",
+    "hub",
+    "unite",
+    "unité",
+    "metier",
+    "métier",
+    "specialise",
+    "spécialisé",
+    "specialisee",
+    "spécialisée",
+    "permanent",
+    "permanente",
+}
+
+STOPWORDS = {
+    "de",
+    "du",
+    "des",
+    "le",
+    "la",
+    "les",
+    "un",
+    "une",
+    "en",
+    "pour",
+    "et",
+    "ou",
+    "au",
+    "aux",
+    "par",
+    "sur",
+    "dans",
+    "avec",
+    "sans",
+    "sous",
+    "chez",
+    "d",
+    "l",
+    "h",
+    "f",
+    "a",
+    "à",
+}
+
+
+def _stem_keyword(w: str) -> str:
+    """Racine lexicale tolérante aux accords de genre/nombre et pluriel."""
+    if w.startswith("animat"):
+        return "animat"
+    if w.startswith("educat") or w.startswith("éducat"):
+        return r"(?:éducat|educat)"
+    if w.startswith("jeun"):
+        return "jeun"
+    if w.startswith("enfant"):
+        return "enfant"
+    if w.startswith("periscol") or w.startswith("périscol"):
+        return r"(?:périscol|periscol)"
+    if w.startswith("developp") or w.startswith("développ"):
+        return r"(?:développ|developp)"
+    return re.escape(w)
+
+
+def _build_keywords_filter(keywords: str) -> dict:
+    """Construit un filtre de recherche tolérant, précis et sans dilution par des mots génériques."""
+    clean_kw = keywords.strip()
+    if not clean_kw:
+        return {}
+
+    if "|" in clean_kw:
+        return {
+            "$or": [
+                {"poste": {"$regex": clean_kw, "$options": "i"}},
+                {"description": {"$regex": clean_kw, "$options": "i"}},
+                {"entreprise": {"$regex": clean_kw, "$options": "i"}},
+                {"competences_cles": {"$regex": clean_kw, "$options": "i"}},
+            ]
+        }
+
+    words = re.findall(r"[a-zA-ZÀ-ÿ0-9]+", clean_kw.lower())
+    meaningful = [w for w in words if len(w) >= 2 and w not in STOPWORDS]
+    if not meaningful:
+        return {"poste": {"$regex": re.escape(clean_kw), "$options": "i"}}
+
+    domain_words = [w for w in meaningful if w not in GENERIC_ROLE_MODIFIERS]
+    modifier_words = [w for w in meaningful if w in GENERIC_ROLE_MODIFIERS]
+
+    or_branches = []
+
+    # 1. Correspondance exacte sur le titre du poste
+    or_branches.append({"poste": {"$regex": re.escape(clean_kw), "$options": "i"}})
+
+    if domain_words:
+        domain_patterns = [_stem_keyword(w) for w in domain_words]
+
+        # 2. Présence de TOUS les termes du domaine dans l'intitulé ou les compétences
+        domain_and_poste = [
+            {
+                "$or": [
+                    {"poste": {"$regex": dp, "$options": "i"}},
+                    {"competences_cles": {"$regex": dp, "$options": "i"}},
+                ]
+            }
+            for dp in domain_patterns
+        ]
+        or_branches.append({"$and": domain_and_poste})
+
+        # 3. Si des modificateurs de rôle sont aussi présents (ex: 'responsable' + 'jeunesse'),
+        # on requiert la présence conjointe des mots du domaine et du rôle
+        if modifier_words:
+            combined_and = [
+                {
+                    "$or": [
+                        {"poste": {"$regex": _stem_keyword(m), "$options": "i"}},
+                        {"description": {"$regex": _stem_keyword(m), "$options": "i"}},
+                    ]
+                }
+                for m in modifier_words
+            ]
+            combined_and.extend(
+                [
+                    {
+                        "$or": [
+                            {"poste": {"$regex": dp, "$options": "i"}},
+                            {"competences_cles": {"$regex": dp, "$options": "i"}},
+                        ]
+                    }
+                    for dp in domain_patterns
+                ]
+            )
+            or_branches.append({"$and": combined_and})
+    else:
+        # Aucun terme de domaine spécifique, que des modificateurs (ex: recherche "responsable")
+        mod_patterns = [_stem_keyword(w) for w in modifier_words]
+        or_branches.append({"poste": {"$regex": "|".join(mod_patterns), "$options": "i"}})
+
+    return {"$or": or_branches}
 
 
 async def apply_user_interaction_filters(
@@ -134,16 +301,10 @@ async def get_job_offers(
 
         # Ajouter les filtres de recherche
         if keywords:
-            match_filter["$and"] = match_filter.get("$and", [])
-            match_filter["$and"].append(
-                {
-                    "$or": [
-                        {"poste": {"$regex": keywords, "$options": "i"}},
-                        {"description": {"$regex": keywords, "$options": "i"}},
-                        {"entreprise": {"$regex": keywords, "$options": "i"}},
-                    ]
-                }
-            )
+            kw_filter = _build_keywords_filter(keywords)
+            if kw_filter:
+                match_filter["$and"] = match_filter.get("$and", [])
+                match_filter["$and"].append(kw_filter)
 
         if location:
             match_filter["localisation"] = {"$regex": location, "$options": "i"}
@@ -663,16 +824,10 @@ async def get_job_offers_count(
 
         # Ajouter les filtres de recherche
         if keywords:
-            match_filter["$and"] = match_filter.get("$and", [])
-            match_filter["$and"].append(
-                {
-                    "$or": [
-                        {"poste": {"$regex": keywords, "$options": "i"}},
-                        {"description": {"$regex": keywords, "$options": "i"}},
-                        {"entreprise": {"$regex": keywords, "$options": "i"}},
-                    ]
-                }
-            )
+            kw_filter = _build_keywords_filter(keywords)
+            if kw_filter:
+                match_filter["$and"] = match_filter.get("$and", [])
+                match_filter["$and"].append(kw_filter)
 
         if location:
             match_filter["localisation"] = {"$regex": location, "$options": "i"}
