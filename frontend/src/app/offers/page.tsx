@@ -283,28 +283,28 @@ export default function OffersPage() {
   const [profileLocations, setProfileLocations] = useState<string[]>([]);
   const [isProfileFilterActive, setIsProfileFilterActive] = useState(false);
 
-  // Appliquer automatiquement les critères enregistrés dans le profil du candidat
-  const handleApplyProfileCriteria = async () => {
+  // Appliquer automatiquement les critères enregistrés dans le profil du candidat.
+  // Priorise les rôles cibles explicites (préférences) ; à défaut, se rabat sur les
+  // suggestions canonicalisées (headline + expériences passées par normalize_role),
+  // et combine tous les rôles en OR (`|`) pour maximiser la couverture de recherche.
+  const handleApplyProfileCriteria = useCallback(async () => {
     try {
-      const profile = await coverLetterApi.getCandidateProfile();
+      const [profile, suggested] = await Promise.all([
+        coverLetterApi.getCandidateProfile(),
+        coverLetterApi.getSuggestedRoles().catch(() => ({ roles: [] })),
+      ]);
       if (!profile) return;
 
       const prefs = profile.preferences || {};
-      const roles = prefs.target_roles || [];
-      const headline = profile.headline || "";
-      const allRoles = Array.from(new Set([...roles, headline].filter(Boolean)));
+      const targetRoles = prefs.target_roles || [];
+      const allRoles = targetRoles.length > 0 ? targetRoles : suggested.roles || [];
       const locs = prefs.locations || [];
 
       setProfileRoles(allRoles);
       setProfileLocations(locs);
       setIsProfileFilterActive(true);
 
-      // Si le candidat a des rôles cibles, on applique le premier ou le headline
-      if (allRoles.length > 0) {
-        setSearchTerm(allRoles[0]);
-      } else {
-        setSearchTerm("");
-      }
+      setSearchTerm(allRoles.length > 0 ? allRoles.join("|") : "");
 
       // Réinitialiser les filtres annexes trop restrictifs
       setLocationFilter("");
@@ -318,7 +318,15 @@ export default function OffersPage() {
     } catch (err) {
       console.error("Erreur lors de la récupération des critères du profil:", err);
     }
-  };
+  }, []);
+
+  // Applique automatiquement le filtrage "selon mon profil" dès le premier
+  // chargement de la page, sans exiger de clic — l'utilisateur voit d'emblée
+  // les offres correspondant à son profil.
+  useEffect(() => {
+    handleApplyProfileCriteria();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Charger le total au montage et quand les filtres changent
   useEffect(() => {
