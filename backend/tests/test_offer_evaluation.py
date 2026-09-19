@@ -90,6 +90,13 @@ def test_calculate_evaluation_score_red_flag_caps():
     assert calculate_evaluation_score(bloc_a_clean, bloc_b, bloc_g_ghost) == 1.5
 
 
+def test_calculate_evaluation_score_domain_mismatch_caps():
+    bloc_a = BlocA(archetype="Data Scientist", domain_mismatch=True)
+    bloc_b = BlocB(matched_requirements=[], missing_requirements=[])
+    bloc_g = BlocG(is_ghost_job=False, is_scam_risk=False)
+    assert calculate_evaluation_score(bloc_a, bloc_b, bloc_g) == 1.5
+
+
 def test_calculate_evaluation_score_deductions():
     bloc_a = BlocA(archetype="Backend Developer")
     bloc_b = BlocB(

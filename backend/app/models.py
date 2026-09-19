@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 import uuid
 from bson import ObjectId
-from pydantic import BaseModel, Field, GetCoreSchemaHandler, HttpUrl, ConfigDict, model_validator
+from pydantic import BaseModel, Field, GetCoreSchemaHandler, HttpUrl, ConfigDict, model_validator, field_validator
 from pydantic_core import core_schema
 
 
@@ -402,6 +402,7 @@ class BlocA(BaseModel):
     red_flags: List[str] = Field(default_factory=list)
     geo_mismatch: bool = False
     visa_sponsoring_refused: bool = False
+    domain_mismatch: bool = False
     notes: Optional[str] = None
 
 
@@ -487,6 +488,21 @@ class CandidateProject(BaseModel):
     highlights: List[str] = Field(default_factory=list)
     sources: List[str] = Field(default_factory=list)
 
+    @field_validator("context", mode="before")
+    @classmethod
+    def normalize_context(cls, v: Any) -> str:
+        if isinstance(v, str):
+            val = v.strip().lower()
+            if val in ("client", "professionnel", "pro", "entreprise", "work", "job"):
+                return "client"
+            elif val in ("recherche", "research"):
+                return "recherche"
+            elif val in ("consortium",):
+                return "consortium"
+            elif val in ("perso", "personal"):
+                return "perso"
+        return "perso"
+
 
 class CandidateEducation(BaseModel):
     school: str = ""
@@ -559,6 +575,7 @@ class CandidateProfile(BaseModel):
     education: List[CandidateEducation] = Field(default_factory=list)
     certifications: List[CandidateCertification] = Field(default_factory=list)
     languages: List[str] = Field(default_factory=list)
+    interests: List[str] = Field(default_factory=list)
     skills: Dict[str, List[str]] = Field(default_factory=dict)
     provenance: List[CandidateProvenance] = Field(default_factory=list)
     sources: Dict[str, dict] = Field(default_factory=dict)

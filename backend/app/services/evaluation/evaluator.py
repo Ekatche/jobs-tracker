@@ -54,7 +54,13 @@ def calculate_evaluation_score(
     - Each missing 'meaningful' requirement: -0.2
     - Bound between 1.0 and 5.0
     """
-    if bloc_a.geo_mismatch or bloc_a.visa_sponsoring_refused or bloc_g.is_ghost_job or bloc_g.is_scam_risk:
+    if (
+        bloc_a.geo_mismatch
+        or bloc_a.visa_sponsoring_refused
+        or bloc_a.domain_mismatch
+        or bloc_g.is_ghost_job
+        or bloc_g.is_scam_risk
+    ):
         return 1.5
 
     score = 5.0
