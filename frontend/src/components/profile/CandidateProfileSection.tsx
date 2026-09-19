@@ -1028,7 +1028,7 @@ export default function CandidateProfileSection() {
                         type="text"
                         value={exp.role || ""}
                         onChange={(e) => handleUpdateExperience(idx, "role", e.target.value)}
-                        placeholder="ex: Senior Data Engineer"
+                        placeholder="ex: Chef de Projet, Animatrice 2D, Data Engineer"
                         className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
                       />
                     </div>
@@ -1076,12 +1076,12 @@ export default function CandidateProfileSection() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Technologies / Stack (séparées par virgule)</label>
+                    <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Outils & compétences (séparés par virgule)</label>
                     <input
                       type="text"
                       value={(exp.stack || []).join(", ")}
                       onChange={(e) => handleUpdateExperience(idx, "stack", e.target.value)}
-                      placeholder="Python, Spark, Airflow, Azure"
+                      placeholder="Python, Illustrator, Gestion de projet, Anglais courant"
                       className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
                     />
                   </div>
@@ -1093,7 +1093,7 @@ export default function CandidateProfileSection() {
                       rows={3}
                       value={(exp.missions || []).join("\n")}
                       onChange={(e) => handleUpdateExperience(idx, "missions", e.target.value)}
-                      placeholder={"Déploiement de pipelines de données temps réel sous Databricks\nOptimisation des requêtes SQL et réduction des temps de calcul de 35%\nMise en place du monitoring des modèles de Machine Learning"}
+                      placeholder={"Pilotage d'un projet transverse avec réduction des délais de 30%\nCoordination d'une équipe de 5 personnes\nMise en place d'un nouveau processus qualité"}
                       className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white focus:outline-none focus:ring-1 focus:ring-blue-500 custom-scrollbar resize-y"
                     />
                   </div>
@@ -1189,12 +1189,12 @@ export default function CandidateProfileSection() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Stack technique (séparée par virgule)</label>
+                    <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Outils & compétences (séparés par virgule)</label>
                     <input
                       type="text"
                       value={(proj.stack || []).join(", ")}
                       onChange={(e) => handleUpdateProject(idx, "stack", e.target.value)}
-                      placeholder="React, FastAPI, PostgreSQL"
+                      placeholder="React, FastAPI, PostgreSQL / ou : Storyboard, Animation 2D, After Effects"
                       className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
                     />
                   </div>
