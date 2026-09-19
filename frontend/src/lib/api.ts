@@ -744,6 +744,9 @@ export const coverLetterApi = {
   getCandidateProfile: async (): Promise<CandidateProfile> => {
     return fetchApi<CandidateProfile>("/profile/candidate", "GET");
   },
+  getSuggestedRoles: async (): Promise<{ roles: string[] }> => {
+    return fetchApi<{ roles: string[] }>("/profile/candidate/suggested-roles", "GET");
+  },
   updateCandidateProfile: async (profile: Partial<CandidateProfile>): Promise<CandidateProfile> => {
     return fetchApi<CandidateProfile>("/profile/candidate", "PUT", profile);
   },

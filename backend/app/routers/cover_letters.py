@@ -17,9 +17,13 @@ from app.routers.applications import _generate_cover_letter_bg
 from app.services.cv_parser import extract_text_from_pdf, parse_cv_with_llm
 from app.services.profile.collectors.github import collect_github
 from app.services.profile.collectors.website import collect_website
+from app.services.normalization import clean_job_title_syntax
 from app.services.profile.merge import build_profile_from_sources
 from app.services.profile.urls import validate_public_url_async
+from app.services.role_normalizer import normalize_role
 from app.services.usage_tracker import record_api_usage, require_user_quota
+
+MAX_SUGGESTED_ROLES = 8
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +116,48 @@ async def get_candidate_profile(
     if not prof:
         raise HTTPException(status_code=404, detail="Profil non initialisé")
     return serialize_mongodb_doc(prof)
+
+
+@cover_letters_router.get("/profile/candidate/suggested-roles")
+async def get_suggested_roles(
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Suggère des intitulés de poste réels pour alimenter la recherche d'offres.
+
+    Passe le headline et les rôles d'expérience par le même pipeline de
+    canonicalisation (clean_job_title_syntax + normalize_role) que celui
+    utilisé pour générer les requêtes du collecteur d'offres, afin que
+    chaque suggestion corresponde à un métier effectivement recherché.
+    """
+    prof = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)})
+    if not prof:
+        return {"roles": []}
+
+    raw_roles: list[str] = []
+    headline = (prof.get("headline") or "").strip()
+    if headline:
+        raw_roles.append(headline)
+    for exp in prof.get("experiences") or []:
+        role = (exp.get("role") or "").strip()
+        if role:
+            raw_roles.append(role)
+
+    seen: set[str] = set()
+    suggestions: list[str] = []
+    for raw in raw_roles:
+        cleaned = clean_job_title_syntax(raw)
+        if not cleaned or cleaned == "Non spécifié":
+            cleaned = raw
+        canonical = await normalize_role(cleaned, db=db)
+        key = canonical.lower()
+        if canonical and key not in seen:
+            seen.add(key)
+            suggestions.append(canonical)
+        if len(suggestions) >= MAX_SUGGESTED_ROLES:
+            break
+
+    return {"roles": suggestions}
 
 
 async def _read_upload(file: UploadFile, magic: bytes) -> bytes:

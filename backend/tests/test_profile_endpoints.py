@@ -231,3 +231,47 @@ def test_store_source_non_validation_failure_returns_502_not_500(
         record.levelno == logging.ERROR and record.exc_info
         for record in caplog.records
     )
+
+
+def test_suggested_roles_returns_canonical_deduplicated_titles(client, profile_db, monkeypatch):
+    """Les suggestions de rôles doivent passer par le même pipeline de
+    canonicalisation (clean_job_title_syntax + normalize_role) que les
+    requêtes de recherche générées pour le collecteur d'offres, afin que
+    cliquer une suggestion corresponde à un métier réellement recherché.
+    """
+    import app.routers.cover_letters as router
+
+    profile_db["headline"] = "Dev Backend"
+    profile_db["experiences"] = [
+        {"role": "Développeur Backend", "company": "Acme"},
+        {"role": "Developpeur backend", "company": "Beta"},  # doit fusionner avec la headline
+        {"role": "", "company": "Gamma"},  # rôle vide ignoré
+    ]
+
+    canonical_map = {
+        "dev backend": "Développeur Backend",
+        "développeur backend": "Développeur Backend",
+        "developpeur backend": "Développeur Backend",
+    }
+
+    async def fake_normalize_role(role, db=None):
+        return canonical_map.get(role.lower(), role)
+
+    monkeypatch.setattr(router, "normalize_role", fake_normalize_role)
+
+    res = client.get("/profile/candidate/suggested-roles")
+    assert res.status_code == 200
+    assert res.json()["roles"] == ["Développeur Backend"]
+
+
+def test_suggested_roles_empty_when_profile_missing(client, profile_db, monkeypatch):
+    import app.routers.cover_letters as router
+
+    async def fake_normalize_role(role, db=None):
+        return role
+
+    monkeypatch.setattr(router, "normalize_role", fake_normalize_role)
+
+    res = client.get("/profile/candidate/suggested-roles")
+    assert res.status_code == 200
+    assert res.json()["roles"] == []

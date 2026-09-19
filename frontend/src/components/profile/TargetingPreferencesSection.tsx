@@ -111,18 +111,12 @@ export default function TargetingPreferencesSection({
         if (!initialPreferences && data && data.preferences) {
           applyPreferences(data.preferences);
         }
-        if (data) {
-          const roles = new Set<string>();
-          if (data.headline && data.headline.trim()) {
-            roles.add(data.headline.trim());
-          }
-          (data.experiences || []).forEach((exp) => {
-            if (exp.role && exp.role.trim()) {
-              roles.add(exp.role.trim());
-            }
-          });
-          setSuggestedRoles(Array.from(roles));
-        }
+      })
+      .catch(() => {});
+    coverLetterApi
+      .getSuggestedRoles()
+      .then((data) => {
+        setSuggestedRoles(data.roles || []);
       })
       .catch(() => {});
   }, [initialPreferences]);
