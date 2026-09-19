@@ -44,7 +44,7 @@ Description :
    - Isole les `relevant_technologies` les plus percutantes pour chaque poste.
 
 5. **COMPÉTENCES GROUPÉES (prioritized_skills)** :
-   - Structure les compétences en 2 à 4 catégories cohérentes (ex: "Backend & Microservices", "Cloud & DevOps", "Data & IA", "Frontend & UI").
+   - Structure les compétences en 2 à 4 catégories cohérentes et pertinentes pour le métier réel du candidat (déduis les catégories du profil et de l'offre — ne force AUCUNE catégorie type "Data & IA" si le candidat exerce un autre métier).
    - Mets en tête de liste les compétences requises par l'offre que le candidat possède réellement.
 
 6. **PROJETS CLÉS (featured_projects)** :
