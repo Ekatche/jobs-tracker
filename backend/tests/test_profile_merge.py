@@ -330,7 +330,13 @@ def test_headline_derived_automatically_when_missing():
         }
     }
     profile2, _ = build_profile_from_sources(sources_with_role_only)
-    assert profile2["headline"] == "Data Engineer & AI Specialist"
+    assert profile2["headline"] == "Data Engineer"
+
+
+def test_headline_fallback_is_empty_string_without_summary_or_experience():
+    """Sans résumé ni expérience, le fallback ne doit plus être un intitulé tech codé en dur."""
+    profile, _ = build_profile_from_sources({"manual": {"skills": {}}})
+    assert profile["headline"] == ""
 
 
 def test_education_merges_with_institution_and_dates_keys():

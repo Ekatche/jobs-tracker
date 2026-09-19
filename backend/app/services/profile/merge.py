@@ -58,14 +58,9 @@ def _derive_headline(
     if experiences:
         top_role = (experiences[0].get("role") or "").strip()
         if top_role:
-            lower_role = top_role.lower()
-            all_skills = [s.lower() for cat in skills.values() for s in cat]
-            has_ai = any(kw in all_skills for kw in ("rag", "machine learning", "ia", "deep learning", "llm"))
-            if has_ai and "ia" not in lower_role and "ai" not in lower_role and "ml" not in lower_role and "machine learning" not in lower_role:
-                return f"{top_role} & AI Specialist"
             return top_role
 
-    return "Ingénieur Data & IA"
+    return ""
 
 
 def _first_non_empty(
@@ -442,8 +437,12 @@ def build_profile_from_sources(
         contact.update({k: v for k, v in src_contact.items() if v and k != "languages"})
 
     languages: List[str] = []
+    interests: List[str] = []
     for source in order:
         languages.extend(_extract_languages(sources[source]))
+        raw_interests = sources[source].get("interests") or sources[source].get("personal_info", {}).get("interests") or []
+        if isinstance(raw_interests, list):
+            interests.extend([str(i).strip() for i in raw_interests if str(i).strip()])
 
     _, headline = _first_non_empty("headline", contributions)
     _, summary = _first_non_empty("summary", contributions)
@@ -467,6 +466,7 @@ def build_profile_from_sources(
         "education": _merge_education(sources, order),
         "certifications": _merge_certifications(sources, order),
         "languages": _dedup_preserving_order(languages),
+        "interests": _dedup_preserving_order(interests),
         "skills": skills,
         "excluded_projects": list(sources.get("manual", {}).get("excluded_projects", []) or []),
     }
