@@ -251,7 +251,8 @@ async def test_evaluate_offer_two_pass_success():
     ]
     pass2_response.usage = MagicMock(prompt_tokens=400, completion_tokens=180)
 
-    with patch("app.services.evaluation.evaluator.acompletion", AsyncMock(side_effect=[pass1_response, pass2_response])):
+    with patch("app.services.evaluation.evaluator.compute_domain_relevance", AsyncMock(return_value=None)), \
+         patch("app.services.evaluation.evaluator.acompletion", AsyncMock(side_effect=[pass1_response, pass2_response])):
         evaluation = await evaluate_offer_two_pass(
             db=db,
             user_id=TEST_USER_ID,
@@ -425,7 +426,8 @@ def test_evaluate_endpoint_and_get_evaluation():
     pass2_response.usage = MagicMock(prompt_tokens=250, completion_tokens=120)
 
     try:
-        with patch("app.services.evaluation.evaluator.acompletion", AsyncMock(side_effect=[pass1_response, pass2_response])):
+        with patch("app.services.evaluation.evaluator.compute_domain_relevance", AsyncMock(return_value=None)), \
+             patch("app.services.evaluation.evaluator.acompletion", AsyncMock(side_effect=[pass1_response, pass2_response])):
             # 1. Trigger POST evaluate
             res_post = client.post(f"/job-offers/{TEST_OFFER_ID}/evaluate")
             assert res_post.status_code == 200, res_post.text
@@ -584,7 +586,8 @@ async def test_evaluate_offer_candidate_profile_lookup_supports_objectid_and_str
         usage=None,
     )
 
-    with patch("app.services.evaluation.evaluator.acompletion", side_effect=[mock_p1, mock_p2]) as mock_acompletion:
+    with patch("app.services.evaluation.evaluator.compute_domain_relevance", AsyncMock(return_value=None)), \
+         patch("app.services.evaluation.evaluator.acompletion", side_effect=[mock_p1, mock_p2]) as mock_acompletion:
         res = await evaluate_offer_two_pass(
             db=db,
             user_id=TEST_USER_ID,
@@ -691,7 +694,8 @@ async def test_evaluate_offer_pass2_receives_education_and_projects():
         usage=None,
     )
 
-    with patch("app.services.evaluation.evaluator.acompletion", side_effect=[mock_p1, mock_p2]) as mock_acompletion:
+    with patch("app.services.evaluation.evaluator.compute_domain_relevance", AsyncMock(return_value=None)), \
+         patch("app.services.evaluation.evaluator.acompletion", side_effect=[mock_p1, mock_p2]) as mock_acompletion:
         res = await evaluate_offer_two_pass(
             db=db,
             user_id=TEST_USER_ID,
@@ -704,5 +708,74 @@ async def test_evaluate_offer_pass2_receives_education_and_projects():
         assert "WideDocs" in pass2_prompt
         assert "Azure AI Engineer" in pass2_prompt
         assert "English (Fluent)" in pass2_prompt
+
+
+@pytest.mark.asyncio
+async def test_evaluate_offer_two_pass_short_circuits_on_domain_mismatch():
+    """Une offre manifestement hors du domaine du candidat est écartée sans appel LLM Two-Pass."""
+    db = MagicMock()
+    job_offers_col = AsyncMock()
+    job_offers_col.find_one.return_value = {
+        "_id": ObjectId(TEST_OFFER_ID),
+        "poste": "Data Scientist / Machine Learning Engineer",
+        "entreprise": "Excelleria",
+        "description": "Poste data science avec Python, TensorFlow et Spark.",
+        "localisation": "Lyon",
+        "type_contrat": "CDI",
+        "mode_travail": "hybride",
+    }
+    job_offers_col.update_one.return_value = MagicMock(modified_count=1)
+
+    candidate_profile_col = AsyncMock()
+    candidate_profile_col.find_one.return_value = {
+        "user_id": TEST_USER_ID,
+        "headline": "Animatrice 2D",
+        "summary": "Animatrice 2D spécialisée en motion design.",
+        "skills": {"outils": ["Toon Boom Harmony", "After Effects"]},
+        "experiences": [{"role": "Animatrice 2D", "company": "Studio Anim", "stack": []}],
+        "preferences": {"target_roles": ["Animatrice 2D"]},
+    }
+
+    offer_evaluations_col = AsyncMock()
+    offer_evaluations_col.update_one.return_value = MagicMock(upserted_id="eval_anim")
+
+    users_col = AsyncMock()
+    users_col.find_one.return_value = {"_id": ObjectId(TEST_USER_ID), "tier": "free"}
+
+    async def mock_cursor(*args, **kwargs):
+        if False:
+            yield {}
+
+    api_usage_col = AsyncMock()
+    api_usage_col.aggregate = MagicMock(side_effect=lambda *a, **k: mock_cursor())
+    api_usage_col.insert_one = AsyncMock(return_value=MagicMock(inserted_id=ObjectId()))
+
+    def db_getitem(name):
+        mapping = {
+            "job_offers": job_offers_col,
+            "candidate_profile": candidate_profile_col,
+            "offer_evaluations": offer_evaluations_col,
+            "users": users_col,
+            "api_usage": api_usage_col,
+        }
+        return mapping.get(name, AsyncMock())
+
+    db.__getitem__.side_effect = db_getitem
+
+    with patch(
+        "app.services.evaluation.evaluator.compute_domain_relevance",
+        AsyncMock(return_value=0.05),
+    ), patch("app.services.evaluation.evaluator.acompletion") as mock_acompletion:
+        evaluation = await evaluate_offer_two_pass(
+            db=db,
+            user_id=TEST_USER_ID,
+            offer_id=TEST_OFFER_ID,
+        )
+
+    mock_acompletion.assert_not_called()
+    assert evaluation.score == 1.5
+    assert evaluation.bloc_a.domain_mismatch is True
+    job_offers_col.update_one.assert_called_once()
+    offer_evaluations_col.update_one.assert_called_once()
 
 
