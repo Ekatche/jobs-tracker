@@ -19,13 +19,22 @@ Deux causes racines distinctes, indépendantes l'une de l'autre :
    génère déjà des requêtes de recherche dynamiques par profil (rôles ciblés +
    localisations, round-robin, fallback `DEFAULT_QUERIES` seulement si aucun
    profil actif n'a de `target_roles`). Donc la collecte est déjà personnalisable.
-   Mais `backend/app/services/relevance.py` applique ensuite un filtre global
-   (`is_relevant_position`, `is_off_domain_url`) avec une allowlist de mots-clés
-   data/IA codée en dur, appelé à deux endroits de
-   `job_offers_collectors.py` (`get_urls_for_query` et `enrich_offers`). Ce
-   filtre rejette silencieusement toute offre hors data/IA avant même
-   l'enregistrement en base — y compris une offre trouvée par une requête
-   générée spécifiquement pour un profil animation.
+   Mais `backend/app/services/relevance.py::is_relevant_position()`, appelée
+   dans `enrich_offers`, rejette toute offre dont l'intitulé de poste ne
+   contient aucun mot-clé de `RELEVANCE_KEYWORDS` (allowlist data/IA codée en
+   dur) — y compris une offre trouvée par une requête générée spécifiquement
+   pour un profil animation. C'est ce garde-fou précis, et lui seul, qui bloque
+   la généralisation.
+   À noter : le même module contient aussi `is_off_domain_url()`, appelée dans
+   `get_urls_for_query`, qui répond à un historique différent (voir
+   docstring du module et `docs/micro/20260913-filter-irrelevant-job-offers/PLAN.md`) :
+   elle rejette des URLs dont le chemin contient un terme de
+   `OFF_DOMAIN_URL_SLUGS` (vocabulaire génie civil/BTP), pour corriger un bug
+   réel où une requête "ingénieur ... Lyon" avait fait remonter des offres de
+   génie civil via une page de listing France Travail. Ce blocklist est
+   scopé au BTP et ne contient aucun terme pouvant matcher une offre
+   d'animation ou de tout autre domaine non-tech — elle ne bloque donc rien
+   de nouveau et n'a pas besoin d'être touchée.
 
 2. **Évaluation** : `backend/app/services/evaluation/evaluator.py` (Two-Pass)
    ne vérifie la cohérence entre le métier de l'offre et le métier du candidat
@@ -66,22 +75,30 @@ généralisation cohérente de bout en bout.
 
 ### Phase 1 — Collecte d'offres
 
-Supprimer le fichier `backend/app/services/relevance.py` dans son intégralité
-(`RELEVANCE_KEYWORDS`, `OFF_DOMAIN_URL_SLUGS`, `is_relevant_position`,
-`is_off_domain_url`, `RELEVANCE_FILTER_ENABLED`) ainsi que ses deux points
-d'appel dans `job_offers_collectors.py` :
-- dans `get_urls_for_query` (le bloc `if RELEVANCE_FILTER_ENABLED: ...` qui
-  filtre les URLs hors-domaine)
-- dans `enrich_offers` (le `if RELEVANCE_FILTER_ENABLED and not
-  is_relevant_position(poste): continue`)
+Suppression chirurgicale dans `backend/app/services/relevance.py` :
+supprimer uniquement `is_relevant_position()` et la constante
+`RELEVANCE_KEYWORDS` n'est PAS supprimée (elle reste utilisée par
+`is_off_domain_url()` pour sa règle "l'allowlist gagne sur la blocklist").
+Retirer son unique point d'appel dans `job_offers_collectors.py::enrich_offers`
+(le bloc `if RELEVANCE_FILTER_ENABLED and not is_relevant_position(poste):
+continue`).
+
+`is_off_domain_url()`, `OFF_DOMAIN_URL_SLUGS`, `RELEVANCE_FILTER_ENABLED` et
+leur appel dans `get_urls_for_query` restent inchangés — ce garde-fou est
+scopé BTP/génie civil, ne bloque aucune offre non-tech, et corrige un bug de
+production réel (voir Contexte). Le toucher serait une régression hors
+scope.
 
 `DEFAULT_QUERIES` reste tel quel comme filet de sécurité (cas où aucun profil
 actif n'a de `target_roles` renseigné) — son biais tech dans ce cas limite est
 accepté, ne pas sur-ingénierer un fallback générique pour un cas qui ne
 devrait pas se produire en usage normal.
 
-Le fichier de test `backend/tests/test_relevance.py` est supprimé avec le
-module qu'il teste.
+Dans `backend/tests/test_relevance.py`, supprimer uniquement les tests de
+`is_relevant_position` (classe/paramétrage dédiés) et
+`test_word_boundary_no_false_positive_on_specialiste`. Les tests de
+`normalize_text`, `is_off_domain_url`, `test_host_does_not_influence_verdict`
+et `test_contains_keyword_requires_word_boundary` restent inchangés.
 
 Le rejet des offres invalides (poste/entreprise vides ou placeholders,
 `enrich_offers` lignes ~296-307) reste en place — c'est un garde-fou qualité,
@@ -179,8 +196,9 @@ prévu a priori.
 
 ## Risques
 
-- Supprimer `relevance.py` peut laisser passer un peu plus de bruit web
-  (pages non-emploi mal extraites) que le filtre bloquait accessoirement. La
+- Supprimer `is_relevant_position` peut laisser passer un peu plus de bruit
+  web (pages non-emploi mal extraites) que le filtre bloquait accessoirement,
+  au-delà du cas BTP déjà couvert par `is_off_domain_url` qui reste actif. La
   validation stricte poste/entreprise déjà présente dans `enrich_offers`
   (rejet des placeholders/valeurs vides) doit suffire à absorber ce bruit ;
   à surveiller après déploiement.
