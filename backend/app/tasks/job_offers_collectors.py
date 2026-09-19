@@ -27,7 +27,6 @@ from app.services.role_normalizer import normalize_role
 from app.services.relevance import (
     RELEVANCE_FILTER_ENABLED,
     is_off_domain_url,
-    is_relevant_position,
 )
 
 # Borne par requête pour collect_offers_sync : jusqu'à 8 requêtes × 7 min = 56 min,
@@ -237,7 +236,6 @@ async def enrich_offers(offers: list, query: str) -> list:
     try:
         enriched_offers = []
         invalid_count = 0
-        off_domain_count = 0
         current_time = datetime.now(timezone.utc)
 
         # Traitement par batch
@@ -306,13 +304,6 @@ async def enrich_offers(offers: list, query: str) -> list:
                         invalid_count += 1
                         continue
 
-                    if RELEVANCE_FILTER_ENABLED and not is_relevant_position(poste):
-                        logger.warning(
-                            f"🚫 Offre hors-domaine rejetée: poste='{poste}' (requête: '{query}')"
-                        )
-                        off_domain_count += 1
-                        continue
-
                     # Nettoyage Couche 1 & Extraction Couche 2
                     clean_poste = clean_job_title_syntax(poste)
                     seniority_level = extract_seniority(poste, description)
@@ -379,7 +370,7 @@ async def enrich_offers(offers: list, query: str) -> list:
 
         logger.info(
             f"✅ {len(enriched_offers)} offres enrichies selon le modèle MongoDB "
-            f"({invalid_count} invalides, {off_domain_count} hors-domaine)"
+            f"({invalid_count} invalides)"
         )
 
         return enriched_offers
