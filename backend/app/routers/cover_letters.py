@@ -129,6 +129,10 @@ async def get_suggested_roles(
     canonicalisation (clean_job_title_syntax + normalize_role) que celui
     utilisé pour générer les requêtes du collecteur d'offres, afin que
     chaque suggestion corresponde à un métier effectivement recherché.
+
+    Complète ensuite avec les métiers liés : les autres intitulés (issus
+    d'autres CV) que role_aliases a déjà rattachés au même rôle canonique,
+    pour élargir la recherche au-delà des seuls intitulés présents sur ce CV.
     """
     prof = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)})
     if not prof:
@@ -145,6 +149,7 @@ async def get_suggested_roles(
 
     seen: set[str] = set()
     suggestions: list[str] = []
+    canonicals: list[str] = []
     for raw in raw_roles:
         cleaned = clean_job_title_syntax(raw)
         if not cleaned or cleaned == "Non spécifié":
@@ -154,10 +159,25 @@ async def get_suggested_roles(
         if canonical and key not in seen:
             seen.add(key)
             suggestions.append(canonical)
-        if len(suggestions) >= MAX_SUGGESTED_ROLES:
-            break
+            canonicals.append(canonical)
 
-    return {"roles": suggestions}
+    if canonicals and len(suggestions) < MAX_SUGGESTED_ROLES:
+        aliases = await db["role_aliases"].find(
+            {"canonical": {"$in": canonicals}}
+        ).to_list(length=len(canonicals))
+        for alias in aliases:
+            for variant in alias.get("variants") or []:
+                related = variant.strip().title()
+                key = related.lower()
+                if related and key not in seen:
+                    seen.add(key)
+                    suggestions.append(related)
+                if len(suggestions) >= MAX_SUGGESTED_ROLES:
+                    break
+            if len(suggestions) >= MAX_SUGGESTED_ROLES:
+                break
+
+    return {"roles": suggestions[:MAX_SUGGESTED_ROLES]}
 
 
 async def _read_upload(file: UploadFile, magic: bytes) -> bytes:

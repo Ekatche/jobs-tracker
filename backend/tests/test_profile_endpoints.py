@@ -23,12 +23,20 @@ def test_app_imports_without_pymupdf(monkeypatch):
 USER_ID = "60c72b2f9b1d8b2bad7f1234"
 
 
+class _StoredProfile(dict):
+    """Dict de secours pour candidate_profile, avec les docs role_aliases
+    attachés en attribut pour que les tests puissent les préremplir."""
+
+    role_aliases: list
+
+
 @pytest.fixture
 def profile_db(monkeypatch):
-    """Base en mémoire pour la collection candidate_profile."""
+    """Base en mémoire pour les collections candidate_profile et role_aliases."""
     from unittest.mock import AsyncMock, MagicMock
 
-    stored = {}
+    stored = _StoredProfile()
+    stored.role_aliases = []
 
     async def find_one(_query):
         return dict(stored) if stored else None
@@ -38,11 +46,25 @@ def profile_db(monkeypatch):
         stored.setdefault("_id", ObjectId())
         return MagicMock()
 
-    collection = MagicMock()
-    collection.find_one = AsyncMock(side_effect=find_one)
-    collection.update_one = AsyncMock(side_effect=update_one)
+    profile_collection = MagicMock()
+    profile_collection.find_one = AsyncMock(side_effect=find_one)
+    profile_collection.update_one = AsyncMock(side_effect=update_one)
+
+    def fake_aliases_find(query):
+        canonicals = set(query.get("canonical", {}).get("$in", []))
+        matched = [doc for doc in stored.role_aliases if doc.get("canonical") in canonicals]
+        cursor = MagicMock()
+        cursor.to_list = AsyncMock(return_value=matched)
+        return cursor
+
+    aliases_collection = MagicMock()
+    aliases_collection.find = MagicMock(side_effect=fake_aliases_find)
+
+    def get_collection(name):
+        return aliases_collection if name == "role_aliases" else profile_collection
+
     db = MagicMock()
-    db.__getitem__.return_value = collection
+    db.__getitem__.side_effect = get_collection
 
     app.dependency_overrides[get_database] = lambda: db
     app.dependency_overrides[get_current_user] = lambda: UserModel(
@@ -262,6 +284,39 @@ def test_suggested_roles_returns_canonical_deduplicated_titles(client, profile_d
     res = client.get("/profile/candidate/suggested-roles")
     assert res.status_code == 200
     assert res.json()["roles"] == ["Développeur Backend"]
+
+
+def test_suggested_roles_include_related_variants_from_role_aliases(
+    client, profile_db, monkeypatch
+):
+    """Les suggestions incluent aussi les intitulés liés (variants) déjà
+    rattachés au même rôle canonique par d'autres CV, pour élargir la
+    recherche au-delà des seuls intitulés présents sur ce CV.
+    """
+    import app.routers.cover_letters as router
+
+    profile_db["headline"] = "Développeur Backend"
+    profile_db["experiences"] = []
+    profile_db.role_aliases.append(
+        {
+            "canonical": "Développeur Backend",
+            "variants": ["développeur backend", "ingénieur backend", "backend engineer"],
+        }
+    )
+
+    async def fake_normalize_role(role, db=None):
+        return "Développeur Backend"
+
+    monkeypatch.setattr(router, "normalize_role", fake_normalize_role)
+
+    res = client.get("/profile/candidate/suggested-roles")
+    assert res.status_code == 200
+    roles = res.json()["roles"]
+    assert roles[0] == "Développeur Backend"
+    assert "Ingénieur Backend" in roles
+    assert "Backend Engineer" in roles
+    # le variant identique au canonique (juste une casse différente) n'est pas dupliqué
+    assert roles.count("Développeur Backend") == 1
 
 
 def test_suggested_roles_empty_when_profile_missing(client, profile_db, monkeypatch):
