@@ -9,7 +9,6 @@ import pytest
 from app.services.relevance import (
     contains_keyword,
     is_off_domain_url,
-    is_relevant_position,
     normalize_text,
     RELEVANCE_KEYWORDS,
 )
@@ -21,34 +20,6 @@ class TestNormalizeText:
 
     def test_hyphen(self):
         assert normalize_text("structures-metalliques") == "structures metalliques"
-
-
-@pytest.mark.parametrize(
-    "title,expected",
-    [
-        # Cas réels de production — postes hors-domaine rejetés à tort avant ce plan.
-        ("Référent Bureau d'Études Acier (H/F)", False),
-        ("Ingénieur Calcul de Structure (H/F)", False),
-        ("Ingénieur(e) structure", False),
-        ("Responsable Calculs Mécaniques Défense - Nucléaire (H/F)", False),
-        ("Ingénieur calcul de structures métalliques et charpentes (H/F)", False),
-        # Postes pertinents (data / IA / ML), doivent passer.
-        ("Data analyste - CDD", True),
-        ("Tech lead IA", True),
-        ("Machine Learning Engineer", True),
-        ("Ingénieur MLOps", True),
-        ("Data Scientist Senior", True),
-        # Titre vide.
-        ("", False),
-    ],
-)
-def test_is_relevant_position(title, expected):
-    assert is_relevant_position(title) is expected
-
-
-def test_word_boundary_no_false_positive_on_specialiste():
-    """Régression la plus probable : "ia" ne doit pas matcher dans "spécialiste"."""
-    assert is_relevant_position("Spécialiste sécurité") is False
 
 
 @pytest.mark.parametrize(

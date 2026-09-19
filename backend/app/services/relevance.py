@@ -128,14 +128,6 @@ def contains_keyword(text: str, vocabulary: frozenset[str]) -> bool:
     return False
 
 
-def is_relevant_position(title: str) -> bool:
-    """True si l'intitulé de poste appartient au domaine cible (data/IA/ML).
-
-    Un titre vide retourne False.
-    """
-    return contains_keyword(title, RELEVANCE_KEYWORDS)
-
-
 def _url_path(url: str) -> str:
     """Extrait le chemin d'une URL sans son schéma ni son host.
 
