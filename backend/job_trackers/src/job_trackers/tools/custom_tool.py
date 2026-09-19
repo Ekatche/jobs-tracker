@@ -84,6 +84,32 @@ class TavilyJobBoardSearchTool(BaseTool):
             "optioncarriere.com",
         ]
 
+        def _is_valid_job_url(u: str) -> bool:
+            if not u or not isinstance(u, str) or not u.startswith("http"):
+                return False
+            low = u.lower()
+            if any(spam in low for spam in spam_aggregators):
+                return False
+            # Exclure les pages génériques non pertinentes
+            excluded_paths = (
+                "/blog/",
+                "/conseils/",
+                "/connexion",
+                "/login",
+                "/auth/",
+                "/register",
+                "/signup",
+                "/faq",
+                "/contact",
+                "/mentions-legales",
+                "/cgu",
+                "/privacy",
+                "/conditions-generales",
+            )
+            if any(p in low for p in excluded_paths):
+                return False
+            return True
+
         # Palier 1 : Job boards généralistes & nationaux (Volume et couverture locale)
         national_job_boards = [
             "welcometothejungle.com",
@@ -134,7 +160,7 @@ class TavilyJobBoardSearchTool(BaseTool):
                 if response_fr and response_fr.get("results"):
                     for r in response_fr["results"]:
                         url = r.get("url")
-                        if url and not any(spam in url.lower() for spam in spam_aggregators):
+                        if url and _is_valid_job_url(url):
                             all_urls.append(url)
                     logger.info(f"📋 {len(response_fr['results'])} résultats trouvés sur job boards")
             except Exception as e_fr:
@@ -154,7 +180,7 @@ class TavilyJobBoardSearchTool(BaseTool):
                 if response_ats and response_ats.get("results"):
                     for r in response_ats["results"]:
                         url = r.get("url")
-                        if url and not any(spam in url.lower() for spam in spam_aggregators):
+                        if url and _is_valid_job_url(url):
                             all_urls.append(url)
                     logger.info(f"🏢 {len(response_ats['results'])} résultats trouvés sur ATS entreprises")
             except Exception as e_ats:
@@ -174,7 +200,7 @@ class TavilyJobBoardSearchTool(BaseTool):
                 if response_linkedin and response_linkedin.get("results"):
                     for r in response_linkedin["results"]:
                         url = r.get("url")
-                        if url and "linkedin.com/jobs" in url:
+                        if url and "linkedin.com/jobs" in url and _is_valid_job_url(url):
                             all_urls.append(url)
                     logger.info(f"💼 {len(response_linkedin['results'])} résultats trouvés sur LinkedIn")
             except Exception as e_li:
