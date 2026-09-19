@@ -1,4 +1,5 @@
 import json
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from bson import ObjectId
@@ -184,7 +185,7 @@ async def test_evaluate_offer_two_pass_success():
         elif name == "api_usage":
             api_col = AsyncMock()
             api_col.aggregate = MagicMock(side_effect=get_cursor)
-            api_col.insert_one = AsyncMock(return_value=MagicMock(inserted_id="rec_123"))
+            api_col.insert_one = AsyncMock(return_value=MagicMock(inserted_id=ObjectId()))
             return api_col
         return AsyncMock()
 
@@ -293,7 +294,7 @@ def test_evaluate_endpoint_and_get_evaluation():
         return mock_endpoint_cursor(*args, **kwargs)
 
     api_usage_col.aggregate = MagicMock(side_effect=get_endpoint_cursor)
-    api_usage_col.insert_one = AsyncMock(return_value=MagicMock(inserted_id="use_123"))
+    api_usage_col.insert_one = AsyncMock(return_value=MagicMock(inserted_id=ObjectId()))
 
     job_offers_col.find_one.return_value = {
         "_id": ObjectId(TEST_OFFER_ID),
@@ -465,12 +466,13 @@ async def test_evaluate_offer_quota_exceeded():
 
     db.__getitem__.side_effect = db_getitem
 
-    with pytest.raises(HTTPException) as exc_info:
-        await evaluate_offer_two_pass(
-            db=db,
-            user_id=TEST_USER_ID,
-            offer_id=TEST_OFFER_ID,
-        )
+    with patch.dict(os.environ, {"DISABLE_QUOTA_BLOCKING": "false"}):
+        with pytest.raises(HTTPException) as exc_info:
+            await evaluate_offer_two_pass(
+                db=db,
+                user_id=TEST_USER_ID,
+                offer_id=TEST_OFFER_ID,
+            )
     assert exc_info.value.status_code == 429
     assert "Monthly quota limit reached" in exc_info.value.detail
 
@@ -537,7 +539,7 @@ async def test_evaluate_offer_candidate_profile_lookup_supports_objectid_and_str
 
     api_usage_col = AsyncMock()
     api_usage_col.aggregate = MagicMock(side_effect=lambda *a, **k: cursor_quota(*a, **k))
-    api_usage_col.insert_one = AsyncMock(return_value=MagicMock(inserted_id="rec_1"))
+    api_usage_col.insert_one = AsyncMock(return_value=MagicMock(inserted_id=ObjectId()))
 
     def db_getitem(name):
         if name == "job_offers":
@@ -647,7 +649,7 @@ async def test_evaluate_offer_pass2_receives_education_and_projects():
             yield {}
 
     api_usage_col.aggregate = MagicMock(side_effect=lambda *args, **kwargs: mock_cursor())
-    api_usage_col.insert_one = AsyncMock(return_value=MagicMock(inserted_id="u_999"))
+    api_usage_col.insert_one = AsyncMock(return_value=MagicMock(inserted_id=ObjectId()))
 
     def db_getitem(name):
         mapping = {
