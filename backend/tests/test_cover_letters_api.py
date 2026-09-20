@@ -6,6 +6,7 @@ from main import app
 from app.auth import get_current_user
 from app.database import get_database
 from app.models import UserModel
+from app.routers.cover_letters import _suggested_roles_profile_hash
 
 
 @pytest.fixture(autouse=True)
@@ -144,3 +145,85 @@ def test_regenerate_endpoint_sets_pending_instead_of_deleting(client):
     letters_coll.update_one.assert_called_once()
     args = letters_coll.update_one.call_args[0]
     assert args[1]["$set"]["status"] == "pending"
+
+
+def test_suggested_roles_full_cache_hit_skips_llm_and_taxonomy_calls(client):
+    """Un cache complet (hash + suggestions) doit éviter tout appel LLM/embedding."""
+    profile = {
+        "_id": ObjectId(),
+        "user_id": ObjectId(MOCK_USER_ID),
+        "headline": "Data Engineer",
+        "experiences": [],
+    }
+    profile_hash = _suggested_roles_profile_hash(profile)
+    profile["suggested_roles_cache"] = {
+        "hash": profile_hash,
+        "raw_roles": ["Data Engineer"],
+        "suggestions": ["Data Engineer", "Ingénieur Data"],
+    }
+
+    mock_db = MagicMock()
+    mock_db["candidate_profile"].find_one = AsyncMock(return_value=profile)
+    mock_db["candidate_profile"].update_one = AsyncMock()
+
+    app.dependency_overrides[get_current_user] = lambda: mock_current_user
+    app.dependency_overrides[get_database] = lambda: mock_db
+
+    with patch(
+        "app.routers.cover_letters.suggest_role_titles_from_profile", new_callable=AsyncMock
+    ) as mock_llm, patch(
+        "app.routers.cover_letters.match_taxonomy_role", new_callable=AsyncMock
+    ) as mock_taxonomy, patch(
+        "app.routers.cover_letters.require_user_quota", new_callable=AsyncMock
+    ) as mock_quota:
+        res = client.get("/profile/candidate/suggested-roles")
+
+    assert res.status_code == 200
+    assert res.json() == {"roles": ["Data Engineer", "Ingénieur Data"]}
+    mock_llm.assert_not_called()
+    mock_taxonomy.assert_not_called()
+    mock_quota.assert_not_called()
+    mock_db["candidate_profile"].update_one.assert_not_called()
+
+
+def test_suggested_roles_cache_miss_persists_suggestions_for_reuse(client):
+    """Un miss de cache doit calculer les suggestions ET les persister pour le prochain appel."""
+    profile = {
+        "_id": ObjectId(),
+        "user_id": ObjectId(MOCK_USER_ID),
+        "headline": "Data Engineer",
+        "experiences": [],
+    }
+
+    mock_cursor = MagicMock()
+    mock_cursor.to_list = AsyncMock(return_value=[])
+
+    mock_db = MagicMock()
+    mock_db["candidate_profile"].find_one = AsyncMock(return_value=profile)
+    mock_db["candidate_profile"].update_one = AsyncMock()
+    mock_db["role_aliases"].find.return_value = mock_cursor
+
+    app.dependency_overrides[get_current_user] = lambda: mock_current_user
+    app.dependency_overrides[get_database] = lambda: mock_db
+
+    with patch(
+        "app.routers.cover_letters.suggest_role_titles_from_profile",
+        new_callable=AsyncMock,
+        return_value={"roles": [], "_usage": None},
+    ), patch(
+        "app.routers.cover_letters.match_taxonomy_role",
+        new_callable=AsyncMock,
+        return_value="Data Engineer",
+    ), patch(
+        "app.routers.cover_letters.require_user_quota", new_callable=AsyncMock
+    ):
+        res = client.get("/profile/candidate/suggested-roles")
+
+    assert res.status_code == 200
+    assert res.json() == {"roles": ["Data Engineer"]}
+
+    mock_db["candidate_profile"].update_one.assert_called_once()
+    args = mock_db["candidate_profile"].update_one.call_args[0]
+    cached = args[1]["$set"]["suggested_roles_cache"]
+    assert cached["suggestions"] == ["Data Engineer"]
+    assert cached["hash"] == _suggested_roles_profile_hash(profile)

@@ -197,13 +197,22 @@ async def get_suggested_roles(
     taxonomie est simplement omis, jamais affiché brut ni enregistré comme
     nouveau canonical.
 
-    Le résultat du LLM est mis en cache sur le profil et recalculé seulement
-    quand headline/summary/skills/experiences changent, pour éviter un appel
-    LLM à chaque chargement de page.
+    Le résultat du LLM ET la canonicalisation contre la taxonomie (elle-même
+    coûteuse : un appel d'embedding par intitulé non déjà connu) sont tous
+    deux mis en cache sur le profil, recalculés seulement quand
+    headline/summary/skills/experiences changent, pour éviter de refaire ces
+    appels réseau à chaque clic ou chargement de page.
     """
     prof = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)})
     if not prof:
         return {"roles": []}
+
+    profile_hash = _suggested_roles_profile_hash(prof)
+    cache = prof.get("suggested_roles_cache") or {}
+    cache_hit = cache.get("hash") == profile_hash
+
+    if cache_hit and cache.get("suggestions") is not None:
+        return {"roles": cache["suggestions"][:MAX_SUGGESTED_ROLES]}
 
     raw_roles: list[str] = []
     headline = (prof.get("headline") or "").strip()
@@ -214,30 +223,14 @@ async def get_suggested_roles(
         if role:
             raw_roles.append(role)
 
-    llm_roles: list[str] = []
-    profile_hash = _suggested_roles_profile_hash(prof)
-    cache = prof.get("suggested_roles_cache") or {}
-
-    if cache.get("hash") == profile_hash:
+    usage = None
+    if cache_hit:
         llm_roles = cache.get("raw_roles") or []
     else:
         await require_user_quota(db, current_user.id, ApiUsageAction.ROLE_SUGGESTION)
         result = await suggest_role_titles_from_profile(prof)
         llm_roles = result.get("roles") or []
         usage = result.get("_usage")
-
-        await db["candidate_profile"].update_one(
-            {"_id": prof["_id"]},
-            {
-                "$set": {
-                    "suggested_roles_cache": {
-                        "hash": profile_hash,
-                        "raw_roles": llm_roles,
-                        "updated_at": datetime.now(timezone.utc),
-                    }
-                }
-            },
-        )
 
         if usage:
             await record_api_usage(
@@ -249,8 +242,23 @@ async def get_suggested_roles(
                 output_tokens=usage["output_tokens"],
             )
 
-    suggestions = await _canonicalize_roles(raw_roles + llm_roles, db)
-    return {"roles": suggestions[:MAX_SUGGESTED_ROLES]}
+    suggestions = (await _canonicalize_roles(raw_roles + llm_roles, db))[:MAX_SUGGESTED_ROLES]
+
+    await db["candidate_profile"].update_one(
+        {"_id": prof["_id"]},
+        {
+            "$set": {
+                "suggested_roles_cache": {
+                    "hash": profile_hash,
+                    "raw_roles": llm_roles,
+                    "suggestions": suggestions,
+                    "updated_at": datetime.now(timezone.utc),
+                }
+            }
+        },
+    )
+
+    return {"roles": suggestions}
 
 
 async def _read_upload(file: UploadFile, magic: bytes) -> bytes:
