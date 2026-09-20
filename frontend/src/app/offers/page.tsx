@@ -305,9 +305,9 @@ export default function OffersPage() {
       setIsProfileFilterActive(true);
 
       setSearchTerm(allRoles.length > 0 ? allRoles.join("|") : "");
+      setLocationFilter(locs.length > 0 ? locs.join("|") : "");
 
       // Réinitialiser les filtres annexes trop restrictifs
-      setLocationFilter("");
       setContractTypeFilter("");
       setCompanyFilter("");
       setWorkModeFilter("");

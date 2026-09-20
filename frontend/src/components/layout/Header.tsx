@@ -45,12 +45,10 @@ export default function Header() {
     const checkAuth = async () => {
       setLoading(true);
       const token = getToken();
-      console.log("Token in Header:", token); // Ajoutez cette ligne
 
       if (token) {
         try {
           const userData = await authApi.getCurrentUser();
-          console.log("User data:", userData); // Ajoutez cette ligne
           setUser(userData);
           setIsLoggedIn(true);
         } catch (error) {

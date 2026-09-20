@@ -581,6 +581,8 @@ class CandidateProfile(BaseModel):
     sources: Dict[str, dict] = Field(default_factory=dict)
     conflicts: List[CandidateConflict] = Field(default_factory=list)
     excluded_projects: List[str] = Field(default_factory=list)
+    excluded_education: List[str] = Field(default_factory=list)
+    excluded_certifications: List[str] = Field(default_factory=list)
     writing_style: Optional[str] = None
     updated_at: datetime = Field(default_factory=utcnow_with_timezone)
 
@@ -621,6 +623,7 @@ class ApiUsageAction(str, Enum):
     CV_PARSING = "cv_parsing"
     INTERVIEW_PREP = "interview_prep"
     OFFER_SUMMARY = "offer_summary"
+    ROLE_SUGGESTION = "role_suggestion"
 
 
 class ApiUsageRecord(BaseModel):

@@ -78,7 +78,6 @@ interface JwtPayload {
 
 export function isAuthenticated() {
   const token = getToken();
-  console.log("Token:", token); // Debugging line
   if (!token) return false;
 
   try {

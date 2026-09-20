@@ -7,6 +7,7 @@ import pytest
 from app.tasks.verify_job_offers import (
     check_url_http_fast,
     detect_closure_in_text,
+    extract_json_ld_valid_through,
     extract_visible_text,
     is_redirected_to_generic_listing,
     verify_job_offers_workflow,
@@ -29,6 +30,106 @@ def test_detect_closure_in_text():
         )
         is None
     )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Cette offre d'emploi chez Leo Lagrange Animation n'est plus disponible",
+        "Cette offre d'emploi chez Orange a expiré",
+        "This job has expired",
+        "Job has expired",
+        "No longer accepting applications",
+        "Oups, cette offre n'est plus en ligne.",
+        "Cette offre a été dépubliée par l'entreprise.",
+        "L'offre que vous recherchez n'existe plus ou n'est plus disponible.",
+        "Cette offre n'est plus consultable.",
+        "Désolé, cette offre n'est plus disponible.",
+        "L'offre recherchée est introuvable.",
+        "Ce poste n'est plus à pourvoir.",
+        "Ce poste a été attribué.",
+    ],
+)
+def test_detect_closure_in_text_real_world_platform_variants(text):
+    """Formulations réelles observées chez Indeed, LinkedIn, Welcome to the Jungle,
+    Apec, France Travail et HelloWork — captées après l'élargissement des patterns."""
+    assert detect_closure_in_text(text) is not None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Rejoignez notre offre chez Google, une entreprise innovante, pour développer vos compétences.",
+        "Cette offre exceptionnelle chez notre partenaire vous permettra de développer vos compétences en marketing digital et en gestion de projet sur le long terme",
+        "Poste Data Scientist chez Acme. Vous ne trouvez pas votre page ? Page introuvable ? Contactez le support.",
+    ],
+)
+def test_detect_closure_in_text_no_false_positive_on_active_listing(text):
+    """L'élargissement des patterns (ex: 'chez [Entreprise]') ne doit pas créer
+    de faux positif sur une offre active qui mentionne juste l'entreprise, ni sur
+    un widget footer générique ('page introuvable') présent sur une page active."""
+    assert detect_closure_in_text(text) is None
+
+
+def test_extract_json_ld_valid_through_expired():
+    """JSON-LD JobPosting avec validThrough dans le passé -> date extraite."""
+    html = """<script type="application/ld+json">
+    {"@context":"https://schema.org/","@type":"JobPosting","title":"Dev","validThrough":"2020-01-01T00:00:00+00:00"}
+    </script>"""
+    result = extract_json_ld_valid_through(html)
+    assert result is not None
+    assert result.year == 2020
+
+
+def test_extract_json_ld_valid_through_future():
+    """JSON-LD JobPosting avec validThrough dans le futur -> date extraite quand même
+    (c'est à l'appelant de comparer à now())."""
+    html = """<script type="application/ld+json">
+    {"@type":"JobPosting","validThrough":"2099-01-01T00:00:00Z"}
+    </script>"""
+    result = extract_json_ld_valid_through(html)
+    assert result is not None
+    assert result.year == 2099
+
+
+def test_extract_json_ld_valid_through_graph_wrapped():
+    """JobPosting imbriqué dans un @graph (pattern courant sur les grandes plateformes)."""
+    html = """<script type="application/ld+json">
+    {"@context":"https://schema.org","@graph":[
+        {"@type":"Organization","name":"Acme"},
+        {"@type":"JobPosting","validThrough":"2019-06-15"}
+    ]}
+    </script>"""
+    result = extract_json_ld_valid_through(html)
+    assert result is not None
+    assert result.year == 2019
+
+
+def test_extract_json_ld_valid_through_type_as_list():
+    """@type peut être une liste (ex: ["JobPosting", "Thing"])."""
+    html = """<script type="application/ld+json">
+    {"@type":["JobPosting","Thing"],"validThrough":"2018-03-03T00:00:00Z"}
+    </script>"""
+    result = extract_json_ld_valid_through(html)
+    assert result is not None
+    assert result.year == 2018
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<html><body>rien ici</body></html>",
+        '<script type="application/ld+json">{not valid json,,,}</script>',
+        '<script type="application/ld+json">{"@type":"JobPosting","title":"Dev sans date"}</script>',
+        '<script type="application/ld+json">{"@type":"Organization","validThrough":"2020-01-01"}</script>',
+        '<script type="application/ld+json"></script>',
+        "",
+    ],
+)
+def test_extract_json_ld_valid_through_returns_none(html):
+    """Pas de JSON-LD, JSON invalide, pas de JobPosting, ou pas de validThrough -> None,
+    jamais d'exception (le HTML réel est souvent imparfait)."""
+    assert extract_json_ld_valid_through(html) is None
 
 
 def test_extract_visible_text_strips_scripts_and_asides():
@@ -130,6 +231,52 @@ async def test_check_url_http_fast_valid():
     assert res["status"] == "valid"
     assert res["valid"] is True
     assert res["requires_js_check"] is True
+
+
+@pytest.mark.asyncio
+async def test_check_url_http_fast_jsonld_expired():
+    """Test HTTP fast check when page is 200 OK but JSON-LD JobPosting.validThrough is in the past
+    (data structurée exposée pour le SEO, plus fiable qu'une détection par regex sur texte visible)."""
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 200
+    mock_response.url = "https://example.com/job/123"
+    mock_response.text = """
+    <html><body>
+    <h1>Poste Data Scientist</h1>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org/","@type":"JobPosting","title":"Data Scientist","validThrough":"2020-01-01T00:00:00Z"}
+    </script>
+    </body></html>
+    """
+    mock_client.get.return_value = mock_response
+
+    res = await check_url_http_fast("https://example.com/job/123", client=mock_client)
+    assert res["status"] == "closed"
+    assert res["valid"] is False
+    assert "jsonld_valid_through_expired" in res["reason"]
+
+
+@pytest.mark.asyncio
+async def test_check_url_http_fast_jsonld_future_stays_valid():
+    """JSON-LD JobPosting avec validThrough dans le futur ne doit pas marquer l'offre comme close."""
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 200
+    mock_response.url = "https://example.com/job/123"
+    mock_response.text = """
+    <html><body>
+    <h1>Poste Data Scientist</h1>
+    <script type="application/ld+json">
+    {"@type":"JobPosting","validThrough":"2099-01-01T00:00:00Z"}
+    </script>
+    </body></html>
+    """
+    mock_client.get.return_value = mock_response
+
+    res = await check_url_http_fast("https://example.com/job/123", client=mock_client)
+    assert res["status"] == "valid"
+    assert res["valid"] is True
 
 
 @pytest.mark.asyncio

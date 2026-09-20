@@ -255,14 +255,19 @@ def test_store_source_non_validation_failure_returns_502_not_500(
     )
 
 
+async def _no_llm_suggestions(profile, model=None):
+    return {"roles": [], "_usage": None}
+
+
 def test_suggested_roles_returns_canonical_deduplicated_titles(client, profile_db, monkeypatch):
     """Les suggestions de rôles doivent passer par le même pipeline de
-    canonicalisation (clean_job_title_syntax + normalize_role) que les
+    canonicalisation (clean_job_title_syntax + match_taxonomy_role) que les
     requêtes de recherche générées pour le collecteur d'offres, afin que
     cliquer une suggestion corresponde à un métier réellement recherché.
     """
     import app.routers.cover_letters as router
 
+    profile_db["_id"] = ObjectId()
     profile_db["headline"] = "Dev Backend"
     profile_db["experiences"] = [
         {"role": "Développeur Backend", "company": "Acme"},
@@ -276,10 +281,11 @@ def test_suggested_roles_returns_canonical_deduplicated_titles(client, profile_d
         "developpeur backend": "Développeur Backend",
     }
 
-    async def fake_normalize_role(role, db=None):
+    async def fake_match_taxonomy_role(role, db=None):
         return canonical_map.get(role.lower(), role)
 
-    monkeypatch.setattr(router, "normalize_role", fake_normalize_role)
+    monkeypatch.setattr(router, "match_taxonomy_role", fake_match_taxonomy_role)
+    monkeypatch.setattr(router, "suggest_role_titles_from_profile", _no_llm_suggestions)
 
     res = client.get("/profile/candidate/suggested-roles")
     assert res.status_code == 200
@@ -295,6 +301,7 @@ def test_suggested_roles_include_related_variants_from_role_aliases(
     """
     import app.routers.cover_letters as router
 
+    profile_db["_id"] = ObjectId()
     profile_db["headline"] = "Développeur Backend"
     profile_db["experiences"] = []
     profile_db.role_aliases.append(
@@ -304,10 +311,11 @@ def test_suggested_roles_include_related_variants_from_role_aliases(
         }
     )
 
-    async def fake_normalize_role(role, db=None):
+    async def fake_match_taxonomy_role(role, db=None):
         return "Développeur Backend"
 
-    monkeypatch.setattr(router, "normalize_role", fake_normalize_role)
+    monkeypatch.setattr(router, "match_taxonomy_role", fake_match_taxonomy_role)
+    monkeypatch.setattr(router, "suggest_role_titles_from_profile", _no_llm_suggestions)
 
     res = client.get("/profile/candidate/suggested-roles")
     assert res.status_code == 200
@@ -322,10 +330,11 @@ def test_suggested_roles_include_related_variants_from_role_aliases(
 def test_suggested_roles_empty_when_profile_missing(client, profile_db, monkeypatch):
     import app.routers.cover_letters as router
 
-    async def fake_normalize_role(role, db=None):
+    async def fake_match_taxonomy_role(role, db=None):
         return role
 
-    monkeypatch.setattr(router, "normalize_role", fake_normalize_role)
+    monkeypatch.setattr(router, "match_taxonomy_role", fake_match_taxonomy_role)
+    monkeypatch.setattr(router, "suggest_role_titles_from_profile", _no_llm_suggestions)
 
     res = client.get("/profile/candidate/suggested-roles")
     assert res.status_code == 200

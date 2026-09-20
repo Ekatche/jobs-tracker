@@ -1,9 +1,10 @@
 import asyncio
 from html.parser import HTMLParser
+import json
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 from urllib.parse import urlparse
 
 import httpx
@@ -24,27 +25,31 @@ DEFAULT_HEADERS = {
 }
 
 # Expressions régulières indiquant qu'une offre est close ou inexistante
-# Note: '404 not found' est volontairement retiré du chemin HTML statique
-# pour éviter les faux positifs sur les snippets d'erreur ou JSON inline.
 CLOSED_TEXT_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
     for pattern in [
-        r"cette offre (n'est plus disponible|a expiré|a été pourvue|est clôturée|est fermée)",
-        r"l'offre (d'emploi )?(n'est plus|a été supprimée|a expiré)",
-        r"candidatures? (closes?|fermées?|terminées?)",
-        r"poste (pourvu|fermé|clôturé)",
-        r"cette annonce n'est plus (active|disponible)",
-        r"ce poste a été pourvu",
-        r"offre expirée",
-        r"offre introuvable",
-        r"l'annonce demandée n'existe plus",
-        r"job (is )?(no longer available|expired|closed|has been filled)",
-        r"position (has been )?filled",
-        r"posting has expired",
-        r"this job (has expired|is no longer available|is closed)",
-        r"this vacancy has been closed",
-        r"the job you are looking for is no longer active",
-        r"page introuvable",
+        # Formulations avec ou sans nom d'entreprise / intitulé intermédiaire (ex: 'Cette offre d'emploi chez Leo Lagrange Animation n'est plus disponible')
+        r"(?:cette |l')?offre (?:d'emploi )?(?:chez [^.\n,;!?]+? )?(?:n'est plus (?:disponible|active|en ligne|accessible|consultable)|a expiré|a été (?:pourvue|supprimée|clôturée|archivée|désactivée|dépubliée)|est (?:clôturée|fermée|terminée|expirée|indisponible)|n'est plus à pourvoir)",
+        r"(?:cette |l')?annonce (?:d'emploi )?(?:chez [^.\n,;!?]+? )?(?:n'est plus (?:active|disponible|accessible|en ligne|consultable)|n'existe plus|a été (?:désactivée|supprimée|archivée|dépubliée)|a expiré)",
+        r"candidatures? (?:pour ce poste )?(?:sont )?(?:closes?|fermées?|terminées?|suspendues?)",
+        r"(?:ce |le )?poste (?:a été |est )?(?:pourvu|fermé|clôturé|comblé|attribué)",
+        r"(?:ce |le )?poste n'est plus à pourvoir",
+        r"offre (?:d'emploi )?(?:expirée|introuvable|désactivée|clôturée|supprimée)",
+        r"l'annonce demandée (?:n'existe plus|est introuvable)",
+        r"(?:l')?offre (?:demandée|recherchée) (?:n'existe plus|est introuvable)",
+        r"l'offre (?:que vous (?:cherchez|recherchez|souhaitez afficher) )?(?:n'est plus (?:disponible|en ligne|active|consultable)|n'existe plus|est introuvable)",
+        r"ce recrutement est (?:terminé|clôturé|fermé)",
+        r"le lien que vous avez suivi est (?:expiré|invalide|mort)",
+        r"job (?:posting )?(?:is |has )?(?:no longer (?:available|active|open)|expired|closed|has been filled|archived)",
+        r"position (?:has been |is )?filled",
+        r"posting (?:has expired|is closed|is no longer available)",
+        r"this (?:job|vacancy|position|role) (?:has expired|is no longer available|is closed|has been filled|is archived)",
+        r"the job you are looking for is no longer (?:active|available|open)",
+        r"no longer accepting applications",
+        # Note: 'page introuvable' / 'page not found' sont volontairement absents du
+        # texte statique — trop génériques (snippet d'erreur, widget footer, JSON
+        # inline) présents sur des pages d'offre pourtant actives. Les vrais 404
+        # HTTP sont déjà couverts par le status code (http_status_404).
     ]
 ]
 
@@ -121,6 +126,63 @@ def is_redirected_to_generic_listing(original_url: str, final_url: str) -> bool:
     return False
 
 
+def _iter_json_ld_nodes(data: Any) -> Iterator[Dict[str, Any]]:
+    """Parcourt récursivement un document JSON-LD (liste, @graph) pour en extraire les noeuds."""
+    if isinstance(data, list):
+        for item in data:
+            yield from _iter_json_ld_nodes(item)
+    elif isinstance(data, dict):
+        yield data
+        graph = data.get("@graph")
+        if isinstance(graph, list):
+            for item in graph:
+                yield from _iter_json_ld_nodes(item)
+
+
+def _parse_iso_datetime(value: Any) -> Optional[datetime]:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def extract_json_ld_valid_through(html: str) -> Optional[datetime]:
+    """
+    Extrait la date `validThrough` du premier bloc JSON-LD `schema.org/JobPosting`
+    trouvé dans la page. Donnée structurée exposée pour le SEO par la plupart des
+    grandes plateformes (Indeed, LinkedIn, France Travail, Apec, HelloWork, WTTJ) :
+    plus fiable qu'une détection par regex sur texte visible, zéro dépendance à la langue.
+    """
+    if not html:
+        return None
+    for match in re.finditer(
+        r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+        html,
+        re.DOTALL | re.IGNORECASE,
+    ):
+        raw = match.group(1).strip()
+        if not raw:
+            continue
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        for node in _iter_json_ld_nodes(data):
+            node_type = node.get("@type")
+            types = node_type if isinstance(node_type, list) else [node_type]
+            if "JobPosting" not in types:
+                continue
+            parsed = _parse_iso_datetime(node.get("validThrough"))
+            if parsed:
+                return parsed
+    return None
+
+
 def detect_closure_in_text(text: str) -> Optional[str]:
     """Recherche les motifs d'expiration dans un bloc de texte visible nettoyé."""
     if not text:
@@ -177,6 +239,19 @@ async def check_url_http_fast(
                 "status_code": status,
                 "final_url": final_url,
                 "reason": f"server_error_{status}",
+                "requires_js_check": False,
+            }
+
+        # Vérification structurée JSON-LD (schema.org JobPosting.validThrough) - la plus fiable,
+        # zéro dépendance à la langue/formulation, exposée par la plupart des grandes plateformes
+        valid_through = extract_json_ld_valid_through(response.text)
+        if valid_through and valid_through < datetime.now(timezone.utc):
+            return {
+                "status": "closed",
+                "valid": False,
+                "status_code": status,
+                "final_url": final_url,
+                "reason": f"jsonld_valid_through_expired: {valid_through.isoformat()}",
                 "requires_js_check": False,
             }
 

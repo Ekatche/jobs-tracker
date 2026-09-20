@@ -8,23 +8,24 @@ sys.path.append("/app")
 
 
 def cleanup_offers_task():
-    """✨ MODIFIÉ: Tâche avec nettoyage global renforcé"""
+    """✨ Tâche de maintenance : normalisation, dédoublonnage et intégrité (sans purge aveugle par date)."""
     logger = logging.getLogger("airflow.task")
     try:
         from app.tasks.clean_job_offers import cleanup_workflow_sync
 
-        logger.info("🚀 Début du nettoyage complet (mode global renforcé)")
+        logger.info("🚀 Début du nettoyage complet (normalisation & dédoublonnage global)")
 
-        # ✅ Configuration pour détecter "ALTECA Data Scientist (H/F)" et similaires
+        # ✅ Purge par date désactivée : la vérification réelle des offres est assurée par verify_active_job_offers
         result = cleanup_workflow_sync(
-            days=6,  # Supprimer offres > 6 jours
+            days=None,
+            enable_old_offers_cleanup=False,  # Purge aveugle désactivée
             enable_similarity_cleanup=False,  # Mode standard désactivé
             enable_global_similarity=True,  # Mode global renforcé activé
-            company_similarity_threshold=0.80,  # ✅ Seuil entreprise légèrement augmenté
-            position_similarity_threshold=0.75,  # ✅ Seuil poste légèrement abaissé pour plus de détection
+            company_similarity_threshold=0.80,
+            position_similarity_threshold=0.75,
         )
 
-        logger.info(f"✅ Nettoyage terminé: {result['summary']}")
+        logger.info(f"✅ Nettoyage terminé: {result.get('summary', '')}")
         return result
 
     except Exception as e:

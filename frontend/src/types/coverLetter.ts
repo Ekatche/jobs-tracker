@@ -75,6 +75,8 @@ export interface CandidateProfile {
   conflicts?: CandidateConflict[];
   sources?: Record<string, unknown>;
   excluded_projects?: string[];
+  excluded_education?: string[];
+  excluded_certifications?: string[];
   updated_at?: string;
 }
 

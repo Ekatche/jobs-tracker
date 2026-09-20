@@ -1,4 +1,6 @@
 import asyncio
+import hashlib
+import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -20,7 +22,7 @@ from app.services.profile.collectors.website import collect_website
 from app.services.normalization import clean_job_title_syntax
 from app.services.profile.merge import build_profile_from_sources
 from app.services.profile.urls import validate_public_url_async
-from app.services.role_normalizer import normalize_role
+from app.services.role_normalizer import match_taxonomy_role, suggest_role_titles_from_profile
 from app.services.usage_tracker import record_api_usage, require_user_quota
 
 MAX_SUGGESTED_ROLES = 8
@@ -118,35 +120,30 @@ async def get_candidate_profile(
     return serialize_mongodb_doc(prof)
 
 
-@cover_letters_router.get("/profile/candidate/suggested-roles")
-async def get_suggested_roles(
-    db=Depends(get_database),
-    current_user: UserModel = Depends(get_current_user),
-):
-    """Suggère des intitulés de poste réels pour alimenter la recherche d'offres.
+def _suggested_roles_profile_hash(prof: dict) -> str:
+    """Empreinte du sous-ensemble de profil qui influence les suggestions.
 
-    Passe le headline et les rôles d'expérience par le même pipeline de
-    canonicalisation (clean_job_title_syntax + normalize_role) que celui
-    utilisé pour générer les requêtes du collecteur d'offres, afin que
-    chaque suggestion corresponde à un métier effectivement recherché.
-
-    Complète ensuite avec les métiers liés : les autres intitulés (issus
-    d'autres CV) que role_aliases a déjà rattachés au même rôle canonique,
-    pour élargir la recherche au-delà des seuls intitulés présents sur ce CV.
+    Sert à invalider le cache de suggestions uniquement quand ces champs
+    changent, plutôt qu'à chaque chargement de page.
     """
-    prof = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)})
-    if not prof:
-        return {"roles": []}
+    payload = {
+        "headline": prof.get("headline") or "",
+        "summary": prof.get("summary") or "",
+        "skills": prof.get("skills") or {},
+        "experience_roles": [
+            (exp.get("role") or "").strip() for exp in (prof.get("experiences") or [])
+        ],
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 
-    raw_roles: list[str] = []
-    headline = (prof.get("headline") or "").strip()
-    if headline:
-        raw_roles.append(headline)
-    for exp in prof.get("experiences") or []:
-        role = (exp.get("role") or "").strip()
-        if role:
-            raw_roles.append(role)
 
+async def _canonicalize_roles(raw_roles: list[str], db) -> list[str]:
+    """Canonicalise `raw_roles` puis élargit avec les métiers liés.
+
+    Les rôles liés sont les autres intitulés (issus d'autres CV) que
+    role_aliases a déjà rattachés au même rôle canonique, pour élargir la
+    recherche au-delà des seuls intitulés présents sur ce profil.
+    """
     seen: set[str] = set()
     suggestions: list[str] = []
     canonicals: list[str] = []
@@ -154,12 +151,16 @@ async def get_suggested_roles(
         cleaned = clean_job_title_syntax(raw)
         if not cleaned or cleaned == "Non spécifié":
             cleaned = raw
-        canonical = await normalize_role(cleaned, db=db)
+        canonical = await match_taxonomy_role(cleaned, db=db)
+        if not canonical:
+            continue
         key = canonical.lower()
-        if canonical and key not in seen:
+        if key not in seen:
             seen.add(key)
             suggestions.append(canonical)
             canonicals.append(canonical)
+        if len(suggestions) >= MAX_SUGGESTED_ROLES:
+            break
 
     if canonicals and len(suggestions) < MAX_SUGGESTED_ROLES:
         aliases = await db["role_aliases"].find(
@@ -177,6 +178,78 @@ async def get_suggested_roles(
             if len(suggestions) >= MAX_SUGGESTED_ROLES:
                 break
 
+    return suggestions
+
+
+@cover_letters_router.get("/profile/candidate/suggested-roles")
+async def get_suggested_roles(
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Suggère des intitulés de poste réels pour alimenter la recherche d'offres.
+
+    Combine deux sources, toutes deux validées en lecture seule contre la
+    taxonomie ROME/ESCO (role_aliases) via match_taxonomy_role: le headline et
+    les rôles d'expérience bruts du profil, et des intitulés de métier proposés
+    par un LLM à partir du profil complet (headline, résumé, expériences,
+    compétences) pour capter des métiers cohérents mais non formulés tels
+    quels dans le CV. Un titre sans correspondance suffisamment proche dans la
+    taxonomie est simplement omis, jamais affiché brut ni enregistré comme
+    nouveau canonical.
+
+    Le résultat du LLM est mis en cache sur le profil et recalculé seulement
+    quand headline/summary/skills/experiences changent, pour éviter un appel
+    LLM à chaque chargement de page.
+    """
+    prof = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)})
+    if not prof:
+        return {"roles": []}
+
+    raw_roles: list[str] = []
+    headline = (prof.get("headline") or "").strip()
+    if headline:
+        raw_roles.append(headline)
+    for exp in prof.get("experiences") or []:
+        role = (exp.get("role") or "").strip()
+        if role:
+            raw_roles.append(role)
+
+    llm_roles: list[str] = []
+    profile_hash = _suggested_roles_profile_hash(prof)
+    cache = prof.get("suggested_roles_cache") or {}
+
+    if cache.get("hash") == profile_hash:
+        llm_roles = cache.get("raw_roles") or []
+    else:
+        await require_user_quota(db, current_user.id, ApiUsageAction.ROLE_SUGGESTION)
+        result = await suggest_role_titles_from_profile(prof)
+        llm_roles = result.get("roles") or []
+        usage = result.get("_usage")
+
+        await db["candidate_profile"].update_one(
+            {"_id": prof["_id"]},
+            {
+                "$set": {
+                    "suggested_roles_cache": {
+                        "hash": profile_hash,
+                        "raw_roles": llm_roles,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                }
+            },
+        )
+
+        if usage:
+            await record_api_usage(
+                db,
+                current_user.id,
+                ApiUsageAction.ROLE_SUGGESTION,
+                models_used=[usage["model"]],
+                input_tokens=usage["input_tokens"],
+                output_tokens=usage["output_tokens"],
+            )
+
+    suggestions = await _canonicalize_roles(raw_roles + llm_roles, db)
     return {"roles": suggestions[:MAX_SUGGESTED_ROLES]}
 
 

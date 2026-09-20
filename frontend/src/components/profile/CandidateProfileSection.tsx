@@ -87,7 +87,9 @@ export default function CandidateProfileSection() {
   const [projects, setProjects] = useState<CandidateProject[]>([]);
   const [excludedProjects, setExcludedProjects] = useState<string[]>([]);
   const [education, setEducation] = useState<CandidateEducation[]>([]);
+  const [excludedEducation, setExcludedEducation] = useState<string[]>([]);
   const [certifications, setCertifications] = useState<CandidateCertification[]>([]);
+  const [excludedCertifications, setExcludedCertifications] = useState<string[]>([]);
 
   const loadProfile = async () => {
     setLoading(true);
@@ -131,7 +133,9 @@ export default function CandidateProfileSection() {
     setProjects(data.projects || []);
     setExcludedProjects(data.excluded_projects || []);
     setEducation(data.education || []);
+    setExcludedEducation(data.excluded_education || []);
     setCertifications(data.certifications || []);
+    setExcludedCertifications(data.excluded_certifications || []);
     setLanguagesText((data.languages || []).join(", "));
     setInterestsText((data.interests || []).join(", "));
   };
@@ -244,6 +248,11 @@ export default function CandidateProfileSection() {
         };
       } else {
         copy[index] = { ...copy[index], [field]: value };
+        if ((field === "school" || field === "degree") && value.trim()) {
+          const entry = copy[index];
+          const key = `${(entry.school || "").trim().toLowerCase()}::${(entry.degree || "").trim().toLowerCase()}`;
+          setExcludedEducation((prevExc) => prevExc.filter((k) => k.toLowerCase() !== key));
+        }
       }
       return copy;
     });
@@ -254,6 +263,11 @@ export default function CandidateProfileSection() {
   };
 
   const handleRemoveEducation = (index: number) => {
+    const eduToRemove = education[index];
+    if (eduToRemove?.school?.trim() || eduToRemove?.degree?.trim()) {
+      const key = `${(eduToRemove.school || "").trim()}::${(eduToRemove.degree || "").trim()}`;
+      setExcludedEducation((prev) => (prev.includes(key) ? prev : [...prev, key]));
+    }
     setEducation((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -271,6 +285,12 @@ export default function CandidateProfileSection() {
         };
       } else {
         copy[index] = { ...copy[index], [field]: value };
+        if (field === "name" && value.trim()) {
+          const valLower = value.trim().toLowerCase();
+          setExcludedCertifications((prevExc) =>
+            prevExc.filter((n) => n.toLowerCase() !== valLower)
+          );
+        }
       }
       return copy;
     });
@@ -281,6 +301,11 @@ export default function CandidateProfileSection() {
   };
 
   const handleRemoveCertification = (index: number) => {
+    const certToRemove = certifications[index];
+    if (certToRemove?.name?.trim()) {
+      const name = certToRemove.name.trim();
+      setExcludedCertifications((prev) => (prev.includes(name) ? prev : [...prev, name]));
+    }
     setCertifications((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -356,7 +381,9 @@ export default function CandidateProfileSection() {
       projects,
       excluded_projects: excludedProjects,
       education,
+      excluded_education: excludedEducation,
       certifications,
+      excluded_certifications: excludedCertifications,
       languages: languagesText
         .split(",")
         .map((s) => s.trim())

@@ -303,6 +303,24 @@ def _merge_projects(
 def _merge_skills(
     sources: Dict[str, Dict[str, Any]], order: List[str]
 ) -> Dict[str, List[str]]:
+    """Fusionne les compétences par catégorie.
+
+    Contrairement aux expériences/projets (édition par élément, avec liste
+    d'exclusion), l'UI édite les compétences via un unique textarea qui
+    renvoie à chaque sauvegarde l'état complet voulu par l'utilisateur. Union
+    additive avec cv/website/github ferait donc réapparaître une compétence
+    supprimée: dès que manual contient des compétences, il fait autorité seul
+    (même logique que headline/summary via _first_non_empty), sinon on retombe
+    sur l'union des autres sources.
+    """
+    manual_skills = sources.get("manual", {}).get("skills") or {}
+    if manual_skills:
+        return {
+            cat: _dedup_preserving_order([str(v) for v in (values or [])])
+            for cat, values in manual_skills.items()
+            if any(str(v).strip() for v in (values or []))
+        }
+
     merged: Dict[str, List[str]] = {}
     for source in order:
         for category, skills in (sources[source].get("skills") or {}).items():
@@ -332,9 +350,45 @@ def _extract_languages(source_payload: Dict[str, Any]) -> List[str]:
     return normalized
 
 
+def _excluded_keys_from(
+    sources: Dict[str, Dict[str, Any]], order: List[str], field: str
+) -> set[str]:
+    """Clés normalisées exclues (`_normalize_key`), pour les champs à un seul critère."""
+    excluded: set[str] = set()
+    for source in order:
+        for exc in sources[source].get(field) or []:
+            if isinstance(exc, str) and exc:
+                excluded.add(_normalize_key(exc))
+    return excluded
+
+
+def _education_key(school: str, degree: str) -> str:
+    school_slug = _normalize_key(school)
+    degree_slug = _normalize_key(degree)
+    return f"{school_slug}::{degree_slug}" if degree_slug else school_slug
+
+
+def _excluded_education_keys(
+    sources: Dict[str, Dict[str, Any]], order: List[str]
+) -> set[str]:
+    """Clés school::degree exclues. Chaque entrée brute reprend le format
+    "école::diplôme" (ou juste "école") avant normalisation, pour retomber
+    exactement sur le même schéma de clé que le regroupement ci-dessous.
+    """
+    excluded: set[str] = set()
+    for source in order:
+        for exc in sources[source].get("excluded_education") or []:
+            if not isinstance(exc, str) or not exc:
+                continue
+            school, _, degree = exc.partition("::")
+            excluded.add(_education_key(school, degree))
+    return excluded
+
+
 def _merge_education(
     sources: Dict[str, Dict[str, Any]], order: List[str]
 ) -> List[Dict[str, Any]]:
+    excluded_keys = _excluded_education_keys(sources, order)
     grouped: Dict[str, Dict[str, Any]] = {}
     for source in order:
         for item in sources[source].get("education") or []:
@@ -358,9 +412,9 @@ def _merge_education(
             if not school and not degree:
                 continue
 
-            school_slug = _normalize_key(school)
-            degree_slug = _normalize_key(degree)
-            key = f"{school_slug}::{degree_slug}" if degree_slug else school_slug
+            key = _education_key(school, degree)
+            if key in excluded_keys:
+                continue
 
             if key not in grouped:
                 grouped[key] = {
@@ -385,6 +439,7 @@ def _merge_education(
 def _merge_certifications(
     sources: Dict[str, Dict[str, Any]], order: List[str]
 ) -> List[Dict[str, Any]]:
+    excluded_keys = _excluded_keys_from(sources, order, "excluded_certifications")
     grouped: Dict[str, Dict[str, Any]] = {}
     for source in order:
         for item in sources[source].get("certifications") or []:
@@ -402,6 +457,8 @@ def _merge_certifications(
                 continue
 
             key = _normalize_key(name)
+            if key in excluded_keys:
+                continue
             if key not in grouped:
                 grouped[key] = {
                     "name": name,
@@ -473,6 +530,10 @@ def build_profile_from_sources(
         "interests": _dedup_preserving_order(interests),
         "skills": skills,
         "excluded_projects": list(sources.get("manual", {}).get("excluded_projects", []) or []),
+        "excluded_education": list(sources.get("manual", {}).get("excluded_education", []) or []),
+        "excluded_certifications": list(
+            sources.get("manual", {}).get("excluded_certifications", []) or []
+        ),
     }
     return profile, conflicts
 

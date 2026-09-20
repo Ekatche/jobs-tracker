@@ -92,3 +92,7 @@ data/profile/
 # de profil candidat, jamais consommée par la suite pytest (voir
 # backend/scripts/letter_bakeoff.py, backend/scripts/run_writer_bakeoff.py).
 backend/scripts/candidate_profile_bakeoff.json
+
+# Taxonomies ROME/ESCO téléchargées manuellement pour seed_role_aliases_from_taxonomies.py
+# (gros CSV tiers, pas de raison de les committer)
+backend/scripts/data/

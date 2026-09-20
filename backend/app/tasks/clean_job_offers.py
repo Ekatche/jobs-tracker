@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from app.database import get_database
 from app.services.job_offers import clean_job_offer_duplicates_optimized
@@ -436,13 +437,14 @@ async def cleanup_invalid_offers():
 
 
 async def cleanup_workflow(
-    days: int = 6,
+    days: Optional[int] = None,
     enable_similarity_cleanup: bool = True,
     enable_global_similarity: bool = True,  # ✅ NOUVEAU: Priorité au global
     company_similarity_threshold: float = 0.75,
     position_similarity_threshold: float = 0.80,
+    enable_old_offers_cleanup: bool = False,  # ✅ Désactivé par défaut au profit de l'inspection réelle verify_job_offers
 ):
-    """✨ MODIFIÉ: Workflow avec nettoyage global renforcé"""
+    """✨ MODIFIÉ: Workflow avec nettoyage global renforcé (sans purge aveugle par date)"""
     logger.info("🚀 Début du workflow de nettoyage Airflow (mode global renforcé)")
 
     results = {"start_time": datetime.now(timezone.utc), "steps": {}}
@@ -483,9 +485,18 @@ async def cleanup_workflow(
         logger.info("🧹 Étape 4: Suppression des offres invalides")
         results["steps"]["invalid"] = await cleanup_invalid_offers()
 
-        # Étape 5: Suppression des anciennes offres
-        logger.info(f"🗑️ Étape 5: Suppression des offres > {days} jours")
-        results["steps"]["old_offers"] = await cleanup_old_offers(days)
+        # Étape 5: Suppression des anciennes offres (uniquement si explicitement activé)
+        if enable_old_offers_cleanup and days and days > 0:
+            logger.info(f"🗑️ Étape 5: Suppression des offres > {days} jours")
+            results["steps"]["old_offers"] = await cleanup_old_offers(days)
+        else:
+            logger.info(
+                "⏭️ Étape 5: Purge aveugle par âge désactivée (la validité réelle est assurée par verify_job_offers)"
+            )
+            results["steps"]["old_offers"] = {
+                "deleted": 0,
+                "status": "disabled_in_favor_of_live_verification",
+            }
 
         # Calcul des résultats
         results["end_time"] = datetime.now(timezone.utc)
@@ -588,13 +599,14 @@ async def cleanup_workflow(
 
 
 def cleanup_workflow_sync(
-    days: int = 6,
+    days: Optional[int] = None,
     enable_similarity_cleanup: bool = False,  # ✅ Désactivé par défaut
     enable_global_similarity: bool = True,  # ✅ Activé par défaut
     company_similarity_threshold: float = 0.75,
     position_similarity_threshold: float = 0.80,
+    enable_old_offers_cleanup: bool = False,  # ✅ Purge aveugle par âge désactivée par défaut
 ):
-    """✨ MODIFIÉ: Version synchrone avec mode global par défaut"""
+    """✨ MODIFIÉ: Version synchrone avec mode global par défaut et sans purge aveugle par date"""
     return asyncio.run(
         cleanup_workflow(
             days=days,
@@ -602,6 +614,7 @@ def cleanup_workflow_sync(
             enable_global_similarity=enable_global_similarity,
             company_similarity_threshold=company_similarity_threshold,
             position_similarity_threshold=position_similarity_threshold,
+            enable_old_offers_cleanup=enable_old_offers_cleanup,
         )
     )
 
