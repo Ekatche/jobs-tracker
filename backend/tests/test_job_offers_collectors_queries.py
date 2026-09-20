@@ -164,8 +164,8 @@ async def test_build_search_queries_capped_at_max_total():
 
 
 @pytest.mark.asyncio
-async def test_build_search_queries_profile_without_roles_ignored():
-    """(g) profil sans target_roles ignoré."""
+async def test_build_search_queries_profile_without_roles_uses_location_only():
+    """(g) profil sans target_roles mais avec locations génère une requête générique par ville."""
     profiles = [
         {
             "preferences": {
@@ -185,8 +185,9 @@ async def test_build_search_queries_profile_without_roles_ignored():
     with patch("app.tasks.job_offers_collectors.get_database", AsyncMock(return_value=mock_db)):
         queries = await build_search_queries()
 
-    assert len(queries) == 1
-    assert queries[0] == "Je recherche un poste de DevOps Engineer proche de Nantes"
+    assert len(queries) == 2
+    assert queries[0] == "Je recherche un poste proche de Lyon"
+    assert queries[1] == "Je recherche un poste de DevOps Engineer proche de Nantes"
 
 
 @pytest.mark.asyncio

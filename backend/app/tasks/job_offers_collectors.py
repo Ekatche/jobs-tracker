@@ -37,12 +37,12 @@ MAX_QUERIES_PER_PROFILE = 3
 MAX_TOTAL_QUERIES = 8
 
 DEFAULT_QUERIES: list[str] = [
-    "Je recherche un poste de data scientist proche de Lyon",
-    "Je recherche un poste d'ingénieur IA (AI engineer) proche de Lyon",
-    "Je recherche un poste de data engineer proche de Lyon",
-    "Je recherche un poste de machine learning engineer proche de Lyon",
-    "Je recherche un poste d'ingénieur MLOps proche de Lyon",
-    "Je recherche un poste de LLM engineer / ingénieur IA générative proche de Lyon",
+    "Je recherche un poste de data scientist",
+    "Je recherche un poste d'ingénieur IA (AI engineer)",
+    "Je recherche un poste de data engineer",
+    "Je recherche un poste de machine learning engineer",
+    "Je recherche un poste d'ingénieur MLOps",
+    "Je recherche un poste de LLM engineer / ingénieur IA générative",
 ]
 
 
@@ -606,8 +606,6 @@ async def build_search_queries() -> list[str]:
             raw_target_roles = [
                 r.strip() for r in (prefs.get("target_roles") or []) if isinstance(r, str) and r.strip()
             ]
-            if not raw_target_roles:
-                continue
 
             target_roles: list[str] = []
             seen_profile_roles: set[str] = set()
@@ -627,9 +625,6 @@ async def build_search_queries() -> list[str]:
                     seen_profile_roles.add(norm_key)
                     target_roles.append(norm_role)
 
-            if not target_roles:
-                continue
-
             locations = [
                 loc.strip() for loc in (prefs.get("locations") or []) if isinstance(loc, str) and loc.strip()
             ]
@@ -639,22 +634,28 @@ async def build_search_queries() -> list[str]:
             contract_suffix = f" ({contract_types[0]})" if contract_types else ""
 
             candidate_queries: list[str] = []
-            if locations:
-                for role in target_roles:
-                    for loc in locations:
+            if target_roles:
+                if locations:
+                    for role in target_roles:
+                        for loc in locations:
+                            candidate_queries.append(
+                                f"Je recherche un poste de {role} proche de {loc}{contract_suffix}"
+                            )
+                elif is_full_remote:
+                    for role in target_roles:
                         candidate_queries.append(
-                            f"Je recherche un poste de {role} proche de {loc}{contract_suffix}"
+                            f"Je recherche un poste de {role} en télétravail{contract_suffix}"
                         )
+                else:
+                    for role in target_roles:
+                        candidate_queries.append(
+                            f"Je recherche un poste de {role}{contract_suffix}"
+                        )
+            elif locations:
+                for loc in locations:
+                    candidate_queries.append(f"Je recherche un poste proche de {loc}{contract_suffix}")
             elif is_full_remote:
-                for role in target_roles:
-                    candidate_queries.append(
-                        f"Je recherche un poste de {role} en télétravail{contract_suffix}"
-                    )
-            else:
-                for role in target_roles:
-                    candidate_queries.append(
-                        f"Je recherche un poste de {role}{contract_suffix}"
-                    )
+                candidate_queries.append(f"Je recherche un poste en télétravail{contract_suffix}")
 
             if candidate_queries:
                 profiles_queries_list.append(candidate_queries[:MAX_QUERIES_PER_PROFILE])
