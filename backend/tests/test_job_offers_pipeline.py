@@ -583,3 +583,93 @@ async def test_collect_and_save_offers_tags_new_offers(monkeypatch):
     mock_tag_new_offers.assert_awaited_once()
     assert mock_tag_new_offers.call_args.args[0] == fake_offer_ids
 
+
+def test_get_job_offers_profile_only_filters_by_matched_user(client):
+    from unittest.mock import AsyncMock, MagicMock
+    from app.auth import get_current_user_optional
+    from app.database import get_database
+    from main import app
+    from app.models import UserModel
+
+    user = UserModel(
+        id="650000000000000000000099",
+        username="tester",
+        email="profileonly@example.com",
+        hashed_password="x",
+    )
+
+    captured = {}
+
+    mock_cursor = MagicMock()
+    mock_cursor.to_list = AsyncMock(return_value=[])
+
+    def aggregate_side_effect(pipeline):
+        captured["match"] = pipeline[0]["$match"]
+        return mock_cursor
+
+    mock_offers_collection = MagicMock()
+    mock_offers_collection.aggregate = MagicMock(side_effect=aggregate_side_effect)
+
+    class FakeDB(dict):
+        def __missing__(self, key):
+            generic = MagicMock()
+            generic_cursor = MagicMock()
+            generic_cursor.to_list = AsyncMock(return_value=[])
+            generic.find = MagicMock(return_value=generic_cursor)
+            self[key] = generic
+            return generic
+
+    mock_db = FakeDB()
+    mock_db["job_offers"] = mock_offers_collection
+
+    app.dependency_overrides[get_database] = lambda: mock_db
+    app.dependency_overrides[get_current_user_optional] = lambda: user
+
+    try:
+        response = client.get("/job-offers/?profile_only=true")
+        assert response.status_code == 200
+        assert captured["match"]["matched_user_ids"] == str(user.id)
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_job_offers_profile_only_ignored_when_anonymous(client):
+    from unittest.mock import AsyncMock, MagicMock
+    from app.auth import get_current_user_optional
+    from app.database import get_database
+    from main import app
+
+    captured = {}
+
+    mock_cursor = MagicMock()
+    mock_cursor.to_list = AsyncMock(return_value=[])
+
+    def aggregate_side_effect(pipeline):
+        captured["match"] = pipeline[0]["$match"]
+        return mock_cursor
+
+    mock_offers_collection = MagicMock()
+    mock_offers_collection.aggregate = MagicMock(side_effect=aggregate_side_effect)
+
+    class FakeDB(dict):
+        def __missing__(self, key):
+            generic = MagicMock()
+            generic_cursor = MagicMock()
+            generic_cursor.to_list = AsyncMock(return_value=[])
+            generic.find = MagicMock(return_value=generic_cursor)
+            self[key] = generic
+            return generic
+
+    mock_db = FakeDB()
+    mock_db["job_offers"] = mock_offers_collection
+
+    app.dependency_overrides[get_database] = lambda: mock_db
+    app.dependency_overrides[get_current_user_optional] = lambda: None
+
+    try:
+        response = client.get("/job-offers/?profile_only=true")
+        assert response.status_code == 200
+        assert "matched_user_ids" not in captured["match"]
+    finally:
+        app.dependency_overrides.clear()
+
