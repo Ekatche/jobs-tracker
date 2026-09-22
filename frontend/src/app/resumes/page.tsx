@@ -55,14 +55,18 @@ function ResumesContent() {
   const openGenerateModal = async (initialOfferId?: string) => {
     setIsGenerateModalOpen(true);
     setGenerateError(null);
-    setOfferSearchQuery("");
     try {
       const offers = await jobOffersApi.getAll({ limit: 100 });
       setAvailableOffers(offers);
       if (initialOfferId) {
         setSelectedOfferId(initialOfferId);
-      } else if (offers.length > 0) {
-        setSelectedOfferId(offers[0].id || "");
+        const preselected = offers.find((o) => o.id === initialOfferId);
+        setOfferSearchQuery(preselected?.poste || "");
+      } else {
+        setOfferSearchQuery("");
+        if (offers.length > 0) {
+          setSelectedOfferId(offers[0].id || "");
+        }
       }
     } catch (err) {
       console.error("Failed to fetch job offers:", err);

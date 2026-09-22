@@ -816,6 +816,7 @@ async def get_job_offers_count(
     only_saved: bool = Query(False),
     include_hidden: bool = Query(False),
     min_score: Optional[float] = Query(None),
+    profile_only: bool = Query(False),
     db=Depends(get_database),
     current_user: Optional[UserModel] = Depends(get_current_user_optional),
 ):
@@ -859,6 +860,9 @@ async def get_job_offers_count(
 
         if work_mode:
             match_filter["mode_travail"] = {"$regex": work_mode, "$options": "i"}
+
+        if profile_only and current_user:
+            match_filter["matched_user_ids"] = str(current_user.id)
 
         if days_recent and days_recent > 0:
             threshold_dt = datetime.now(timezone.utc) - timedelta(days=days_recent)

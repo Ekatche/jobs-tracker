@@ -59,10 +59,10 @@ def load_tailor_prompt(
 
     eval_context_str = "\n".join(eval_context_lines) if eval_context_lines else "Aucune analyse Bloc B préalable disponible."
 
-    # Serialize profile for prompt (excluding internal ids)
+    # Serialize profile for prompt (excluding internal ids and cache state)
     profile_for_prompt = {
         k: v for k, v in profile.items()
-        if k not in ["_id", "id", "user_id", "created_at", "updated_at"]
+        if k not in ["_id", "id", "user_id", "created_at", "updated_at", "suggested_roles_cache"]
     }
 
     target_company = offer.get("entreprise") or offer.get("company") or "L'entreprise cible"
@@ -71,7 +71,7 @@ def load_tailor_prompt(
     offer_desc = offer.get("description") or offer.get("job_description") or ""
 
     return template.format(
-        candidate_profile=json.dumps(profile_for_prompt, ensure_ascii=False, indent=2),
+        candidate_profile=json.dumps(profile_for_prompt, ensure_ascii=False, indent=2, default=str),
         target_company=target_company,
         target_role=target_role,
         job_location=job_location,

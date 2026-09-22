@@ -69,7 +69,7 @@ async def _get_prep_or_empty(db, offer_id: str, user_id: str) -> Dict[str, Any]:
 async def _get_profile_and_offer(db, offer_id: str, user_id: str) -> tuple[Dict[str, Any], Dict[str, Any], Optional[Dict[str, Any]]]:
     """Helper to fetch profile, offer and evaluation."""
     user_query = {"$or": [{"user_id": str(user_id)}, {"user_id": ObjectId(user_id)}]} if ObjectId.is_valid(user_id) else {"user_id": str(user_id)}
-    profile = await db["candidate_profiles"].find_one(user_query)
+    profile = await db["candidate_profile"].find_one(user_query)
     if not profile:
         raise HTTPException(status_code=400, detail="Profil candidat introuvable. Veuillez compléter votre profil d'abord.")
 
@@ -103,10 +103,11 @@ async def generate_stories_endpoint(
     db=Depends(get_database),
 ):
     """Generate or regenerate STAR+R stories for this offer."""
-    await require_user_quota(str(current_user.id), ApiUsageAction.INTERVIEW_PREP)
+    await require_user_quota(db, current_user.id, ApiUsageAction.INTERVIEW_PREP)
     profile, offer, evaluation = await _get_profile_and_offer(db, offer_id, str(current_user.id))
 
     stories = await generate_star_stories(
+        db=db,
         user_id=str(current_user.id),
         profile=profile,
         offer=offer,
@@ -146,10 +147,11 @@ async def generate_audience_packs_endpoint(
     db=Depends(get_database),
 ):
     """Generate or regenerate Recruiter, HM, and Tech panel packs."""
-    await require_user_quota(str(current_user.id), ApiUsageAction.INTERVIEW_PREP)
+    await require_user_quota(db, current_user.id, ApiUsageAction.INTERVIEW_PREP)
     profile, offer, evaluation = await _get_profile_and_offer(db, offer_id, str(current_user.id))
 
     recruiter, hm, tech = await generate_audience_packs(
+        db=db,
         user_id=str(current_user.id),
         profile=profile,
         offer=offer,
@@ -189,13 +191,14 @@ async def generate_questions_endpoint(
     db=Depends(get_database),
 ):
     """Generate or regenerate anticipated behavioral and technical questions."""
-    await require_user_quota(str(current_user.id), ApiUsageAction.INTERVIEW_PREP)
+    await require_user_quota(db, current_user.id, ApiUsageAction.INTERVIEW_PREP)
     profile, offer, evaluation = await _get_profile_and_offer(db, offer_id, str(current_user.id))
 
     existing = await _get_prep_or_empty(db, offer_id, str(current_user.id))
     stories = [StarRStory(**s) for s in existing.get("stories", [])]
 
     questions = await generate_anticipated_questions(
+        db=db,
         user_id=str(current_user.id),
         profile=profile,
         offer=offer,
@@ -236,10 +239,11 @@ async def generate_reverse_questions_endpoint(
     db=Depends(get_database),
 ):
     """Generate or regenerate reverse questions to audit the employer."""
-    await require_user_quota(str(current_user.id), ApiUsageAction.INTERVIEW_PREP)
+    await require_user_quota(db, current_user.id, ApiUsageAction.INTERVIEW_PREP)
     _, offer, evaluation = await _get_profile_and_offer(db, offer_id, str(current_user.id))
 
     rev_questions = await generate_reverse_questions(
+        db=db,
         user_id=str(current_user.id),
         offer=offer,
         evaluation=evaluation,
@@ -278,22 +282,25 @@ async def generate_all_endpoint(
     db=Depends(get_database),
 ):
     """Generate all 4 modules in sequence for full convenience."""
-    await require_user_quota(str(current_user.id), ApiUsageAction.INTERVIEW_PREP)
+    await require_user_quota(db, current_user.id, ApiUsageAction.INTERVIEW_PREP)
     profile, offer, evaluation = await _get_profile_and_offer(db, offer_id, str(current_user.id))
 
     stories = await generate_star_stories(
+        db=db,
         user_id=str(current_user.id),
         profile=profile,
         offer=offer,
         evaluation=evaluation,
     )
     recruiter, hm, tech = await generate_audience_packs(
+        db=db,
         user_id=str(current_user.id),
         profile=profile,
         offer=offer,
         evaluation=evaluation,
     )
     questions = await generate_anticipated_questions(
+        db=db,
         user_id=str(current_user.id),
         profile=profile,
         offer=offer,
@@ -301,6 +308,7 @@ async def generate_all_endpoint(
         stories=stories,
     )
     rev_questions = await generate_reverse_questions(
+        db=db,
         user_id=str(current_user.id),
         offer=offer,
         evaluation=evaluation,

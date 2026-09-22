@@ -96,3 +96,5 @@ backend/scripts/candidate_profile_bakeoff.json
 # Taxonomies ROME/ESCO téléchargées manuellement pour seed_role_aliases_from_taxonomies.py
 # (gros CSV tiers, pas de raison de les committer)
 backend/scripts/data/
+# Added by code-review-graph
+.code-review-graph/

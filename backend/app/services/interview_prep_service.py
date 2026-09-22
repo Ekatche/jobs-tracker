@@ -147,6 +147,7 @@ def format_evaluation_context(evaluation: Optional[Dict[str, Any]]) -> str:
 
 
 async def generate_star_stories(
+    db,
     user_id: Union[str, ObjectId],
     profile: Dict[str, Any],
     offer: Dict[str, Any],
@@ -175,15 +176,14 @@ async def generate_star_stories(
     usage = getattr(response, "usage", None)
     input_tokens = getattr(usage, "prompt_tokens", 0) or 0
     output_tokens = getattr(usage, "completion_tokens", 0) or 0
-    total_tokens = getattr(usage, "total_tokens", 0) or (input_tokens + output_tokens)
 
     await record_api_usage(
+        db=db,
         user_id=user_id,
         action=ApiUsageAction.INTERVIEW_PREP,
         models_used=[DEFAULT_INTERVIEW_MODEL],
         input_tokens=input_tokens,
         output_tokens=output_tokens,
-        total_tokens=total_tokens,
         latency_ms=latency_ms,
         success=True,
         metadata={"sub_action": "stories", "offer_id": str(offer.get("_id", ""))},
@@ -213,6 +213,7 @@ async def generate_star_stories(
 
 
 async def generate_audience_packs(
+    db,
     user_id: Union[str, ObjectId],
     profile: Dict[str, Any],
     offer: Dict[str, Any],
@@ -241,15 +242,14 @@ async def generate_audience_packs(
     usage = getattr(response, "usage", None)
     input_tokens = getattr(usage, "prompt_tokens", 0) or 0
     output_tokens = getattr(usage, "completion_tokens", 0) or 0
-    total_tokens = getattr(usage, "total_tokens", 0) or (input_tokens + output_tokens)
 
     await record_api_usage(
+        db=db,
         user_id=user_id,
         action=ApiUsageAction.INTERVIEW_PREP,
         models_used=[DEFAULT_INTERVIEW_MODEL],
         input_tokens=input_tokens,
         output_tokens=output_tokens,
-        total_tokens=total_tokens,
         latency_ms=latency_ms,
         success=True,
         metadata={"sub_action": "audience_packs", "offer_id": str(offer.get("_id", ""))},
@@ -284,6 +284,7 @@ async def generate_audience_packs(
 
 
 async def generate_anticipated_questions(
+    db,
     user_id: Union[str, ObjectId],
     profile: Dict[str, Any],
     offer: Dict[str, Any],
@@ -319,15 +320,14 @@ async def generate_anticipated_questions(
     usage = getattr(response, "usage", None)
     input_tokens = getattr(usage, "prompt_tokens", 0) or 0
     output_tokens = getattr(usage, "completion_tokens", 0) or 0
-    total_tokens = getattr(usage, "total_tokens", 0) or (input_tokens + output_tokens)
 
     await record_api_usage(
+        db=db,
         user_id=user_id,
         action=ApiUsageAction.INTERVIEW_PREP,
         models_used=[DEFAULT_INTERVIEW_MODEL],
         input_tokens=input_tokens,
         output_tokens=output_tokens,
-        total_tokens=total_tokens,
         latency_ms=latency_ms,
         success=True,
         metadata={"sub_action": "questions", "offer_id": str(offer.get("_id", ""))},
@@ -353,6 +353,7 @@ async def generate_anticipated_questions(
 
 
 async def generate_reverse_questions(
+    db,
     user_id: Union[str, ObjectId],
     offer: Dict[str, Any],
     evaluation: Optional[Dict[str, Any]] = None,
@@ -379,15 +380,14 @@ async def generate_reverse_questions(
     usage = getattr(response, "usage", None)
     input_tokens = getattr(usage, "prompt_tokens", 0) or 0
     output_tokens = getattr(usage, "completion_tokens", 0) or 0
-    total_tokens = getattr(usage, "total_tokens", 0) or (input_tokens + output_tokens)
 
     await record_api_usage(
+        db=db,
         user_id=user_id,
         action=ApiUsageAction.INTERVIEW_PREP,
         models_used=[DEFAULT_INTERVIEW_MODEL],
         input_tokens=input_tokens,
         output_tokens=output_tokens,
-        total_tokens=total_tokens,
         latency_ms=latency_ms,
         success=True,
         metadata={"sub_action": "reverse_questions", "offer_id": str(offer.get("_id", ""))},

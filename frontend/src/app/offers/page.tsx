@@ -912,6 +912,10 @@ export default function OffersPage() {
                     setInteractionStatus(undefined);
                     setDaysRecentFilter(undefined);
                     setMinScoreFilter(undefined);
+                    setIsProfileFilterActive(false);
+                    setProfileRoles([]);
+                    setProfileLocations([]);
+                    setProfileEmpty(false);
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
                     !onlySaved && !interactionStatus && !daysRecentFilter && minScoreFilter === undefined
@@ -940,6 +944,10 @@ export default function OffersPage() {
                   onClick={() => {
                     setOnlySaved(!onlySaved);
                     setInteractionStatus(undefined);
+                    setIsProfileFilterActive(false);
+                    setProfileRoles([]);
+                    setProfileLocations([]);
+                    setProfileEmpty(false);
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
                     onlySaved
