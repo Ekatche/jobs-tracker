@@ -57,3 +57,38 @@ async def get_normalized_profile_criteria(
     normalized_locations = {normalize_city(loc).lower() for loc in locations if loc}
 
     return normalized_roles, normalized_locations, remote_policy
+
+
+async def rematch_user(user_id: str, db) -> None:
+    """Recalcule le matching d'UN user contre tout le stock actif.
+    $addToSet sur les offres qui matchent désormais, $pull sur celles qui
+    ne matchent plus. Idempotent : rejouer sans changement de préférences
+    ne modifie pas matched_user_ids."""
+    profile = await db["candidate_profile"].find_one({"user_id": ObjectId(user_id)})
+    if not profile:
+        return
+
+    prefs = profile.get("preferences") or {}
+    normalized_roles, normalized_locations, remote_policy = await get_normalized_profile_criteria(prefs, db)
+
+    collection = db["job_offers"]
+    offers = await collection.find({"is_deleted": {"$ne": True}}).to_list(length=None)
+
+    matching_ids = [
+        offer["_id"]
+        for offer in offers
+        if offer_matches_criteria(offer, normalized_roles, normalized_locations, remote_policy)
+    ]
+    matching_id_set = set(matching_ids)
+    non_matching_ids = [offer["_id"] for offer in offers if offer["_id"] not in matching_id_set]
+
+    if matching_ids:
+        await collection.update_many(
+            {"_id": {"$in": matching_ids}},
+            {"$addToSet": {"matched_user_ids": user_id}},
+        )
+    if non_matching_ids:
+        await collection.update_many(
+            {"_id": {"$in": non_matching_ids}},
+            {"$pull": {"matched_user_ids": user_id}},
+        )
