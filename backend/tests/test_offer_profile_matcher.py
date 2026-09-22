@@ -129,3 +129,55 @@ async def test_rematch_user_no_profile_does_nothing():
     await rematch_user("650000000000000000000099", mock_db)
 
     mock_offers_collection.update_many.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_tag_new_offers_tags_multiple_matching_profiles():
+    from unittest.mock import AsyncMock, MagicMock
+    from bson import ObjectId
+    from app.services.offer_profile_matcher import tag_new_offers
+
+    offer_id = ObjectId("650000000000000000000030")
+    new_offer = {"_id": offer_id, "canonical_title": "Data Engineer", "localisation": "Lyon", "mode_travail": "Hybride"}
+
+    mock_offers_cursor = MagicMock()
+    mock_offers_cursor.to_list = AsyncMock(return_value=[new_offer])
+
+    mock_offers_collection = MagicMock()
+    mock_offers_collection.find = MagicMock(return_value=mock_offers_cursor)
+    mock_offers_collection.update_many = AsyncMock()
+
+    mock_profiles_cursor = MagicMock()
+    mock_profiles_cursor.to_list = AsyncMock(
+        return_value=[
+            {"user_id": ObjectId("650000000000000000000001"), "preferences": {"target_roles": ["Data Engineer"], "locations": ["Lyon"], "remote_policy": "flexible"}},
+            {"user_id": ObjectId("650000000000000000000002"), "preferences": {"target_roles": ["Comptable"], "locations": [], "remote_policy": "flexible"}},
+        ]
+    )
+
+    mock_profile_collection = MagicMock()
+    mock_profile_collection.find = MagicMock(return_value=mock_profiles_cursor)
+
+    mock_db = {"job_offers": mock_offers_collection, "candidate_profile": mock_profile_collection}
+
+    with patch("app.services.offer_profile_matcher.normalize_role", AsyncMock(side_effect=lambda role, db=None: role)):
+        await tag_new_offers([offer_id], mock_db)
+
+    assert mock_offers_collection.update_many.call_count == 1
+    call = mock_offers_collection.update_many.call_args
+    assert call.args[0] == {"_id": {"$in": [offer_id]}}
+    assert call.args[1] == {"$addToSet": {"matched_user_ids": "650000000000000000000001"}}
+
+
+@pytest.mark.asyncio
+async def test_tag_new_offers_empty_list_does_nothing():
+    from unittest.mock import AsyncMock, MagicMock
+    from app.services.offer_profile_matcher import tag_new_offers
+
+    mock_offers_collection = MagicMock()
+    mock_offers_collection.find = MagicMock()
+    mock_db = {"job_offers": mock_offers_collection}
+
+    await tag_new_offers([], mock_db)
+
+    mock_offers_collection.find.assert_not_called()

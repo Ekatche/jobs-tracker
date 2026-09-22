@@ -92,3 +92,33 @@ async def rematch_user(user_id: str, db) -> None:
             {"_id": {"$in": non_matching_ids}},
             {"$pull": {"matched_user_ids": user_id}},
         )
+
+
+async def tag_new_offers(offer_ids: list, db) -> None:
+    """Recalcule le matching de TOUS les profils contre un lot d'offres
+    fraîchement sauvegardées. Utilisé en fin de cycle de collecte."""
+    if not offer_ids:
+        return
+
+    collection = db["job_offers"]
+    offers = await collection.find({"_id": {"$in": offer_ids}}).to_list(length=None)
+    if not offers:
+        return
+
+    profiles = await db["candidate_profile"].find({}).to_list(length=None)
+
+    for profile in profiles:
+        user_id = str(profile["user_id"])
+        prefs = profile.get("preferences") or {}
+        normalized_roles, normalized_locations, remote_policy = await get_normalized_profile_criteria(prefs, db)
+
+        matching_ids = [
+            offer["_id"]
+            for offer in offers
+            if offer_matches_criteria(offer, normalized_roles, normalized_locations, remote_policy)
+        ]
+        if matching_ids:
+            await collection.update_many(
+                {"_id": {"$in": matching_ids}},
+                {"$addToSet": {"matched_user_ids": user_id}},
+            )
