@@ -554,3 +554,32 @@ async def test_save_offers_to_database_returns_offer_ids_on_insert(monkeypatch):
     assert res["saved"] == 1
     assert res["offer_ids"] == [inserted_id]
 
+
+@pytest.mark.asyncio
+async def test_collect_and_save_offers_tags_new_offers(monkeypatch):
+    from unittest.mock import AsyncMock
+    from bson import ObjectId
+    import app.tasks.job_offers_collectors as collectors
+
+    fake_offer_ids = [ObjectId("650000000000000000000040")]
+
+    monkeypatch.setattr(collectors, "get_urls_for_query", AsyncMock(return_value=["https://example.com/1"]))
+    monkeypatch.setattr(collectors, "crawl_urls_for_offers", AsyncMock(return_value=[{"poste": "Data Engineer"}]))
+    monkeypatch.setattr(collectors, "enrich_offers", AsyncMock(return_value=[{"poste": "Data Engineer"}]))
+    monkeypatch.setattr(collectors, "clean_duplicate_offers", AsyncMock(return_value=[{"poste": "Data Engineer"}]))
+    monkeypatch.setattr(
+        collectors,
+        "save_offers_to_database",
+        AsyncMock(return_value={"saved": 1, "updated": 0, "offer_ids": fake_offer_ids}),
+    )
+    mock_tag_new_offers = AsyncMock()
+    monkeypatch.setattr(collectors, "tag_new_offers", mock_tag_new_offers)
+    monkeypatch.setattr(collectors, "cleanup_resources", AsyncMock())
+    monkeypatch.setattr(collectors, "get_database", AsyncMock(return_value={"job_offers": None}))
+
+    result = await collectors.collect_and_save_offers("data engineer lyon")
+
+    assert result == {"saved": 1, "updated": 0, "offer_ids": fake_offer_ids}
+    mock_tag_new_offers.assert_awaited_once()
+    assert mock_tag_new_offers.call_args.args[0] == fake_offer_ids
+

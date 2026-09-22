@@ -24,6 +24,7 @@ from app.services.normalization import (
     normalize_company,
 )
 from app.services.role_normalizer import normalize_role
+from app.services.offer_profile_matcher import tag_new_offers
 from app.services.relevance import (
     RELEVANCE_FILTER_ENABLED,
     is_off_domain_url,
@@ -571,7 +572,10 @@ async def collect_and_save_offers(query: str) -> dict:
         offers = await crawl_urls_for_offers(urls)
         enriched = await enrich_offers(offers, query)
         cleaned = await clean_duplicate_offers(enriched)
-        return await save_offers_to_database(cleaned)
+        result = await save_offers_to_database(cleaned)
+        db = await get_database()
+        await tag_new_offers(result["offer_ids"], db)
+        return result
     finally:
         await cleanup_resources()
 
