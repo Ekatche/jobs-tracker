@@ -106,6 +106,10 @@ export default function OffersPage() {
   const [onlySaved, setOnlySaved] = useState(false);
   const [interactionStatus, setInteractionStatus] = useState<"saved" | "applied" | "hidden" | undefined>(undefined);
   const [minScoreFilter, setMinScoreFilter] = useState<number | undefined>(undefined);
+  const [profileRoles, setProfileRoles] = useState<string[]>([]);
+  const [profileLocations, setProfileLocations] = useState<string[]>([]);
+  const [isProfileFilterActive, setIsProfileFilterActive] = useState(false);
+  const [profileEmpty, setProfileEmpty] = useState(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -132,6 +136,7 @@ export default function OffersPage() {
     if (onlySaved) f.only_saved = true;
     if (interactionStatus) f.interaction_status = interactionStatus;
     if (minScoreFilter !== undefined) f.min_score = minScoreFilter;
+    if (isProfileFilterActive) f.profile_only = true;
     return f;
   }, [
     searchTerm,
@@ -143,6 +148,7 @@ export default function OffersPage() {
     onlySaved,
     interactionStatus,
     minScoreFilter,
+    isProfileFilterActive,
   ]);
 
   // Fonction pour charger le nombre total d'offres
@@ -279,14 +285,9 @@ export default function OffersPage() {
     window.dispatchEvent(event);
   };
 
-  const [profileRoles, setProfileRoles] = useState<string[]>([]);
-  const [profileLocations, setProfileLocations] = useState<string[]>([]);
-  const [isProfileFilterActive, setIsProfileFilterActive] = useState(false);
-
-  // Appliquer automatiquement les critères enregistrés dans le profil du candidat.
-  // Priorise les rôles cibles explicites (préférences) ; à défaut, se rabat sur les
-  // suggestions canonicalisées (headline + expériences passées par normalize_role),
-  // et combine tous les rôles en OR (`|`) pour maximiser la couverture de recherche.
+  // Applique le filtre "selon mon profil" : le matching lui-même est calculé
+  // côté backend (matched_user_ids sur chaque offre), ce hook ne fait que
+  // récupérer rôles/localisations pour afficher les badges de critères.
   const handleApplyProfileCriteria = useCallback(async () => {
     try {
       const [profile, suggested] = await Promise.all([
@@ -303,18 +304,7 @@ export default function OffersPage() {
       setProfileRoles(allRoles);
       setProfileLocations(locs);
       setIsProfileFilterActive(true);
-
-      setSearchTerm(allRoles.length > 0 ? allRoles.join("|") : "");
-      setLocationFilter(locs.length > 0 ? locs.join("|") : "");
-
-      // Réinitialiser les filtres annexes trop restrictifs
-      setContractTypeFilter("");
-      setCompanyFilter("");
-      setWorkModeFilter("");
-      setDaysRecentFilter(undefined);
-      setMinScoreFilter(undefined);
-      setOnlySaved(false);
-      setInteractionStatus(undefined);
+      setProfileEmpty(allRoles.length === 0 && locs.length === 0);
     } catch (err) {
       console.error("Erreur lors de la récupération des critères du profil:", err);
     }
@@ -1055,6 +1045,15 @@ export default function OffersPage() {
                 </div>
               )}
 
+              {profileEmpty && (
+                <div className="mt-3 pt-3 border-t border-slate-800/80 text-xs text-amber-300/90 flex items-center gap-1.5">
+                  <FiTarget className="w-3 h-3" />
+                  <span>
+                    Complétez vos postes ciblés ou votre localisation dans votre profil pour affiner les offres affichées.
+                  </span>
+                </div>
+              )}
+
               {/* Filtres détaillés */}
               {showFilters && (
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 pt-4 mt-4 border-t border-slate-800 text-xs">
@@ -1156,7 +1155,8 @@ export default function OffersPage() {
                 daysRecentFilter !== undefined ||
                 onlySaved ||
                 interactionStatus ||
-                minScoreFilter !== undefined) && (
+                minScoreFilter !== undefined ||
+                isProfileFilterActive) && (
                 <button
                   onClick={() => {
                     setSearchTerm("");
@@ -1168,6 +1168,10 @@ export default function OffersPage() {
                     setOnlySaved(false);
                     setInteractionStatus(undefined);
                     setMinScoreFilter(undefined);
+                    setIsProfileFilterActive(false);
+                    setProfileRoles([]);
+                    setProfileLocations([]);
+                    setProfileEmpty(false);
                   }}
                   className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
                 >
