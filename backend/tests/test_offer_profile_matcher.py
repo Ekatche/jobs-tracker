@@ -1,4 +1,6 @@
-from app.services.offer_profile_matcher import offer_matches_criteria
+import pytest
+from unittest.mock import AsyncMock, patch
+from app.services.offer_profile_matcher import offer_matches_criteria, get_normalized_profile_criteria
 
 
 def test_offer_matches_criteria_role_only():
@@ -35,3 +37,36 @@ def test_offer_matches_criteria_full_remote_with_teletravail_offer():
 def test_offer_matches_criteria_case_insensitive():
     offer = {"canonical_title": "DATA ENGINEER", "localisation": "LYON", "mode_travail": "Hybride"}
     assert offer_matches_criteria(offer, {"data engineer"}, {"lyon"}, "flexible") is True
+
+
+@pytest.mark.asyncio
+async def test_get_normalized_profile_criteria_normalizes_roles_and_locations():
+    prefs = {
+        "target_roles": ["Ingénieur Data", "  "],
+        "locations": ["69000 Lyon", "Paris"],
+        "remote_policy": "hybrid",
+    }
+
+    async def fake_normalize_role(role, db=None):
+        return {"Ingénieur Data": "Data Engineer"}.get(role, role)
+
+    with patch(
+        "app.services.offer_profile_matcher.normalize_role",
+        AsyncMock(side_effect=fake_normalize_role),
+    ):
+        roles, locations, remote_policy = await get_normalized_profile_criteria(prefs, db=None)
+
+    assert roles == {"data engineer"}
+    assert locations == {"lyon", "paris"}
+    assert remote_policy == "hybrid"
+
+
+@pytest.mark.asyncio
+async def test_get_normalized_profile_criteria_empty_prefs():
+    with patch("app.services.offer_profile_matcher.normalize_role", AsyncMock()) as mock_role:
+        roles, locations, remote_policy = await get_normalized_profile_criteria({}, db=None)
+
+    assert roles == set()
+    assert locations == set()
+    assert remote_policy == "flexible"
+    mock_role.assert_not_called()
