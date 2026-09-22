@@ -91,3 +91,6 @@ async def create_job_offers_indexes(db):
     # Index composé pour les filtres fréquents et soft-delete
     await collection.create_index([("is_deleted", 1), ("created_at", -1)])
     await collection.create_index([("localisation", 1), ("created_at", -1)])
+
+    # Index sur le matching persistant profil <-> offre (filtre "Selon mon profil")
+    await collection.create_index("matched_user_ids")
