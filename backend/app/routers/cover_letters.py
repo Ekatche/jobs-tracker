@@ -24,6 +24,7 @@ from app.services.profile.merge import build_profile_from_sources
 from app.services.profile.urls import validate_public_url_async
 from app.services.role_normalizer import match_taxonomy_role, suggest_role_titles_from_profile
 from app.services.usage_tracker import record_api_usage, require_user_quota
+from app.services.offer_profile_matcher import rematch_user
 
 MAX_SUGGESTED_ROLES = 8
 
@@ -405,8 +406,19 @@ async def update_candidate_profile(
         raise HTTPException(status_code=502, detail="La mise à jour du profil a échoué")
 
 
+async def _safe_rematch_user(user_id: str, db) -> None:
+    """Enveloppe rematch_user pour tâche de fond : une erreur de matching ne doit
+    jamais faire échouer ou logguer de traceback bruyant après que la réponse
+    HTTP a déjà été envoyée."""
+    try:
+        await rematch_user(user_id, db)
+    except Exception:
+        logger.exception("Échec du rematch en tâche de fond pour %s", user_id)
+
+
 @cover_letters_router.put("/profile/candidate/preferences")
 async def update_candidate_preferences(
+    background_tasks: BackgroundTasks,
     preferences_data: dict = Body(...),
     db=Depends(get_database),
     current_user: UserModel = Depends(get_current_user),
@@ -418,8 +430,24 @@ async def update_candidate_preferences(
         existing = await db["candidate_profile"].find_one({"user_id": ObjectId(current_user.id)}) or {}
         sources = dict(existing.get("sources") or {})
         manual = dict(sources.get("manual") or {})
+        old_preferences = dict(manual.get("preferences") or {})
         manual["preferences"] = validated_pref.model_dump()
-        return await _store_source(db, str(current_user.id), "manual", manual)
+        result = await _store_source(db, str(current_user.id), "manual", manual)
+
+        if old_preferences:
+            try:
+                old_preferences = CandidatePreferences.model_validate(old_preferences).model_dump()
+            except Exception:
+                pass
+
+        matching_fields_changed = any(
+            old_preferences.get(field) != manual["preferences"].get(field)
+            for field in ("target_roles", "locations", "remote_policy")
+        )
+        if matching_fields_changed:
+            background_tasks.add_task(_safe_rematch_user, str(current_user.id), db)
+
+        return result
     except HTTPException:
         raise
     except Exception:

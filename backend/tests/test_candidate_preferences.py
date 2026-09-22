@@ -150,3 +150,93 @@ def test_candidate_preferences_multi_seniority():
     assert pref_legacy.seniority_levels == ["lead"]
     assert pref_legacy.seniority_level == "lead"
 
+
+def test_put_preferences_triggers_rematch_on_target_roles_change():
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from bson import ObjectId
+    from app.auth import get_current_user
+    from app.database import get_database
+    from main import app
+
+    user_id = "60c72b2f9b1d8b2bad7f5678"
+    stored = {"user_id": user_id, "headline": "Dev", "experiences": [], "sources": {}}
+
+    async def find_one(_query):
+        return dict(stored) if stored else None
+
+    async def update_one(_filter, update, upsert=False):
+        stored.update(update.get("$set", {}))
+        stored.setdefault("_id", ObjectId())
+        return MagicMock()
+
+    collection = MagicMock()
+    collection.find_one = AsyncMock(side_effect=find_one)
+    collection.update_one = AsyncMock(side_effect=update_one)
+    db = MagicMock()
+    db.__getitem__.return_value = collection
+
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: UserModel(
+        id=user_id, username="tester", email="t3@example.com", hashed_password="x"
+    )
+
+    try:
+        with patch("app.routers.cover_letters.rematch_user", AsyncMock()) as mock_rematch:
+            payload = {"target_roles": ["Data Engineer"], "locations": ["Lyon"]}
+            from fastapi.testclient import TestClient
+            test_client = TestClient(app)
+            response = test_client.put("/profile/candidate/preferences", json=payload)
+            assert response.status_code == 200
+            mock_rematch.assert_called_once()
+            assert mock_rematch.call_args.args[0] == user_id
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_put_preferences_no_rematch_when_matching_fields_unchanged():
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from bson import ObjectId
+    from app.auth import get_current_user
+    from app.database import get_database
+    from main import app
+    from fastapi.testclient import TestClient
+
+    user_id = "60c72b2f9b1d8b2bad7f9999"
+    initial_payload = {"target_roles": ["Data Engineer"], "locations": ["Lyon"], "notice_period": "1 mois"}
+    stored = {
+        "user_id": user_id,
+        "headline": "Dev",
+        "experiences": [],
+        "sources": {"manual": {"preferences": dict(initial_payload)}},
+    }
+
+    async def find_one(_query):
+        return dict(stored) if stored else None
+
+    async def update_one(_filter, update, upsert=False):
+        stored.update(update.get("$set", {}))
+        stored.setdefault("_id", ObjectId())
+        return MagicMock()
+
+    collection = MagicMock()
+    collection.find_one = AsyncMock(side_effect=find_one)
+    collection.update_one = AsyncMock(side_effect=update_one)
+    db = MagicMock()
+    db.__getitem__.return_value = collection
+
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: UserModel(
+        id=user_id, username="tester", email="t4@example.com", hashed_password="x"
+    )
+
+    try:
+        with patch("app.routers.cover_letters.rematch_user", AsyncMock()) as mock_rematch:
+            # Seul notice_period change, pas target_roles/locations/remote_policy
+            payload = {"target_roles": ["Data Engineer"], "locations": ["Lyon"], "notice_period": "3 mois"}
+            test_client = TestClient(app)
+            response = test_client.put("/profile/candidate/preferences", json=payload)
+            assert response.status_code == 200
+            mock_rematch.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
+
