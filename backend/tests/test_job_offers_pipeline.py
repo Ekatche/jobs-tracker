@@ -471,3 +471,86 @@ async def test_save_offers_to_database_cross_source_dedup(monkeypatch):
     assert incoming_linkedin_offer["url"] in update_arg["alternative_urls"]
     assert update_arg["evaluation"] == existing_wttj_doc["evaluation"]
 
+
+@pytest.mark.asyncio
+async def test_save_offers_to_database_returns_offer_ids_on_update(monkeypatch):
+    from unittest.mock import AsyncMock, MagicMock
+    from bson import ObjectId
+    from app.tasks.job_offers_collectors import save_offers_to_database
+
+    existing_doc = {
+        "_id": ObjectId("6aaa8ed40a4a13cc5c4a7b1f"),
+        "poste": "Ai Engineer / Scientist Confirmé F/h",
+        "entreprise": "Deloitte",
+        "localisation": "Lyon",
+        "url": "https://www.welcometothejungle.com/fr/companies/deloitte/jobs/ai-engineer-scientist-confirme-f-h_lyon",
+        "unique_key": "deloitte|ai confirmé engineer scientist|lyon",
+        "created_at": datetime(2026, 9, 16, 12, 0, 0, tzinfo=timezone.utc),
+    }
+
+    mock_collection = MagicMock()
+    mock_collection.find_one = AsyncMock(return_value=existing_doc)
+    mock_collection.update_one = AsyncMock(return_value=MagicMock(modified_count=1))
+    mock_collection.insert_one = AsyncMock()
+
+    mock_db = {"job_offers": mock_collection}
+
+    async def mock_get_database():
+        return mock_db
+
+    monkeypatch.setattr("app.tasks.job_offers_collectors.get_database", mock_get_database)
+
+    incoming_offer = {
+        "poste": "AI Engineer / Scientist confirmé",
+        "entreprise": "Deloitte",
+        "localisation": "Lyon",
+        "url": "https://fr.linkedin.com/jobs/view/ai-engineer-scientist-confirm%C3%A9-f-h-at-deloitte-4463883002",
+        "description": "Détails complets de l'offre LinkedIn",
+    }
+
+    res = await save_offers_to_database([incoming_offer])
+
+    assert res["updated"] == 1
+    assert res["offer_ids"] == [existing_doc["_id"]]
+
+
+@pytest.mark.asyncio
+async def test_save_offers_to_database_returns_offer_ids_on_insert(monkeypatch):
+    from unittest.mock import AsyncMock, MagicMock
+    from bson import ObjectId
+    from app.tasks.job_offers_collectors import save_offers_to_database
+
+    mock_collection = MagicMock()
+    mock_collection.find_one = AsyncMock(return_value=None)
+    mock_find_cursor = MagicMock()
+    mock_find_cursor.to_list = AsyncMock(return_value=[])
+    mock_collection.find = MagicMock(return_value=mock_find_cursor)
+
+    inserted_id = ObjectId("6aaa8ed40a4a13cc5c4a7b30")
+
+    async def insert_one(doc):
+        doc["_id"] = inserted_id
+        return MagicMock()
+
+    mock_collection.insert_one = AsyncMock(side_effect=insert_one)
+
+    mock_db = {"job_offers": mock_collection}
+
+    async def mock_get_database():
+        return mock_db
+
+    monkeypatch.setattr("app.tasks.job_offers_collectors.get_database", mock_get_database)
+
+    incoming_offer = {
+        "poste": "MLOps Engineer",
+        "entreprise": "NewCompany",
+        "localisation": "Paris",
+        "url": "https://newcompany.com/jobs/99",
+        "description": "Nouvelle offre",
+    }
+
+    res = await save_offers_to_database([incoming_offer])
+
+    assert res["saved"] == 1
+    assert res["offer_ids"] == [inserted_id]
+

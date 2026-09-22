@@ -408,7 +408,7 @@ async def save_offers_to_database(offers: list) -> dict:
 
     if not offers:
         logger.warning("⚠️ Aucune offre à sauvegarder")
-        return {"saved": 0, "updated": 0}
+        return {"saved": 0, "updated": 0, "offer_ids": []}
 
     try:
         db = await get_database()
@@ -420,6 +420,7 @@ async def save_offers_to_database(offers: list) -> dict:
         saved_count = 0
         updated_count = 0
         error_count = 0
+        offer_ids: list = []
 
         for offer in consolidated_offers:
             try:
@@ -472,6 +473,7 @@ async def save_offers_to_database(offers: list) -> dict:
                         {"_id": existing_doc["_id"]},
                         {"$set": update_fields}
                     )
+                    offer_ids.append(existing_doc["_id"])
                     updated_count += 1
                 else:
                     # Nouvelle offre
@@ -481,6 +483,7 @@ async def save_offers_to_database(offers: list) -> dict:
                     new_doc["updated_at"] = datetime.now(timezone.utc)
                     try:
                         await collection.insert_one(new_doc)
+                        offer_ids.append(new_doc["_id"])
                         saved_count += 1
                     except Exception as ins_err:
                         # En cas de conflit rare d'index unique (ex: course concurrente), repli sur mise à jour
@@ -488,11 +491,17 @@ async def save_offers_to_database(offers: list) -> dict:
                         fallback_filter = {"unique_key": unique_key}
                         if offer_url:
                             fallback_filter = {"$or": [{"url": offer_url}, {"unique_key": unique_key}]}
-                        await collection.update_one(
+                        fallback_result = await collection.update_one(
                             fallback_filter,
                             {"$set": {k: v for k, v in new_doc.items() if k != "_id"}},
                             upsert=True,
                         )
+                        if fallback_result.upserted_id:
+                            offer_ids.append(fallback_result.upserted_id)
+                        else:
+                            fallback_doc = await collection.find_one(fallback_filter, {"_id": 1})
+                            if fallback_doc:
+                                offer_ids.append(fallback_doc["_id"])
                         updated_count += 1
 
             except Exception as e:
@@ -511,7 +520,7 @@ async def save_offers_to_database(offers: list) -> dict:
                     f"Sauvegarde totalement échouée: {error_count}/{len(offers)} offres perdues"
                 )
 
-        return {"saved": saved_count, "updated": updated_count}
+        return {"saved": saved_count, "updated": updated_count, "offer_ids": offer_ids}
 
     except Exception as e:
         logger.error(f"💥 Erreur sauvegarde: {e}")
