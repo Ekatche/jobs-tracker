@@ -58,11 +58,17 @@ Signale uniquement les écarts importants.
 
 Ne demande pas au texte de mentionner toutes les expériences ou toutes les technologies disponibles.
 
-### 4. Accroche
+### 4. Premier paragraphe
 
-Le premier paragraphe commence-t-il par un élément réellement spécifique à l'offre ?
+Le premier paragraphe doit être court, à la première personne et factuel : ce que le candidat fait, un point concret qui rejoint le poste, et pourquoi ce poste l'intéresse.
 
-Si l'accroche pourrait être utilisée pour une autre entreprise en changeant simplement le nom de l'entreprise, signale-le.
+Signale-le si :
+* il contient une phrase générale sans « je » : maxime, vérité universelle, constat sur le secteur ;
+* il sonne solennel ou récité lu à voix haute ;
+* il emploie « conviction », « enjeu », « au cœur de », « exige avant tout », « véritable », « crucial », « passionné » ou « défi » ;
+* la phrase de motivation resterait vraie en remplaçant le nom de l'entreprise par celui d'un concurrent.
+
+Ne reproche pas au premier paragraphe d'être simple ou de commencer par « Je ».
 
 ### 5. Fluidité
 

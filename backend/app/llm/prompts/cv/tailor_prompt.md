@@ -34,9 +34,10 @@ Description :
    - Chaque entreprise présente dans la section `experiences` doit provenir rigoureusement de la liste des entreprises du profil candidat.
 
 3. **ACCROCHE PROFESSIONNELLE (Summary)** :
-   - Rédige un paragraphe percutant de 3 à 4 lignes (en français, ou dans la langue de l'offre si l'offre est en anglais).
+   - Rédige un paragraphe sobre et équilibré de 3 à 4 lignes (en français, ou dans la langue de l'offre si l'offre est en anglais). Reste factuel et modeste : évite le ton commercial ou superlatif ("expert", "passionné", "leader visionnaire") et les formulations auto-promotionnelles non étayées par le profil.
+   - Si le champ `writing_style` du profil candidat est renseigné, imite ce style et ce niveau de formalité (vocabulaire, rythme de phrase) plutôt qu'un ton générique de CV.
    - Positionne le candidat avec exactitude par rapport au poste ciblé chez {target_company}.
-   - Souligne les accomplissements majeurs et la proposition de valeur directement alignés avec les besoins de l'offre.
+   - Souligne les accomplissements réels et la proposition de valeur alignés avec les besoins de l'offre, sans exagération.
 
 4. **EXPÉRIENCES PROFESSIONNELLES** :
    - Pour chaque expérience pertinente, réordonne et formule les bullet points (3 à 5 par poste) avec des verbes d'action et des résultats quantifiés (métriques, ROI, latence, volume de données, taille d'équipe).

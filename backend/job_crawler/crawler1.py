@@ -22,6 +22,25 @@ from app.services.normalization import (
 
 logger = logging.getLogger(__name__)
 
+# Sélecteurs partagés pour fermer les bannières de consentement cookies avant
+# extraction — sans ça, PruningContentFilter garde le texte dense de la
+# bannière (souvent > seuil) et élague le contenu réel encore masqué derrière.
+COOKIE_DISMISS_JS = """
+const cookieSelectors = [
+    '#tarteaucitronPersonalize2',
+    '#axeptio_btn_acceptAll',
+    '#onetrust-accept-btn-handler',
+    '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
+    'button[id*="accept"]',
+    'button[class*="cookie-accept"]',
+    'button[class*="consent-accept"]'
+];
+for (const sel of cookieSelectors) {
+    const btn = document.querySelector(sel);
+    if (btn) { try { btn.click(); } catch(e){} break; }
+}
+"""
+
 # crawl4ai 0.6.3 ne re-soumet jamais une URL : ni sur timeout de navigation, ni
 # sur page rendue vide. Un crawl vide remonte avec success=False et un
 # error_message parfois vide, ou avec success=True et un markdown de quelques
@@ -247,19 +266,7 @@ def get_shared_crawl_config(api_key: str) -> CrawlerRunConfig:
 
 
         # Script JS pour masquer les bannières cookies et faire défiler la page pour charger le contenu dynamique
-        scroll_js = """
-        const cookieSelectors = [
-            '#tarteaucitronPersonalize2',
-            '#axeptio_btn_acceptAll',
-            '#onetrust-accept-btn-handler',
-            'button[id*="accept"]',
-            'button[class*="cookie-accept"]',
-            'button[class*="consent-accept"]'
-        ];
-        for (const sel of cookieSelectors) {
-            const btn = document.querySelector(sel);
-            if (btn) { try { btn.click(); } catch(e){} break; }
-        }
+        scroll_js = COOKIE_DISMISS_JS + """
         window.scrollTo(0, document.body.scrollHeight / 2);
         await new Promise(r => setTimeout(r, 600));
         window.scrollTo(0, document.body.scrollHeight);
@@ -326,8 +333,8 @@ async def get_filtered_markdown(
             },
         )
 
-        # 🕷️ Configuration du crawl avec scroll JS
-        scroll_js = """
+        # 🕷️ Configuration du crawl avec fermeture des bannières cookies + scroll JS
+        scroll_js = COOKIE_DISMISS_JS + """
         window.scrollTo(0, document.body.scrollHeight / 2);
         await new Promise(r => setTimeout(r, 500));
         window.scrollTo(0, document.body.scrollHeight);
@@ -342,6 +349,13 @@ async def get_filtered_markdown(
             remove_overlay_elements=True,
             markdown_generator=md_generator,
             js_code=scroll_js,
+            # Les pages avec consentement cookies (Cookiebot, etc.) ne révèlent
+            # le contenu réel qu'après fermeture de la bannière + éventuel
+            # rendu SPA : attendre la fin de l'activité réseau plutôt qu'un
+            # timeout par défaut trop court, sinon seule la bannière est capturée.
+            wait_until="networkidle",
+            page_timeout=45000,
+            delay_before_return_html=2.5,
         )
 
         # 🔍 Lancement du crawl

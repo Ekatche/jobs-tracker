@@ -75,6 +75,7 @@ export default function CandidateProfileSection() {
   const [headline, setHeadline] = useState("");
   const [summary, setSummary] = useState("");
   const [writingStyle, setWritingStyle] = useState("");
+  const [writingSamples, setWritingSamples] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [website, setWebsite] = useState("");
@@ -112,6 +113,7 @@ export default function CandidateProfileSection() {
     setHeadline(data.headline || "");
     setSummary(data.summary || "");
     setWritingStyle(data.writing_style || "");
+    setWritingSamples(data.writing_samples || "");
     setEmail(data.contact?.email || "");
     setPhone(data.contact?.phone || "");
     setWebsite(data.contact?.website || "");
@@ -157,8 +159,7 @@ export default function CandidateProfileSection() {
           ...copy[index],
           missions: value
             .split("\n")
-            .map((s) => s.replace(/^[•\-\*]\s*/, "").trim())
-            .filter(Boolean),
+            .map((s) => s.replace(/^[•\-\*]\s*/, "")),
         };
       } else {
         copy[index] = { ...copy[index], [field]: value };
@@ -365,10 +366,16 @@ export default function CandidateProfileSection() {
       });
     }
 
+    const cleanedExperiences = experiences.map((exp) => ({
+      ...exp,
+      missions: (exp.missions || []).map((m) => m.trim()).filter(Boolean),
+    }));
+
     const updatedProfile: Partial<CandidateProfile> = {
       headline,
       summary,
       writing_style: writingStyle,
+      writing_samples: writingSamples,
       contact: {
         email,
         phone,
@@ -377,7 +384,7 @@ export default function CandidateProfileSection() {
         linkedin,
       },
       skills: Object.keys(parsedSkills).length > 0 ? parsedSkills : profile?.skills || {},
-      experiences,
+      experiences: cleanedExperiences,
       projects,
       excluded_projects: excludedProjects,
       education,
@@ -1042,6 +1049,21 @@ export default function CandidateProfileSection() {
               value={writingStyle}
               onChange={(e) => setWritingStyle(e.target.value)}
               placeholder="ex: Style direct et sobre, phrases courtes et percutantes, orienté résultats chiffrés, voix active, zéro flatterie générique..."
+              className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="candidate_writing_samples" className="block text-xs font-semibold text-gray-300 uppercase mb-1 flex items-center justify-between">
+              <span>Lettres d&apos;exemple</span>
+              <span className="text-[10px] normal-case text-gray-400 font-normal">2 ou 3 lettres écrites par vous : seul le style est imité, jamais le contenu</span>
+            </label>
+            <textarea
+              id="candidate_writing_samples"
+              rows={8}
+              value={writingSamples}
+              onChange={(e) => setWritingSamples(e.target.value)}
+              placeholder="Collez ici vos lettres de motivation, séparées par une ligne vide..."
               className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
             />
           </div>

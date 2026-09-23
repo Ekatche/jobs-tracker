@@ -15,7 +15,7 @@ PROFILE_JSON_SCHEMA = {
     "type": "object",
     "properties": {
         "headline": {"type": "string", "description": "Titre professionnel (ex: Senior Data & ML Engineer)"},
-        "summary": {"type": "string", "description": "Résumé factuel (3-4 phrases) des compétences clés et de la trajectoire"},
+        "summary": {"type": "string", "description": "Accroche factuelle (3-4 phrases) centrée sur la personne, sans compétences génériques du métier ni superlatifs"},
         "experiences": {
             "type": "array",
             "items": {
@@ -193,7 +193,7 @@ async def parse_cv_with_vlm(
 Analyse attentivement la disposition visuelle, les colonnes multiples, les encarts latéraux et les sections.
 Extrais fidèlement les informations réelles sans rien inventer sous format JSON strict avec les clés :
 - "headline": Titre professionnel du candidat (ex: 'Développeur Fullstack', 'Directeur Marketing', 'Chef de Projet', etc.)
-- "summary": Synthèse percutante du parcours et des compétences clés
+- "summary": Accroche factuelle et sobre de 3-4 phrases, dans le vocabulaire du métier réel du candidat (déduit du CV). Pas de superlatifs génériques ('passionné', 'dynamique', 'expert'). Ne cite pas comme atout distinctif une compétence qui fait partie du socle normal du métier (ex: 'sécurité des enfants' pour une animatrice, 'rigueur' pour un comptable) — ne retiens que ce qui différencie réellement ce candidat : spécialisations, résultats concrets, trajectoire. Mets en valeur la personne et son parcours propre, pas une fiche de poste générique.
 - "experiences": [
     {
       "company": "Entreprise ou Organisation",
@@ -314,7 +314,7 @@ Texte du CV :
 
 Schéma JSON attendu :
 - 'headline': titre professionnel principal (ex: Développeur Fullstack, Chef de Projet, Directeur Financier, etc.).
-- 'summary': résumé court (3-4 phrases).
+- 'summary': accroche factuelle et sobre de 3-4 phrases, dans le vocabulaire du métier réel du candidat (déduit du CV). Pas de superlatifs génériques ('passionné', 'dynamique', 'expert'). Ne cite pas comme atout distinctif une compétence qui fait partie du socle normal du métier (ex: 'sécurité des enfants' pour une animatrice, 'rigueur' pour un comptable) — ne retiens que ce qui différencie réellement ce candidat : spécialisations, résultats concrets, trajectoire. Mets en valeur la personne et son parcours propre, pas une fiche de poste générique.
 - 'experiences': liste d'objets avec company, role, location, contract, start, end, missions (liste de réalisations), stack (outils/logiciels/technologies).
 - 'projects': liste d'objets avec name, description, context ("perso" ou "client"), stack, url.
 - 'education': liste d'objets avec school, degree, years.

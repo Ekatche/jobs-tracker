@@ -25,13 +25,15 @@ Ne cherche pas à utiliser toutes les informations disponibles. Sélectionne uni
 Défi prioritaire de l'offre :
 {target_challenge}
 
-Idée directrice (thèse de conviction à prouver) :
+Idée directrice (à montrer par les faits, jamais à énoncer comme une maxime) :
 {guiding_thesis}
 
 Angle spécifique sur l'expérience pivot :
 {career_thread}
 
 ## Voix et style
+
+Si des lettres du candidat sont fournies plus haut, leur rythme et leur vocabulaire priment sur les consignes de style ci-dessous. Les interdictions restent valables.
 
 Utilise principalement la voix active avec des verbes d'action variés et précis :
 « J'ai structuré... »
@@ -61,29 +63,31 @@ Une technologie ne doit apparaître que si elle sert à expliquer une réalisati
 
 {company_context_block}
 
-## Accroche
+## Premier paragraphe
 
-La première phrase ne nomme pas l'entreprise et ne parle pas de candidature. Elle part d'une situation concrète vécue par le candidat : un problème rencontré, un système construit, une contrainte qui a changé sa façon de travailler.
+Le premier paragraphe est court : 2 à 3 phrases, à la première personne, sur un ton factuel. Il doit ressembler à ce que le candidat dirait en se présentant au début d'un entretien, pas à une introduction de discours.
 
-C'est le paragraphe suivant qui fait le lien avec l'entreprise, en reliant cette situation à un enjeu réel du contexte entreprise fourni, ou à défaut à un élément concret de l'offre : un produit, un problème technique, un domaine d'application.
+Il dit simplement :
+* ce que le candidat fait aujourd'hui ou a fait récemment, avec un élément concret ;
+* un point précis de ce travail qui rejoint le poste ;
+* pourquoi ce poste l'intéresse, en une phrase qui cite un élément concret de l'offre ou du contexte entreprise fourni.
 
-Ce lien doit être argumenté, pas affirmé. Écris une motivation qui serait fausse ailleurs : si la phrase reste vraie en remplaçant le nom de l'entreprise par celui d'un concurrent, elle ne dit rien et doit être réécrite.
+Ce lien doit être précis. Si la phrase de motivation reste vraie en remplaçant le nom de l'entreprise par celui d'un concurrent, elle ne dit rien et doit être réécrite.
 
-Les formulations d'écho sont interdites :
-« font écho à mon parcours »
-« résonne avec mon expérience »
-« correspond à ce que je recherche »
+Interdit dans le premier paragraphe :
+* toute phrase générale sans « je » : maxime, vérité universelle, constat sur le secteur ;
+* les mots « conviction », « enjeu », « au cœur de », « exige avant tout », « véritable », « crucial », « passionné », « défi » ;
+* les formules d'écho : « font écho à mon parcours », « résonne avec mon expérience », « correspond à ce que je recherche » ;
+* les introductions convenues : « Je souhaite vous adresser ma candidature », « Votre entreprise m'intéresse particulièrement », « C'est avec grand intérêt que ».
 
-Évite les introductions du type :
-« Je souhaite vous adresser ma candidature... »
-« Votre entreprise m'intéresse particulièrement... »
-« C'est avec grand intérêt que... »
+Test avant de rendre la lettre : lue à voix haute, chaque phrase du premier paragraphe doit sonner naturelle, pas récitée. Sinon, réécris-la plus simplement.
 
-L'accroche ne doit pas simplement dire que l'entreprise est intéressante. Elle part d'une conviction ou d'un enjeu technique concret lié au défi du poste, sans formule de politesse creuse.
+Exemple de registre attendu, à ne pas recopier :
+« Je travaille depuis trois ans sur des pipelines de données en production, surtout sur la partie ingestion. C'est ce qui m'a fait regarder votre offre de près : vous reprenez la chaîne de collecte de vos capteurs et c'est exactement le type de chantier sur lequel j'aime travailler. »
 
 ## Structure narrative
 
-La lettre suit l'idée directrice fournie : une conviction forte qui résout le défi du poste. Chaque paragraphe fait progresser cette démonstration.
+La lettre suit l'idée directrice fournie, liée au défi du poste. Chaque paragraphe la fait avancer par des faits, sans l'énoncer de manière solennelle.
 
 Un paragraphe porte une idée ou un thème transverse, jamais un employeur.
 
@@ -108,7 +112,7 @@ Trois technologies nommées au maximum dans toute la lettre.
 « À Initech, j'ai travaillé sur des pipelines de données sous Kafka. Au sein de DataCorp, j'ai développé des modèles de machine learning. Plus tôt, chez PartnerTech, j'ai optimisé des bases relationnelles. »
 
 ✅ ATTENDU (Synthèse thématique transverse) :
-« Développer un système d'IA fiable en production exige avant tout des flux de données continus et gouvernés. De l'optimisation des bases relationnelles jusqu'à l'industrialisation de modèles d'apprentissage, j'ai pu constater que la robustesse de l'ingestion conditionne directement la cohérence des prédictions. Cette conviction, forgée au contact des pipelines de données complexes chez Initech et DataCorp, structure aujourd'hui mon approche de l'ingénierie. »
+« Que ce soit en optimisant des bases relationnelles ou en mettant des modèles d'apprentissage en production, j'ai souvent vu les mêmes problèmes venir de l'ingestion. Chez Initech puis chez DataCorp, j'ai donc passé une bonne partie de mon temps à rendre les pipelines de données plus fiables, avant même de toucher aux modèles. »
 
 ## Développement
 
@@ -180,7 +184,7 @@ Privilégie :
 
 Ne transforme pas chaque paragraphe en démonstration de compatibilité avec l'offre.
 
-La lettre est un argumentaire de conviction, pas un résumé biographique.
+La lettre est un argumentaire, pas un résumé biographique.
 
 Le candidat n'énumère pas ses employeurs de manière chronologique : il démontre sa capacité à traiter le défi clé de l'entreprise en synthétisant la richesse de son parcours global autour d'un fil rouge logique.
 

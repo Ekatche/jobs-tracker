@@ -55,6 +55,35 @@ def test_same_role_across_sources_is_merged_once():
     assert len(nile) == 2  # le poste mauricien et le poste lyonnais, pas trois
 
 
+def test_experience_with_dissimilar_company_wording_is_merged_not_duplicated():
+    """Bug du 2026-09-22 : le site nomme l'employeur différemment du CV, même poste."""
+    cv_payload = {
+        "experiences": [
+            {
+                "company": "Nile",
+                "role": "Data Engineer",
+                "start": "2025-08",
+                "end": "2026-08",
+                "missions": ["Agents LLM en production"],
+            }
+        ]
+    }
+    website_payload = {
+        "experiences": [
+            {
+                "company": "Agence Nile Consulting",
+                "role": "Data Engineer",
+                "start": "2025-08",
+                "end": "2026-08",
+                "missions": ["RAG with Qdrant", "CRM/ERP sync"],
+            }
+        ]
+    }
+    profile, _ = build_profile_from_sources({"cv": cv_payload, "website": website_payload})
+    nile = [e for e in profile["experiences"] if "nile" in e["company"].lower()]
+    assert len(nile) == 1
+
+
 def test_experience_absent_from_cv_is_added():
     """Le CV ne contient pas tout : le site apporte les postes manquants."""
     profile, _ = build_profile_from_sources({"cv": CV, "website": WEBSITE})
@@ -452,6 +481,29 @@ def test_projects_deduplicate_across_casing_and_separators():
     assert proj["repo"] == "https://github.com/Ekatche/jobs-tracker"
 
 
+def test_projects_with_differently_worded_names_are_merged_not_duplicated():
+    """Bug du 2026-09-22 : CV et site donnent des libellés différents pour le même projet."""
+    cv_payload = {
+        "projects": [
+            {"name": "Sentinel", "description": "Trading quantitatif.", "stack": ["Python"]},
+        ]
+    }
+    website_payload = {
+        "projects": [
+            {
+                "name": "Sentinel - Plateforme de trading algorithmique",
+                "description": "Système de trading automatisé en production.",
+                "stack": ["Rust"],
+            }
+        ]
+    }
+    profile, _ = build_profile_from_sources({"cv": cv_payload, "website": website_payload})
+    assert len(profile["projects"]) == 1
+    proj = profile["projects"][0]
+    assert set(proj["stack"]) == {"Python", "Rust"}
+    assert "Système de trading" in proj["description"]
+
+
 def test_trivial_projects_and_excluded_projects_are_filtered():
     """Les dépôts triviaux (cv, pytests) et les projets exclus manuellement sont ignorés."""
     sources = {
@@ -484,6 +536,13 @@ def test_writing_style_propagates_from_manual_source():
     }
     profile, _ = build_profile_from_sources(sources)
     assert profile.get("writing_style") == "Style concis et direct, voix active."
+
+
+def test_writing_samples_propagate_from_manual_source():
+    """Les lettres d'exemple fournies dans manual se propagent dans le profil fusionné."""
+    sources = {"manual": {"writing_samples": "Madame, Monsieur,\nJe travaille sur..."}}
+    profile, _ = build_profile_from_sources(sources)
+    assert profile.get("writing_samples") == "Madame, Monsieur,\nJe travaille sur..."
 
 
 def test_full_eight_experiences_from_portfolio_are_preserved():

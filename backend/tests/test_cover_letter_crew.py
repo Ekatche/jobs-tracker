@@ -94,6 +94,22 @@ async def test_call_analyst_prefers_explicit_candidate_name_over_contact_email()
     assert result["candidate_name"] == "Jane Doe"
 
 
+@pytest.mark.asyncio
+async def test_call_analyst_never_uses_email_as_candidate_name():
+    from cover_letter_crew import _call_analyst
+
+    mock_resp = MagicMock()
+    mock_resp.choices = [MagicMock(message=MagicMock(content='{"missions": ["M1"]}'))]
+
+    with patch("cover_letter_crew.acompletion", return_value=mock_resp):
+        result = await _call_analyst(
+            "Description",
+            {"experiences": [], "contact": {"email": "fallback@example.com"}},
+        )
+
+    assert result["candidate_name"] == ""
+
+
 def _fake_response(text: str) -> MagicMock:
     mock = MagicMock()
     mock.choices = [MagicMock(message=MagicMock(content=text))]
@@ -259,6 +275,38 @@ async def test_writer_prompt_includes_voice_style_when_present():
         sent_messages = mock_comp.call_args[1]["messages"]
         sent_prompt = sent_messages[0]["content"]
         assert "Direct, phrases courtes, pas de jargon marketing." in sent_prompt
+
+
+@pytest.mark.asyncio
+async def test_writer_prompt_includes_writing_samples_when_present():
+    mock_choice = MagicMock()
+    mock_choice.message.content = "Lettre générée"
+    mock_resp = MagicMock(choices=[mock_choice], usage=None)
+
+    with patch("cover_letter_crew.acompletion", return_value=mock_resp) as mock_comp, \
+         patch("cover_letter_crew.get_letter_llm") as mock_llm:
+        mock_llm.return_value.model = "openai/gpt-5.6-terra"
+        mock_llm.return_value.api_key = "fake_key"
+
+        await cover_letter_crew._call_writer(
+            analyst_json={"candidate_name": "Alice", "missions": [], "stacks": [], "projects": []},
+            company_name="Acme",
+            writing_samples="Je travaille depuis deux ans sur des outils internes.",
+        )
+
+        sent_prompt = mock_comp.call_args[1]["messages"][0]["content"]
+        assert "<exemples_du_candidat>" in sent_prompt
+        assert "Je travaille depuis deux ans sur des outils internes." in sent_prompt
+
+
+def test_voice_style_block_truncates_long_samples():
+    block = cover_letter_crew._build_voice_style_block("", "a" * 10000)
+    assert "a" * cover_letter_crew.WRITING_SAMPLES_MAX_CHARS in block
+    assert "a" * (cover_letter_crew.WRITING_SAMPLES_MAX_CHARS + 1) not in block
+
+
+def test_voice_style_block_empty_when_nothing_provided():
+    assert cover_letter_crew._build_voice_style_block("", "") == ""
 
 
 @pytest.mark.asyncio

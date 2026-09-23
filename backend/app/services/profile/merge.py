@@ -35,6 +35,30 @@ def _normalize_key(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
 
 
+def _keys_loosely_match(a: str, b: str) -> bool:
+    """Return True if `a` and `b` likely represent the same entity despite slight naming differences.
+
+    Two sources (e.g. parsed CV vs scraped site) rarely extract the exact same
+    name word-for-word ("Sentinel" vs "Sentinel - Trading Platform", or "Nile"
+    vs "Agency Nile Consulting"). Once exact key equality is ruled out, we allow
+    shorter key tokens to form a contiguous sub-sequence of the longer key, with a
+    minimum length threshold to prevent short generic words from matching falsely.
+    """
+    if not a or not b or a == b:
+        return False
+    if len(a) < 4 or len(b) < 4:
+        return False
+    tokens_a = [t for t in re.split(r"[-\s]+", a) if t]
+    tokens_b = [t for t in re.split(r"[-\s]+", b) if t]
+    shorter, longer = (tokens_a, tokens_b) if len(tokens_a) <= len(tokens_b) else (tokens_b, tokens_a)
+    if not shorter:
+        return False
+    window = len(shorter)
+    return any(
+        longer[i : i + window] == shorter for i in range(len(longer) - window + 1)
+    )
+
+
 
 def _derive_headline(
     experiences: List[Dict[str, Any]],
@@ -189,8 +213,8 @@ def _merge_experiences(
             matched_key = None
             for key in key_order:
                 existing_company, existing_start = key
-                if existing_company == c_slug:
-                    # Ne jamais fusionner deux expériences distinctes provenant de la même source
+                if existing_company == c_slug or _keys_loosely_match(existing_company, c_slug):
+                    # Never merge two distinct experiences coming from the same source
                     if any(s == source for s, _ in grouped[key]):
                         continue
                     if existing_start == s_date or (existing_start is None and s_date is None):
@@ -271,13 +295,18 @@ def _merge_projects(
             if not desc and not stack and not project.get("highlights"):
                 continue
 
-            if key not in grouped:
+            matched_key = key if key in grouped else next(
+                (existing for existing in grouped if _keys_loosely_match(key, existing)),
+                None,
+            )
+
+            if matched_key is None:
                 grouped[key] = dict(project)
                 grouped[key]["name"] = name
                 grouped[key]["sources"] = [source]
                 continue
 
-            current = grouped[key]
+            current = grouped[matched_key]
             if source not in current.get("sources", []):
                 current.setdefault("sources", []).append(source)
 
@@ -509,6 +538,7 @@ def build_profile_from_sources(
     _, summary = _first_non_empty("summary", contributions)
     _, preferences = _first_non_empty("preferences", contributions)
     _, writing_style = _first_non_empty("writing_style", contributions)
+    _, writing_samples = _first_non_empty("writing_samples", contributions)
 
     experiences = _merge_experiences(sources, order, conflicts)
     skills = _merge_skills(sources, order)
@@ -522,6 +552,7 @@ def build_profile_from_sources(
         "contact": contact,
         "preferences": preferences or {},
         "writing_style": writing_style or "",
+        "writing_samples": writing_samples or "",
         "experiences": experiences,
         "projects": _merge_projects(sources, order),
         "education": _merge_education(sources, order),

@@ -140,7 +140,7 @@ async def test_failed_letter_does_not_block_a_later_run():
             "prompt_version": "02_style-v1",
         }
 
-    with patch("cover_letter_crew.run_letter_pipeline_sync", side_effect=fake_pipeline):
+    with patch("cover_letter_crew.run_letter_pipeline_async", side_effect=fake_pipeline):
         await _generate_cover_letter_bg(app_id, user_id, mock_db)
 
     cover_letters_coll.delete_many.assert_called_once_with(

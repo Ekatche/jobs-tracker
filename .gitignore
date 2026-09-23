@@ -98,3 +98,4 @@ backend/scripts/candidate_profile_bakeoff.json
 backend/scripts/data/
 # Added by code-review-graph
 .code-review-graph/
+.token-savior-cache.json

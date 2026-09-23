@@ -18,7 +18,7 @@ PROMPTS_DIR = Path(__file__).resolve().parents[3] / "app" / "llm" / "prompts" / 
 # fenêtre d'acceptation plus large des garde-fous côté letter_guards.py).
 MIN_WORDS = 270
 MAX_WORDS = 330
-PROMPT_VERSION = "01_fond+02_style+03_critique+04_revision-v3"
+PROMPT_VERSION = "01_fond+02_style+03_critique+04_revision-v4"
 
 
 class _SafePromptDict(dict):
@@ -129,7 +129,8 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
         "stacks": list(candidate_stacks),
         "companies": selected_companies,
         "projects": projects,
-        "candidate_name": candidate_name or (candidate_profile.get("contact") or {}).get("email", ""),
+        # Jamais l'email en repli : il finirait en signature de la lettre.
+        "candidate_name": candidate_name,
         "candidate_headline": candidate_profile.get("headline", ""),
     }
 
@@ -219,11 +220,35 @@ async def _get_cached_or_research_company(company_name: str, usage_acc: Optional
         logger.warning(f"Recherche entreprise ignorée suite à une erreur: {e}")
         return ""
 
-def _build_voice_style_block(voice_style: str) -> str:
+WRITING_SAMPLES_MAX_CHARS = 6000
+
+
+def _build_voice_style_block(voice_style: str, writing_samples: str = "") -> str:
+    """Build the voice style and writing samples prompt section for cover letter generation.
+
+    Args:
+        voice_style: Free-form style instructions provided by candidate.
+        writing_samples: Real cover letter samples from candidate to mimic tone/structure.
+
+    Returns:
+        Formatted prompt section string.
+    """
     clean = (voice_style or "").strip()
-    if not clean:
+    samples = (writing_samples or "").strip()[:WRITING_SAMPLES_MAX_CHARS]
+    if not clean and not samples:
         return ""
-    return f"## Style et tonalité du candidat\n\nAdopte impérativement ce style personnel d'écriture demandé par le candidat :\n{clean}"
+    parts = ["## Style et tonalité du candidat"]
+    if clean:
+        parts.append(f"Adopte impérativement ce style personnel d'écriture demandé par le candidat :\n{clean}")
+    if samples:
+        parts.append(
+            "Voici des lettres réellement écrites par le candidat. Imite leur forme : longueur des phrases, "
+            "tournures, vocabulaire, niveau de formalité, manière d'entrer en matière. "
+            "N'en reprends JAMAIS le contenu : aucune entreprise, expérience, chiffre ni phrase entière "
+            "ne doit en être copié. Seuls les faits autorisés plus bas comptent.\n\n"
+            f"<exemples_du_candidat>\n{samples}\n</exemples_du_candidat>"
+        )
+    return "\n\n".join(parts)
 
 
 def _build_company_context_block(company_context: str) -> str:
@@ -239,6 +264,7 @@ async def _call_writer(
     company_context: str = "",
     voice_style: str = "",
     usage_acc: Optional[List[Tuple[int, int]]] = None,
+    writing_samples: str = "",
 ) -> str:
     llm = get_letter_llm("writer")
 
@@ -247,7 +273,7 @@ async def _call_writer(
     )
 
     company_context_block = _build_company_context_block(company_context)
-    voice_style_block = _build_voice_style_block(voice_style)
+    voice_style_block = _build_voice_style_block(voice_style, writing_samples)
 
     fond = (PROMPTS_DIR / "01_fond.md").read_text(encoding="utf-8")
     style = load_prompt(
@@ -323,7 +349,7 @@ async def _call_critic(
     except Exception as e:
         # Jamais un verdict "pass" implicite sur panne réelle : ça masquerait
         # une panne fournisseur derrière un faux jugement positif. Un objet
-        # d'erreur explicite laisse `run_letter_pipeline_sync` déclencher une
+        # d'erreur explicite laisse `run_letter_pipeline_async` déclencher une
         # révision et remonter la panne dans `provider_failures`.
         logger.warning(f"Erreur critique LLM: {e}")
         return {
@@ -341,6 +367,7 @@ async def _call_reviser(
     guard_report: Dict[str, Any],
     voice_style: str = "",
     usage_acc: Optional[List[Tuple[int, int]]] = None,
+    writing_samples: str = "",
 ) -> str:
     llm = get_letter_llm("reviser")
     violations = guard_report.get("violations", [])
@@ -355,7 +382,7 @@ async def _call_reviser(
         analyst_json=json.dumps(analyst_json, ensure_ascii=False),
         critic_flaws=json.dumps(critic_flaws, ensure_ascii=False),
         violations=json.dumps(violations, ensure_ascii=False),
-        voice_style_block=_build_voice_style_block(voice_style),
+        voice_style_block=_build_voice_style_block(voice_style, writing_samples),
     )
 
     try:
@@ -407,6 +434,7 @@ async def run_letter_pipeline_async(
         company_context=company_context,
         voice_style=candidate_profile.get("writing_style") or "",
         usage_acc=usage_acc,
+        writing_samples=candidate_profile.get("writing_samples") or "",
     )
 
     # 3. Évaluation parallèle : Garde-fous en code + Critique inter-modèle
@@ -431,6 +459,7 @@ async def run_letter_pipeline_async(
             guard_report.model_dump(),
             voice_style=candidate_profile.get("writing_style") or "",
             usage_acc=usage_acc,
+            writing_samples=candidate_profile.get("writing_samples") or "",
         )
         revised = True
         # Ré-évaluation des garde-fous pour le rapport final

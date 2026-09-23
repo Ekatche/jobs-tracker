@@ -584,6 +584,7 @@ class CandidateProfile(BaseModel):
     excluded_education: List[str] = Field(default_factory=list)
     excluded_certifications: List[str] = Field(default_factory=list)
     writing_style: Optional[str] = None
+    writing_samples: Optional[str] = None
     updated_at: datetime = Field(default_factory=utcnow_with_timezone)
 
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}

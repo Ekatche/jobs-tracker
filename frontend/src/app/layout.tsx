@@ -43,6 +43,7 @@ export default function RootLayout({
     <html lang="fr" className="h-full">
       <body
         className={`${geistSans.variable} ${geistMono.variable} bg-blue-night text-white h-full flex flex-col`}
+        suppressHydrationWarning
       >
         <NotificationProvider>
           <Header />

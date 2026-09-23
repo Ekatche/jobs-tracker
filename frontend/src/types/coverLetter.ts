@@ -63,6 +63,7 @@ export interface CandidateProfile {
   headline?: string;
   summary?: string;
   writing_style?: string;
+  writing_samples?: string;
   contact?: Record<string, string>;
   preferences?: CandidatePreferences;
   experiences?: CandidateExperience[];
