@@ -23,7 +23,7 @@ Conserve autant que possible :
 
 Ne réécris pas toute la lettre lorsqu'une seule phrase doit être corrigée.
 
-EXCEPTION DE RESTRUCTURATION : Si le critique signale un « CV déguisé (Catalogue) », ou si les garde-fous relèvent une ouverture d'employeur interdite, le principe de révision minimale NE S'APPLIQUE PAS à la structure. Tu dois alors réorganiser entièrement les paragraphes autour du fil rouge (synthèse thématique) du JSON, en supprimant toute énumération chronologique ou par employeur, et en construisant une véritable argumentation transverse.
+EXCEPTION DE RESTRUCTURATION : Si le critique signale un « CV déguisé (Catalogue) » ou un « CV paraphrasé », ou si les garde-fous relèvent une ouverture d'employeur interdite, le principe de révision minimale NE S'APPLIQUE PAS à la structure. Tu dois alors réorganiser entièrement les paragraphes autour du fil rouge (synthèse thématique) du JSON, en supprimant toute énumération chronologique, par employeur ou de responsabilités. Garde une ou deux expériences racontées pour ce qu'elles ont appris au candidat, et consacre le reste à ce qui l'attire dans le poste et à ce qu'il veut y faire.
 
 
 ## Premier paragraphe
@@ -137,6 +137,9 @@ Avant de retourner la lettre, vérifie silencieusement :
 5. Le premier paragraphe est-il simple, à la première personne et spécifique au poste ?
 6. La lettre reste-t-elle naturelle lorsqu'elle est lue à voix haute ?
 7. Ai-je ajouté des formulations génériques pour remplir la longueur ?
+8. Le dernier paragraphe dit-il ce que le candidat apporterait au poste et demande-t-il un entretien, sans adjectif accordé au candidat ?
+9. La lettre se termine-t-elle par « Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées. » puis le nom ?
+10. Une phrase sur le parcours pourrait-elle figurer telle quelle dans le CV ? Reste-t-il une énumération de plus de deux éléments ?
 
 Si une modification n'améliore aucun de ces points, ne la fais pas.
 

@@ -20,10 +20,14 @@ Si la lettre :
 
 Verdict OBLIGATOIRE : « revise ». Ajoute impérativement dans "flaws" : « CV déguisé (Catalogue) : la lettre énumère chronologiquement les expériences ou consacre un paragraphe par employeur au lieu de proposer une synthèse thématique fluide (fil rouge). »
 
-Note : Il est autorisé, et même encouragé, de mentionner plusieurs expériences (entreprises) dans la lettre, TANT QUE cela s'inscrit dans une synthèse thématique transverse plutôt qu'une liste chronologique.
+Même verdict « revise » si la lettre paraphrase le CV : une phrase ou un paragraphe énumère au moins trois responsabilités, projets, compétences ou partenaires, ou la plus grande partie de la lettre décrit le passé du candidat au lieu du poste et de ce qu'il veut y faire. Ajoute alors dans "flaws" : « CV paraphrasé : la lettre répète le CV au lieu de dire pourquoi ce poste et ce que le candidat veut y faire. » en citant le passage.
+
+Note : Il est autorisé de mentionner plusieurs expériences (entreprises) dans la lettre, TANT QUE cela s'inscrit dans une synthèse thématique transverse plutôt qu'une liste chronologique.
 
 Vérifie aussi :
-* plus de trois technologies nommées dans toute la lettre ;
+* plus de trois outils, logiciels ou technologies nommés dans toute la lettre ;
+* un dernier paragraphe générique, qui pourrait conclure n'importe quelle lettre, ou qui ne demande pas d'entretien ;
+* un adjectif ou participe accordé au candidat dans la conclusion (« ravi », « heureux », « convaincu ») ;
 * l'absence d'idée directrice : si l'on ne peut pas résumer en une phrase ce que la lettre soutient, signale-le.
 
 

@@ -8,7 +8,7 @@ Sur mon projet personnel Sentinel, j'ai développé un moteur de streaming temps
 
 Rejoindre votre équipe représente l'opportunité de mettre cette double compétence au service de vos projets analytiques majeurs. Je pourrai ainsi contribuer directement à la structuration de vos pipelines et à l'accélération de vos traitements de données cliniques. Mon expertise technique et mon autonomie me permettront d'être opérationnel rapidement au sein de votre collectif de travail.
 
-Je serais ravi d'échanger prochainement avec vous pour évoquer plus en détail les enjeux techniques de ce poste et la manière dont mes réalisations passées peuvent répondre à vos besoins immédiats. Je vous remercie pour l'attention portée à ma candidature. Cordialement, Eliel Katche."""
+J'aimerais échanger prochainement avec vous pour évoquer plus en détail les enjeux techniques de ce poste et la manière dont mes réalisations passées peuvent répondre à vos besoins immédiats. Je vous remercie pour l'attention portée à ma candidature. Cordialement, Eliel Katche."""
     analyst_data = {
         "companies": ["Biomérieux", "Sanofi"],
         "stacks": ["Nextflow", "Kafka", "Rust", "DuckDB"],
@@ -93,8 +93,8 @@ def test_known_company_is_not_flagged():
 
 
 def test_word_bounds_come_from_a_single_source():
-    assert LETTER_RULES["min_words"] == 250
-    assert LETTER_RULES["max_words"] == 400
+    assert LETTER_RULES["min_words"] == 200
+    assert LETTER_RULES["max_words"] == 350
     assert "je suis" in LETTER_RULES["capped_repetitions"]
 
 
@@ -290,3 +290,31 @@ eliel Katche"""
     assert any("plus tôt, chez" in v for v in report.violations)
 
 
+
+
+def test_guards_cap_jai_including_typographic_apostrophe():
+    letter = "J’ai animé des ateliers. J'ai monté un projet. J’ai encadré une équipe. J'ai organisé un séjour."
+    report = evaluate_letter_guards(letter, "offre", {})
+    assert any("Répétition excessive de 'j'ai' (4 trouvés, max 3)" in v for v in report.violations)
+
+
+def _four_paragraph_letter(signature: str) -> str:
+    body = " ".join(["Je travaille avec des jeunes du quartier depuis quatre ans."] * 6)
+    return (
+        "Madame, Monsieur,\n\n"
+        + "\n\n".join([body] * 4)
+        + "\n\nJe vous prie d’agréer, Madame, Monsieur, l’expression de mes salutations distinguées."
+        + signature
+    )
+
+
+def test_salutation_politeness_and_signature_are_not_counted_as_paragraphs():
+    report = evaluate_letter_guards(_four_paragraph_letter("\n\nLola Bart"), "offre", {})
+    assert report.stats["paragraph_count"] == 4
+    assert not any("Nombre de paragraphes" in v for v in report.violations)
+
+
+def test_gendered_closing_is_flagged():
+    for phrase in ("Je serais heureuse de vous rencontrer.", "Je serais ravi d'en parler."):
+        report = evaluate_letter_guards(phrase, "offre", {})
+        assert any("Formule accordée au candidat" in v for v in report.violations), phrase

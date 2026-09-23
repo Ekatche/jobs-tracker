@@ -4,7 +4,7 @@ L'objectif n'est pas d'écrire une lettre parfaite ou particulièrement élégan
 
 ## Ton général
 
-Écris comme un ingénieur qui s'adresse directement à un recruteur ou à une équipe technique.
+Écris comme un professionnel de son métier qui s'adresse directement à un recruteur ou à son futur responsable.
 
 Le ton doit être :
 
@@ -35,13 +35,13 @@ Angle spécifique sur l'expérience pivot :
 
 Si des lettres du candidat sont fournies plus haut, leur rythme et leur vocabulaire priment sur les consignes de style ci-dessous. Les interdictions restent valables.
 
-Utilise principalement la voix active avec des verbes d'action variés et précis :
-« J'ai structuré... »
-« J'ai conçu... »
-« J'ai déployé... »
+Utilise principalement la voix active avec des verbes d'action variés et précis, en variant l'entrée de phrase :
+« Pendant deux ans, j'ai organisé... »
+« Ce projet m'a appris à... »
+« Je m'occupe aujourd'hui de... »
 « Cette approche a permis de... »
 
-Évite d'enchaîner mécaniquement les phrases commençant par « J'ai ». Varie les sujets de phrase et les constructions syntaxiques.
+« J'ai » apparaît au plus trois fois dans toute la lettre. Pour varier, commence par le contexte (moment, lieu, projet), prends l'action ou son résultat comme sujet, ou passe au présent pour ce que tu fais aujourd'hui.
 
 Évite les formulations passives lorsque la formulation active est naturelle.
 
@@ -91,7 +91,17 @@ La lettre suit l'idée directrice fournie, liée au défi du poste. Chaque parag
 
 Un paragraphe porte une idée ou un thème transverse, jamais un employeur.
 
-Tu dois synthétiser l'ensemble du parcours du candidat autour de la thèse directrice. Regroupe les expériences par thèmes (ex: "De la conception à la mise en production", "L'évolution vers l'architecture", "La gestion de la complexité dans divers contextes") plutôt que de les raconter l'une après l'autre. Montre la richesse de ce parcours sans jamais énumérer.
+La lettre complète le CV, elle ne le résume pas. Le recruteur a le CV sous les yeux : répéter ses lignes ne lui apprend rien. La lettre apporte ce que le CV ne dit pas :
+
+* pourquoi ce poste et cette structure, à partir d'éléments concrets de l'offre ;
+* ce que le candidat aime dans son métier et ce qu'il veut faire dans ce poste ;
+* une ou deux expériences choisies, racontées comme un moment précis : ce qui s'est passé, ce que le candidat en a retenu, pourquoi cela lui donne envie de ce poste.
+
+Au moins la moitié de la lettre parle du poste, de la structure et de ce que le candidat veut y faire, pas de son passé.
+
+Aucune énumération de plus de deux éléments : ni responsabilités, ni projets, ni compétences, ni partenaires. Si trois exemples viennent, garde le plus parlant et raconte-le.
+
+Test à appliquer avant de rendre la lettre : pour chaque phrase qui parle du parcours, demande-toi si elle pourrait figurer telle quelle dans le CV. Si oui, supprime-la ou réécris-la pour dire ce que cette expérience a appris au candidat ou pourquoi elle le pousse vers ce poste.
 
 Test à appliquer avant de rendre la lettre : retire mentalement tous les noms d'employeurs. Si un paragraphe n'avait d'existence que parce qu'il portait un nom d'entreprise, la structure est un CV déguisé et doit être refondue autour des idées et des thèmes transverses.
 
@@ -102,17 +112,20 @@ Ne commence aucun paragraphe par le nom d'un employeur ni par une formule d'ouve
 « Mon expérience à... »
 « Lors de mon passage chez... »
 
-L'ordre des paragraphes suit la logique de l'argument (Conviction -> Défi entreprise -> Synthèse de l'expérience -> Projection), jamais la chronologie du parcours.
+L'ordre des paragraphes suit la logique de l'argument (Présentation sobre et raison de la candidature -> Ce qui attire dans le poste et la structure -> Une ou deux preuves tirées du parcours -> Ce que le candidat veut faire dans le poste), jamais la chronologie du parcours.
 
-Trois technologies nommées au maximum dans toute la lettre.
+Trois outils, logiciels ou technologies nommés au maximum dans toute la lettre.
 
 ### Exemple contrastif (Ce qu'il faut faire vs ne pas faire)
 
 ❌ À PROSCRIRE (Catalogue de CV déguisé) :
 « À Initech, j'ai travaillé sur des pipelines de données sous Kafka. Au sein de DataCorp, j'ai développé des modèles de machine learning. Plus tôt, chez PartnerTech, j'ai optimisé des bases relationnelles. »
 
-✅ ATTENDU (Synthèse thématique transverse) :
-« Que ce soit en optimisant des bases relationnelles ou en mettant des modèles d'apprentissage en production, j'ai souvent vu les mêmes problèmes venir de l'ingestion. Chez Initech puis chez DataCorp, j'ai donc passé une bonne partie de mon temps à rendre les pipelines de données plus fiables, avant même de toucher aux modèles. »
+❌ À PROSCRIRE (CV paraphrasé) :
+« Cette façon de travailler s'appuie sur une expérience de direction de structure, de gestion budgétaire et d'encadrement d'équipes. Les liens construits avec les associations et les acteurs institutionnels permettent également de proposer des projets ouverts. »
+
+✅ ATTENDU (une expérience racontée pour ce qu'elle dit de la motivation) :
+« Chez Initech, les modèles échouaient presque toujours à cause de données mal ingérées. C'est en reprenant ces pipelines que j'ai compris que cette partie du travail me plaisait le plus, et c'est elle que votre équipe veut reconstruire. »
 
 ## Développement
 
@@ -184,7 +197,7 @@ Privilégie :
 
 Ne transforme pas chaque paragraphe en démonstration de compatibilité avec l'offre.
 
-La lettre est un argumentaire, pas un résumé biographique.
+La lettre est un argumentaire de motivation, pas un résumé biographique ni une reformulation du CV.
 
 Le candidat n'énumère pas ses employeurs de manière chronologique : il démontre sa capacité à traiter le défi clé de l'entreprise en synthétisant la richesse de son parcours global autour d'un fil rouge logique.
 
@@ -224,18 +237,20 @@ Entre {min_words} et {max_words} mots.
 
 3 ou 4 paragraphes.
 
-Le dernier paragraphe doit rester court et naturel.
+Le dernier paragraphe est court : 2 à 3 phrases.
 
-Évite les conclusions qui résument artificiellement toutes les compétences du candidat. La conclusion doit rester simple et laisser les expériences précédentes porter l'argumentation.
+* Une phrase dit concrètement ce que le candidat apporterait au poste, en s'appuyant sur ce qui précède. Elle ne résume pas toutes ses compétences et ne pourrait pas figurer dans une autre lettre.
+* La dernière phrase demande un entretien, simplement et directement.
+
+Formulations neutres en genre uniquement : aucun adjectif ni participe accordé au candidat (« ravi », « heureux », « convaincu », « motivé », « disponible »). Par exemple : « J'aimerais vous en parler lors d'un entretien. »
 
 Commence par :
 
 « Madame, Monsieur, »
 
-Termine par une courte phrase d'ouverture et une salutation simple :
+Termine par cette formule de politesse, puis le nom du candidat s'il est connu :
 
-« Je serais ravi d'en discuter de vive voix.
-Cordialement,
+« Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées.
 
 {candidate_name} »
 
@@ -247,7 +262,7 @@ Missions visées :
 Expériences :
 {experiences}
 
-Technologies :
+Outils et compétences :
 {stacks}
 
 Projets :

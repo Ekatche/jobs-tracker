@@ -22,6 +22,9 @@ _FORBIDDEN_EMPLOYER_OPENING = re.compile(
     re.IGNORECASE,
 )
 
+_GENDERED_CLOSING = re.compile(
+    r"\bje (?:serais|serai|suis) (?:très |vraiment )?(?:heureu(?:x|se)|ravie?|convaincue?|enthousiaste)\b"
+)
 
 BANNED_OPENINGS = [
     "je vous adresse ma candidature", "actuellement à la recherche",
@@ -44,15 +47,16 @@ CAPPED_REPETITIONS = {
     "mes compétences": 1,
     "je souhaite": 1,
     "je suis": 1,
-    "je serais": 1
+    "je serais": 1,
+    "j'ai": 3,
 }
 
 # Source unique des seuils : consommée par les garde-fous ci-dessous ET
 # injectée dans le prompt du rédacteur (cover_letter_crew.py), pour que les
 # règles jugées par le code soient aussi les règles connues du rédacteur.
 LETTER_RULES = {
-    "min_words": 250,
-    "max_words": 400,
+    "min_words": 200,
+    "max_words": 350,
     "min_paragraphs": 3,
     "max_paragraphs": 5,
     "max_head_connectors": 1,
@@ -175,6 +179,12 @@ def evaluate_letter_guards(
         if phrase in lower_text:
             violations.append(f"Lexique banni détecté : '{phrase}'")
 
+    # 2b. Formule accordée au candidat : le prompt impose une conclusion neutre
+    # en genre, le rédacteur écrit quand même « Je serais heureuse ».
+    gendered = _GENDERED_CLOSING.search(lower_text)
+    if gendered:
+        violations.append(f"Formule accordée au candidat interdite : '{gendered.group(0)}'")
+
     # 3. Ouvertures interdites
     trimmed = lower_text.strip()
     for opening in BANNED_OPENINGS:
@@ -188,11 +198,20 @@ def evaluate_letter_guards(
 
     # 5. Paragraphes
     paragraphs = [p.strip() for p in re.split(r"\n\s*\n", letter_text.strip()) if p.strip()]
-    stats["paragraph_count"] = len(paragraphs)
+    # Seul le corps compte : salutation, formule de politesse et signature
+    # imposées par le prompt ne sont pas des paragraphes d'argumentation.
+    body_paragraphs = [
+        p for p in paragraphs
+        if not re.match(r"^(madame|monsieur)\b", p.lower())
+        and not p.lower().replace("’", "'").startswith("je vous prie d'agréer")
+    ]
+    if body_paragraphs and len(body_paragraphs[-1].split()) <= 4 and not re.search(r"[.?]$", body_paragraphs[-1]):
+        body_paragraphs = body_paragraphs[:-1]
+    stats["paragraph_count"] = len(body_paragraphs)
     min_paragraphs, max_paragraphs = LETTER_RULES["min_paragraphs"], LETTER_RULES["max_paragraphs"]
-    if not (min_paragraphs <= len(paragraphs) <= max_paragraphs):
+    if not (min_paragraphs <= len(body_paragraphs) <= max_paragraphs):
         violations.append(
-            f"Nombre de paragraphes hors bornes ({min_paragraphs}-{max_paragraphs} requis, {len(paragraphs)} trouvés)"
+            f"Nombre de paragraphes hors bornes ({min_paragraphs}-{max_paragraphs} requis, {len(body_paragraphs)} trouvés)"
         )
 
     # 6. Longueur en mots
@@ -219,9 +238,11 @@ def evaluate_letter_guards(
             f"Connecteurs en tête de phrase en excès ({connector_count} trouvés, maximum {max_head_connectors} autorisé)"
         )
 
-    # 8. Répétitions plafonnées
+    # 8. Répétitions plafonnées (apostrophe typographique ramenée à ' : les LLM
+    # écrivent « J’ai » aussi souvent que « J'ai »)
+    straight_text = lower_text.replace("’", "'")
     for term, max_allowed in LETTER_RULES["capped_repetitions"].items():
-        occurrences = len(re.findall(r"\b" + re.escape(term) + r"\b", lower_text))
+        occurrences = len(re.findall(r"\b" + re.escape(term) + r"\b", straight_text))
         if occurrences > max_allowed:
             violations.append(f"Répétition excessive de '{term}' ({occurrences} trouvés, max {max_allowed})")
 

@@ -68,6 +68,7 @@ export default function CandidateProfileSection() {
   // Inline writing style editor (always visible, independent of full edit mode)
   const [isEditingStyle, setIsEditingStyle] = useState(false);
   const [writingStyleDraft, setWritingStyleDraft] = useState("");
+  const [writingSamplesDraft, setWritingSamplesDraft] = useState("");
   const [isSavingStyle, setIsSavingStyle] = useState(false);
   const [saveStyleSuccess, setSaveStyleSuccess] = useState(false);
 
@@ -523,6 +524,7 @@ export default function CandidateProfileSection() {
                     type="button"
                     onClick={() => {
                       setWritingStyleDraft(profile?.writing_style || writingStyle);
+                      setWritingSamplesDraft(profile?.writing_samples || writingSamples);
                       setIsEditingStyle(true);
                     }}
                     className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20 transition-colors"
@@ -541,6 +543,17 @@ export default function CandidateProfileSection() {
                     placeholder="ex: Style direct et sobre, phrases courtes et percutantes, orienté résultats chiffrés, voix active, zéro flatterie générique..."
                     className="w-full rounded-md bg-slate-900 border border-purple-500/30 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-xs leading-relaxed resize-none"
                     autoFocus
+                  />
+                  <label htmlFor="inline_writing_samples" className="block text-[11px] font-semibold text-purple-400 uppercase tracking-wider">
+                    Lettres d&apos;exemple
+                  </label>
+                  <textarea
+                    id="inline_writing_samples"
+                    rows={8}
+                    value={writingSamplesDraft}
+                    onChange={(e) => setWritingSamplesDraft(e.target.value)}
+                    placeholder="Collez 1 ou 2 lettres de motivation que vous avez écrites vous-même. Leur ton et leur rythme seront imités, jamais leur contenu."
+                    className="w-full rounded-md bg-slate-900 border border-purple-500/30 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-xs leading-relaxed"
                   />
                   <div className="flex items-center gap-2 justify-end">
                     {saveStyleSuccess && (
@@ -562,9 +575,15 @@ export default function CandidateProfileSection() {
                       onClick={async () => {
                         setIsSavingStyle(true);
                         try {
-                          await coverLetterApi.updateCandidateProfile({ writing_style: writingStyleDraft });
+                          await coverLetterApi.updateCandidateProfile({
+                            writing_style: writingStyleDraft,
+                            writing_samples: writingSamplesDraft,
+                          });
                           setWritingStyle(writingStyleDraft);
-                          setProfile((prev) => prev ? { ...prev, writing_style: writingStyleDraft } : prev);
+                          setWritingSamples(writingSamplesDraft);
+                          setProfile((prev) => prev
+                            ? { ...prev, writing_style: writingStyleDraft, writing_samples: writingSamplesDraft }
+                            : prev);
                           setSaveStyleSuccess(true);
                           setTimeout(() => {
                             setIsEditingStyle(false);
@@ -590,6 +609,14 @@ export default function CandidateProfileSection() {
                     ? <>&ldquo;{profile?.writing_style || writingStyle}&rdquo;</>
                     : <span className="text-slate-500 not-italic">Non défini — cliquez ✏️ Modifier pour décrire votre style d&apos;écriture.</span>
                   }
+                </p>
+              )}
+              {!isEditingStyle && (
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Lettres d&apos;exemple :{" "}
+                  {(profile?.writing_samples || writingSamples)
+                    ? `${(profile?.writing_samples || writingSamples).length} caractères`
+                    : "aucune"}
                 </p>
               )}
             </div>

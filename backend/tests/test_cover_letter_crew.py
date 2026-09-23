@@ -344,3 +344,55 @@ async def test_reviser_prompt_includes_letter_and_analysis_data():
         assert "Point d'exclamation interdit" in sent_prompt
 
 
+
+
+def _guards(*violations):
+    from app.services.letter_guards import GuardReport
+    return GuardReport(is_blocking=bool(violations), violations=list(violations), warnings=[], stats={})
+
+
+async def _run_with_guards(guard_reports, reviser_outputs):
+    with patch("cover_letter_crew._call_analyst", return_value={"missions": []}), \
+         patch("cover_letter_crew._get_cached_or_research_company", return_value=""), \
+         patch("cover_letter_crew._call_writer", return_value="brouillon"), \
+         patch("cover_letter_crew._call_critic", return_value={"verdict": "revise", "flaws": ["Défaut"]}), \
+         patch("cover_letter_crew._call_reviser", side_effect=reviser_outputs) as reviser, \
+         patch("cover_letter_crew.evaluate_letter_guards", side_effect=guard_reports), \
+         patch("cover_letter_crew.validate_cross_provider"):
+        result = await run_letter_pipeline_async(
+            offer_description="Offre", candidate_profile={}, company_name="Mairie"
+        )
+    return result, reviser
+
+
+@pytest.mark.asyncio
+async def test_second_revision_runs_when_guards_still_block():
+    result, reviser = await _run_with_guards(
+        [_guards("A"), _guards("Formule accordée"), _guards()],
+        ["révision 1", "révision 2"],
+    )
+    assert reviser.call_count == 2
+    second = reviser.call_args_list[1].args
+    assert second[0] == "révision 1"
+    assert second[2] == []
+    assert second[3]["violations"] == ["Formule accordée"]
+    assert result["body"] == "révision 2"
+    assert result["guard_report"]["violations"] == []
+
+
+@pytest.mark.asyncio
+async def test_no_second_revision_when_first_revision_is_clean():
+    result, reviser = await _run_with_guards([_guards("A"), _guards()], ["révision 1"])
+    assert reviser.call_count == 1
+    assert result["body"] == "révision 1"
+
+
+@pytest.mark.asyncio
+async def test_second_revision_is_discarded_when_it_is_worse():
+    result, reviser = await _run_with_guards(
+        [_guards("A"), _guards("B"), _guards("B", "C")],
+        ["révision 1", "révision 2"],
+    )
+    assert reviser.call_count == 2
+    assert result["body"] == "révision 1"
+    assert result["guard_report"]["violations"] == ["B"]
