@@ -19,6 +19,7 @@ from app.models import (
     ReverseQuestion,
     StarRStory,
 )
+from app.services.profile.context import build_candidate_context
 from app.services.usage_tracker import record_api_usage
 
 logger = logging.getLogger(__name__)
@@ -52,59 +53,12 @@ def _clean_json_output(raw_text: str) -> Union[Dict[str, Any], List[Any]]:
 
 
 def format_candidate_profile_context(profile: Dict[str, Any]) -> str:
-    """Format candidate profile into concise text context for prompts."""
-    lines = []
-    
-    # Contact & Title
-    contact = profile.get("contact") or profile.get("personal_info") or {}
-    full_name = contact.get("full_name") or profile.get("full_name") or "Candidat"
-    title = contact.get("title") or profile.get("title") or "Ingénieur"
-    lines.append(f"Candidat : {full_name} - {title}")
-
-    # Professional Summary
-    summary = profile.get("professional_summary") or profile.get("summary")
-    if summary:
-        lines.append(f"Résumé professionnel : {summary}")
-
-    # Skills
-    skills = profile.get("skills")
-    if skills:
-        if isinstance(skills, list):
-            lines.append("Compétences : " + ", ".join(str(s) for s in skills if s))
-        elif isinstance(skills, dict):
-            lines.append("Compétences :")
-            for cat, val in skills.items():
-                if isinstance(val, list):
-                    lines.append(f"  - {cat}: " + ", ".join(str(v) for v in val if v))
-                elif isinstance(val, str):
-                    lines.append(f"  - {cat}: {val}")
-
-    # Experiences
-    experiences = profile.get("experiences") or []
-    if experiences:
-        lines.append("\nExpériences professionnelles :")
-        for exp in experiences:
-            company = exp.get("company", "Entreprise inconnue")
-            role = exp.get("role") or exp.get("title", "Poste")
-            dates = f"{exp.get('start_date', '')} à {exp.get('end_date', 'présent')}"
-            desc = exp.get("description", "")
-            bullets = exp.get("achievements") or exp.get("bullet_points") or []
-            lines.append(f"- **{role}** chez {company} ({dates})")
-            if desc:
-                lines.append(f"  {desc}")
-            for b in bullets:
-                lines.append(f"  * {b}")
-
-    # Projects
-    projects = profile.get("projects") or []
-    if projects:
-        lines.append("\nProjets notables :")
-        for p in projects:
-            p_name = p.get("name", "Projet")
-            p_desc = p.get("description", "")
-            lines.append(f"- {p_name} : {p_desc}")
-
-    return "\n".join(lines)
+    """Format candidate profile into text context for prompts (same projection as the evaluator)."""
+    full_name = (profile.get("contact") or {}).get("full_name") or "Candidat"
+    headline = profile.get("headline") or ""
+    header = f"Candidat : {full_name} - {headline}" if headline else f"Candidat : {full_name}"
+    context = json.dumps(build_candidate_context(profile), ensure_ascii=False, indent=2)
+    return f"{header}\n{context}"
 
 
 def format_evaluation_context(evaluation: Optional[Dict[str, Any]]) -> str:
@@ -120,6 +74,8 @@ def format_evaluation_context(evaluation: Optional[Dict[str, Any]]) -> str:
 
     # Bloc A
     bloc_a = evaluation.get("bloc_a") or {}
+    if bloc_a.get("summary"):
+        lines.append(f"Synthèse de l'offre : {bloc_a.get('summary')}")
     if bloc_a.get("archetype"):
         lines.append(f"Archétype de poste identifié : {bloc_a.get('archetype')}")
     if bloc_a.get("red_flags"):
@@ -127,23 +83,45 @@ def format_evaluation_context(evaluation: Optional[Dict[str, Any]]) -> str:
 
     # Bloc B
     bloc_b = evaluation.get("bloc_b") or {}
-    matched = bloc_b.get("matched_requirements") or bloc_b.get("requirements_matched") or []
+    matched = bloc_b.get("matched_requirements") or []
     if matched:
         lines.append("\nExigences validées (Points forts du candidat) :")
         for m in matched:
             req = m.get("requirement", "")
             ev = m.get("candidate_evidence", "")
-            lines.append(f"- {req} (Preuve: {ev})")
+            tags = [m.get("weight", "")]
+            if m.get("status") == "partial_match":
+                tags.append("couverture partielle")
+            if m.get("evidence_tier") == "inferred":
+                tags.append("preuve déduite, non explicite dans le profil")
+            tags_str = ", ".join(t for t in tags if t)
+            lines.append(f"- {req} [{tags_str}] (Preuve: {ev})")
 
-    missing = bloc_b.get("missing_requirements") or bloc_b.get("requirements_missing") or []
+    missing = bloc_b.get("missing_requirements") or []
     if missing:
         lines.append("\nExigences manquantes / à anticiper :")
         for mis in missing:
             req = mis.get("requirement", "")
-            crit = mis.get("criticality", "")
-            lines.append(f"- {req} [Criticité: {crit}]")
+            weight = mis.get("weight", "")
+            reason = mis.get("reason", "")
+            lines.append(f"- {req} [Poids: {weight}] (Écart: {reason})")
+
+    if bloc_b.get("score_justification"):
+        lines.append(f"\nJustification du score : {bloc_b.get('score_justification')}")
+
+    # Bloc G
+    bloc_g = evaluation.get("bloc_g") or {}
+    if bloc_g.get("warnings"):
+        lines.append("Alertes sur l'offre : " + "; ".join(bloc_g.get("warnings")))
 
     return "\n".join(lines)
+
+
+def _offer_role_and_company(offer: Dict[str, Any]) -> Tuple[str, str]:
+    """job_offers stocke poste/entreprise ; title/company gardés en repli."""
+    role = offer.get("poste") or offer.get("title") or "Poste"
+    company = offer.get("entreprise") or offer.get("company") or "Entreprise"
+    return role, company
 
 
 async def generate_star_stories(
@@ -159,8 +137,8 @@ async def generate_star_stories(
 
     prompt = template.format(
         candidate_profile=format_candidate_profile_context(profile),
-        target_company=offer.get("company", "Entreprise"),
-        target_role=offer.get("title", "Poste"),
+        target_company=_offer_role_and_company(offer)[1],
+        target_role=_offer_role_and_company(offer)[0],
         offer_description=offer.get("description", "")[:4000],
         evaluation_context=format_evaluation_context(evaluation),
     )
@@ -225,8 +203,8 @@ async def generate_audience_packs(
 
     prompt = template.format(
         candidate_profile=format_candidate_profile_context(profile),
-        target_company=offer.get("company", "Entreprise"),
-        target_role=offer.get("title", "Poste"),
+        target_company=_offer_role_and_company(offer)[1],
+        target_role=_offer_role_and_company(offer)[0],
         offer_description=offer.get("description", "")[:4000],
         evaluation_context=format_evaluation_context(evaluation),
     )
@@ -302,8 +280,8 @@ async def generate_anticipated_questions(
 
     prompt = template.format(
         candidate_profile=format_candidate_profile_context(profile),
-        target_company=offer.get("company", "Entreprise"),
-        target_role=offer.get("title", "Poste"),
+        target_company=_offer_role_and_company(offer)[1],
+        target_role=_offer_role_and_company(offer)[0],
         offer_description=offer.get("description", "")[:4000],
         evaluation_context=format_evaluation_context(evaluation),
         stories_context=stories_text,
@@ -363,8 +341,8 @@ async def generate_reverse_questions(
     template = prompt_file.read_text(encoding="utf-8")
 
     prompt = template.format(
-        target_company=offer.get("company", "Entreprise"),
-        target_role=offer.get("title", "Poste"),
+        target_company=_offer_role_and_company(offer)[1],
+        target_role=_offer_role_and_company(offer)[0],
         offer_description=offer.get("description", "")[:4000],
         evaluation_context=format_evaluation_context(evaluation),
     )
@@ -412,8 +390,7 @@ async def generate_reverse_questions(
 
 def export_interview_prep_markdown(prep: InterviewPrep, offer: Dict[str, Any]) -> str:
     """Render the full interview prep document as a clean, structured Markdown export."""
-    title = offer.get("title", "Poste")
-    company = offer.get("company", "Entreprise")
+    title, company = _offer_role_and_company(offer)
     date_str = prep.updated_at.strftime("%Y-%m-%d")
 
     md_lines = [

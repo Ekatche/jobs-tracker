@@ -25,6 +25,7 @@ from app.services.evaluation.domain_relevance import (
     build_candidate_identity,
     compute_domain_relevance,
 )
+from app.services.profile.context import build_candidate_context
 from app.services.usage_tracker import record_api_usage, require_user_quota
 
 logger = logging.getLogger(__name__)
@@ -134,14 +135,7 @@ async def evaluate_offer_two_pass(
         profile_doc = {"headline": "", "experiences": [], "skills": {}, "preferences": {}}
 
     candidate_headline = profile_doc.get("headline", "")
-    candidate_summary = profile_doc.get("summary", "")
-    candidate_skills = profile_doc.get("skills", {})
-    candidate_experiences = profile_doc.get("experiences", [])
     candidate_preferences = profile_doc.get("preferences", {})
-    candidate_education = profile_doc.get("education", [])
-    candidate_projects = profile_doc.get("projects", [])
-    candidate_certifications = profile_doc.get("certifications", [])
-    candidate_languages = profile_doc.get("languages", [])
 
     candidate_target_roles = (
         candidate_preferences.get("target_roles", [])
@@ -247,54 +241,7 @@ Réponds STRICTEMENT au format JSON avec cette structure :
             ),
         }
     else:
-        candidate_context = {
-            "headline": candidate_headline,
-            "summary": candidate_summary,
-            "preferences": candidate_preferences,
-            "skills": candidate_skills,
-            "experiences": [
-                {
-                    "role": exp.get("role"),
-                    "company": exp.get("company"),
-                    "start": exp.get("start"),
-                    "end": exp.get("end"),
-                    "stack": exp.get("stack", []),
-                    "missions": exp.get("missions", []),
-                }
-                for exp in candidate_experiences
-            ],
-            "education": [
-                {
-                    "school": edu.get("school"),
-                    "degree": edu.get("degree"),
-                    "years": edu.get("years"),
-                    "topics": edu.get("topics", []),
-                }
-                for edu in candidate_education
-            ],
-            "projects": [
-                {
-                    "name": proj.get("name"),
-                    "description": proj.get("description"),
-                    "stack": proj.get("stack", []),
-                    "context": proj.get("context"),
-                    "url": proj.get("url"),
-                    "repo": proj.get("repo"),
-                    "highlights": proj.get("highlights", []),
-                }
-                for proj in candidate_projects
-            ],
-            "certifications": [
-                {
-                    "name": cert.get("name"),
-                    "issuer": cert.get("issuer"),
-                    "year": cert.get("year"),
-                    "topics": cert.get("topics", []),
-                }
-                for cert in candidate_certifications
-            ],
-            "languages": candidate_languages,
-        }
+        candidate_context = build_candidate_context(profile_doc)
 
         pass2_prompt = f"""Tu es l'évaluateur de matching Career-Ops.
 Tu disposes de l'analyse préalable de l'offre (Pass 1) et du profil complet du candidat (expériences, formations/diplômes, projets concrets/réalisations, certifications, compétences et préférences).

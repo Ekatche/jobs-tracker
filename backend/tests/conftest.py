@@ -50,6 +50,17 @@ def override_dependencies():
     app.dependency_overrides[get_database] = get_test_database
 
 
+@pytest.fixture
+async def test_db():
+    """Base de test partagée par l'app (override) et le seed du test."""
+    override_dependencies()
+    client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
+    try:
+        yield client[DATABASE_NAME]
+    finally:
+        client.close()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def cleanup_database():
     """Nettoie la base de données de test après tous les tests."""

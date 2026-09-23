@@ -4,7 +4,6 @@ from bson import ObjectId
 from fastapi.testclient import TestClient
 
 from app.auth import get_current_user
-from app.database import get_database
 from app.models import (
     StarRStory,
     AudiencePackRecruiter,
@@ -51,12 +50,12 @@ async def test_get_interview_prep_empty(override_auth):
 
 
 @pytest.mark.asyncio
-async def test_generate_stories_endpoint(override_auth):
+async def test_generate_stories_endpoint(override_auth, test_db):
     offer_id = ObjectId()
-    db = await get_database()
+    db = test_db
 
     # Seed mock candidate profile and offer
-    await db.candidate_profiles.update_one(
+    await db.candidate_profile.update_one(
         {"user_id": mock_user_id},
         {"$set": {"user_id": mock_user_id, "skills": ["Python", "Docker"], "experiences": [{"company": "Alpha Corp"}]}},
         upsert=True,
@@ -91,9 +90,9 @@ async def test_generate_stories_endpoint(override_auth):
 
 
 @pytest.mark.asyncio
-async def test_update_and_export_interview_prep(override_auth):
+async def test_update_and_export_interview_prep(override_auth, test_db):
     offer_id = ObjectId()
-    db = await get_database()
+    db = test_db
 
     await db.job_offers.update_one(
         {"_id": offer_id},

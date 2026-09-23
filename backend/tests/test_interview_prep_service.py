@@ -63,6 +63,7 @@ async def test_generate_star_stories_mocked():
     with patch("app.services.interview_prep_service.acompletion", return_value=mock_resp):
         with patch("app.services.interview_prep_service.record_api_usage", return_value=None):
             stories = await generate_star_stories(
+                db=None,
                 user_id=ObjectId(),
                 profile=profile,
                 offer=offer,
@@ -105,6 +106,7 @@ async def test_generate_audience_packs_mocked():
     with patch("app.services.interview_prep_service.acompletion", return_value=mock_resp):
         with patch("app.services.interview_prep_service.record_api_usage", return_value=None):
             recruiter, hm, tech = await generate_audience_packs(
+                db=None,
                 user_id=ObjectId(),
                 profile={},
                 offer={"title": "Lead Dev", "company": "Acme", "description": "Desc"},
@@ -147,6 +149,7 @@ async def test_generate_anticipated_questions_mocked():
     with patch("app.services.interview_prep_service.acompletion", return_value=mock_resp):
         with patch("app.services.interview_prep_service.record_api_usage", return_value=None):
             questions = await generate_anticipated_questions(
+                db=None,
                 user_id=ObjectId(),
                 profile={},
                 offer={"title": "Dev", "company": "Co", "description": "D"},
@@ -179,6 +182,7 @@ async def test_generate_reverse_questions_mocked():
     with patch("app.services.interview_prep_service.acompletion", return_value=mock_resp):
         with patch("app.services.interview_prep_service.record_api_usage", return_value=None):
             rev_questions = await generate_reverse_questions(
+                db=None,
                 user_id=ObjectId(),
                 offer={"title": "Dev", "company": "Co", "description": "D"},
                 evaluation={},
@@ -237,3 +241,67 @@ def test_export_interview_prep_markdown():
     assert "### Pack Recruteur / RH" in md
     assert "## 3. Questions Anticipées" in md
     assert "## 4. Questions Inversées (Anti Red-Flags)" in md
+
+
+def test_format_candidate_profile_context_uses_headline_and_real_fields():
+    from app.services.interview_prep_service import format_candidate_profile_context
+
+    profile = {
+        "headline": "Animatrice jeunesse",
+        "contact": {"email": "x@y.fr"},
+        "experiences": [
+            {"company": "Centre social", "role": "Animatrice", "start": "2021-09", "end": "2024-06",
+             "missions": ["Encadrer les 11-13 ans"]}
+        ],
+    }
+
+    text = format_candidate_profile_context(profile)
+
+    assert text.startswith("Candidat : Candidat - Animatrice jeunesse")
+    assert "Ingénieur" not in text
+    assert "Encadrer les 11-13 ans" in text
+    assert "2024-06" in text
+
+
+def test_format_evaluation_context_reads_weight_reason_and_warnings():
+    from app.services.interview_prep_service import format_evaluation_context
+
+    evaluation = {
+        "score": 3.2,
+        "bloc_a": {"summary": "Poste d'animation périscolaire"},
+        "bloc_b": {
+            "matched_requirements": [
+                {"requirement": "BAFA", "weight": "critical", "candidate_evidence": "BAFA 2019",
+                 "status": "partial_match", "evidence_tier": "inferred"}
+            ],
+            "missing_requirements": [
+                {"requirement": "Permis B", "weight": "high", "reason": "Non mentionné dans le profil"}
+            ],
+            "score_justification": "Bon fond, permis manquant",
+        },
+        "bloc_g": {"warnings": ["Offre republiée 4 fois"]},
+    }
+
+    text = format_evaluation_context(evaluation)
+
+    assert "Synthèse de l'offre : Poste d'animation périscolaire" in text
+    assert "BAFA [critical, couverture partielle, preuve déduite" in text
+    assert "Permis B [Poids: high] (Écart: Non mentionné dans le profil)" in text
+    assert "Justification du score : Bon fond, permis manquant" in text
+    assert "Offre republiée 4 fois" in text
+
+
+@pytest.mark.asyncio
+async def test_star_stories_prompt_uses_job_offer_poste_and_entreprise():
+    mock_resp = AsyncMock()
+    mock_resp.choices = [AsyncMock(message=AsyncMock(content="[]"))]
+    mock_resp.usage = AsyncMock(prompt_tokens=1, completion_tokens=1, total_tokens=2)
+    offer = {"poste": "Animateur périscolaire", "entreprise": "Mairie de Bourgoin", "description": "..."}
+
+    with patch("app.services.interview_prep_service.acompletion", return_value=mock_resp) as mock_llm:
+        with patch("app.services.interview_prep_service.record_api_usage", return_value=None):
+            await generate_star_stories(db=None, user_id=ObjectId(), profile={}, offer=offer)
+
+    prompt = mock_llm.call_args.kwargs["messages"][0]["content"]
+    assert "Animateur périscolaire" in prompt
+    assert "Mairie de Bourgoin" in prompt
