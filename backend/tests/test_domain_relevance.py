@@ -5,6 +5,7 @@ from app.services.evaluation.domain_relevance import (
     DOMAIN_RELEVANCE_THRESHOLD,
     build_candidate_identity,
     compute_domain_relevance,
+    expand_title_acronyms,
 )
 
 
@@ -57,3 +58,28 @@ async def test_compute_domain_relevance_fails_open_on_exception():
         score = await compute_domain_relevance("Animatrice 2D", "Data Scientist")
 
     assert score is None
+
+
+@pytest.mark.parametrize(
+    "title,expected",
+    [
+        ("Développeur Confirmé Ia", "Développeur Confirmé intelligence artificielle"),
+        ("Ingénieur IA Agentique", "Ingénieur intelligence artificielle Agentique"),
+        ("Animatrice périscolaire", "Animatrice périscolaire"),
+        ("Aide-soignant", "Aide-soignant"),
+    ],
+)
+def test_expand_title_acronyms(title, expected):
+    assert expand_title_acronyms(title) == expected
+
+
+@pytest.mark.asyncio
+async def test_compute_domain_relevance_embeds_expanded_title():
+    fake_resp = MagicMock()
+    fake_resp.data = [{"embedding": [1.0, 0.0]}, {"embedding": [1.0, 0.0]}]
+    embed = AsyncMock(return_value=fake_resp)
+
+    with patch("litellm.aembedding", embed):
+        await compute_domain_relevance("AI Engineer", "Développeur Confirmé Ia")
+
+    assert embed.call_args.kwargs["input"][1] == "Développeur Confirmé intelligence artificielle"

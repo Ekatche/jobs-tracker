@@ -15,6 +15,7 @@ from app.models import (
     BlocG,
     MissingRequirement,
     OfferEvaluation,
+    PreferenceMismatch,
     RequirementMatch,
     UserModel,
     UserTier,
@@ -23,6 +24,8 @@ from app.services.evaluation.evaluator import (
     _clean_json_output,
     calculate_evaluation_score,
     evaluate_offer_two_pass,
+    quote_in_offer,
+    reconcile_with_pass1,
 )
 from main import app
 
@@ -45,49 +48,47 @@ def test_clean_json_output_raw_text_wrapper():
     assert cleaned["is_ghost_job"] is False
 
 
-def test_calculate_evaluation_score_perfect():
-    bloc_a = BlocA(archetype="Staff Engineer", geo_mismatch=False, visa_sponsoring_refused=False)
-    bloc_b = BlocB(
-        matched_requirements=[
-            RequirementMatch(
-                requirement="Python",
-                weight="critical",
-                candidate_evidence="10 years Python",
-                verbatim_quote="10+ years Python required",
-                status="full_match",
-            ),
-            RequirementMatch(
-                requirement="FastAPI",
-                weight="critical",
-                candidate_evidence="Built 20 microservices",
-                verbatim_quote="Strong FastAPI experience",
-                status="full_match",
-            ),
-            RequirementMatch(
-                requirement="MongoDB",
-                weight="critical",
-                candidate_evidence="Production MongoDB DBA",
-                verbatim_quote="MongoDB skills",
-                status="full_match",
-            ),
-        ],
-        missing_requirements=[],
+def _match(requirement, weight="critical", status="full_match", quote_verified=True):
+    return RequirementMatch(
+        requirement=requirement,
+        weight=weight,
+        candidate_evidence="preuve",
+        verbatim_quote="citation",
+        status=status,
+        quote_verified=quote_verified,
     )
-    bloc_g = BlocG(is_ghost_job=False, is_scam_risk=False)
 
-    score = calculate_evaluation_score(bloc_a, bloc_b, bloc_g)
-    assert score == 5.0
+
+def _missing(requirement, weight="critical"):
+    return MissingRequirement(requirement=requirement, weight=weight, reason="absent")
+
+
+FOUR_FULL_MATCHES = [_match("Python"), _match("FastAPI"), _match("MongoDB", "high"), _match("Docker", "meaningful")]
+
+
+def test_calculate_evaluation_score_perfect():
+    bloc_b = BlocB(matched_requirements=FOUR_FULL_MATCHES)
+    assert calculate_evaluation_score(BlocA(), bloc_b, BlocG(), description_length=1200) == 5.0
 
 
 def test_calculate_evaluation_score_red_flag_caps():
     bloc_a_geo = BlocA(archetype="Staff Engineer", geo_mismatch=True)
-    bloc_b = BlocB(matched_requirements=[], missing_requirements=[])
+    bloc_b = BlocB(matched_requirements=FOUR_FULL_MATCHES)
     bloc_g = BlocG(is_ghost_job=False, is_scam_risk=False)
     assert calculate_evaluation_score(bloc_a_geo, bloc_b, bloc_g) == 1.5
 
     bloc_a_clean = BlocA(archetype="Staff Engineer", geo_mismatch=False)
-    bloc_g_ghost = BlocG(is_ghost_job=True, is_scam_risk=False)
-    assert calculate_evaluation_score(bloc_a_clean, bloc_b, bloc_g_ghost) == 1.5
+    bloc_g_scam = BlocG(is_ghost_job=False, is_scam_risk=True)
+    assert calculate_evaluation_score(bloc_a_clean, bloc_b, bloc_g_scam) == 1.5
+
+
+def test_ghost_job_caps_only_when_repost_detected():
+    bloc_a = BlocA(archetype="Staff Engineer")
+    bloc_b = BlocB(matched_requirements=FOUR_FULL_MATCHES)
+    # Le jugement "ghost" du modèle seul ne suffit plus à plafonner.
+    assert calculate_evaluation_score(bloc_a, bloc_b, BlocG(is_ghost_job=True)) == 5.0
+    corroborated = BlocG(is_ghost_job=True, reposted_frequency="3 publications")
+    assert calculate_evaluation_score(bloc_a, bloc_b, corroborated) == 1.5
 
 
 def test_calculate_evaluation_score_domain_mismatch_caps():
@@ -97,35 +98,125 @@ def test_calculate_evaluation_score_domain_mismatch_caps():
     assert calculate_evaluation_score(bloc_a, bloc_b, bloc_g) == 1.5
 
 
-def test_calculate_evaluation_score_deductions():
-    bloc_a = BlocA(archetype="Backend Developer")
+def test_score_is_weighted_coverage():
     bloc_b = BlocB(
-        matched_requirements=[],
-        missing_requirements=[
-            MissingRequirement(requirement="Kubernetes", weight="critical", reason="No K8s on profile"),
-            MissingRequirement(requirement="Go", weight="high", reason="Only Python"),
-            MissingRequirement(requirement="GCP", weight="meaningful", reason="Only AWS"),
-        ],
+        matched_requirements=[_match("Python", "critical"), _match("Go", "high")],
+        missing_requirements=[_missing("Kubernetes", "critical"), _missing("GCP", "meaningful")],
     )
-    bloc_g = BlocG()
+    # poids 3 + 2 + 3 + 1 = 9, acquis 5 : 1 + 4 x 5/9 = 3.22
+    assert calculate_evaluation_score(BlocA(), bloc_b, BlocG()) == 3.22
 
-    # 5.0 - 1.0 (critical) - 0.5 (high) - 0.2 (meaningful) = 3.3
-    score = calculate_evaluation_score(bloc_a, bloc_b, bloc_g)
-    assert score == 3.3
+
+def test_partial_match_earns_half_credit():
+    bloc_b = BlocB(
+        matched_requirements=[
+            _match("5 ans d'expérience", "critical", "partial_match"),
+            _match("Kafka", "high", "partial_match"),
+            _match("Python", "critical"),
+            _match("Anglais", "meaningful"),
+        ]
+    )
+    # poids 3 + 2 + 3 + 1 = 9, acquis 1.5 + 1 + 3 + 1 = 6.5 : 1 + 4 x 6.5/9 = 3.89
+    assert calculate_evaluation_score(BlocA(), bloc_b, BlocG()) == 3.89
 
 
 def test_calculate_evaluation_score_min_bound():
-    bloc_a = BlocA()
-    bloc_b = BlocB(
-        missing_requirements=[
-            MissingRequirement(requirement=f"Req {i}", weight="critical", reason="Missing")
-            for i in range(10)
-        ]
+    bloc_b = BlocB(missing_requirements=[_missing(f"Req {i}") for i in range(10)])
+    assert calculate_evaluation_score(BlocA(), bloc_b, BlocG()) == 1.0
+
+
+def test_no_requirement_evaluated_is_neutral():
+    assert calculate_evaluation_score(BlocA(), BlocB(), BlocG()) == 3.0
+
+
+def test_thin_offer_is_capped():
+    few = BlocB(matched_requirements=FOUR_FULL_MATCHES[:3])
+    assert calculate_evaluation_score(BlocA(), few, BlocG(), description_length=1200) == 4.0
+
+    enough = BlocB(matched_requirements=FOUR_FULL_MATCHES)
+    assert calculate_evaluation_score(BlocA(), enough, BlocG(), description_length=290) == 4.0
+    # Longueur inconnue : seul le nombre d'exigences compte.
+    assert calculate_evaluation_score(BlocA(), enough, BlocG()) == 5.0
+
+
+def test_preference_mismatches_and_partial_domain_are_penalized():
+    bloc_a = BlocA(
+        domain_coherence="partial",
+        preference_mismatches=[
+            PreferenceMismatch(criterion="contrat", offer_value="Stage", expected="CDI", weight="high"),
+            PreferenceMismatch(criterion="séniorité", offer_value="senior", expected="mid", weight="meaningful"),
+        ],
     )
-    bloc_g = BlocG()
-    # 5.0 - 10.0 = -5.0 -> clamped to 1.0
-    score = calculate_evaluation_score(bloc_a, bloc_b, bloc_g)
-    assert score == 1.0
+    bloc_b = BlocB(matched_requirements=FOUR_FULL_MATCHES)
+    # 5.0 - 0.5 (contrat) - 0.2 (séniorité) - 0.5 (domaine partiel) = 3.8
+    assert calculate_evaluation_score(bloc_a, bloc_b, BlocG()) == 3.8
+
+
+def test_unverified_quote_does_not_change_score():
+    unverified = BlocB(matched_requirements=FOUR_FULL_MATCHES[:3] + [_match("Docker", "meaningful", quote_verified=False)])
+    assert calculate_evaluation_score(BlocA(), unverified, BlocG()) == 5.0
+
+
+# --- Unit Tests: réconciliation Pass 1 / Pass 2 & vérification des citations ---
+
+PASS1_REQUIREMENTS = [
+    {"id": "R1", "requirement": "BAFA", "weight": "critical"},
+    {"id": "R2", "requirement": "Permis B", "weight": "high"},
+    {"id": "R3", "requirement": "Anglais", "weight": "meaningful"},
+]
+
+
+def test_reconcile_imposes_pass1_weight_and_adds_untreated_requirements():
+    matched = [{"req_id": "R1", "requirement": "BAFA", "weight": "meaningful", "status": "full_match"}]
+    missing = [{"req_id": "R3", "requirement": "Anglais", "weight": "critical", "reason": "absent"}]
+
+    matched_out, missing_out = reconcile_with_pass1(PASS1_REQUIREMENTS, matched, missing)
+
+    assert matched_out[0]["weight"] == "critical"
+    assert [m["weight"] for m in missing_out if m["req_id"] == "R3"] == ["meaningful"]
+    untreated = [m for m in missing_out if m["req_id"] == "R2"]
+    assert len(untreated) == 1
+    assert untreated[0]["weight"] == "high"
+    assert "non traitée" in untreated[0]["reason"]
+
+
+def test_reconcile_without_req_ids_keeps_pass2_as_is():
+    matched = [{"requirement": "BAFA", "weight": "high", "status": "full_match"}]
+
+    matched_out, missing_out = reconcile_with_pass1(PASS1_REQUIREMENTS, matched, [])
+
+    assert matched_out[0]["weight"] == "high"
+    assert missing_out == []
+
+
+def test_reconcile_ignores_unknown_req_id():
+    matched = [
+        {"req_id": "R1", "requirement": "BAFA", "weight": "critical"},
+        {"req_id": "R9", "requirement": "Inventé", "weight": "high"},
+    ]
+
+    matched_out, missing_out = reconcile_with_pass1(PASS1_REQUIREMENTS, matched, [])
+
+    assert matched_out[1]["weight"] == "high"
+    assert {m["req_id"] for m in missing_out} == {"R2", "R3"}
+
+
+@pytest.mark.parametrize(
+    "quote,expected",
+    [
+        ("Titulaire du BAFA", True),
+        ("titulaire   du  bafa", True),
+        ("l’équipe d'animation", True),
+        ("Titulaire du BAFA ... permis B apprécié", True),
+        ("Titulaire du BAFA … permis B apprécié", True),
+        ("BAFA obligatoire", False),
+        ("Titulaire du BAFA ... permis C", False),
+        ("", False),
+    ],
+)
+def test_quote_in_offer(quote, expected):
+    offer = "Poste d'animateur. Titulaire du BAFA, vous rejoignez l'équipe d'animation.\nPermis B apprécié."
+    assert quote_in_offer(quote, offer) is expected
 
 
 # --- Service Test: evaluate_offer_two_pass with Mocks ---
@@ -262,7 +353,8 @@ async def test_evaluate_offer_two_pass_success():
         assert isinstance(evaluation, OfferEvaluation)
         assert evaluation.user_id == TEST_USER_ID
         assert evaluation.offer_id == TEST_OFFER_ID
-        assert evaluation.score >= 4.5
+        # 1 exigence sur une description courte : plafond "offre pauvre"
+        assert evaluation.score == 4.0
         assert evaluation.bloc_a.archetype == "Senior Fullstack Engineer"
         assert len(evaluation.bloc_b.matched_requirements) == 1
         assert evaluation.bloc_b.matched_requirements[0].verbatim_quote == "maîtrisant React, FastAPI et MongoDB"
@@ -271,6 +363,116 @@ async def test_evaluate_offer_two_pass_success():
         # Check DB updates
         job_offers_collection.update_one.assert_called_once()
         offer_evaluations_collection.update_one.assert_called_once()
+
+
+def _llm_response(payload):
+    response = MagicMock()
+    response.choices = [MagicMock(message=MagicMock(content=json.dumps(payload)))]
+    response.usage = MagicMock(prompt_tokens=100, completion_tokens=50)
+    return response
+
+
+@pytest.mark.asyncio
+async def test_evaluate_offer_two_pass_wires_blocs_a_b_g():
+    offer_doc = {
+        "_id": ObjectId(TEST_OFFER_ID),
+        "poste": "Animateur périscolaire",
+        "entreprise": "Mairie de Lyon",
+        "canonical_title": "animateur periscolaire",
+        "type_contrat": "CDD",
+        "seniority_level": "senior",
+        "description": "Titulaire du BAFA, vous encadrez des groupes d'enfants. Permis B apprécié.",
+    }
+    job_offers = AsyncMock()
+    job_offers.find_one.return_value = offer_doc
+    job_offers.count_documents.return_value = 3
+    profiles = AsyncMock()
+    profiles.find_one.return_value = {
+        "user_id": TEST_USER_ID,
+        "headline": "Animateur",
+        "preferences": {"contract_types": ["CDI"], "seniority_levels": ["junior"]},
+    }
+
+    async def empty_cursor(*args, **kwargs):
+        if False:
+            yield {}
+
+    def db_getitem(name):
+        if name == "job_offers":
+            return job_offers
+        if name == "candidate_profile":
+            return profiles
+        if name == "users":
+            users = AsyncMock()
+            users.find_one.return_value = {"_id": ObjectId(TEST_USER_ID), "tier": "free"}
+            return users
+        if name == "api_usage":
+            api = AsyncMock()
+            api.aggregate = MagicMock(side_effect=lambda *a, **k: empty_cursor())
+            api.insert_one = AsyncMock(return_value=MagicMock(inserted_id=ObjectId()))
+            return api
+        return AsyncMock()
+
+    db = MagicMock()
+    db.__getitem__.side_effect = db_getitem
+
+    pass1 = _llm_response(
+        {
+            "archetype": "Animateur périscolaire",
+            "summary": "Encadrement périscolaire.",
+            "requirements": [
+                {"requirement": "BAFA", "weight": "critical", "quote_from_offer": "Titulaire du BAFA"},
+                {"requirement": "Encadrement d'enfants", "weight": "critical", "quote_from_offer": "vous encadrez"},
+                {"requirement": "Permis B", "weight": "meaningful", "quote_from_offer": "Permis B apprécié"},
+            ],
+            "is_ghost_job": True,
+            "ghost_job_warnings": [],
+        }
+    )
+    pass2 = _llm_response(
+        {
+            "domain_coherence": "partial",
+            "matched_requirements": [
+                {
+                    "req_id": "R1",
+                    "requirement": "BAFA",
+                    "weight": "high",
+                    "candidate_evidence": "BAFA obtenu",
+                    "verbatim_quote": "BAFA exigé",
+                    "status": "full_match",
+                    "evidence_tier": "stated",
+                }
+            ],
+            "missing_requirements": [
+                {"req_id": "R3", "requirement": "Permis B", "weight": "meaningful", "reason": "absent"}
+            ],
+        }
+    )
+
+    with patch("app.services.evaluation.evaluator.compute_domain_relevance", AsyncMock(return_value=None)), \
+         patch("app.services.evaluation.evaluator.acompletion", AsyncMock(side_effect=[pass1, pass2])):
+        evaluation = await evaluate_offer_two_pass(db=db, user_id=TEST_USER_ID, offer_id=TEST_OFFER_ID)
+
+    count_filter = job_offers.count_documents.call_args.args[0]
+    assert count_filter["canonical_title"] == "animateur periscolaire"
+    assert count_filter["entreprise"]["$options"] == "i"
+
+    # Bloc A : cohérence partielle + écarts de préférences (contrat, séniorité distance 2)
+    assert evaluation.bloc_a.domain_coherence == "partial"
+    assert {(m.criterion, m.weight) for m in evaluation.bloc_a.preference_mismatches} == {
+        ("contrat", "high"),
+        ("séniorité", "high"),
+    }
+    # Bloc B : poids Pass 1 imposé, R2 non traitée devenue manquante, citation reformulée détectée
+    bafa = evaluation.bloc_b.matched_requirements[0]
+    assert bafa.weight == "critical"
+    assert bafa.quote_verified is False
+    assert {m.requirement for m in evaluation.bloc_b.missing_requirements} == {"Permis B", "Encadrement d'enfants"}
+    # Bloc G : republication détectée + description courte ; ghost corroboré => plafond
+    assert evaluation.bloc_g.reposted_frequency == "3 publications"
+    assert any("publiée 3 fois" in w for w in evaluation.bloc_g.warnings)
+    assert any("Description courte" in w for w in evaluation.bloc_g.warnings)
+    assert evaluation.score == 1.5
 
 
 # --- Endpoint Tests: POST /job-offers/{id}/evaluate & GET /job-offers/{id}/evaluation ---
@@ -432,7 +634,7 @@ def test_evaluate_endpoint_and_get_evaluation():
             res_post = client.post(f"/job-offers/{TEST_OFFER_ID}/evaluate")
             assert res_post.status_code == 200, res_post.text
             eval_data = res_post.json()
-            assert eval_data["score"] >= 4.5
+            assert eval_data["score"] == 4.0  # 1 exigence : plafond "offre pauvre"
             assert eval_data["bloc_a"]["archetype"] == "AI Engineer"
             assert eval_data["pipeline_stage"] == "evaluated"
 
@@ -593,7 +795,7 @@ async def test_evaluate_offer_candidate_profile_lookup_supports_objectid_and_str
             user_id=TEST_USER_ID,
             offer_id=TEST_OFFER_ID,
         )
-        assert res.score == 5.0
+        assert res.score == 3.0  # aucune exigence évaluée : note neutre
         candidate_profile_col.find_one.assert_called_once()
         call_query = candidate_profile_col.find_one.call_args[0][0]
         assert "$or" in call_query
@@ -701,7 +903,7 @@ async def test_evaluate_offer_pass2_receives_education_and_projects():
             user_id=TEST_USER_ID,
             offer_id=TEST_OFFER_ID,
         )
-        assert res.score == 5.0
+        assert res.score == 4.0  # 1 exigence : plafond "offre pauvre"
         pass2_prompt = mock_acompletion.call_args_list[1].kwargs["messages"][0]["content"]
         assert "CNAM Lyon" in pass2_prompt
         assert "Spécialisation en Intelligence Artificielle" in pass2_prompt

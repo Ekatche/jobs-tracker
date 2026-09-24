@@ -387,6 +387,9 @@ class RequirementMatch(BaseModel):
     # elle seule justifier un full_match sur une exigence critical/high — voir
     # le gate déterministe dans evaluator.py::evaluate_offer_two_pass.
     evidence_tier: Literal["stated", "inferred"] = "stated"
+    # False quand verbatim_quote est introuvable dans le texte de l'offre :
+    # la citation a pu être reformulée ou inventée par le modèle.
+    quote_verified: bool = True
 
 
 class MissingRequirement(BaseModel):
@@ -396,6 +399,14 @@ class MissingRequirement(BaseModel):
     impact_on_role: Optional[str] = None
 
 
+class PreferenceMismatch(BaseModel):
+    """Écart déterministe entre un champ structuré de l'offre et les préférences candidat."""
+    criterion: str
+    offer_value: str
+    expected: str
+    weight: Literal["critical", "high", "meaningful"] = "high"
+
+
 class BlocA(BaseModel):
     summary: str = ""
     archetype: str = ""
@@ -403,6 +414,8 @@ class BlocA(BaseModel):
     geo_mismatch: bool = False
     visa_sponsoring_refused: bool = False
     domain_mismatch: bool = False
+    domain_coherence: Literal["match", "partial", "mismatch", ""] = ""
+    preference_mismatches: List[PreferenceMismatch] = Field(default_factory=list)
     notes: Optional[str] = None
 
 

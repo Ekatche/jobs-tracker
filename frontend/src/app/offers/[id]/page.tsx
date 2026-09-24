@@ -562,6 +562,11 @@ export default function OfferDetailPage() {
                               <p className="text-xs italic text-gray-300">
                                 &laquo; {match.verbatim_quote} &raquo;
                               </p>
+                              {match.quote_verified === false && (
+                                <p className="text-[11px] text-amber-300 mt-1.5 flex items-center gap-1">
+                                  <FiAlertTriangle /> Citation introuvable telle quelle dans l&apos;offre : à vérifier
+                                </p>
+                              )}
                             </div>
                           </div>
                         )
@@ -660,7 +665,42 @@ export default function OfferDetailPage() {
                         </span>
                       )}
                     </div>
+
+                    {evaluation.bloc_a.domain_coherence && (
+                      <div className="flex items-center gap-2 text-gray-300">
+                        <span className="text-gray-400">Cohérence métier :</span>
+                        {evaluation.bloc_a.domain_coherence === "match" ? (
+                          <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                            <FiCheckCircle /> Même métier
+                          </span>
+                        ) : evaluation.bloc_a.domain_coherence === "partial" ? (
+                          <span className="text-amber-300 font-semibold flex items-center gap-1">
+                            <FiAlertTriangle /> Recoupement partiel
+                          </span>
+                        ) : (
+                          <span className="text-rose-400 font-semibold flex items-center gap-1">
+                            <FiXCircle /> Autre métier
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
+
+                  {evaluation.bloc_a.preference_mismatches &&
+                    evaluation.bloc_a.preference_mismatches.length > 0 && (
+                      <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                        <span className="text-xs font-semibold text-amber-300 block mb-1">
+                          Écarts avec vos préférences :
+                        </span>
+                        <ul className="list-disc list-inside text-xs text-amber-200/90 space-y-1">
+                          {evaluation.bloc_a.preference_mismatches.map((m, i) => (
+                            <li key={i}>
+                              {m.criterion} : {m.offer_value} (attendu : {m.expected})
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                 </div>
 
                 {/* Bloc G: Viabilité & Détection Ghost Job / Scam */}
@@ -675,9 +715,13 @@ export default function OfferDetailPage() {
                       <span className="text-xs text-gray-400 block mb-1">
                         Suspicion d'Offre Fantôme (Ghost Job) :
                       </span>
-                      {evaluation.bloc_g.is_ghost_job ? (
+                      {evaluation.bloc_g.is_ghost_job && evaluation.bloc_g.reposted_frequency ? (
                         <span className="text-rose-400 font-bold text-sm flex items-center gap-1.5">
-                          <FiAlertTriangle /> Risque élevé
+                          <FiAlertTriangle /> Risque élevé ({evaluation.bloc_g.reposted_frequency})
+                        </span>
+                      ) : evaluation.bloc_g.is_ghost_job ? (
+                        <span className="text-amber-300 font-bold text-sm flex items-center gap-1.5">
+                          <FiAlertTriangle /> Soupçon non corroboré
                         </span>
                       ) : (
                         <span className="text-emerald-400 font-bold text-sm flex items-center gap-1.5">

@@ -7,6 +7,7 @@ candidat (ex: profil animatrice face à une offre Data Scientist).
 """
 
 import logging
+import re
 from typing import List, Optional
 
 from app.services.role_normalizer import cosine_similarity
@@ -19,6 +20,16 @@ EMBEDDING_MODEL = "text-embedding-3-small"
 # rejeter) — cf. section Risques du spec
 # docs/superpowers/specs/2026-09-19-generalisation-multi-metiers-design.md.
 DOMAIN_RELEVANCE_THRESHOLD = 0.30
+
+# L'embedding comprend mal le sigle "IA" (surtout écrit "Ia") : "Développeur Confirmé Ia"
+# tombait à 0.28 face à un profil "AI Engineer", contre 0.43 une fois développé.
+ACRONYM_EXPANSIONS = [(re.compile(r"\bia\b", re.I), "intelligence artificielle")]
+
+
+def expand_title_acronyms(title: str) -> str:
+    for pattern, expansion in ACRONYM_EXPANSIONS:
+        title = pattern.sub(expansion, title)
+    return title
 
 
 def build_candidate_identity(headline: str, target_roles: List[str]) -> str:
@@ -44,7 +55,9 @@ async def compute_domain_relevance(candidate_identity: str, offer_title: str) ->
     try:
         from litellm import aembedding
 
-        resp = await aembedding(model=EMBEDDING_MODEL, input=[candidate_identity, offer_title])
+        resp = await aembedding(
+            model=EMBEDDING_MODEL, input=[candidate_identity, expand_title_acronyms(offer_title)]
+        )
         data = resp.data if hasattr(resp, "data") else resp["data"]
 
         def _extract(item):

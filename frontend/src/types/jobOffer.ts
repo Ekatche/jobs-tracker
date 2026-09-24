@@ -4,6 +4,7 @@ export interface RequirementMatch {
   candidate_evidence: string;
   verbatim_quote: string;
   status: "full_match" | "partial_match";
+  quote_verified?: boolean;
 }
 
 export interface MissingRequirement {
@@ -19,6 +20,15 @@ export interface BlocA {
   geo_mismatch: boolean;
   visa_sponsoring_refused: boolean;
   red_flags: string[];
+  domain_coherence?: "match" | "partial" | "mismatch" | "";
+  preference_mismatches?: PreferenceMismatch[];
+}
+
+export interface PreferenceMismatch {
+  criterion: string;
+  offer_value: string;
+  expected: string;
+  weight: "critical" | "high" | "meaningful";
 }
 
 export interface BlocB {
@@ -30,6 +40,7 @@ export interface BlocB {
 export interface BlocG {
   is_ghost_job: boolean;
   is_scam_risk: boolean;
+  reposted_frequency?: string | null;
   warnings: string[];
 }
 
