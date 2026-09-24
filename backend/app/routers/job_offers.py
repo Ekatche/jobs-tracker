@@ -11,7 +11,7 @@ from ..models import (
     UserOfferInteractionResponse,
 )
 from ..database import get_database
-from ..auth import get_current_user, get_current_user_optional
+from ..auth import get_current_user
 from ..services.normalization import normalize_city, normalize_company
 from ..services.evaluation.evaluator import evaluate_offer_two_pass
 
@@ -191,6 +191,22 @@ def _build_keywords_filter(keywords: str) -> dict:
     return {"$or": or_branches}
 
 
+def restrict_to_profile_offers(
+    match_filter: dict,
+    current_user: Optional[UserModel],
+    only_saved: bool = False,
+    interaction_status: Optional[str] = None,
+) -> dict:
+    """Un utilisateur connecté ne voit que les offres rattachées à son profil.
+
+    Exception : les vues Favoris / par statut listent déjà les seules offres
+    de l'utilisateur, y compris celles sauvegardées hors de son profil.
+    """
+    if current_user and not only_saved and not interaction_status:
+        match_filter["matched_user_ids"] = str(current_user.id)
+    return match_filter
+
+
 async def apply_user_interaction_filters(
     match_filter: dict,
     db,
@@ -279,11 +295,10 @@ async def get_job_offers(
     only_saved: bool = Query(False),
     include_hidden: bool = Query(False),
     min_score: Optional[float] = Query(None),
-    profile_only: bool = Query(False),
     limit: int = Query(16, ge=1, le=100),
     skip: int = Query(0, ge=0),
     db=Depends(get_database),
-    current_user: Optional[UserModel] = Depends(get_current_user_optional),
+    current_user: UserModel = Depends(get_current_user),
 ):
     """Récupère les offres d'emploi avec pagination, déduplication et statut d'interaction multi-tenant."""
     try:
@@ -326,8 +341,7 @@ async def get_job_offers(
         if work_mode:
             match_filter["mode_travail"] = {"$regex": work_mode, "$options": "i"}
 
-        if profile_only and current_user:
-            match_filter["matched_user_ids"] = str(current_user.id)
+        restrict_to_profile_offers(match_filter, current_user, only_saved, interaction_status)
 
         if days_recent and days_recent > 0:
             threshold_dt = datetime.now(timezone.utc) - timedelta(days=days_recent)
@@ -440,7 +454,7 @@ async def list_user_offer_interactions(
 async def get_job_offer(
     offer_id: str,
     db=Depends(get_database),
-    current_user: Optional[UserModel] = Depends(get_current_user_optional),
+    current_user: UserModel = Depends(get_current_user),
 ):
     """Récupère une offre d'emploi par son ID avec état d'interaction personnalisé"""
     if not ObjectId.is_valid(offer_id):
@@ -816,9 +830,8 @@ async def get_job_offers_count(
     only_saved: bool = Query(False),
     include_hidden: bool = Query(False),
     min_score: Optional[float] = Query(None),
-    profile_only: bool = Query(False),
     db=Depends(get_database),
-    current_user: Optional[UserModel] = Depends(get_current_user_optional),
+    current_user: UserModel = Depends(get_current_user),
 ):
     """Compte les offres d'emploi dédupliquées en tenant compte des filtres multi-tenant."""
     try:
@@ -861,8 +874,7 @@ async def get_job_offers_count(
         if work_mode:
             match_filter["mode_travail"] = {"$regex": work_mode, "$options": "i"}
 
-        if profile_only and current_user:
-            match_filter["matched_user_ids"] = str(current_user.id)
+        restrict_to_profile_offers(match_filter, current_user, only_saved, interaction_status)
 
         if days_recent and days_recent > 0:
             threshold_dt = datetime.now(timezone.utc) - timedelta(days=days_recent)

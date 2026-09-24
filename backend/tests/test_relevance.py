@@ -51,3 +51,25 @@ def test_contains_keyword_requires_word_boundary():
     # "ml" ne doit pas matcher à l'intérieur d'un autre mot.
     assert contains_keyword("hectomlitre", RELEVANCE_KEYWORDS) is False
     assert contains_keyword("Stage ML", RELEVANCE_KEYWORDS) is True
+
+
+from app.services.relevance import parse_source_query
+
+
+@pytest.mark.parametrize(
+    "query,expected",
+    [
+        (
+            "Je recherche un poste de Animatrice permanente proche de bourgoin-jallieu (CDI)",
+            ("Animatrice permanente", "bourgoin-jallieu"),
+        ),
+        ("Je recherche un poste d'ingénieur MLOps proche de Lyon", ("ingénieur MLOps", "Lyon")),
+        ("Je recherche un poste de Data Engineer en télétravail (CDI)", ("Data Engineer", None)),
+        ("Je recherche un poste de Data Engineer", ("Data Engineer", None)),
+        ("Je recherche un poste proche de Lyon (CDI)", (None, None)),
+        ("", (None, None)),
+    ],
+)
+def test_parse_source_query(query, expected):
+    assert parse_source_query(query) == expected
+

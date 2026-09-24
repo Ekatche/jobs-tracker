@@ -108,7 +108,6 @@ export default function OffersPage() {
   const [minScoreFilter, setMinScoreFilter] = useState<number | undefined>(undefined);
   const [profileRoles, setProfileRoles] = useState<string[]>([]);
   const [profileLocations, setProfileLocations] = useState<string[]>([]);
-  const [isProfileFilterActive, setIsProfileFilterActive] = useState(false);
   const [profileEmpty, setProfileEmpty] = useState(false);
 
   // Pagination
@@ -136,7 +135,6 @@ export default function OffersPage() {
     if (onlySaved) f.only_saved = true;
     if (interactionStatus) f.interaction_status = interactionStatus;
     if (minScoreFilter !== undefined) f.min_score = minScoreFilter;
-    if (isProfileFilterActive) f.profile_only = true;
     return f;
   }, [
     searchTerm,
@@ -148,7 +146,6 @@ export default function OffersPage() {
     onlySaved,
     interactionStatus,
     minScoreFilter,
-    isProfileFilterActive,
   ]);
 
   // Fonction pour charger le nombre total d'offres
@@ -285,9 +282,9 @@ export default function OffersPage() {
     window.dispatchEvent(event);
   };
 
-  // Applique le filtre "selon mon profil" : le matching lui-même est calculé
-  // côté backend (matched_user_ids sur chaque offre), ce hook ne fait que
-  // récupérer rôles/localisations pour afficher les badges de critères.
+  // Le backend ne renvoie que les offres rattachées au profil
+  // (matched_user_ids) ; ce hook récupère seulement rôles/localisations pour
+  // afficher les badges de critères.
   const handleApplyProfileCriteria = useCallback(async () => {
     try {
       const [profile, suggested] = await Promise.all([
@@ -303,16 +300,13 @@ export default function OffersPage() {
 
       setProfileRoles(allRoles);
       setProfileLocations(locs);
-      setIsProfileFilterActive(true);
       setProfileEmpty(allRoles.length === 0 && locs.length === 0);
     } catch (err) {
       console.error("Erreur lors de la récupération des critères du profil:", err);
     }
   }, []);
 
-  // Applique automatiquement le filtrage "selon mon profil" dès le premier
-  // chargement de la page, sans exiger de clic — l'utilisateur voit d'emblée
-  // les offres correspondant à son profil.
+  // Charge les critères du profil dès le premier chargement de la page.
   useEffect(() => {
     handleApplyProfileCriteria();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -912,10 +906,6 @@ export default function OffersPage() {
                     setInteractionStatus(undefined);
                     setDaysRecentFilter(undefined);
                     setMinScoreFilter(undefined);
-                    setIsProfileFilterActive(false);
-                    setProfileRoles([]);
-                    setProfileLocations([]);
-                    setProfileEmpty(false);
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
                     !onlySaved && !interactionStatus && !daysRecentFilter && minScoreFilter === undefined
@@ -927,27 +917,12 @@ export default function OffersPage() {
                   <span>Toutes</span>
                 </button>
 
-                {/* Mon profil */}
-                <button
-                  type="button"
-                  onClick={handleApplyProfileCriteria}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border bg-indigo-600/20 text-indigo-300 hover:text-white border-indigo-500/40 hover:bg-indigo-600/30 shadow-sm"
-                  title="Appliquer automatiquement mes critères de profil"
-                >
-                  <FiTarget className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>🎯 Selon mon profil</span>
-                </button>
-
                 {/* Favoris */}
                 <button
                   type="button"
                   onClick={() => {
                     setOnlySaved(!onlySaved);
                     setInteractionStatus(undefined);
-                    setIsProfileFilterActive(false);
-                    setProfileRoles([]);
-                    setProfileLocations([]);
-                    setProfileEmpty(false);
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
                     onlySaved
@@ -1163,8 +1138,7 @@ export default function OffersPage() {
                 daysRecentFilter !== undefined ||
                 onlySaved ||
                 interactionStatus ||
-                minScoreFilter !== undefined ||
-                isProfileFilterActive) && (
+                minScoreFilter !== undefined) && (
                 <button
                   onClick={() => {
                     setSearchTerm("");
@@ -1176,10 +1150,6 @@ export default function OffersPage() {
                     setOnlySaved(false);
                     setInteractionStatus(undefined);
                     setMinScoreFilter(undefined);
-                    setIsProfileFilterActive(false);
-                    setProfileRoles([]);
-                    setProfileLocations([]);
-                    setProfileEmpty(false);
                   }}
                   className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
                 >

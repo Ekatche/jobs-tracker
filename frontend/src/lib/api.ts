@@ -385,7 +385,6 @@ export interface JobOfferFilter {
   only_saved?: boolean;
   include_hidden?: boolean;
   min_score?: number;
-  profile_only?: boolean;
 }
 
 export interface JobOfferStats {
@@ -611,7 +610,6 @@ export const jobOffersApi = {
     if (filters.min_score !== undefined && filters.min_score !== null) {
       params.append("min_score", filters.min_score.toString());
     }
-    if (filters.profile_only) params.append("profile_only", "true");
     if (filters.limit) params.append("limit", filters.limit.toString());
     if (filters.skip) params.append("skip", filters.skip.toString());
 
@@ -710,7 +708,6 @@ export const jobOffersApi = {
     if (filters.min_score !== undefined && filters.min_score !== null) {
       params.append("min_score", filters.min_score.toString());
     }
-    if (filters.profile_only) params.append("profile_only", "true");
 
     const endpoint = `/job-offers/count/?${params.toString()}`;
     return fetchApi<{ total: number }>(endpoint, "GET");

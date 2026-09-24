@@ -1,13 +1,15 @@
 """Moteur de matching persistant entre un profil candidat et le stock d'offres.
 
-Compare le canonical_title / localisation déjà normalisés sur chaque offre
-(via normalize_role / normalize_city lors de la collecte) aux préférences
-normalisées d'un profil, pour maintenir à jour job_offers.matched_user_ids.
+Une offre appartient à un profil si la requête qui l'a collectée
+(source_query) cherchait un de ses rôles dans une de ses villes. En complément,
+le canonical_title / localisation normalisés de l'offre peuvent correspondre
+directement aux préférences. Maintient à jour job_offers.matched_user_ids.
 """
 
 from bson import ObjectId
 
-from app.services.normalization import normalize_city
+from app.services.normalization import clean_job_title_syntax, normalize_city
+from app.services.relevance import parse_source_query
 from app.services.role_normalizer import normalize_role
 
 
@@ -22,6 +24,18 @@ def offer_matches_criteria(
     stock entier comme s'il était filtré."""
     if not normalized_roles and not normalized_locations:
         return False
+
+    # Rattachement par la requête d'origine : la recherche portait sur un rôle
+    # et une ville de ce profil. France Travail renvoie des villes voisines,
+    # d'où la comparaison sur la ville de la requête et non celle de l'offre.
+    query_role, query_loc = parse_source_query(offer.get("source_query") or "")
+    if query_role and query_role.lower() in normalized_roles:
+        if (
+            not query_loc
+            or not normalized_locations
+            or normalize_city(query_loc).lower() in normalized_locations
+        ):
+            return True
 
     canonical_title = (offer.get("canonical_title") or "").lower()
     role_match = not normalized_roles or canonical_title in normalized_roles
@@ -50,7 +64,12 @@ async def get_normalized_profile_criteria(
     for role in target_roles:
         if not role or not role.strip():
             continue
-        canonical = await normalize_role(role, db=db)
+        # Même préparation que build_search_queries, pour que le rôle écrit
+        # dans source_query soit reconnu à l'identique.
+        cleaned = clean_job_title_syntax(role)
+        if not cleaned or cleaned == "Non spécifié":
+            cleaned = role
+        canonical = await normalize_role(cleaned, db=db)
         if canonical:
             normalized_roles.add(canonical.lower())
 

@@ -4,10 +4,10 @@ from bson import ObjectId
 import pytest
 from fastapi.testclient import TestClient
 
-from app.auth import get_current_user, get_current_user_optional
+from app.auth import get_current_user
 from app.database import get_database
 from app.models import UserModel
-from app.routers.job_offers import apply_user_interaction_filters
+from app.routers.job_offers import apply_user_interaction_filters, restrict_to_profile_offers
 from main import app
 
 USER_A_ID = "507f1f77bcf86cd799439011"
@@ -294,7 +294,7 @@ def test_multi_tenant_isolation_user_a_hiding_offer_does_not_hide_from_user_b(mo
         client = TestClient(app)
 
         # 1. User A request -> OFFER_1_ID is in hidden list, match_filter gets $nin, returns empty
-        app.dependency_overrides[get_current_user_optional] = lambda: mock_user_a
+        app.dependency_overrides[get_current_user] = lambda: mock_user_a
         # In this mock, when User A calls, aggregate match_filter has $nin for OFFER_1_ID
         res_a = client.get("/job-offers/")
         assert res_a.status_code == 200
@@ -304,20 +304,32 @@ def test_multi_tenant_isolation_user_a_hiding_offer_does_not_hide_from_user_b(mo
         assert ObjectId(OFFER_1_ID) in match_filter_a["_id"]["$nin"]
 
         # 2. User B request -> OFFER_1_ID is NOT hidden, match_filter does NOT exclude it!
-        app.dependency_overrides[get_current_user_optional] = lambda: mock_user_b
+        app.dependency_overrides[get_current_user] = lambda: mock_user_b
         res_b = client.get("/job-offers/")
         assert res_b.status_code == 200
         call_pipeline_b = offers_col.aggregate.call_args[0][0]
         match_filter_b = call_pipeline_b[0]["$match"]
         assert "_id" not in match_filter_b
 
-        # 3. Anonymous request -> OFFER_1_ID is NOT excluded!
-        app.dependency_overrides[get_current_user_optional] = lambda: None
+        # 3. Anonymous request -> refused, offers require login
+        app.dependency_overrides.pop(get_current_user, None)
         res_anon = client.get("/job-offers/")
-        assert res_anon.status_code == 200
-        call_pipeline_anon = offers_col.aggregate.call_args[0][0]
-        match_filter_anon = call_pipeline_anon[0]["$match"]
-        assert "_id" not in match_filter_anon
+        assert res_anon.status_code == 401
 
     finally:
         app.dependency_overrides.clear()
+
+
+def test_restrict_to_profile_offers_scopes_logged_user(mock_user_a):
+    f = restrict_to_profile_offers({}, mock_user_a)
+    assert f["matched_user_ids"] == USER_A_ID
+
+
+@pytest.mark.parametrize("only_saved,status", [(True, None), (False, "applied")])
+def test_restrict_to_profile_offers_keeps_user_lists(mock_user_a, only_saved, status):
+    f = restrict_to_profile_offers({}, mock_user_a, only_saved, status)
+    assert "matched_user_ids" not in f
+
+
+def test_restrict_to_profile_offers_anonymous_untouched():
+    assert restrict_to_profile_offers({}, None) == {}

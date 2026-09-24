@@ -161,3 +161,33 @@ RELEVANCE_FILTER_ENABLED = os.getenv("RELEVANCE_FILTER_ENABLED", "true").lower()
     "false",
     "0",
 )
+
+
+# ========================================
+# Pertinence par rapport à la requête d'origine (tous métiers)
+# ========================================
+
+# Format produit par `build_search_queries` :
+# "Je recherche un poste de {role} proche de {loc} (CDI)".
+_SOURCE_QUERY_PATTERN = re.compile(
+    r"poste (?:de |d['’])(?P<role>.+?)"
+    r"(?: proche de (?P<loc>.+?))?"
+    r"(?: en télétravail)?"
+    r"(?: \([^)]*\))?\s*$",
+    re.IGNORECASE,
+)
+
+
+def parse_source_query(query: str) -> tuple[str | None, str | None]:
+    """Extrait (rôle, localisation) d'une requête de collecte.
+
+    Retourne (None, None) pour une requête hors format (anciennes requêtes
+    libres, requête par localisation seule).
+    """
+    match = _SOURCE_QUERY_PATTERN.search(query or "")
+    if not match:
+        return None, None
+    role = match.group("role").strip()
+    loc = (match.group("loc") or "").strip() or None
+    return role or None, loc
+

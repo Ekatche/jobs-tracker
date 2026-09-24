@@ -181,3 +181,36 @@ async def test_tag_new_offers_empty_list_does_nothing():
     await tag_new_offers([], mock_db)
 
     mock_offers_collection.find.assert_not_called()
+
+
+ANIM_QUERY = "Je recherche un poste de Animatrice permanente proche de bourgoin-jallieu (CDI)"
+
+
+def test_offer_matches_by_source_query_even_in_neighbouring_town():
+    offer = {
+        "canonical_title": "Animateur périscolaire",
+        "localisation": "Saint-Bonnet-De-Mure",
+        "mode_travail": "Non spécifié",
+        "source_query": ANIM_QUERY,
+    }
+    assert offer_matches_criteria(offer, {"animatrice permanente"}, {"bourgoin-jallieu"}, "flexible") is True
+
+
+def test_offer_from_other_profile_query_does_not_match():
+    offer = {
+        "canonical_title": "Animateur périscolaire",
+        "localisation": "Lyon",
+        "mode_travail": "Non spécifié",
+        "source_query": ANIM_QUERY,
+    }
+    assert offer_matches_criteria(offer, {"data scientist"}, {"lyon"}, "flexible") is False
+
+
+def test_offer_source_query_in_other_city_does_not_match():
+    offer = {
+        "canonical_title": "Animateur périscolaire",
+        "localisation": "Bourgoin-Jallieu",
+        "mode_travail": "Non spécifié",
+        "source_query": ANIM_QUERY,
+    }
+    assert offer_matches_criteria(offer, {"animatrice permanente"}, {"lyon"}, "flexible") is False
