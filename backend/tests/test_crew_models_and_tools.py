@@ -64,8 +64,9 @@ class TestTavilyTool:
         result_none = tool._run()
         assert result_none == []
 
-    def test_funnel_three_passes_balanced_and_deduplicated(self):
+    def test_funnel_three_passes_balanced_and_deduplicated(self, monkeypatch):
         from unittest.mock import MagicMock
+        monkeypatch.delenv("FRANCE_TRAVAIL_CLIENT_ID", raising=False)
         tool = TavilyJobBoardSearchTool()
         mock_client = MagicMock()
 
@@ -88,20 +89,30 @@ class TestTavilyTool:
                         {"url": "https://www.welcometothejungle.com/fr/jobs/1"},  # duplicate
                     ]
                 }
-            else:
+            elif not inc_domains:
                 # Pass 3: LinkedIn Jobs
                 return {
                     "results": [
                         {"url": "https://www.linkedin.com/jobs/view/456"},
                     ]
                 }
+            return {"results": []}
 
         mock_client.search.side_effect = mock_search
         tool.client = mock_client
 
         results = tool._run(query="Data Engineer Lyon")
 
-        assert mock_client.search.call_count == 3
+        board_groups = [
+            c.kwargs["include_domains"]
+            for c in mock_client.search.call_args_list
+            if c.kwargs.get("include_domains") and "greenhouse.io" not in c.kwargs["include_domains"]
+        ]
+        # Passe 1 découpée par site : WTTJ n'est plus en concurrence avec HelloWork/France Travail.
+        assert ["welcometothejungle.com"] in board_groups
+        assert ["francetravail.fr"] in board_groups
+        assert not any("indeed.fr" in group for group in board_groups)
+        assert mock_client.search.call_count == len(board_groups) + 2
         # Jooble filtered out, WTTJ deduplicated
         assert len(results) == 3
         assert results == [
@@ -134,6 +145,20 @@ class TestTavilyTool:
         results = tool._run(query="DevOps Paris")
         assert len(results) == 1
         assert results[0] == "https://jobs.lever.co/corp/789"
+
+    def test_france_travail_board_skipped_when_api_configured(self, monkeypatch):
+        from unittest.mock import MagicMock
+        monkeypatch.setenv("FRANCE_TRAVAIL_CLIENT_ID", "id")
+        monkeypatch.setenv("FRANCE_TRAVAIL_CLIENT_SECRET", "secret")
+        tool = TavilyJobBoardSearchTool()
+        mock_client = MagicMock()
+        mock_client.search.return_value = {"results": []}
+        tool.client = mock_client
+
+        tool._run(query="Data Engineer Lyon")
+
+        searched = [c.kwargs.get("include_domains") or [] for c in mock_client.search.call_args_list]
+        assert not any("francetravail.fr" in domains for domains in searched)
 
 
 class TestExtractUrlsFromCrew:
@@ -246,6 +271,51 @@ class TestJobTrackerLLM:
         assert llm_standard.supports_stop_words() is True
         params_std = llm_standard._prepare_completion_params("hello")
         assert "stop" in params_std
+
+
+class TestRunCrewSearchToolGuard:
+    def _fake_crews(self, tool_calls_per_attempt):
+        from unittest.mock import MagicMock
+        from crew import tavily_search
+
+        crews = []
+        for called in tool_calls_per_attempt:
+            agent = MagicMock()
+            agent.tools_results = [{"tool_name": tavily_search.name, "result": []}] if called else []
+            crew = MagicMock()
+            crew.agents = [agent]
+            crew.kickoff.return_value = f"result-{len(crews)}"
+            crews.append(crew)
+        return crews
+
+    def test_tool_result_is_the_search_task_answer(self):
+        from crew import tavily_search
+
+        assert tavily_search.result_as_answer is True
+
+    def test_retries_when_search_tool_not_called(self, monkeypatch):
+        import job_trackers.src.job_trackers.main as main
+        from unittest.mock import MagicMock
+
+        crews = self._fake_crews([False, True])
+        factory = MagicMock()
+        factory.return_value.crew.side_effect = crews
+        monkeypatch.setattr(main, "JobTrackers", factory)
+
+        assert main.run_crew("data engineer lyon") == "result-1"
+        assert factory.return_value.crew.call_count == 2
+
+    def test_fails_when_search_tool_never_called(self, monkeypatch):
+        import job_trackers.src.job_trackers.main as main
+        import pytest
+        from unittest.mock import MagicMock
+
+        factory = MagicMock()
+        factory.return_value.crew.side_effect = self._fake_crews([False, False])
+        monkeypatch.setattr(main, "JobTrackers", factory)
+
+        with pytest.raises(Exception, match="n'a pas appelé l'outil Tavily"):
+            main.run_crew("data engineer lyon")
 
 
 class TestAirflowCollectionPipeline:

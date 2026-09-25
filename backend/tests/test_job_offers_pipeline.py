@@ -556,6 +556,31 @@ async def test_save_offers_to_database_returns_offer_ids_on_insert(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_crawl_skips_offers_expired_on_ats(monkeypatch):
+    from unittest.mock import AsyncMock
+    import app.tasks.job_offers_collectors as collectors
+    import app.services.ats.router as ats_router
+
+    expired = "https://job-boards.greenhouse.io/acme/jobs/1"
+    unknown = "https://example.com/jobs/2"
+
+    async def fake_extract(url, client=None):
+        if url == expired:
+            raise ats_router.ExpiredOfferError(url)
+        return None
+
+    fallback_crawl = AsyncMock(return_value=[{"poste": "Data Engineer", "url": unknown}])
+    monkeypatch.setattr(ats_router, "extract_ats_or_jsonld_offer", fake_extract)
+    monkeypatch.setattr(collectors, "get_job_offers_from_query", fallback_crawl)
+
+    offers = await collectors.crawl_urls_for_offers([expired, unknown])
+
+    # L'offre retirée ne part pas au crawl de repli (qui lirait la liste des postes du board).
+    fallback_crawl.assert_awaited_once_with([unknown])
+    assert offers == [{"poste": "Data Engineer", "url": unknown}]
+
+
+@pytest.mark.asyncio
 async def test_collect_and_save_offers_tags_new_offers(monkeypatch):
     from unittest.mock import AsyncMock
     from bson import ObjectId
@@ -576,12 +601,122 @@ async def test_collect_and_save_offers_tags_new_offers(monkeypatch):
     monkeypatch.setattr(collectors, "tag_new_offers", mock_tag_new_offers)
     monkeypatch.setattr(collectors, "cleanup_resources", AsyncMock())
     monkeypatch.setattr(collectors, "get_database", AsyncMock(return_value={"job_offers": None}))
+    monkeypatch.setattr(collectors, "collect_structured_offers", AsyncMock(return_value=[]))
 
     result = await collectors.collect_and_save_offers("data engineer lyon")
 
     assert result == {"saved": 1, "updated": 0, "offer_ids": fake_offer_ids}
     mock_tag_new_offers.assert_awaited_once()
     assert mock_tag_new_offers.call_args.args[0] == fake_offer_ids
+
+
+def _mock_collect_pipeline(monkeypatch, collectors, crawled, structured):
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(collectors, "get_urls_for_query", AsyncMock(return_value=["https://example.com/1"]))
+    if isinstance(crawled, Exception):
+        monkeypatch.setattr(collectors, "crawl_urls_for_offers", AsyncMock(side_effect=crawled))
+    elif isinstance(crawled, AsyncMock):
+        monkeypatch.setattr(collectors, "crawl_urls_for_offers", crawled)
+    else:
+        monkeypatch.setattr(collectors, "crawl_urls_for_offers", AsyncMock(return_value=crawled))
+    monkeypatch.setattr(collectors, "collect_structured_offers", AsyncMock(return_value=structured))
+    monkeypatch.setattr(collectors, "summarize_ats_offer_description", AsyncMock(return_value="résumé"))
+    enrich = AsyncMock(side_effect=lambda offers, query: offers)
+    monkeypatch.setattr(collectors, "enrich_offers", enrich)
+    monkeypatch.setattr(collectors, "clean_duplicate_offers", AsyncMock(side_effect=lambda offers: offers))
+    monkeypatch.setattr(
+        collectors, "save_offers_to_database", AsyncMock(return_value={"saved": 0, "updated": 0, "offer_ids": []})
+    )
+    monkeypatch.setattr(collectors, "tag_new_offers", AsyncMock())
+    monkeypatch.setattr(collectors, "cleanup_resources", AsyncMock())
+    monkeypatch.setattr(collectors, "get_database", AsyncMock(return_value={}))
+    return enrich
+
+
+@pytest.mark.asyncio
+async def test_collect_merges_structured_offers_and_drops_foreign_search_offers(monkeypatch):
+    import app.tasks.job_offers_collectors as collectors
+
+    crawled = [
+        {"poste": "ML Engineer", "localisation": "Non spécifié",
+         "url": "https://workday.wd5.myworkdayjobs.com/fr-CA/Workday/job/ML-Engineer_JR-1"},
+        {"poste": "Data Scientist", "localisation": "Lyon", "url": "https://www.hellowork.com/fr-fr/emplois/1.html"},
+    ]
+    structured = [{"poste": "Data Scientist", "description": "brut", "url": "https://www.indeed.fr/viewjob?jk=1"}]
+    enrich = _mock_collect_pipeline(monkeypatch, collectors, crawled, structured)
+
+    await collectors.collect_and_save_offers("Je recherche un poste de Data Scientist proche de Lyon (CDI)")
+
+    merged = enrich.call_args.args[0]
+    assert [o["url"] for o in merged] == [
+        "https://www.hellowork.com/fr-fr/emplois/1.html",
+        "https://www.indeed.fr/viewjob?jk=1",
+    ]
+    assert merged[1]["description"] == "résumé"
+
+
+@pytest.mark.asyncio
+async def test_collect_keeps_structured_offers_when_search_fails(monkeypatch):
+    import app.tasks.job_offers_collectors as collectors
+
+    structured = [{"poste": "Data Scientist", "description": "brut", "url": "https://www.indeed.fr/viewjob?jk=1"}]
+    enrich = _mock_collect_pipeline(monkeypatch, collectors, RuntimeError("tavily down"), structured)
+
+    await collectors.collect_and_save_offers("Je recherche un poste de Data Scientist proche de Lyon (CDI)")
+
+    assert [o["url"] for o in enrich.call_args.args[0]] == ["https://www.indeed.fr/viewjob?jk=1"]
+
+
+@pytest.mark.asyncio
+async def test_collect_raises_when_search_fails_without_structured_offers(monkeypatch):
+    import app.tasks.job_offers_collectors as collectors
+
+    _mock_collect_pipeline(monkeypatch, collectors, RuntimeError("tavily down"), [])
+
+    with pytest.raises(RuntimeError, match="tavily down"):
+        await collectors.collect_and_save_offers("Je recherche un poste de Data Scientist proche de Lyon (CDI)")
+
+
+@pytest.mark.asyncio
+async def test_collect_drops_known_and_structured_urls_before_crawl(monkeypatch):
+    import app.tasks.job_offers_collectors as collectors
+    from unittest.mock import AsyncMock
+
+    tavily_urls = [
+        "https://www.linkedin.com/jobs/view/12345678",
+        "https://example.com/already-in-db",
+        "https://example.com/brand-new-job",
+    ]
+    structured = [
+        {"poste": "Data Scientist", "description": "brut", "url": "https://fr.linkedin.com/jobs/view/ds-12345678"}
+    ]
+
+    class FakeCursor:
+        def __init__(self, docs):
+            self._it = iter(docs)
+        def __aiter__(self):
+            return self
+        async def __anext__(self):
+            try:
+                return next(self._it)
+            except StopIteration:
+                raise StopAsyncIteration
+
+    class FakeColl:
+        def find(self, q, proj=None):
+            return FakeCursor([{"url": "https://example.com/already-in-db", "alternative_urls": []}])
+
+    crawl_mock = AsyncMock(
+        return_value=[{"poste": "Brand New Job", "localisation": "Lyon", "url": "https://example.com/brand-new-job"}]
+    )
+    _mock_collect_pipeline(monkeypatch, collectors, crawl_mock, structured)
+    monkeypatch.setattr(collectors, "get_urls_for_query", AsyncMock(return_value=tavily_urls))
+    monkeypatch.setattr(collectors, "get_database", AsyncMock(return_value={"job_offers": FakeColl()}))
+
+    await collectors.collect_and_save_offers("Je recherche un poste de Data Scientist proche de Lyon (CDI)")
+
+    crawl_mock.assert_awaited_once_with(["https://example.com/brand-new-job"])
 
 
 def test_get_job_offers_scoped_to_profile_by_default(client):

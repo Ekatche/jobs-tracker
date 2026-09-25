@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from app.services.ats.router import (
+    ExpiredOfferError,
     clean_html_to_text,
     extract_ats_or_jsonld_offer,
     extract_greenhouse_job,
@@ -63,8 +64,13 @@ async def test_extract_greenhouse_job_404():
     client.get = AsyncMock(return_value=mock_resp)
 
     url = "https://boards.greenhouse.io/mistralai/jobs/999999"
-    result = await extract_greenhouse_job(url, client)
-    assert result is None
+    with pytest.raises(ExpiredOfferError):
+        await extract_greenhouse_job(url, client)
+
+    # L'expiration traverse le routeur : pas de repli JSON-LD sur la page de listing.
+    with pytest.raises(ExpiredOfferError):
+        await extract_ats_or_jsonld_offer(url, client)
+    assert client.get.await_count == 2
 
 
 @pytest.mark.asyncio

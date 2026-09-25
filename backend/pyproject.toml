@@ -31,6 +31,7 @@ dependencies = [
     "crewai>=0.120.0",
     "tavily-python>=0.7.0",
     "litellm>=1.68.0",
+    "python-jobspy>=1.1.82",
     # Orchestration
     "apache-airflow>=3.0.0",
     # Utilitaires
@@ -71,3 +72,6 @@ packages = ["app"]  # Indique que le package principal est dans le dossier "app"
 #     "app/**/*.py",
 #     "routers/**/*.py",
 # ]
+
+[tool.uv]
+override-dependencies = ["numpy>=2.1"]

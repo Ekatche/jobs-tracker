@@ -32,7 +32,8 @@ ENV PATH="/root/.local/bin:/app/.venv/bin:$PATH"
 RUN uv venv
 
 COPY requirements.txt .
-RUN uv pip install -r requirements.txt
+RUN echo "numpy>=2.1" > /tmp/numpy_override.txt && \
+    uv pip install -r requirements.txt --override /tmp/numpy_override.txt
 
 RUN test -f .venv/bin/airflow && echo "✅ airflow binary trouvé" || echo "❌ airflow binary manquant"
 

@@ -23,8 +23,11 @@ ENV UV_LINK_MODE=copy
 RUN uv venv
 
 # ✅ Installer les dépendances depuis requirements.txt
+# Override numpy : python-jobspy pin numpy==1.26.3, incompatible avec crawl4ai/chromadb/onnxruntime.
+# L'override est passé directement car `uv pip install` n'honore pas [tool.uv] override-dependencies.
 COPY requirements.txt .
-RUN uv pip install -r requirements.txt
+RUN echo "numpy>=2.1" > /tmp/numpy_override.txt && \
+    uv pip install -r requirements.txt --override /tmp/numpy_override.txt
 
 # Ajouter .venv au PATH
 ENV PATH="/app/.venv/bin:$PATH"

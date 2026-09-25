@@ -8,14 +8,11 @@ from app.services.job_offers import (
     get_job_offers_from_query,
 )
 from app.database import get_database
-from pymongo import UpdateOne
-from pymongo.errors import BulkWriteError
 from app.services.normalization import (
     compute_unique_key,
     extract_company_from_url,
     clean_job_title_syntax,
     clean_html_entities_and_tags,
-    normalize_offer_fields,
     normalize_city,
     extract_seniority,
     deduplicate_and_merge_offers,
@@ -28,7 +25,18 @@ from app.services.offer_profile_matcher import tag_new_offers
 from app.services.relevance import (
     RELEVANCE_FILTER_ENABLED,
     is_off_domain_url,
+    parse_source_query,
 )
+from app.services.sources import (
+    collect_structured_offers,
+    drop_known_urls,
+    offer_identity,
+)
+from app.services.sources.geo import filter_offers_by_location
+
+# httpx logue chaque requête en INFO, URL complète comprise : l'URL Gemini de litellm
+# porte la clé API en `?key=...`, qui finirait en clair dans les logs Airflow.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # Borne par requête pour collect_offers_sync : jusqu'à 8 requêtes × 7 min = 56 min,
 # sous l'execution_timeout de 60 min de la tâche Airflow. Sans cette borne,
@@ -36,6 +44,8 @@ from app.services.relevance import (
 COLLECT_QUERY_TIMEOUT = 420
 MAX_QUERIES_PER_PROFILE = 3
 MAX_TOTAL_QUERIES = 8
+# Appels LLM de résumé simultanés (offres ATS et sources structurées).
+SUMMARY_CONCURRENCY = 8
 
 DEFAULT_QUERIES: list[str] = [
     "Je recherche un poste de data scientist",
@@ -167,6 +177,20 @@ Description brute :
         return cleaned_desc
 
 
+async def summarize_offers(offers: list[dict]) -> list[dict]:
+    """Remplace la description brute de chaque offre par sa synthèse LLM (concurrence bornée)."""
+    semaphore = asyncio.Semaphore(SUMMARY_CONCURRENCY)
+
+    async def _summarize_single(offer: dict) -> dict:
+        async with semaphore:
+            offer["description"] = await summarize_ats_offer_description(
+                offer.get("description", ""), poste=offer.get("poste", ""), entreprise=offer.get("entreprise", "")
+            )
+        return offer
+
+    return list(await asyncio.gather(*[_summarize_single(o) for o in offers]))
+
+
 async def crawl_urls_for_offers(urls: list) -> list:
     """Étape 2: Crawling des URLs pour extraire les offres (Zero-Token ATS/JSON-LD prioritaire)."""
     logger.info(f"🕷️ Traitement de {len(urls)} URLs")
@@ -176,7 +200,7 @@ async def crawl_urls_for_offers(urls: list) -> list:
         return []
 
     try:
-        from app.services.ats.router import extract_ats_or_jsonld_offer
+        from app.services.ats.router import ExpiredOfferError, extract_ats_or_jsonld_offer
         import httpx
 
         ats_offers: list[dict] = []
@@ -190,6 +214,8 @@ async def crawl_urls_for_offers(urls: list) -> list:
                         ats_offers.append(direct_offer)
                     else:
                         remaining_urls.append(url)
+                except ExpiredOfferError:
+                    logger.warning(f"🛑 Offre retirée selon l'API ATS, URL écartée: {url}")
                 except Exception as e:
                     logger.debug(f"Erreur extraction directe pour {url}: {e}")
                     remaining_urls.append(url)
@@ -197,16 +223,7 @@ async def crawl_urls_for_offers(urls: list) -> list:
         if ats_offers:
             logger.info(f"⚡ {len(ats_offers)} offres extraites via Zero-Token ATS / JSON-LD (0 token LLM)")
             logger.info(f"✨ Structuration et résumé LLM pour {len(ats_offers)} offres Zero-Token...")
-
-            async def _summarize_single(offer: dict) -> dict:
-                desc = offer.get("description", "")
-                poste = offer.get("poste", "")
-                entreprise = offer.get("entreprise", "")
-                summary = await summarize_ats_offer_description(desc, poste=poste, entreprise=entreprise)
-                offer["description"] = summary
-                return offer
-
-            ats_offers = list(await asyncio.gather(*[_summarize_single(o) for o in ats_offers]))
+            ats_offers = await summarize_offers(ats_offers)
 
         crawled_offers = []
         if remaining_urls:
@@ -565,15 +582,85 @@ def enrich_offers_sync(offers: list, query: str) -> list:
 
 
 async def collect_and_save_offers(query: str) -> dict:
-    """Version asynchrone complète pour collecter, nettoyer et enregistrer les offres"""
+    """Version asynchrone complète pour collecter, nettoyer et enregistrer les offres.
+
+    Ordre d'exécution par requête :
+    1. En parallèle : recherche Tavily (URLs) || sources structurées (fetch + dédup base + pertinence + géo).
+    2. URLs Tavily : retrait de celles déjà en base ou couvertes par une offre structurée (clé d'identité).
+    3. En parallèle : crawl des URLs Tavily restantes + filtre géo || résumé LLM des offres structurées.
+    4. Fusion -> enrich -> dédup inter-sites -> save -> tag_new_offers.
+    """
     logger.info(f"🚀 Collecte async démarrée: {query}")
     try:
-        urls = await get_urls_for_query(query)
-        offers = await crawl_urls_for_offers(urls)
+        db = await get_database()
+        _, city = parse_source_query(query)
+
+        # Étape 1 : En parallèle, recherche Tavily (URLs) et sources structurées
+        search_urls_res, structured_res = await asyncio.gather(
+            get_urls_for_query(query),
+            collect_structured_offers(query, db),
+            return_exceptions=True,
+        )
+
+        if isinstance(structured_res, Exception):
+            logger.error(f"💥 Sources structurées en échec pour '{query}': {structured_res}")
+            structured_offers: list[dict] = []
+        else:
+            structured_offers = structured_res or []
+
+        if isinstance(search_urls_res, Exception):
+            if not structured_offers:
+                raise search_urls_res
+            logger.error(
+                f"💥 Recherche Tavily en échec pour '{query}', sources structurées seules: {search_urls_res}"
+            )
+            search_urls: list[str] = []
+        else:
+            search_urls = search_urls_res or []
+
+        # Étape 2 : Filtrage des URLs Tavily avant crawl
+        if search_urls:
+            covered_identities = {offer_identity(o["url"]) for o in structured_offers if o.get("url")}
+            clean_search_urls = await drop_known_urls(search_urls, db, extra_known=covered_identities)
+            logger.info(
+                f"🎯 URLs Tavily après dédup (base + structurées): {len(clean_search_urls)}/{len(search_urls)} retenues"
+            )
+        else:
+            clean_search_urls = []
+
+        # Étape 3 : En parallèle, crawl des URLs Tavily restantes + filtre géo, et résumé LLM des offres structurées
+        async def _crawl_and_filter() -> list[dict]:
+            if not clean_search_urls:
+                return []
+            crawled = await crawl_urls_for_offers(clean_search_urls)
+            return await filter_offers_by_location(crawled, city)
+
+        crawled_res, summarized_res = await asyncio.gather(
+            _crawl_and_filter(),
+            summarize_offers(structured_offers),
+            return_exceptions=True,
+        )
+
+        if isinstance(crawled_res, Exception):
+            logger.error(f"💥 Crawling des URLs Tavily en échec pour '{query}': {crawled_res}")
+            if not structured_offers:
+                raise crawled_res
+            crawled_offers: list[dict] = []
+        else:
+            crawled_offers = crawled_res or []
+
+        if isinstance(summarized_res, Exception):
+            logger.error(f"💥 Résumé des offres structurées en échec pour '{query}': {summarized_res}")
+            summarized_offers = structured_offers
+        else:
+            summarized_offers = summarized_res or []
+
+        offers = crawled_offers + summarized_offers
+
+        # Étape 4 : Enrichissement, déduplication inter-sites, sauvegarde et tag
         enriched = await enrich_offers(offers, query)
         cleaned = await clean_duplicate_offers(enriched)
         result = await save_offers_to_database(cleaned)
-        db = await get_database()
         await tag_new_offers(result["offer_ids"], db)
         return result
     finally:

@@ -15,7 +15,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-tavily_search = TavilyJobBoardSearchTool()
+# result_as_answer : la sortie brute de l'outil devient la réponse de la tâche,
+# l'agent ne peut pas la réécrire ni y ajouter d'URLs.
+tavily_search = TavilyJobBoardSearchTool(result_as_answer=True)
 
 
 REASONING_MODEL_PREFIXES = ("o1", "o3", "gpt-5", "gpt-o")

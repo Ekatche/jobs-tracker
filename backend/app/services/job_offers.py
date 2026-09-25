@@ -1,3 +1,4 @@
+import asyncio
 import os
 import logging
 from typing import List
@@ -178,8 +179,9 @@ def extract_urls_from_crew(crew_result) -> List[str]:
 async def get_urls(user_query: str) -> List[str]:
     """Obtenir les URLs à partir de la requête utilisateur"""
     try:
-        # 1. CrewAI : obtenir la liste d'URLs
-        crew_result = run_crew(user_query)
+        # 1. CrewAI : obtenir la liste d'URLs (synchrone : exécuté dans un thread pour ne pas
+        # bloquer les sources structurées lancées en parallèle)
+        crew_result = await asyncio.to_thread(run_crew, user_query)
         urls = extract_urls_from_crew(crew_result)
         if not urls:
             logger.error("❌ Aucune URL extraite du crew")

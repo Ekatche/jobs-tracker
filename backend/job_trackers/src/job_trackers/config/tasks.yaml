@@ -18,8 +18,8 @@ execute_search_task:
   description: >
     À partir de la requête optimisée générée par la tâche précédente, utilise l'outil "Recherche d'offres d'emploi sur job boards".
     
-    Passe la requête principale sous forme de chaîne de caractères simple à l'outil pour interroger les job boards et LinkedIn.
-    Récupère l'ensemble des URLs brutes retournées par la recherche.
+    Tu DOIS appeler l'outil exactement une fois, en lui passant la requête principale sous forme de chaîne de caractères simple.
+    N'écris JAMAIS d'URL toi-même : seules les URLs renvoyées par l'outil sont valides.
 
   expected_output: >
     Une liste d'URLs d'offres d'emploi issues des résultats de recherche.
@@ -50,17 +50,18 @@ filter_urls_task:
          * Cadremploi : cadremploi.fr/emploi/detail_offre/<id>
          * LinkedIn : linkedin.com/jobs/view/<id>
 
-    2. **Adéquation poste & zone géographique** :
-       - Vérifie que l'intitulé ou le chemin de l'URL concorde avec le métier recherché et la localisation demandée.
+    2. **Adéquation au métier** :
+       - Exclure une fiche dont l'intitulé ou le slug de l'URL désigne clairement un autre métier.
+       - Ne rejette JAMAIS une fiche parce que l'URL ne mentionne pas de ville (cas normal des ATS Greenhouse, Lever, Workday) : la localisation réelle est contrôlée après extraction de l'offre.
 
     3. **Exclusions obligatoires** :
        - Exclure les pages de connexion, formulaires de candidature génériques, flux RSS ou blogs.
        - Exclure les agrégateurs spam (Jooble, Neuvoo, Talent.com, Jobrapido, OptionCarriere, Adzuna).
-       - Exclure toute page de résultats (listing ou recherche) dont le slug métier dans le chemin de l'URL ne correspond pas au poste recherché, même si le domaine ou d'autres mots-clés de la requête semblent concorder. Contre-exemple réel : pour une requête "ingénieur MLOps proche de Lyon", l'URL candidat.francetravail.fr/offres/emploi/ingenieur-structures/lyon/... a été retenue à tort — elle pointe vers le métier "ingénieur structures" (structures métalliques, génie civil), qui n'a aucun rapport avec MLOps, malgré la présence de "ingénieur" et "lyon" dans l'URL et la requête.
+       - Exclure TOUTE page de résultats (listing, recherche, page SEO « emploi-<métier>-<ville> », linkedin.com/jobs/search, /jobs/<métier>-jobs), même si son slug correspond au poste : elle ne décrit aucune offre précise. Exemples réels : welcometothejungle.com/fr/pages/emploi-data-engineer-lyon-69001, candidat.francetravail.fr/offres/emploi/ingenieur-structures/lyon/...
        - Éliminer tous les doublons d'URL.
-    
+
     4. **Sélection finale** :
-       - Retenir entre 8 et 15 URLs optimales en privilégiant une saine diversité entre les carrières directes d'entreprises (ATS) et les grands job boards nationaux.
+       - Retenir TOUTES les fiches individuelles qui respectent les règles ci-dessus, sans plafond ; si aucune ne convient, retourner une liste vide.
        - Attribuer à chaque URL une note de pertinence (1 à 10) et la plateforme source identifiée (ex: "Greenhouse", "Lever", "Workable", "Ashby", "HelloWork", "Welcome to the Jungle", "Apec", "France Travail", "LinkedIn").
 
   expected_output: >

@@ -110,17 +110,17 @@ class TavilyJobBoardSearchTool(BaseTool):
                 return False
             return True
 
-        # Palier 1 : Job boards généralistes & nationaux (Volume et couverture locale)
-        national_job_boards = [
-            "welcometothejungle.com",
-            "apec.fr",
-            "francetravail.fr",
-            "hellowork.com",
-            "indeed.fr",
-            "cadremploi.fr",
-            "free-work.com",
-            "lesjeudis.com",
+        # Palier 1 : Job boards nationaux, un appel par groupe (site, max résultats). Un appel
+        # unique était saturé par HelloWork et France Travail : WTTJ et Indeed n'apparaissaient plus.
+        # Indeed est collecté par python-jobspy, France Travail par son API quand elle est configurée.
+        job_board_groups = [
+            (["welcometothejungle.com"], 8),
+            (["apec.fr", "cadremploi.fr"], 6),
+            (["hellowork.com"], 6),
+            (["free-work.com", "lesjeudis.com"], 6),
         ]
+        if not (os.environ.get("FRANCE_TRAVAIL_CLIENT_ID") and os.environ.get("FRANCE_TRAVAIL_CLIENT_SECRET")):
+            job_board_groups.append((["francetravail.fr"], 6))
 
         # Palier 2 : Portails carrières directs & ATS d'entreprises (Zero-Token extraction directe)
         company_ats_domains = [
@@ -146,25 +146,26 @@ class TavilyJobBoardSearchTool(BaseTool):
         ]
 
         try:
-            # ✅ PASSE 1: Recherche sur les job boards français qualifiés (max 12)
+            # ✅ PASSE 1: Recherche sur les job boards français qualifiés, par groupe de sites
             logger.info(f"🇫🇷 Passe 1 - Job boards qualifiés (offres récentes): {clean_query}")
-            try:
-                response_fr = tavily_client.search(
-                    query=clean_query,
-                    search_depth="advanced",
-                    time_range="month",
-                    max_results=12,
-                    include_domains=national_job_boards,
-                    exclude_domains=spam_aggregators,
-                )
-                if response_fr and response_fr.get("results"):
-                    for r in response_fr["results"]:
-                        url = r.get("url")
-                        if url and _is_valid_job_url(url):
-                            all_urls.append(url)
-                    logger.info(f"📋 {len(response_fr['results'])} résultats trouvés sur job boards")
-            except Exception as e_fr:
-                logger.warning(f"⚠️ Erreur Passe 1 (Job boards): {e_fr}")
+            for domains, max_results in job_board_groups:
+                try:
+                    response_fr = tavily_client.search(
+                        query=clean_query,
+                        search_depth="advanced",
+                        time_range="month",
+                        max_results=max_results,
+                        include_domains=domains,
+                        exclude_domains=spam_aggregators,
+                    )
+                    if response_fr and response_fr.get("results"):
+                        for r in response_fr["results"]:
+                            url = r.get("url")
+                            if url and _is_valid_job_url(url):
+                                all_urls.append(url)
+                        logger.info(f"📋 {len(response_fr['results'])} résultats trouvés sur {', '.join(domains)}")
+                except Exception as e_fr:
+                    logger.warning(f"⚠️ Erreur Passe 1 ({', '.join(domains)}): {e_fr}")
 
             # ✅ PASSE 2: Recherche directe sur les ATS & carrières d'entreprises (max 10)
             logger.info(f"🏢 Passe 2 - ATS & Carrières directs d'entreprises: {clean_query}")

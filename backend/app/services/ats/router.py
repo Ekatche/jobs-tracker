@@ -21,6 +21,10 @@ DEFAULT_HEADERS = {
 }
 
 
+class ExpiredOfferError(Exception):
+    """L'ATS confirme que l'offre n'existe plus : aucun crawl de repli ne doit être tenté."""
+
+
 def clean_html_to_text(raw_html: str) -> str:
     """Convertit du HTML brut (ou encodé en entités) en texte lisible avec retours à la ligne propres."""
     if not raw_html:
@@ -79,6 +83,10 @@ async def extract_greenhouse_job(
 
     try:
         resp = await client.get(api_url, headers=DEFAULT_HEADERS, timeout=DEFAULT_TIMEOUT)
+        if resp.status_code == 404:
+            # Offre retirée : la page redirige vers la liste des postes du board,
+            # que le crawl de repli extrairait comme autant d'offres hors sujet.
+            raise ExpiredOfferError(url)
         if resp.status_code != 200:
             return None
 
@@ -101,6 +109,8 @@ async def extract_greenhouse_job(
             "url": url,
             "ats_platform": "greenhouse",
         }
+    except ExpiredOfferError:
+        raise
     except Exception as e:
         logger.debug(f"Échec parsing Greenhouse API pour {url}: {e}")
         return None
@@ -282,6 +292,7 @@ async def extract_ats_or_jsonld_offer(
 
     Retourne un dict d'offre compatible avec `JobOffer` si succès, ou `None` en cas d'échec
     pour permettre le basculement en cascade sur Crawl4AI + LLM.
+    Lève `ExpiredOfferError` si l'ATS confirme que l'offre a été retirée.
     """
     if not url or not isinstance(url, str) or not url.startswith("http"):
         return None
@@ -334,6 +345,8 @@ async def extract_ats_or_jsonld_offer(
                 logger.info(f"⚡ Extraction Zero-Token réussie (JSON-LD/{jsonld_result.get('ats_platform', 'web')}): {jsonld_result['poste']} - {jsonld_result['entreprise']}")
                 return jsonld_result
 
+    except ExpiredOfferError:
+        raise
     except Exception as e:
         logger.debug(f"Extraction Zero-Token non concluante pour {url}: {e}")
     finally:
