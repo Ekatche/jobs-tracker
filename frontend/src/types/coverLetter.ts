@@ -19,7 +19,7 @@ export interface CandidateProject {
   url?: string;
   repo?: string;
   year?: string;
-  context?: "perso" | "client" | "recherche" | "consortium" | string;
+  context?: "perso" | "client" | "recherche" | "consortium" | "associatif" | "evenement" | string;
   highlights?: string[];
   sources?: string[];
 }

@@ -22,6 +22,7 @@ import {
   FiPlus,
   FiTrash2,
   FiHeart,
+  FiTruck,
 } from "react-icons/fi";
 import { coverLetterApi } from "@/lib/api";
 import {
@@ -33,6 +34,15 @@ import {
   CandidateCertification,
 } from "@/types/coverLetter";
 import CvDropzone from "./CvDropzone";
+
+const PROJECT_CONTEXT_OPTIONS = [
+  { value: "perso", label: "Perso" },
+  { value: "client", label: "Client" },
+  { value: "recherche", label: "Recherche" },
+  { value: "consortium", label: "Consortium" },
+  { value: "associatif", label: "Associatif" },
+  { value: "evenement", label: "Événement" },
+];
 
 function formatMonthYear(val?: string | null): string {
   if (!val) return "";
@@ -82,6 +92,8 @@ export default function CandidateProfileSection() {
   const [website, setWebsite] = useState("");
   const [github, setGithub] = useState("");
   const [linkedin, setLinkedin] = useState("");
+  const [mobility, setMobility] = useState("");
+  const [availability, setAvailability] = useState("");
   const [skillsText, setSkillsText] = useState("");
   const [languagesText, setLanguagesText] = useState("");
   const [interestsText, setInterestsText] = useState("");
@@ -120,6 +132,8 @@ export default function CandidateProfileSection() {
     setWebsite(data.contact?.website || "");
     setGithub(data.contact?.github || "");
     setLinkedin(data.contact?.linkedin || "");
+    setMobility(data.contact?.mobility || "");
+    setAvailability(data.contact?.availability || "");
 
     // Aplatir les compétences pour édition simplifiée
     if (data.skills) {
@@ -383,6 +397,8 @@ export default function CandidateProfileSection() {
         website,
         github,
         linkedin,
+        mobility,
+        availability,
       },
       skills: Object.keys(parsedSkills).length > 0 ? parsedSkills : profile?.skills || {},
       experiences: cleanedExperiences,
@@ -826,7 +842,7 @@ export default function CandidateProfileSection() {
                             <span>{proj.name}</span>
                             {proj.context && (
                               <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                                {proj.context}
+                                {PROJECT_CONTEXT_OPTIONS.find((option) => option.value === proj.context)?.label ?? proj.context}
                               </span>
                             )}
                           </div>
@@ -1168,6 +1184,34 @@ export default function CandidateProfileSection() {
                 className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+
+            <div>
+              <label htmlFor="candidate_mobility" className="block text-xs font-medium text-gray-300 mb-1 flex items-center">
+                <FiTruck className="mr-1.5" /> Mobilité
+              </label>
+              <input
+                id="candidate_mobility"
+                type="text"
+                value={mobility}
+                onChange={(e) => setMobility(e.target.value)}
+                placeholder="Permis B, véhiculé"
+                className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="candidate_availability" className="block text-xs font-medium text-gray-300 mb-1 flex items-center">
+                <FiCalendar className="mr-1.5" /> Disponibilités
+              </label>
+              <input
+                id="candidate_availability"
+                type="text"
+                value={availability}
+                onChange={(e) => setAvailability(e.target.value)}
+                placeholder="Disponible immédiatement · 2x8, nuit, week-end"
+                className="w-full rounded-md bg-blue-night border border-gray-700 py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
 
           <div>
@@ -1372,13 +1416,17 @@ export default function CandidateProfileSection() {
                     </div>
                     <div>
                       <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Contexte</label>
-                      <input
-                        type="text"
+                      <select
                         value={proj.context || "perso"}
                         onChange={(e) => handleUpdateProject(idx, "context", e.target.value)}
-                        placeholder="perso, client, recherche"
                         className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
-                      />
+                      >
+                        {PROJECT_CONTEXT_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   <div>
