@@ -42,6 +42,38 @@ def _slugify(text: str) -> str:
     return re.sub(r"[-\s]+", "_", cleaned)
 
 
+def _normalize_url(url: Optional[str]) -> str:
+    return re.sub(r"^https?://(www\.)?", "", (url or "").strip().lower()).rstrip("/")
+
+
+def _clean_text(value: Any) -> Optional[str]:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _build_candidate(profile_doc: Dict[str, Any], user: UserModel) -> Dict[str, Any]:
+    """Coordonnées et informations annexes du CV, lues dans le profil au moment du rendu."""
+    contact_info = profile_doc.get("personal_info") or profile_doc.get("contact") or {}
+    github_url = contact_info.get("github_url") or contact_info.get("github") or profile_doc.get("github_url")
+    website_url = _clean_text(contact_info.get("website_url") or contact_info.get("website"))
+    if website_url and _normalize_url(website_url) == _normalize_url(github_url):
+        website_url = None
+
+    return {
+        "full_name": contact_info.get("full_name") or profile_doc.get("full_name") or user.username,
+        "email": contact_info.get("email") or profile_doc.get("email") or user.email,
+        "phone": contact_info.get("phone") or profile_doc.get("phone"),
+        "location": contact_info.get("location") or profile_doc.get("location"),
+        "linkedin_url": contact_info.get("linkedin_url") or contact_info.get("linkedin") or profile_doc.get("linkedin_url"),
+        "github_url": github_url,
+        "website_url": website_url,
+        "mobility": _clean_text(contact_info.get("mobility")),
+        "availability": _clean_text(contact_info.get("availability")),
+        "interests": [str(i).strip() for i in (profile_doc.get("interests") or []) if str(i).strip()],
+    }
+
+
 @resumes_router.get("")
 async def list_resumes(
     db=Depends(get_database),
@@ -215,14 +247,7 @@ async def get_resume_pdf(
     profile_doc = await db["candidate_profile"].find_one({"$or": profile_query}) or {}
     contact_info = profile_doc.get("personal_info") or profile_doc.get("contact") or {}
 
-    candidate = {
-        "full_name": contact_info.get("full_name") or profile_doc.get("full_name") or current_user.username,
-        "email": contact_info.get("email") or profile_doc.get("email") or current_user.email,
-        "phone": contact_info.get("phone") or profile_doc.get("phone"),
-        "location": contact_info.get("location") or profile_doc.get("location"),
-        "linkedin_url": contact_info.get("linkedin_url") or contact_info.get("linkedin") or profile_doc.get("linkedin_url"),
-        "github_url": contact_info.get("github_url") or contact_info.get("github") or profile_doc.get("github_url"),
-    }
+    candidate = _build_candidate(profile_doc, current_user)
 
     chosen_template = template or resume.get("template", "sidebar_elegance")
     chosen_with_photo = with_photo if with_photo is not None else resume.get("with_photo", False)

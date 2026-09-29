@@ -266,3 +266,35 @@ async def test_generate_resume_passes_evaluation_stored_with_string_ids(client, 
     evaluation = mock_generate.call_args.kwargs["evaluation"]
     assert evaluation is not None
     assert evaluation["score"] == 4.2
+
+
+from app.routers.resumes import _build_candidate
+
+
+def test_build_candidate_drops_website_identical_to_github():
+    profile = {"contact": {"github": "https://github.com/jdupont", "website": "github.com/jdupont/"}}
+    assert _build_candidate(profile, mock_current_user)["website_url"] is None
+
+
+def test_build_candidate_keeps_distinct_portfolio():
+    profile = {"contact": {"github": "https://github.com/jdupont", "website": "https://jdupont.fr"}}
+    assert _build_candidate(profile, mock_current_user)["website_url"] == "https://jdupont.fr"
+
+
+def test_build_candidate_exposes_mobility_availability_and_interests():
+    profile = {
+        "contact": {"mobility": " Permis B, véhiculé ", "availability": "   "},
+        "interests": ["Football", " ", "Randonnée"],
+    }
+    candidate = _build_candidate(profile, mock_current_user)
+    assert candidate["mobility"] == "Permis B, véhiculé"
+    assert candidate["availability"] is None
+    assert candidate["interests"] == ["Football", "Randonnée"]
+
+
+def test_build_candidate_falls_back_to_user_identity():
+    candidate = _build_candidate({}, mock_current_user)
+    assert candidate["full_name"] == "testengineer"
+    assert candidate["email"] == "test@example.com"
+    assert candidate["website_url"] is None
+    assert candidate["interests"] == []
