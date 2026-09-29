@@ -38,22 +38,42 @@ Description :
    - Si le champ `writing_style` du profil candidat est renseigné, imite ce style et ce niveau de formalité (vocabulaire, rythme de phrase) plutôt qu'un ton générique de CV.
    - Positionne le candidat avec exactitude par rapport au poste ciblé chez {target_company}.
    - Souligne les accomplissements réels et la proposition de valeur alignés avec les besoins de l'offre, sans exagération.
+   - Les exigences de poids `critical` de l'analyse Bloc B guident la première phrase de l'accroche, dans la limite de ce que le profil prouve.
 
 4. **EXPÉRIENCES PROFESSIONNELLES** :
-   - Pour chaque expérience pertinente, réordonne et formule les bullet points (3 à 5 par poste) avec des verbes d'action et des résultats quantifiés (métriques, ROI, latence, volume de données, taille d'équipe).
-   - Réaligne le vocabulaire technique sur celui de l'offre si le candidat a effectivement manipulé ces concepts.
-   - Isole les `relevant_technologies` les plus percutantes pour chaque poste.
+   - Déduis le métier réel du candidat à partir de son profil et de l'offre, et écris dans le vocabulaire métier correspondant.
+   - Nombre de bullet points proportionné à la pertinence pour l'offre :
+     - expérience qui couvre des exigences `critical` ou `high` de l'analyse Bloc B : 4 à 5 bullet points, en commençant par ceux qui prouvent ces exigences ;
+     - expérience annexe : 1 à 2 bullet points. Conserve-la pour ne pas créer de trou dans le parcours ; ne la supprime jamais.
+   - Formule les bullet points avec des verbes d'action et, quand le profil les fournit, des résultats quantifiés propres au métier. Exemples par famille :
+     - tech : latence, volume de données, disponibilité ;
+     - RH : délai de recrutement, nombre de recrutements, turnover ;
+     - marketing : taux de conversion, audience, coût d'acquisition ;
+     - logistique / terrain : cadence (colis ou lignes par heure), taux d'erreur, jours sans accident, tonnage.
+     Ne retiens que les métriques du métier réel du candidat. N'invente JAMAIS un chiffre absent du profil.
+   - Réaligne le vocabulaire métier sur celui de l'offre si le candidat a effectivement exercé ces missions.
+   - Pour un métier opérationnel ou manuel (logistique, production, bâtiment, conduite…), écris des phrases simples et concrètes, sans jargon de bureau.
+   - Isole dans `relevant_technologies` les outils, logiciels, engins ou méthodes réellement utilisés à chaque poste d'après le profil (ex : SAP, chariot élévateur, scanner RF, Canva, Python).
 
 5. **COMPÉTENCES GROUPÉES (prioritized_skills)** :
    - Structure les compétences en 2 à 4 catégories cohérentes et pertinentes pour le métier réel du candidat (déduis les catégories du profil et de l'offre — ne force AUCUNE catégorie type "Data & IA" si le candidat exerce un autre métier).
-   - Mets en tête de liste les compétences requises par l'offre que le candidat possède réellement.
+   - Mets en tête de liste les compétences requises par l'offre que le candidat possède réellement, en commençant par celles liées aux exigences de poids `critical`.
 
 6. **PROJETS CLÉS (featured_projects)** :
-   - Sélectionne 1 à 3 projets concrets du candidat démontrant sa capacité à délivrer sur les enjeux de l'offre.
+   - Sélectionne 0 à 3 projets concrets du candidat démontrant sa capacité à délivrer sur les enjeux de l'offre. Les projets associatifs ou événementiels comptent au même titre que les projets professionnels.
+   - Renvoie une liste vide si aucun projet n'est pertinent pour l'offre.
 
 7. **FORMATION & LANGUES** :
    - Conserve les diplômes réels avec diplôme, établissement et année.
    - Présente les langues avec leur niveau européen CECRL (ex: "Natif", "C1 - Professionnel", "B2 - Intermédiaire").
+
+8. **CERTIFICATIONS & HABILITATIONS (certifications)** :
+   - Reprends uniquement les certifications et habilitations présentes dans le profil.
+   - Si l'offre exige une habilitation (CACES, permis de conduire, SST, habilitation électrique, FIMO/FCO…) que le candidat possède, cite-la dans l'accroche et place-la en tête de `certifications`.
+
+9. **LONGUEUR** :
+   - Une page A4 pour un profil de moins de 5 ans d'expérience ou un métier opérationnel ; deux pages maximum sinon.
+   - Pour tenir ce budget, réduis d'abord les expériences annexes, jamais les expériences pertinentes.
 
 ---
 
@@ -79,14 +99,14 @@ Tu dois répondre UNIQUEMENT par un objet JSON valide, sans balises superflues n
         "Verbe d'action + mission + métrique d'impact...",
         "..."
       ],
-      "relevant_technologies": ["Tech1", "Tech2"]
+      "relevant_technologies": ["Outil1", "Outil2"]
     }}
   ],
   "featured_projects": [
     {{
       "name": "Nom du projet",
       "description": "Description succincte du projet et de l'impact...",
-      "technologies": ["Tech1", "Tech2"],
+      "technologies": ["Outil1", "Outil2"],
       "url": "https://..."
     }}
   ],

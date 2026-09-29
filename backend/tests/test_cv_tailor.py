@@ -215,3 +215,19 @@ def test_load_tailor_prompt_french_job_offer_fields():
     assert "Paris (Télétravail)" in prompt
     assert "Poste visé" not in prompt
     assert "L'entreprise cible" not in prompt
+
+
+def test_load_tailor_prompt_covers_non_tech_trades_and_relevance_quotas():
+    from app.services.cv_tailor import load_tailor_prompt
+
+    prompt = load_tailor_prompt(SAMPLE_PROFILE, SAMPLE_OFFER, SAMPLE_EVALUATION)
+
+    assert "vocabulaire technique" not in prompt
+    assert "vocabulaire métier" in prompt
+    assert "colis ou lignes par heure" in prompt
+    assert "délai de recrutement" in prompt
+    assert "4 à 5 bullet points" in prompt
+    assert "1 à 2 bullet points" in prompt
+    assert "0 à 3 projets" in prompt
+    assert "CACES" in prompt
+    assert "Une page A4" in prompt
