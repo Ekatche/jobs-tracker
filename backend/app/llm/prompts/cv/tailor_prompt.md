@@ -45,6 +45,7 @@ Description :
    - Nombre de bullet points proportionné à la pertinence pour l'offre :
      - expérience qui couvre des exigences `critical` ou `high` de l'analyse Bloc B : 4 à 5 bullet points, en commençant par ceux qui prouvent ces exigences ;
      - expérience annexe : 1 à 2 bullet points. Conserve-la pour ne pas créer de trou dans le parcours ; ne la supprime jamais.
+     - En l'absence d'analyse Bloc B, juge la pertinence de chaque expérience d'après l'offre.
    - Formule les bullet points avec des verbes d'action et, quand le profil les fournit, des résultats quantifiés propres au métier. Exemples par famille :
      - tech : latence, volume de données, disponibilité ;
      - RH : délai de recrutement, nombre de recrutements, turnover ;

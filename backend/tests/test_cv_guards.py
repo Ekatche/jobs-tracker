@@ -177,3 +177,30 @@ def test_verify_cv_honesty_flags_invented_company_and_skills():
     assert any("Google DeepFake Labs" in v for v in violations)
     assert any("UnknownImaginaryFramework" in v for v in violations)
     assert any("MIT Fake" in v or "PhD Quantum Computing" in v for v in violations)
+
+
+def test_verify_cv_honesty_accepts_licence_declared_in_contact_mobility():
+    source_profile = {
+        "contact": {"mobility": "Permis B, véhiculé", "availability": "2x8, nuit"},
+        "experiences": [{"company": "Logista", "role": "Préparateur de commandes"}],
+        "skills": {"logistique": ["Préparation de commandes"]},
+    }
+    tailored = TailoredCVSchema(
+        target_role_title="Préparateur de commandes",
+        professional_summary="Préparateur de commandes, permis B et véhiculé.",
+        prioritized_skills=[
+            TailoredSkillGroup(category="Logistique", skills=["Préparation de commandes", "Permis B"]),
+        ],
+        experiences=[
+            TailoredExperienceItem(
+                title="Préparateur de commandes",
+                company="Logista",
+                start_date="2022",
+                end_date="Présent",
+                bullet_points=["Prépare les commandes."],
+                relevant_technologies=[],
+            )
+        ],
+    )
+    is_valid, violations = verify_cv_honesty(tailored, source_profile)
+    assert is_valid, violations

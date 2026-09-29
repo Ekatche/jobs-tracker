@@ -13,6 +13,8 @@ SOURCE_PRIORITY: Tuple[str, ...] = ("manual", "cv", "website", "github")
 
 _SCALAR_FIELDS = ("role", "location", "contract", "sector")
 
+_MANUAL_CLEARABLE_CONTACT_KEYS = ("mobility", "availability")
+
 
 def _ordered_sources(sources: Dict[str, Dict[str, Any]]) -> List[str]:
     known = [s for s in SOURCE_PRIORITY if sources.get(s)]
@@ -525,6 +527,12 @@ def build_profile_from_sources(
         src_payload = sources[source]
         src_contact = src_payload.get("contact") or src_payload.get("personal_info") or {}
         contact.update({k: v for k, v in src_contact.items() if v and k != "languages"})
+        if source == "manual":
+            # Un champ vidé dans l'UI arrive en "" : il efface la valeur du CV
+            # au lieu de la laisser revenir à chaque sauvegarde.
+            for key in _MANUAL_CLEARABLE_CONTACT_KEYS:
+                if key in src_contact and not str(src_contact[key] or "").strip():
+                    contact.pop(key, None)
 
     languages: List[str] = []
     interests: List[str] = []

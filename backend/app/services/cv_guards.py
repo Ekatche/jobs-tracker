@@ -192,6 +192,14 @@ def verify_cv_honesty(
                 corpus_fragments.append(val)
                 known_skills.add(val.strip())
 
+    # Ingest mobility and availability (permis, horaires déclarés dans le profil)
+    contact = source_profile.get("contact") or {}
+    if isinstance(contact, dict):
+        for key in ("mobility", "availability"):
+            val = contact.get(key)
+            if val and isinstance(val, str):
+                _extract_text_fragments(val)
+
     # Ingest certifications and summaries
     for cert in source_profile.get("certifications", []) or []:
         if isinstance(cert, dict) and cert.get("name"):

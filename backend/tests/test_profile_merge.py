@@ -597,3 +597,21 @@ def test_multiple_roles_at_same_company_same_source_not_collapsed():
 
 
 
+
+
+def test_manual_empty_mobility_and_availability_clear_cv_values():
+    profile, _ = build_profile_from_sources({
+        "cv": {"contact": {"availability": "Disponible immédiatement", "mobility": "Permis B"}},
+        "manual": {"contact": {"availability": "", "mobility": "  ", "email": "a@b.fr"}},
+    })
+    contact = profile.get("contact") or {}
+    assert not contact.get("availability")
+    assert not contact.get("mobility")
+
+
+def test_manual_without_mobility_key_keeps_cv_value():
+    profile, _ = build_profile_from_sources({
+        "cv": {"contact": {"mobility": "Permis B"}},
+        "manual": {"contact": {"email": "a@b.fr"}},
+    })
+    assert profile["contact"]["mobility"] == "Permis B"

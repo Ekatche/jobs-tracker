@@ -231,3 +231,12 @@ def test_load_tailor_prompt_covers_non_tech_trades_and_relevance_quotas():
     assert "0 à 3 projets" in prompt
     assert "CACES" in prompt
     assert "Une page A4" in prompt
+
+
+def test_load_tailor_prompt_without_evaluation_judges_relevance_from_offer():
+    from app.services.cv_tailor import load_tailor_prompt
+
+    prompt = load_tailor_prompt(SAMPLE_PROFILE, SAMPLE_OFFER)
+
+    assert "Aucune analyse Bloc B préalable disponible." in prompt
+    assert "En l'absence d'analyse Bloc B, juge la pertinence de chaque expérience d'après l'offre" in prompt
