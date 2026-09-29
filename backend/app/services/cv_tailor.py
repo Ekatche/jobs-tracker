@@ -41,21 +41,26 @@ def load_tailor_prompt(
     eval_context_lines = []
     if evaluation and "bloc_b" in evaluation:
         bloc_b = evaluation["bloc_b"]
-        matched = bloc_b.get("requirements_matched", [])
+        matched = bloc_b.get("matched_requirements") or []
         if matched:
-            eval_context_lines.append("Compétences et exigences validées du candidat :")
+            eval_context_lines.append("Compétences et exigences validées du candidat [poids de l'exigence dans l'offre] :")
             for m in matched:
                 req = m.get("requirement", "")
                 evidence = m.get("candidate_evidence", "")
-                eval_context_lines.append(f"- {req} (Preuve: {evidence})")
+                tags = [m.get("weight", "")]
+                if m.get("status") == "partial_match":
+                    tags.append("couverture partielle")
+                tags_str = ", ".join(t for t in tags if t)
+                eval_context_lines.append(f"- {req} [{tags_str}] (Preuve: {evidence})")
 
-        missing = bloc_b.get("missing_requirements", [])
+        missing = bloc_b.get("missing_requirements") or []
         if missing:
             eval_context_lines.append("\nCompétences manquantes (ATTENTION : NE PAS INVENTER, NE PAS PRÉTENDRE LES AVOIR) :")
             for miss in missing:
                 req = miss.get("requirement", "")
-                importance = miss.get("importance", "")
-                eval_context_lines.append(f"- {req} [{importance}]")
+                weight = miss.get("weight", "")
+                reason = miss.get("reason", "")
+                eval_context_lines.append(f"- {req} [{weight}] (Écart: {reason})")
 
     eval_context_str = "\n".join(eval_context_lines) if eval_context_lines else "Aucune analyse Bloc B préalable disponible."
 

@@ -83,10 +83,11 @@ async def generate_resume(
         raise HTTPException(status_code=404, detail="Offre d'emploi non trouvée.")
 
     # Retrieve optional Bloc B evaluation
-    evaluation_doc = await db["offer_evaluations"].find_one({
-        "offer_id": ObjectId(request.offer_id),
-        "user_id": ObjectId(current_user.id),
-    })
+    # L'évaluateur persiste user_id/offer_id en chaînes ; on accepte aussi l'ancien format ObjectId.
+    evaluation_doc = await db["offer_evaluations"].find_one({"$and": [
+        {"$or": [{"user_id": str(current_user.id)}, {"user_id": ObjectId(current_user.id)}]},
+        {"$or": [{"offer_id": request.offer_id}, {"offer_id": ObjectId(request.offer_id)}]},
+    ]})
 
     # Generate tailored content
     try:

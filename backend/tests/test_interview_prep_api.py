@@ -133,3 +133,33 @@ async def test_update_and_export_interview_prep(override_auth, test_db):
     assert "text/markdown" in export_res.headers["content-type"]
     assert "# Kit de Préparation d'Entretien" in export_res.text
     assert "[Leadership] Mentor" in export_res.text
+
+
+@pytest.mark.asyncio
+async def test_generate_stories_uses_only_current_user_evaluation(override_auth, test_db):
+    """Une évaluation d'un autre compte sur la même offre ne doit jamais être utilisée."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": [{"company": "Alpha Corp"}]}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+    # Inséré en premier : un find_one sans filtre utilisateur le renverrait.
+    await db.offer_evaluations.insert_one(
+        {"user_id": str(ObjectId()), "offer_id": str(offer_id), "score": 1.0}
+    )
+    await db.offer_evaluations.insert_one(
+        {"user_id": mock_user_id, "offer_id": str(offer_id), "score": 4.5}
+    )
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True):
+        with patch("app.routers.interview_prep.generate_star_stories", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = []
+            res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/stories")
+
+    assert res.status_code == 200
+    evaluation = mock_gen.call_args.kwargs["evaluation"]
+    assert evaluation["user_id"] == mock_user_id
+    assert evaluation["score"] == 4.5

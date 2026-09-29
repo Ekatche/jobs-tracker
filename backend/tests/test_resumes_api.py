@@ -233,3 +233,36 @@ def test_get_resume_pdf_stream(client):
         assert res.status_code == 200
         assert res.headers["content-type"] == "application/pdf"
         assert res.content.startswith(b"%PDF-")
+
+
+@pytest.mark.asyncio
+async def test_generate_resume_passes_evaluation_stored_with_string_ids(client, test_db):
+    """L'évaluateur persiste user_id/offer_id en chaînes : la génération doit les retrouver."""
+    offer_id = ObjectId()
+    await test_db.candidate_profile.update_one(
+        {"user_id": MOCK_USER_ID},
+        {"$set": {"user_id": MOCK_USER_ID, "skills": ["Python"], "experiences": [{"company": "Acme Corp"}]}},
+        upsert=True,
+    )
+    await test_db.job_offers.insert_one(
+        {"_id": offer_id, "title": "Senior Python Engineer", "company": "Fintech France"}
+    )
+    await test_db.offer_evaluations.insert_one({
+        "user_id": MOCK_USER_ID,
+        "offer_id": str(offer_id),
+        "score": 4.2,
+        "bloc_b": {"matched_requirements": [], "missing_requirements": []},
+    })
+
+    app.dependency_overrides[get_current_user] = lambda: mock_current_user
+
+    with patch("app.routers.resumes.generate_tailored_cv_content", new_callable=AsyncMock) as mock_generate, \
+         patch("app.routers.resumes.require_user_quota", new_callable=AsyncMock), \
+         patch("app.routers.resumes.record_api_usage", new_callable=AsyncMock):
+        mock_generate.return_value = SAMPLE_CV_SCHEMA
+        res = client.post("/resumes/generate", json={"offer_id": str(offer_id)})
+
+    assert res.status_code == 200
+    evaluation = mock_generate.call_args.kwargs["evaluation"]
+    assert evaluation is not None
+    assert evaluation["score"] == 4.2

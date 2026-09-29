@@ -79,8 +79,8 @@ async def _get_profile_and_offer(db, offer_id: str, user_id: str) -> tuple[Dict[
     if not offer:
         raise HTTPException(status_code=404, detail="Offre d'emploi introuvable.")
 
-    eval_query = {"$or": [{"offer_id": str(offer_id)}, {"offer_id": ObjectId(offer_id)}]}
-    evaluation = await db["offer_evaluations"].find_one(eval_query)
+    offer_query = {"$or": [{"offer_id": str(offer_id)}, {"offer_id": ObjectId(offer_id)}]}
+    evaluation = await db["offer_evaluations"].find_one({"$and": [user_query, offer_query]})
 
     return profile, offer, evaluation
 

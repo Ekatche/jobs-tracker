@@ -58,16 +58,17 @@ SAMPLE_OFFER = {
     "requirements": ["Python 3.11+", "FastAPI", "Docker", "PostgreSQL", "Leadership technique"],
 }
 
+# Clés alignées sur BlocB (app.models) tel que l'évaluateur le persiste.
 SAMPLE_EVALUATION = {
     "bloc_b": {
-        "requirements_matched": [
-            {"requirement": "Python", "candidate_evidence": "Tech Corp senior backend"},
-            {"requirement": "FastAPI", "candidate_evidence": "Tech Corp API development"},
-            {"requirement": "Docker", "candidate_evidence": "Profile skill"},
-            {"requirement": "PostgreSQL", "candidate_evidence": "Startup Studio"},
+        "matched_requirements": [
+            {"requirement": "Python", "weight": "critical", "candidate_evidence": "Tech Corp senior backend", "status": "full_match"},
+            {"requirement": "FastAPI", "weight": "high", "candidate_evidence": "Tech Corp API development", "status": "full_match"},
+            {"requirement": "Docker", "weight": "meaningful", "candidate_evidence": "Profile skill", "status": "partial_match"},
+            {"requirement": "PostgreSQL", "weight": "high", "candidate_evidence": "Startup Studio", "status": "full_match"},
         ],
         "missing_requirements": [
-            {"requirement": "Kubernetes", "importance": "high"}
+            {"requirement": "Kubernetes", "weight": "high", "reason": "Aucune mention d'orchestration de conteneurs"}
         ],
     }
 }
@@ -185,6 +186,17 @@ async def test_generate_tailored_cv_content_flags_hallucinations():
                 offer=SAMPLE_OFFER,
                 evaluation=SAMPLE_EVALUATION
             )
+
+
+def test_load_tailor_prompt_includes_bloc_b_requirements_with_weight():
+    from app.services.cv_tailor import load_tailor_prompt
+
+    prompt = load_tailor_prompt(SAMPLE_PROFILE, SAMPLE_OFFER, SAMPLE_EVALUATION)
+
+    assert "Aucune analyse Bloc B préalable disponible." not in prompt
+    assert "- Python [critical] (Preuve: Tech Corp senior backend)" in prompt
+    assert "- Docker [meaningful, couverture partielle] (Preuve: Profile skill)" in prompt
+    assert "- Kubernetes [high] (Écart: Aucune mention d'orchestration de conteneurs)" in prompt
 
 
 def test_load_tailor_prompt_french_job_offer_fields():
