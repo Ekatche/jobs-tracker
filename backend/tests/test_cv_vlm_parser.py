@@ -1,8 +1,9 @@
 import io
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.services.cv_parser import (
+    _clean_parsed_cv,
     extract_text_from_pdf,
     render_pdf_pages_to_base64_images,
     parse_cv_with_vlm,
@@ -98,3 +99,35 @@ async def test_parse_cv_with_llm_falls_back_to_text_on_vlm_error(tmp_path, monke
         with patch("app.services.cv_parser.acompletion", return_value=fake_text_response):
             result = await parse_cv_with_llm(pdf_path=str(pdf_file))
             assert result["headline"] == "Fallback Data Engineer"
+
+
+def test_clean_parsed_cv_maps_new_project_contexts():
+    data = _clean_parsed_cv({"projects": [
+        {"name": "Restos du cœur", "context": "Bénévolat"},
+        {"name": "Salon de l'emploi", "context": "salon"},
+        {"name": "Stage", "context": "stage"},
+    ]})
+    assert [p["context"] for p in data["projects"]] == ["associatif", "evenement", "perso"]
+
+
+def test_clean_parsed_cv_keeps_non_empty_mobility_and_availability():
+    data = _clean_parsed_cv({"contact": {"mobility": " Permis B, véhiculé ", "availability": "", "phone": None}})
+    assert data["contact"] == {"mobility": "Permis B, véhiculé"}
+
+
+def test_clean_parsed_cv_drops_contact_that_is_not_an_object():
+    data = _clean_parsed_cv({"contact": "Permis B"})
+    assert "contact" not in data
+
+
+@pytest.mark.asyncio
+async def test_parse_cv_with_llm_prompt_routes_habilitations_and_mobility():
+    mock_resp = MagicMock()
+    mock_resp.choices = [MagicMock(message=MagicMock(content='{"headline": "Préparateur de commandes"}'))]
+    with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock, return_value=mock_resp) as mock_llm:
+        await parse_cv_with_llm(cv_text="Jean Martin\nPréparateur de commandes\nPermis B")
+
+    prompt = mock_llm.call_args.kwargs["messages"][0]["content"]
+    assert "CACES" in prompt
+    assert "mobility" in prompt and "availability" in prompt
+    assert "associatif" in prompt

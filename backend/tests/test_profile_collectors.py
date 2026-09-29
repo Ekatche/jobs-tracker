@@ -16,6 +16,7 @@ import pytest
 import app.services.profile.collectors.website as website
 from app.services.profile.collectors.github import collect_github, parse_github_username
 from app.services.profile.collectors.website import (
+    _coerce_project_contexts,
     _default_fetch,
     collect_website,
     discover_pages,
@@ -236,8 +237,8 @@ async def test_collect_website_raises_when_no_page_has_markdown(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_collect_website_projects_context_outside_enum_is_coerced_to_perso(monkeypatch):
-    """`CandidateProject.context` est un Literal fermé ("perso"/"client"/
-    "recherche"/"consortium"). Un LLM peut renvoyer une valeur hors énumération
+    """`CandidateProject.context` est un Literal fermé (voir
+    `PROJECT_CONTEXTS`). Un LLM peut renvoyer une valeur hors énumération
     malgré le prompt qui les énumère explicitement : `collect_website` doit la
     corriger en "perso" plutôt que de laisser passer une valeur invalide vers
     la validation Pydantic en aval (502 sur l'import du site)."""
@@ -253,7 +254,7 @@ async def test_collect_website_projects_context_outside_enum_is_coerced_to_perso
     async def fake_extract(markdown_by_url):
         return {
             "projects": [
-                {"name": "Mission bénévole", "description": "Aide associative", "context": "benevolat"}
+                {"name": "Refonte vitrine", "description": "Mission ponctuelle", "context": "freelance"}
             ],
             "experiences": [],
         }
@@ -629,3 +630,14 @@ async def test_extract_with_llm_preserves_large_markdown(monkeypatch):
     assert "FIN_EXPERIENCE" in captured_prompt[0]
 
 
+
+
+def test_coerce_project_contexts_maps_synonyms_before_fallback():
+    payload = {"projects": [
+        {"name": "A", "context": "association"},
+        {"name": "B", "context": "Événement"},
+        {"name": "C", "context": "stage"},
+        {"name": "D"},
+    ]}
+    _coerce_project_contexts(payload)
+    assert [p["context"] for p in payload["projects"]] == ["associatif", "evenement", "perso", "perso"]

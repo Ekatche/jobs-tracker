@@ -24,6 +24,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from litellm import acompletion
 
+from app.models import normalize_project_context
 from app.services.profile.urls import validate_public_url_async
 
 # `letter_llm` vit dans job_trackers/src/job_trackers, hors du package `app` :
@@ -45,25 +46,19 @@ FETCH_TIMEOUT = 10.0
 FALLBACK_PATHS = ("", "/experience", "/work", "/projects", "/formation", "/competences", "/about")
 SKIP_PATTERNS = ("/contact", "/mentions", "/legal", "/privacy", "/blog/tag")
 
-# Doit rester en phase avec `CandidateProject.context` (Literal fermé,
-# app/models.py). Le prompt d'extraction énumère déjà ces 4 valeurs, mais un
-# prompt n'est pas une garantie : un LLM peut renvoyer une valeur hors
-# énumération malgré la consigne.
-_VALID_PROJECT_CONTEXTS = {"perso", "client", "recherche", "consortium"}
-
-
 def _coerce_project_contexts(payload: Dict[str, Any]) -> None:
-    """Force `context` à "perso" pour tout projet dont la valeur n'est pas
-    l'une des 4 admises par le modèle Pydantic en aval.
+    """Ramène le `context` de chaque projet à une valeur admise par
+    `CandidateProject.context` (synonymes compris, repli sur "perso").
 
-    Sans cette coercition défensive, une valeur hors énumération (ex.
-    "personnel", "freelance") fait échouer `CandidateProfile.model_validate`
-    dans `_store_source` et retourne 502 sur l'import du site — la source la
-    plus riche du profil. Modifie `payload` en place.
+    Le prompt énumère les valeurs admises, mais un prompt n'est pas une
+    garantie. Sans cette coercition défensive, une valeur hors énumération
+    (ex. "personnel", "freelance") fait échouer
+    `CandidateProfile.model_validate` dans `_store_source` et retourne 502 sur
+    l'import du site — la source la plus riche du profil. Modifie `payload`
+    en place.
     """
     for project in payload.get("projects", []) or []:
-        if project.get("context") not in _VALID_PROJECT_CONTEXTS:
-            project["context"] = "perso"
+        project["context"] = normalize_project_context(project.get("context"))
 
 
 async def _default_fetch(url: str, total_timeout: float = FETCH_TIMEOUT) -> Optional[str]:
@@ -217,7 +212,7 @@ Extrais TOUS les faits et TOUTES les expériences professionnelles de manière e
 Réponds uniquement par un objet JSON avec ces clés :
 - "identity": {{"headline": titre professionnel, "summary": résumé factuel}}
 - "experiences": [{{"company", "role", "location", "contract", "start", "end", "missions": [], "stack": [], "achievements": []}}]
-- "projects": [{{"name", "description", "context" (une valeur EXACTE parmi: "perso", "client", "recherche", "consortium"), "stack": [], "url"}}]
+- "projects": [{{"name", "description", "context" (une valeur EXACTE parmi: "perso", "client", "recherche", "consortium", "associatif", "evenement"), "stack": [], "url"}}]
 - "education": [{{"school", "degree", "years"}}]
 - "certifications": [{{"name", "issuer", "year"}}]
 - "skills": {{"catégorie": ["compétence"]}}
