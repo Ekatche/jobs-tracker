@@ -490,6 +490,27 @@ class CandidateExperience(BaseModel):
     sources: List[str] = Field(default_factory=list)
 
 
+PROJECT_CONTEXTS = ("perso", "client", "recherche", "consortium", "associatif", "evenement")
+
+_PROJECT_CONTEXT_SYNONYMS = {
+    "perso": "perso", "personal": "perso",
+    "client": "client", "professionnel": "client", "pro": "client",
+    "entreprise": "client", "work": "client", "job": "client",
+    "recherche": "recherche", "research": "recherche",
+    "consortium": "consortium",
+    "associatif": "associatif", "association": "associatif", "asso": "associatif",
+    "bénévolat": "associatif", "benevolat": "associatif", "volunteer": "associatif",
+    "evenement": "evenement", "événement": "evenement", "event": "evenement", "salon": "evenement",
+}
+
+
+def normalize_project_context(value: Any) -> str:
+    """Ramène une valeur libre à l'un des PROJECT_CONTEXTS ; repli sur "perso"."""
+    if isinstance(value, str):
+        return _PROJECT_CONTEXT_SYNONYMS.get(value.strip().lower(), "perso")
+    return "perso"
+
+
 class CandidateProject(BaseModel):
     name: str
     description: str = ""
@@ -497,24 +518,14 @@ class CandidateProject(BaseModel):
     url: Optional[str] = None
     repo: Optional[str] = None
     year: Optional[str] = None
-    context: Literal["perso", "client", "recherche", "consortium"] = "perso"
+    context: Literal["perso", "client", "recherche", "consortium", "associatif", "evenement"] = "perso"
     highlights: List[str] = Field(default_factory=list)
     sources: List[str] = Field(default_factory=list)
 
     @field_validator("context", mode="before")
     @classmethod
     def normalize_context(cls, v: Any) -> str:
-        if isinstance(v, str):
-            val = v.strip().lower()
-            if val in ("client", "professionnel", "pro", "entreprise", "work", "job"):
-                return "client"
-            elif val in ("recherche", "research"):
-                return "recherche"
-            elif val in ("consortium",):
-                return "consortium"
-            elif val in ("perso", "personal"):
-                return "perso"
-        return "perso"
+        return normalize_project_context(v)
 
 
 class CandidateEducation(BaseModel):
