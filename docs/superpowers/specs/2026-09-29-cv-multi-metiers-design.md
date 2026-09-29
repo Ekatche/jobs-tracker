@@ -74,6 +74,20 @@ de commandes, agent logistique…) :
   jargon de bureau.
 - §6 Projets : « 1 à 3 » → « 0 à 3 ; liste vide si aucun projet n'est
   pertinent pour l'offre ».
+- Quotas proportionnés à la pertinence, au lieu de « 3 à 5 puces par
+  poste » fixe :
+  - expérience qui couvre des exigences `critical` ou `high` du Bloc B :
+    4 à 5 puces, dont d'abord celles qui prouvent ces exigences ;
+  - expérience annexe : 1 à 2 puces. Elle est conservée pour ne pas créer
+    de trou dans le parcours, jamais supprimée ;
+  - les exigences à poids `critical` guident l'ordre des compétences et
+    la première phrase de l'accroche.
+- Budget de longueur : une page A4 pour un profil de moins de 5 ans
+  d'expérience ou un métier opérationnel, deux pages maximum sinon. Le LLM
+  réduit les expériences annexes avant les expériences pertinentes.
+- Prérequis : le Bloc B doit réellement parvenir au prompt, ce que corrige
+  le fix `fix(cv): transmet l'évaluation au CV adapté` (clés
+  `matched_requirements`/`weight`, identifiants en chaîne).
 - §7 Certifications : si l'offre exige une habilitation (CACES, permis,
   SST, habilitation électrique, FIMO/FCO) que le candidat possède, la
   citer dans l'accroche et en tête des certifications.
