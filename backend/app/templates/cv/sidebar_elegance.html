@@ -231,6 +231,9 @@
         {% if candidate.github_url %}
           <div class="contact-item">💻 {{ candidate.github_url }}</div>
         {% endif %}
+        {% if candidate.website_url %}
+          <div class="contact-item">🌐 {{ candidate.website_url }}</div>
+        {% endif %}
       </div>
 
       <!-- Compétences Priorisées -->
@@ -243,6 +246,18 @@
             {% for s in group.skills %}
               <span class="badge">{{ s }}</span>
             {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Certifications -->
+      {% if cv.certifications %}
+      <div class="sidebar-block">
+        <div class="sidebar-block-title">Certifications & habilitations</div>
+        {% for cert in cv.certifications %}
+          <div class="edu-item">
+            <div class="edu-degree">{{ cert }}</div>
           </div>
         {% endfor %}
       </div>
@@ -275,14 +290,12 @@
       </div>
       {% endif %}
 
-      <!-- Certifications -->
-      {% if cv.certifications %}
+      <!-- Intérêts -->
+      {% if candidate.interests %}
       <div class="sidebar-block">
-        <div class="sidebar-block-title">Certifications</div>
-        {% for cert in cv.certifications %}
-          <div class="edu-item">
-            <div class="edu-degree">{{ cert }}</div>
-          </div>
+        <div class="sidebar-block-title">Centres d'intérêt</div>
+        {% for interest in candidate.interests %}
+          <div class="contact-item">{{ interest }}</div>
         {% endfor %}
       </div>
       {% endif %}
@@ -293,6 +306,9 @@
       <header class="main-header">
         <h1 class="main-candidate-name">{{ candidate.full_name }}</h1>
         <div class="main-role-title">{{ cv.target_role_title }}</div>
+        {% if candidate.mobility or candidate.availability %}
+        <div class="cv-mobility" style="font-size: 8.5pt; color: var(--color-slate-600); margin-top: 3px;">{{ [candidate.mobility, candidate.availability] | select | join(" · ") }}</div>
+        {% endif %}
       </header>
 
       {% if cv.professional_summary %}

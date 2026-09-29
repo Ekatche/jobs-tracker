@@ -141,12 +141,16 @@
       <div>
         <h1 class="exec-name">{{ candidate.full_name }}</h1>
         <div class="exec-title">{{ cv.target_role_title }}</div>
+        {% if candidate.mobility or candidate.availability %}
+        <div class="cv-mobility" style="font-size: 8pt; color: var(--color-slate-600); margin-top: 2px;">{{ [candidate.mobility, candidate.availability] | select | join(" · ") }}</div>
+        {% endif %}
         <div class="exec-contact">
           {% if candidate.email %}<span class="exec-contact-item">✉ {{ candidate.email }}</span>{% endif %}
           {% if candidate.phone %}<span class="exec-contact-item">☎ {{ candidate.phone }}</span>{% endif %}
           {% if candidate.location %}<span class="exec-contact-item">📍 {{ candidate.location }}</span>{% endif %}
           {% if candidate.linkedin_url %}<span class="exec-contact-item">🔗 {{ candidate.linkedin_url }}</span>{% endif %}
           {% if candidate.github_url %}<span class="exec-contact-item">💻 {{ candidate.github_url }}</span>{% endif %}
+          {% if candidate.website_url %}<span class="exec-contact-item">🌐 {{ candidate.website_url }}</span>{% endif %}
         </div>
       </div>
       {% if with_photo and photo_url %}
@@ -198,7 +202,7 @@
     <!-- Compétences Priorisées -->
     {% if cv.prioritized_skills %}
     <section class="section-block">
-      <h2 class="section-title">Compétences Techniques</h2>
+      <h2 class="section-title">Compétences</h2>
       <div class="skills-grid">
         {% for group in cv.prioritized_skills %}
         <div>
@@ -209,6 +213,16 @@
         </div>
         {% endfor %}
       </div>
+    </section>
+    {% endif %}
+
+    <!-- Certifications -->
+    {% if cv.certifications %}
+    <section class="section-block">
+      <h2 class="section-title">Certifications & habilitations</h2>
+      {% for cert in cv.certifications %}
+      <div style="font-size: 8pt; margin-bottom: 3px; color: var(--color-slate-700);">🏅 {{ cert }}</div>
+      {% endfor %}
     </section>
     {% endif %}
 
@@ -249,19 +263,20 @@
         {% endfor %}
       </div>
 
-      <!-- Langues & Certifications -->
+      <!-- Langues et intérêts -->
       <div>
-        <h2 class="section-title">Langues & Certifications</h2>
+        {% if cv.languages %}
+        <h2 class="section-title">Langues</h2>
         {% for lang in cv.languages %}
         <div style="font-size: 8pt; margin-bottom: 3px;">
           <strong>{{ lang.language }}</strong> : <span style="color: var(--color-slate-600);">{{ lang.level }}</span>
         </div>
         {% endfor %}
-        {% for cert in cv.certifications %}
-        <div style="font-size: 8pt; margin-top: 3px; color: var(--color-slate-700);">
-          🏅 {{ cert }}
-        </div>
-        {% endfor %}
+        {% endif %}
+        {% if candidate.interests %}
+        <h2 class="section-title" style="margin-top: 8px;">Centres d'intérêt</h2>
+        <div style="font-size: 8pt; color: var(--color-slate-700);">{{ candidate.interests | join(" · ") }}</div>
+        {% endif %}
       </div>
     </div>
   </div>

@@ -121,3 +121,83 @@ def test_render_invalid_template_defaults_gracefully():
     )
     assert "<!DOCTYPE html>" in html
     assert "Jean Dupont" in html
+
+
+TEMPLATES = ["sidebar_elegance", "executive_minimalist"]
+
+
+def _render(template, cv=SAMPLE_CV, **candidate_overrides):
+    return render_cv_html(
+        cv=cv,
+        candidate={**SAMPLE_CANDIDATE, **candidate_overrides},
+        template_name=template,
+    )
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_skills_title_is_trade_neutral(template):
+    assert "Compétences Techniques" not in _render(template)
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_interests_section_shown_only_when_filled(template):
+    html = _render(template, interests=["Football", "Randonnée"])
+    assert "Centres d'intérêt" in html
+    assert "Randonnée" in html
+    assert "Centres d'intérêt" not in _render(template, interests=[])
+    assert "Centres d'intérêt" not in _render(template)
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_portfolio_link_shown_only_when_set(template):
+    assert "https://jeandupont.fr" in _render(template, website_url="https://jeandupont.fr")
+    assert "🌐" not in _render(template, website_url=None)
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_mobility_line_joins_filled_values(template):
+    both = _render(template, mobility="Permis B, véhiculé", availability="2x8, nuit")
+    assert "Permis B, véhiculé · 2x8, nuit" in both
+    only_one = _render(template, mobility=None, availability="Disponible immédiatement")
+    assert 'class="cv-mobility"' in only_one
+    assert "· Disponible immédiatement" not in only_one
+    assert 'class="cv-mobility"' not in _render(template, mobility=None, availability=None)
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_certifications_section_before_formation(template):
+    html = _render(template)
+    assert "AWS Certified Solutions Architect" in html
+    assert html.index(">Certifications & habilitations<") < html.index(">Formation<")
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_certifications_section_hidden_when_empty(template):
+    html = _render(template, cv=SAMPLE_CV.model_copy(update={"certifications": []}))
+    assert "Certifications & habilitations" not in html
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_projects_section_hidden_when_empty(template):
+    html = _render(template, cv=SAMPLE_CV.model_copy(update={"featured_projects": []}))
+    assert ">Projets Clés & Réalisations<" not in html
+    assert ">Projets Clés & Réalisations<" in _render(template)
+
+
+def test_sidebar_order_skills_certifications_languages_formation_interests():
+    html = _render("sidebar_elegance", interests=["Football"])
+    positions = [
+        html.index(">Compétences Clés<"),
+        html.index(">Certifications & habilitations<"),
+        html.index(">Langues<"),
+        html.index(">Formation<"),
+        html.index(">Centres d'intérêt<"),
+    ]
+    assert positions == sorted(positions)
+
+
+def test_executive_certifications_follow_skills_and_languages_stay_last():
+    html = _render("executive_minimalist")
+    assert html.index(">Compétences<") < html.index(">Certifications & habilitations<")
+    assert html.index(">Certifications & habilitations<") < html.index(">Langues<")
+    assert "Langues & Certifications" not in html
