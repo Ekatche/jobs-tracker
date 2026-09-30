@@ -69,6 +69,14 @@ def test_build_completion_kwargs_omits_temperature_for_reasoning_models():
 
 
 
+def test_format_llm_error_overloaded_model():
+    from letter_llm import format_llm_error
+    err = Exception('litellm.ServiceUnavailableError: VertexAIException - {"error": {"code": 503, "status": "UNAVAILABLE"}}')
+    msg = format_llm_error(err)
+    assert "surchargé" in msg
+    assert "relancez" in msg
+
+
 def test_anthropic_provider_detection():
     assert get_model_provider("anthropic/claude-sonnet-5") == "anthropic"
     assert get_model_provider("anthropic/claude-haiku-4-5-20251001") == "anthropic"

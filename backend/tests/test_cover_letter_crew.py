@@ -28,6 +28,7 @@ async def test_pipeline_executes_revision_when_critic_requests():
          patch("cover_letter_crew._call_writer", return_value=mock_writer_letter), \
          patch("cover_letter_crew._call_critic", return_value=mock_critic_verdict), \
          patch("cover_letter_crew._call_reviser", return_value=mock_revised_letter), \
+         patch("cover_letter_crew._get_cached_or_research_company", return_value=""), \
          patch("cover_letter_crew.validate_cross_provider"):
 
         result = await run_letter_pipeline_async(
@@ -52,21 +53,21 @@ async def test_completion_uses_max_completion_tokens():
         assert mock_comp.called
         assert "max_completion_tokens" in mock_comp.call_args.kwargs
         assert "max_tokens" not in mock_comp.call_args.kwargs
-        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 1500
+        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 4000
 
     with patch("cover_letter_crew.acompletion", return_value=mock_resp) as mock_comp:
         await _call_writer({"missions": []}, "Company")
         assert mock_comp.called
         assert "max_completion_tokens" in mock_comp.call_args.kwargs
         assert "max_tokens" not in mock_comp.call_args.kwargs
-        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 2500
+        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 6000
 
     with patch("cover_letter_crew.acompletion", return_value=mock_resp) as mock_comp:
         await _call_critic("Lettre...", ["M1"])
         assert mock_comp.called
         assert "max_completion_tokens" in mock_comp.call_args.kwargs
         assert "max_tokens" not in mock_comp.call_args.kwargs
-        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 1000
+        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 4000
 
 
     with patch("cover_letter_crew.acompletion", return_value=mock_resp) as mock_comp:
@@ -74,7 +75,7 @@ async def test_completion_uses_max_completion_tokens():
         assert mock_comp.called
         assert "max_completion_tokens" in mock_comp.call_args.kwargs
         assert "max_tokens" not in mock_comp.call_args.kwargs
-        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 2500
+        assert mock_comp.call_args.kwargs["max_completion_tokens"] == 6000
 
 
 @pytest.mark.asyncio
@@ -114,6 +115,27 @@ def _fake_response(text: str) -> MagicMock:
     mock = MagicMock()
     mock.choices = [MagicMock(message=MagicMock(content=text))]
     return mock
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("content,finish_reason", [
+    ("", "stop"),
+    (None, "stop"),
+    ("Madame, Monsieur, je travaille aujourd'hui comme", "length"),
+])
+async def test_reviser_keeps_draft_when_output_is_empty_or_truncated(monkeypatch, content, finish_reason):
+    # Un modèle à réflexion peut épuiser max_completion_tokens avant d'écrire :
+    # une révision vide ou coupée ne doit jamais remplacer un brouillon complet.
+    resp = MagicMock()
+    resp.choices = [MagicMock(message=MagicMock(content=content), finish_reason=finish_reason)]
+
+    async def fake_completion(**kwargs):
+        return resp
+
+    monkeypatch.setattr(cover_letter_crew, "acompletion", fake_completion)
+    draft = "Brouillon complet de la lettre."
+    result = await cover_letter_crew._call_reviser(draft, {"missions": []}, ["Flaw"], {"violations": ["V1"]})
+    assert result == draft
 
 
 @pytest.mark.asyncio
@@ -198,6 +220,7 @@ async def test_pipeline_triggers_revision_and_reports_provider_failure_on_critic
          patch("cover_letter_crew._call_writer", return_value=mock_writer_letter), \
          patch("cover_letter_crew._call_critic", return_value=mock_critic_error), \
          patch("cover_letter_crew._call_reviser", return_value=mock_revised_letter) as mock_reviser, \
+         patch("cover_letter_crew._get_cached_or_research_company", return_value=""), \
          patch("cover_letter_crew.validate_cross_provider"):
 
         result = await run_letter_pipeline_async(
@@ -396,3 +419,63 @@ async def test_second_revision_is_discarded_when_it_is_worse():
     assert reviser.call_count == 2
     assert result["body"] == "révision 1"
     assert result["guard_report"]["violations"] == ["B"]
+
+
+def _unavailable():
+    import litellm
+    return litellm.ServiceUnavailableError(
+        message="This model is currently experiencing high demand.",
+        llm_provider="vertex_ai",
+        model="gemini/gemini-3.8-flash",
+    )
+
+
+@pytest.mark.asyncio
+async def test_acompletion_retry_waits_through_transient_503(monkeypatch):
+    sleeps = []
+
+    async def fake_sleep(delay):
+        sleeps.append(delay)
+
+    ok = MagicMock()
+    calls = {"n": 0}
+
+    async def flaky(**kwargs):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise _unavailable()
+        return ok
+
+    monkeypatch.setattr(cover_letter_crew.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(cover_letter_crew, "acompletion", flaky)
+
+    assert await cover_letter_crew._acompletion_retry(model="gemini/gemini-3.8-flash") is ok
+    assert calls["n"] == 3
+    assert sleeps == list(cover_letter_crew.LLM_RETRY_DELAYS[:2])
+
+
+@pytest.mark.asyncio
+async def test_acompletion_retry_gives_up_and_skips_non_transient(monkeypatch):
+    import litellm
+
+    async def fake_sleep(delay):
+        pass
+
+    async def always_down(**kwargs):
+        raise _unavailable()
+
+    monkeypatch.setattr(cover_letter_crew.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(cover_letter_crew, "acompletion", always_down)
+    with pytest.raises(litellm.ServiceUnavailableError):
+        await cover_letter_crew._acompletion_retry(model="gemini/gemini-3.8-flash")
+
+    calls = {"n": 0}
+
+    async def broken(**kwargs):
+        calls["n"] += 1
+        raise ValueError("réponse invalide")
+
+    monkeypatch.setattr(cover_letter_crew, "acompletion", broken)
+    with pytest.raises(ValueError):
+        await cover_letter_crew._acompletion_retry(model="gemini/gemini-3.8-flash")
+    assert calls["n"] == 1

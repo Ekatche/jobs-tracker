@@ -8,9 +8,36 @@ from letter_llm import get_letter_llm, validate_cross_provider, ROLE_TEMPERATURE
 
 import asyncio
 import time
+import litellm
 from litellm import acompletion
 
 logger = logging.getLogger(__name__)
+
+# Surcharge ponctuelle (503 « high demand » de Gemini), rate limit, coupure réseau :
+# erreurs passagères qui justifient d'attendre et réessayer. Le `num_retries` de
+# litellm réessaie sans délai, trop vite pour laisser passer un pic de charge.
+TRANSIENT_LLM_ERRORS = (
+    litellm.ServiceUnavailableError,
+    litellm.InternalServerError,
+    litellm.RateLimitError,
+    litellm.Timeout,
+    litellm.APIConnectionError,
+)
+LLM_RETRY_DELAYS = (2, 5, 10)
+
+
+async def _acompletion_retry(**kwargs: Any) -> Any:
+    """`acompletion` réessayé avec attente croissante sur les erreurs passagères."""
+    for attempt, delay in enumerate((*LLM_RETRY_DELAYS, None), start=1):
+        try:
+            return await acompletion(**kwargs)
+        except TRANSIENT_LLM_ERRORS as e:
+            if delay is None:
+                raise
+            logger.warning(
+                f"⏳ {kwargs.get('model')} indisponible (tentative {attempt}), nouvel essai dans {delay}s : {type(e).__name__}"
+            )
+            await asyncio.sleep(delay)
 
 PROMPTS_DIR = Path(__file__).resolve().parents[3] / "app" / "llm" / "prompts" / "cover_letter"
 
@@ -98,11 +125,11 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
     # produire de fausses missions génériques qui masqueraient l'échec réel.
     # L'exception se propage jusqu'à `applications.py::_generate_cover_letter_bg`,
     # qui l'attrape déjà et produit un statut `failed` avec `format_llm_error`.
-    resp = await acompletion(
+    resp = await _acompletion_retry(
         model=llm.model,
         api_key=llm.api_key,
         messages=[{"role": "user", "content": prompt}],
-        max_completion_tokens=1500,
+        max_completion_tokens=4000,
         response_format={"type": "json_object"},
         drop_params=True,
         **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["offer_analyst"]),
@@ -181,7 +208,7 @@ Extraits web :
 {joined_snippets}
 
 Synthèse (2-3 phrases claires et directes) :"""
-        resp = await acompletion(
+        resp = await _acompletion_retry(
             model=llm.model,
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
@@ -297,11 +324,11 @@ async def _call_writer(
 
     prompt = f"{fond}\n\n{style}"
 
-    resp = await acompletion(
+    resp = await _acompletion_retry(
         model=llm.model,
         api_key=llm.api_key,
         messages=[{"role": "user", "content": prompt}],
-        max_completion_tokens=2500,
+        max_completion_tokens=6000,
         drop_params=True,
         **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["writer"]),
     )
@@ -327,11 +354,11 @@ async def _call_critic(
     )
 
     try:
-        resp = await acompletion(
+        resp = await _acompletion_retry(
             model=llm.model,
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
-            max_completion_tokens=1000,
+            max_completion_tokens=4000,
             response_format={"type": "json_object"},
             drop_params=True,
             **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["critic"]),
@@ -386,17 +413,22 @@ async def _call_reviser(
     )
 
     try:
-        resp = await acompletion(
+        resp = await _acompletion_retry(
             model=llm.model,
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
-            max_completion_tokens=2500,
+            max_completion_tokens=6000,
             drop_params=True,
             **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["reviser"]),
         )
         _track_usage(usage_acc, resp)
         content = resp.choices[0].message.content or ""
         content = content.strip()
+        # Réflexion qui épuise le budget : sortie vide ou coupée. Le brouillon
+        # complet vaut mieux qu'une révision tronquée.
+        if not content or resp.choices[0].finish_reason == "length":
+            logger.warning("Révision vide ou tronquée : brouillon conservé")
+            return letter_text
         if content.startswith("```"):
             lines = content.split("\n")
             stripped = "\n".join([line for line in lines if not line.startswith("```")]).strip()

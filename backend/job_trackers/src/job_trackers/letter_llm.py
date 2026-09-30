@@ -126,6 +126,11 @@ def format_llm_error(error: Exception, provider: Optional[str] = None) -> str:
             f"Limite de requêtes par minute (Rate Limit) atteinte pour {prov_str}. "
             "Veuillez patienter quelques instants avant de relancer la génération."
         )
+    if any(term in err_str for term in ["503", "unavailable", "high demand", "overloaded"]):
+        return (
+            f"Le modèle {prov_str} est momentanément surchargé (plusieurs essais sans succès). "
+            "Ce pic de charge est temporaire : relancez la génération dans quelques minutes."
+        )
     return f"Erreur lors de l'appel LLM ({prov_str}) : {str(error)}"
 
 def get_api_status() -> dict:
