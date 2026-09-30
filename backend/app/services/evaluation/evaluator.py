@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -7,6 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from bson import ObjectId
 from fastapi import HTTPException
+import litellm
 from litellm import acompletion
 
 from app.models import (
@@ -32,6 +34,51 @@ from app.services.usage_tracker import record_api_usage, require_user_quota
 logger = logging.getLogger(__name__)
 
 DEFAULT_EVALUATION_MODEL = os.getenv("EVALUATION_MODEL", "gemini/gemini-3.7-flash")
+# Modèle de secours quand le principal reste indisponible après tous les essais
+# (surcharge propre à un modèle) ; vide = pas de secours.
+EVALUATION_FALLBACK_MODEL = os.getenv("EVALUATION_FALLBACK_MODEL", "gemini/gemini-3.8-flash")
+
+# Surcharge ponctuelle (503 « high demand » de Gemini), rate limit, coupure réseau :
+# erreurs passagères qui justifient d'attendre et réessayer avant d'échouer le scoring.
+TRANSIENT_LLM_ERRORS = (
+    litellm.ServiceUnavailableError,
+    litellm.InternalServerError,
+    litellm.RateLimitError,
+    litellm.Timeout,
+    litellm.APIConnectionError,
+)
+LLM_RETRY_DELAYS = (2, 5, 10)
+
+
+async def _acompletion_retry(**kwargs: Any) -> Any:
+    """`acompletion` réessayé avec attente croissante sur les erreurs passagères."""
+    for attempt, delay in enumerate((*LLM_RETRY_DELAYS, None), start=1):
+        try:
+            return await acompletion(**kwargs)
+        except TRANSIENT_LLM_ERRORS as e:
+            if delay is None:
+                raise
+            logger.warning(
+                f"⏳ {kwargs.get('model')} indisponible (tentative {attempt}), nouvel essai dans {delay}s : {type(e).__name__}"
+            )
+            await asyncio.sleep(delay)
+
+
+async def _acompletion_with_fallback(models_used: List[str], **kwargs: Any) -> Any:
+    """`_acompletion_retry`, puis un essai sur le modèle de secours si le principal
+    reste indisponible. Ajoute à `models_used` le modèle qui a réellement répondu."""
+    try:
+        response = await _acompletion_retry(**kwargs)
+    except TRANSIENT_LLM_ERRORS as e:
+        fallback = EVALUATION_FALLBACK_MODEL
+        if not fallback or fallback == kwargs.get("model"):
+            raise
+        logger.warning(f"↪️ {kwargs.get('model')} indisponible ({type(e).__name__}), bascule sur {fallback}")
+        kwargs = {**kwargs, "model": fallback}
+        response = await acompletion(**kwargs)
+    if kwargs["model"] not in models_used:
+        models_used.append(kwargs["model"])
+    return response
 
 
 def _clean_json_output(raw_text: str) -> Dict[str, Any]:
@@ -173,6 +220,7 @@ async def evaluate_offer_two_pass(
     3. Calculate score (1.0 to 5.0), deduct quota, and record API consumption.
     """
     eval_model = model or DEFAULT_EVALUATION_MODEL
+    models_used: List[str] = []
     user_str_id = str(user_id)
     offer_oid = ObjectId(str(offer_id))
 
@@ -285,7 +333,8 @@ Réponds STRICTEMENT au format JSON avec cette structure :
             "ghost_job_warnings": [],
         }
     else:
-        response_pass1 = await acompletion(
+        response_pass1 = await _acompletion_with_fallback(
+            models_used,
             model=eval_model,
             messages=[{"role": "user", "content": pass1_prompt}],
             response_format={"type": "json_object"},
@@ -380,7 +429,8 @@ Réponds STRICTEMENT au format JSON avec cette structure :
   "score_justification": "string"
 }}"""
 
-        response_pass2 = await acompletion(
+        response_pass2 = await _acompletion_with_fallback(
+            models_used,
             model=eval_model,
             messages=[{"role": "user", "content": pass2_prompt}],
             response_format={"type": "json_object"},
@@ -496,7 +546,7 @@ Réponds STRICTEMENT au format JSON avec cette structure :
         "bloc_a": bloc_a.model_dump(),
         "bloc_b": bloc_b.model_dump(),
         "bloc_g": bloc_g.model_dump(),
-        "models_used": [eval_model],
+        "models_used": models_used or [eval_model],
         "created_at": now,
         "updated_at": now,
     }
@@ -525,7 +575,7 @@ Réponds STRICTEMENT au format JSON avec cette structure :
         db=db,
         user_id=user_str_id,
         action=ApiUsageAction.EVALUATION,
-        models_used=[eval_model],
+        models_used=models_used or [eval_model],
         input_tokens=input_tokens_total,
         output_tokens=output_tokens_total,
         latency_ms=latency_ms,
