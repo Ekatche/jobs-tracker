@@ -7,6 +7,7 @@ import asyncio
 import logging
 import os
 from typing import List, Optional
+from urllib.parse import urlparse
 
 # Configuration du logging
 logger = logging.getLogger(__name__)
@@ -36,6 +37,30 @@ async def fetch_documents(url: str):
         return []
 
     try:
+        if "indeed." in urlparse(url).netloc.lower():
+            import httpx
+            from app.services.ats.router import extract_indeed_job
+
+            async with httpx.AsyncClient(follow_redirects=True) as client:
+                offer = await extract_indeed_job(url, client)
+            if offer:
+                logger.info(f"Contenu Indeed chargé via l'API GraphQL: {offer['poste']}")
+                content = (
+                    f"{offer['poste']}\n{offer['entreprise']} - {offer['localisation']}"
+                    f" - {offer['type_contrat']}\n\n{offer['description']}"
+                )
+                return [
+                    Document(
+                        page_content=content,
+                        metadata={
+                            "source": url,
+                            "title": offer["poste"],
+                            "word_count": len(content.split()),
+                            "content_type": "indeed_graphql",
+                        },
+                    )
+                ]
+
         logger.info(f"Chargement du contenu depuis: {url}")
         result = await get_filtered_markdown(url)
 

@@ -5,6 +5,7 @@ from app.services.ats.router import (
     clean_html_to_text,
     extract_ats_or_jsonld_offer,
     extract_greenhouse_job,
+    extract_indeed_job,
     extract_lever_job,
     extract_workable_job,
     normalize_employment_type,
@@ -277,3 +278,53 @@ async def test_summarize_ats_offer_description_fallback_on_error(monkeypatch):
     assert "Fondé en France, Talan est un groupe international." in fallback
     assert "<p>" not in fallback
 
+
+
+def _indeed_client(job):
+    client = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"data": {"jobData": {"results": [{"job": job}] if job else []}}}
+    client.post = AsyncMock(return_value=mock_resp)
+    return client
+
+
+@pytest.mark.asyncio
+async def test_extract_indeed_job_success():
+    client = _indeed_client({
+        "key": "c36df2e77c64da3f",
+        "title": "Ingénieur de Recherche H/F",
+        "description": {"html": "<p>Le projet BrainTwin vise &agrave; d&eacute;velopper</p>"},
+        "location": {"city": "Villeurbanne", "formatted": {"short": "Villeurbanne (69)"}},
+        "employer": {"name": "CNRS"},
+        "attributes": [{"label": "Python"}, {"label": "CDD"}],
+    })
+    url = "https://fr.indeed.com/viewjob?from=app-tracker-saved-appcard&hl=en&jk=c36df2e77c64da3f&tk=1k3ap"
+    res = await extract_indeed_job(url, client)
+
+    assert res["poste"] == "Ingénieur de Recherche H/F"
+    assert res["entreprise"] == "CNRS"
+    assert res["localisation"] == "Villeurbanne (69)"
+    assert res["type_contrat"] == "CDD"
+    assert "Le projet BrainTwin vise à développer" in res["description"]
+    assert res["ats_platform"] == "indeed"
+    sent = client.post.call_args
+    assert 'jobKeys: ["c36df2e77c64da3f"]' in sent.kwargs["json"]["query"]
+    assert sent.kwargs["headers"]["indeed-co"] == "FR"
+
+
+@pytest.mark.asyncio
+async def test_extract_indeed_job_without_key_or_result():
+    client = _indeed_client(None)
+    assert await extract_indeed_job("https://fr.indeed.com/emplois?q=data", client) is None
+    client.post.assert_not_called()
+    assert await extract_indeed_job("https://fr.indeed.com/viewjob?jk=abc123", client) is None
+
+
+@pytest.mark.asyncio
+async def test_extract_ats_or_jsonld_offer_routes_indeed():
+    client = _indeed_client({"key": "abc123", "title": "Data Engineer", "employer": {"name": "Acme"}})
+    client.get = AsyncMock()
+    res = await extract_ats_or_jsonld_offer("https://fr.indeed.com/viewjob?jk=abc123", client=client)
+    assert res["poste"] == "Data Engineer"
+    client.get.assert_not_called()

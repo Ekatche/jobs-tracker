@@ -3,7 +3,7 @@ import json
 import logging
 import re
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 
@@ -203,6 +203,71 @@ async def extract_workable_job(
     return None
 
 
+INDEED_GRAPHQL_URL = "https://apis.indeed.com/graphql"
+INDEED_JOB_QUERY = """query {{ jobData(jobKeys: ["{key}"]) {{ results {{ job {{
+  key title description {{ html }}
+  location {{ city formatted {{ short }} }}
+  employer {{ name }}
+  attributes {{ label }}
+}} }} }} }}"""
+KNOWN_CONTRACTS = {"CDI", "CDD", "Stage", "Alternance", "Freelance", "Temps partiel"}
+
+
+async def extract_indeed_job(
+    url: str, client: httpx.AsyncClient
+) -> Optional[Dict[str, Any]]:
+    """Extrait une offre Indeed via l'API GraphQL de l'app mobile (celle qu'utilise jobspy).
+
+    Les pages viewjob sont derrière une protection anti-bot : le navigateur headless
+    n'atteint jamais `networkidle` et le crawl expire.
+    """
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query)
+    job_key = (params.get("jk") or params.get("vjk") or [None])[0]
+    if not job_key or not re.fullmatch(r"[a-f0-9]+", job_key):
+        return None
+
+    from jobspy.indeed.constant import api_headers
+
+    headers = dict(api_headers)
+    subdomain = parsed.netloc.lower().split(".")[0]
+    if len(subdomain) == 2:
+        headers["indeed-co"] = subdomain.upper()
+
+    try:
+        resp = await client.post(
+            INDEED_GRAPHQL_URL,
+            headers=headers,
+            json={"query": INDEED_JOB_QUERY.format(key=job_key)},
+            timeout=DEFAULT_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            return None
+
+        results = ((resp.json().get("data") or {}).get("jobData") or {}).get("results") or []
+        job = results[0].get("job") if results else None
+        if not job or not job.get("title"):
+            return None
+
+        location = job.get("location") or {}
+        labels = [a.get("label") for a in job.get("attributes") or [] if a.get("label")]
+        contracts = [normalize_employment_type(label) for label in labels]
+        contract = next((c for c in contracts if c in KNOWN_CONTRACTS), "Non spécifié")
+
+        return {
+            "poste": job["title"].strip(),
+            "entreprise": ((job.get("employer") or {}).get("name") or "Non spécifié").strip(),
+            "description": clean_html_to_text((job.get("description") or {}).get("html", "")),
+            "localisation": (location.get("formatted") or {}).get("short") or location.get("city") or "Non spécifié",
+            "type_contrat": contract,
+            "url": url,
+            "ats_platform": "indeed",
+        }
+    except Exception as e:
+        logger.debug(f"Échec parsing Indeed GraphQL pour {url}: {e}")
+        return None
+
+
 def parse_jsonld_job_posting(html_content: str, url: str) -> Optional[Dict[str, Any]]:
     """Parse universel des balises Schema.org `<script type="application/ld+json">` avec `@type: JobPosting`."""
     if not html_content or "JobPosting" not in html_content:
@@ -326,7 +391,14 @@ async def extract_ats_or_jsonld_offer(
                 logger.info(f"⚡ Extraction Zero-Token réussie (Workable): {workable_result['poste']} - {workable_result['entreprise']}")
                 return workable_result
 
-        # 4. Universal Schema.org JSON-LD fetch
+        # 4. Indeed : API GraphQL mobile, la page web bloque les navigateurs headless
+        if "indeed." in domain:
+            indeed_result = await extract_indeed_job(url, client)
+            if indeed_result:
+                logger.info(f"⚡ Extraction Zero-Token réussie (Indeed): {indeed_result['poste']} - {indeed_result['entreprise']}")
+                return indeed_result
+
+        # 5. Universal Schema.org JSON-LD fetch
         # Pour les job boards comme HelloWork, Cadremploi, Meteojob, JobTeaser, Ashby, etc.
         resp = await client.get(url, headers=DEFAULT_HEADERS, timeout=DEFAULT_TIMEOUT)
         if resp.status_code == 200:
