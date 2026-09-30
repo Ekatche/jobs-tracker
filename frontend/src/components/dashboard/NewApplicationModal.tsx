@@ -85,8 +85,8 @@ export default function NewApplicationModal({
       if (prefilledData.offer_id) setValue("offer_id", prefilledData.offer_id);
       setValue("description", prefilledData.description || "");
 
-      // Réinitialiser les autres champs à leurs valeurs par défaut
-      setValue("status", "Candidature envoyée");
+      // Une offre reprise depuis la liste est d'abord étudiée avant l'envoi
+      setValue("status", "En étude");
       setValue("application_date", format(new Date(), "yyyy-MM-dd"));
 
       // Ajouter une note automatique si on vient d'une offre

@@ -160,8 +160,9 @@ export default function OffersPage() {
   }, [currentFilters]);
 
   // Fonction pour charger les offres avec pagination
-  const fetchOffers = useCallback(async () => {
-    setLoading(true);
+  // silent : rafraîchit sans spinner, la liste reste affichée et le scroll conservé
+  const fetchOffers = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
 
     try {
@@ -327,6 +328,16 @@ export default function OffersPage() {
       fetchStats();
     }
   }, [fetchOffers, fetchStats, activeTab]);
+
+  // Candidature créée depuis la modale du Header : rafraîchit la liste sur place
+  useEffect(() => {
+    const handleApplicationCreated = () => {
+      fetchOffers(true);
+      fetchTotalCount();
+    };
+    window.addEventListener("application-created", handleApplicationCreated);
+    return () => window.removeEventListener("application-created", handleApplicationCreated);
+  }, [fetchOffers, fetchTotalCount]);
 
   // Reset pagination sur modification des filtres
   useEffect(() => {
@@ -1170,7 +1181,7 @@ export default function OffersPage() {
               <div className="text-center py-12">
                 <p className="text-red-400 text-lg">{error}</p>
                 <button
-                  onClick={fetchOffers}
+                  onClick={() => fetchOffers()}
                   className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-colors"
                 >
                   Réessayer

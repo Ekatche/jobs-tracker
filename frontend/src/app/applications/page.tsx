@@ -149,6 +149,13 @@ export default function ApplicationsPage() {
     return () => clearInterval(intervalId);
   }, [applications, fetchData]);
 
+  // Candidature créée depuis la modale du Header : rafraîchit sans recharger la page
+  useEffect(() => {
+    const handleApplicationCreated = () => fetchData(false);
+    window.addEventListener("application-created", handleApplicationCreated);
+    return () => window.removeEventListener("application-created", handleApplicationCreated);
+  }, [fetchData]);
+
   // Écoute de l'événement global pour ouvrir la modale
   useEffect(() => {
     const handleOpenModal = (event: CustomEvent<PrefilledData>) => {

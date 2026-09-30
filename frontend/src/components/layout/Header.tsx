@@ -102,21 +102,16 @@ export default function Header() {
     };
   }, []);
 
-  // Modifiez la fonction handleApplicationSuccess
+  // Pas de rechargement : la page courante garde ses filtres et son scroll,
+  // et rafraîchit ses données en écoutant "application-created".
   const handleApplicationSuccess = async () => {
     // Fermer la modal après un délai pour montrer le message de succès
     setTimeout(() => {
       setIsNewApplicationModalOpen(false);
       setPrefilledData(undefined); // Réinitialiser les données pré-remplies
-
-      // Effectuer un rafraîchissement complet de la page
-      window.location.reload();
     }, 1500);
 
-    // Nous gardons aussi l'événement pour la compatibilité avec le code existant
-    if (pathname.includes("/applications") || pathname.includes("/dashboard")) {
-      window.dispatchEvent(new Event("application-created"));
-    }
+    window.dispatchEvent(new Event("application-created"));
   };
 
   const handleCloseModal = () => {
