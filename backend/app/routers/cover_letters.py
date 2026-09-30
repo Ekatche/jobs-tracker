@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from app.database import get_database
 from app.auth import get_current_user
+from app.llm.provider_errors import llm_http_exception
 from app.models import ApiUsageAction, CandidateProfile, UserModel
 from app.utils import serialize_mongodb_doc
 from app.routers.applications import _generate_cover_letter_bg
@@ -340,9 +341,9 @@ async def import_cv_source(
         return await _store_source(db, str(current_user.id), "cv", payload)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as exc:
         logger.exception("Échec du parsing de CV pour %s", current_user.id)
-        raise HTTPException(status_code=502, detail="Le CV n'a pas pu être analysé")
+        raise llm_http_exception(exc) or HTTPException(status_code=502, detail="Le CV n'a pas pu être analysé")
     finally:
         # Donnée personnelle : le PDF ne survit pas à la requête.
         if os.path.exists(file_path):
@@ -381,9 +382,9 @@ async def import_website_source(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except HTTPException:
         raise
-    except Exception:
+    except Exception as exc:
         logger.exception("Échec de l'import du site pour %s", current_user.id)
-        raise HTTPException(status_code=502, detail="L'import du site a échoué")
+        raise llm_http_exception(exc) or HTTPException(status_code=502, detail="L'import du site a échoué")
 
 
 @cover_letters_router.put("/profile/candidate")

@@ -19,6 +19,7 @@ from ..models import (
 from ..database import get_database
 from ..utils import serialize_mongodb_doc, capitalize_words
 from ..auth import get_current_user
+from ..llm.provider_errors import classify_llm_error, llm_http_exception
 from ..llm.utils import fetch_documents, split_documents, summarize_chunks
 from ..services.evaluation.evaluator import evaluate_offer_two_pass
 from ..services.usage_tracker import record_api_usage, require_user_quota
@@ -190,11 +191,15 @@ async def _generate_cover_letter_bg(application_id: ObjectId, user_id: ObjectId,
             )
     except Exception as e:
         logger.error(f"[cover_letter_bg] Erreur lors de la génération pour {application_id}: {e}")
-        try:
-            from letter_llm import format_llm_error
-            err_message = format_llm_error(e)
-        except Exception:
-            err_message = str(e)
+        provider_error = classify_llm_error(e)
+        if provider_error is not None:
+            err_message = provider_error.message
+        else:
+            try:
+                from letter_llm import format_llm_error
+                err_message = format_llm_error(e)
+            except Exception:
+                err_message = str(e)
 
         if letter_id is not None:
             await db["cover_letters"].update_one(
@@ -735,7 +740,7 @@ async def evaluate_application_offer(
         raise
     except Exception as e:
         logger.error(f"[evaluate_application_offer] Erreur Two-Pass pour app {application_id}: {e}", exc_info=True)
-        raise HTTPException(
+        raise llm_http_exception(e) or HTTPException(
             status_code=500,
             detail=f"Erreur lors du scoring IA : {str(e)}"
         )

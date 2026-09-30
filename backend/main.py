@@ -1,14 +1,17 @@
 import os
 from contextlib import asynccontextmanager
 
+import openai
 import pymongo
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 
 from app.database import get_database, create_job_offers_indexes
+from app.llm.provider_errors import classify_llm_error
 from app.routers import (
     auth_router,
     user_router,
@@ -85,6 +88,16 @@ app.include_router(cover_letters_router)
 app.include_router(usage_router)
 app.include_router(resumes_router)
 app.include_router(interview_prep_router)
+
+
+@app.exception_handler(openai.APIError)
+async def llm_provider_error_handler(request: Request, exc: openai.APIError):
+    """Quota, crédits ou clé d'un fournisseur LLM : message nommant le fournisseur."""
+    info = classify_llm_error(exc)
+    if info is None:
+        raise exc
+    return JSONResponse(status_code=info.status_code, content={"detail": info.message})
+
 
 app.mount("/uploads", StaticFiles(directory="app/uploads"), name="uploads")
 

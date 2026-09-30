@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.auth import get_current_user
 from app.database import get_database
+from app.llm.provider_errors import llm_http_exception
 from app.models import (
     ApiUsageAction,
     TailoredCVSchema,
@@ -129,10 +130,10 @@ async def generate_resume(
             evaluation=evaluation_doc,
         )
     except ValueError as ve:
-        raise HTTPException(status_code=422, detail=f"Erreur de validation du CV: {ve}")
+        raise llm_http_exception(ve) or HTTPException(status_code=422, detail=f"Erreur de validation du CV: {ve}")
     except Exception as e:
         logger.error(f"Error generating tailored CV: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Échec de la génération automatique du CV.")
+        raise llm_http_exception(e) or HTTPException(status_code=500, detail="Échec de la génération automatique du CV.")
 
     # Record API quota usage
     try:
