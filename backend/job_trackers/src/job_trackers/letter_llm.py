@@ -24,11 +24,13 @@ ROLE_TEMPERATURES = {
 }
 
 _OPENAI_NO_TEMP_PREFIXES = ("o1", "o3", "gpt-5", "gpt-o")
+# Génération 5 de Claude : l'API rejette `temperature` et drop_params ne le retire pas.
+_ANTHROPIC_NO_TEMP_PREFIXES = ("claude-sonnet-5", "claude-opus-5", "claude-fable-5")
 
 def build_completion_kwargs(model: str, temperature: float, extra: Optional[dict] = None) -> dict:
-    """Return completion kwargs, omitting temperature for OpenAI reasoning models."""
+    """Return completion kwargs, omitting temperature for models that reject it."""
     short = model.split("/")[-1].lower()
-    omit_temp = any(short.startswith(p) for p in _OPENAI_NO_TEMP_PREFIXES)
+    omit_temp = any(short.startswith(p) for p in _OPENAI_NO_TEMP_PREFIXES + _ANTHROPIC_NO_TEMP_PREFIXES)
     kwargs = {"temperature": temperature} if not omit_temp else {}
     if extra:
         kwargs.update(extra)
@@ -42,6 +44,8 @@ def get_model_provider(model_name: str) -> str:
         return "openai"
     if clean.startswith("mistral/") or "mistral" in clean:
         return "mistral"
+    if clean.startswith("anthropic/") or "claude" in clean:
+        return "anthropic"
     raise ValueError(f"Unknown provider for model: {model_name}")
 
 def validate_no_floating_alias(model_name: str) -> None:
@@ -58,12 +62,13 @@ def validate_cross_provider(writer_model: str, critic_model: Optional[str] = Non
         return critic_model
 
     # Résolution automatique : le critique doit toujours changer de fournisseur.
-    # Valeurs de la spec : writer chez OpenAI -> critic sur Gemini Flash ;
+    # Valeurs de la spec : writer chez OpenAI ou Anthropic -> critic sur Gemini Flash ;
     # writer chez Mistral ou Google -> critic sur GPT-5.6 Sol (finesse de
     # jugement supérieure à un modèle d'entrée de gamme, coût négligeable sur
     # une entrée d'environ 350 mots).
     CROSS_PROVIDER_CRITIC = {
         "openai": "gemini/gemini-3.8-flash",
+        "anthropic": "gemini/gemini-3.8-flash",
         "google": "openai/gpt-5.6-sol",
         "mistral": "openai/gpt-5.6-sol",
     }
@@ -88,6 +93,8 @@ def get_letter_llm(role: str, model_override: Optional[str] = None) -> LLM:
         api_key = os.getenv("OPENAI_API_KEY")
     elif provider == "mistral":
         api_key = os.getenv("MISTRAL_API_KEY")
+    elif provider == "anthropic":
+        api_key = os.getenv("ANTHROPIC_API_KEY")
     else:
         api_key = None
 
@@ -140,6 +147,11 @@ def get_api_status() -> dict:
             "configured": bool(os.getenv("MISTRAL_API_KEY")),
             "note": "Compte à crédits. Solde consultable sur console.mistral.ai/billing.",
             "billing_url": "https://console.mistral.ai/billing",
+        },
+        "anthropic": {
+            "configured": bool(os.getenv("ANTHROPIC_API_KEY")),
+            "note": "Facturation prépayée. Solde consultable sur console.anthropic.com.",
+            "billing_url": "https://console.anthropic.com/settings/billing",
         },
     }
 

@@ -67,3 +67,43 @@ def test_build_completion_kwargs_omits_temperature_for_reasoning_models():
     assert build_completion_kwargs("mistral/mistral-large-2407", 0.7) == {"temperature": 0.7}
     assert build_completion_kwargs("gemini/gemini-3.8-flash", 0.2) == {"temperature": 0.2}
 
+
+
+def test_anthropic_provider_detection():
+    assert get_model_provider("anthropic/claude-sonnet-5") == "anthropic"
+    assert get_model_provider("anthropic/claude-haiku-4-5-20251001") == "anthropic"
+
+
+def test_anthropic_writer_gets_cross_provider_critic():
+    critic = validate_cross_provider("anthropic/claude-sonnet-5", None)
+    assert get_model_provider(critic) not in ("anthropic",)
+
+    with pytest.raises(ValueError, match="same provider"):
+        validate_cross_provider("anthropic/claude-sonnet-5", "anthropic/claude-haiku-4-5-20251001")
+
+
+def test_anthropic_writer_uses_anthropic_key(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    llm = get_letter_llm("writer", model_override="anthropic/claude-sonnet-5")
+    assert llm.model.endswith("claude-sonnet-5")
+    assert llm.api_key == "sk-ant-test"
+
+    monkeypatch.delenv("ANTHROPIC_API_KEY")
+    with pytest.raises(ValueError, match="Missing API key"):
+        get_letter_llm("writer", model_override="anthropic/claude-sonnet-5")
+
+
+def test_build_completion_kwargs_omits_temperature_for_claude_5_models():
+    # L'API Anthropic rejette `temperature` sur la génération 5 (« deprecated for this model »),
+    # et drop_params de litellm ne le retire pas. Haiku 4.5 l'accepte encore.
+    from letter_llm import build_completion_kwargs
+    assert build_completion_kwargs("anthropic/claude-sonnet-5", 0.7) == {}
+    assert build_completion_kwargs("anthropic/claude-opus-5-5", 0.7) == {}
+    assert build_completion_kwargs("anthropic/claude-fable-5-1", 0.7) == {}
+    assert build_completion_kwargs("anthropic/claude-haiku-4-5-20251001", 0.7) == {"temperature": 0.7}
+
+
+def test_get_api_status_lists_anthropic(monkeypatch):
+    from letter_llm import get_api_status
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    assert get_api_status()["anthropic"]["configured"] is True
