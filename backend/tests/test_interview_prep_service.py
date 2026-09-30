@@ -305,3 +305,36 @@ async def test_star_stories_prompt_uses_job_offer_poste_and_entreprise():
     prompt = mock_llm.call_args.kwargs["messages"][0]["content"]
     assert "Animateur périscolaire" in prompt
     assert "Mairie de Bourgoin" in prompt
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model,expected_temperature", [
+    ("openai/gpt-5.6-terra", None),
+    ("anthropic/claude-opus-5-5", None),
+    ("gemini/gemini-3.8-flash", 0.2),
+])
+async def test_generators_omit_temperature_for_models_that_reject_it(model, expected_temperature):
+    # GPT-5 et Claude 5 rejettent `temperature` : un appel qui l'envoie échoue en production.
+    from app.services import interview_prep_service as ips
+
+    mock_resp = AsyncMock()
+    mock_resp.choices = [AsyncMock(message=AsyncMock(content="[]"))]
+    mock_resp.usage = AsyncMock(prompt_tokens=1, completion_tokens=1, total_tokens=2)
+    offer = {"poste": "Dev", "entreprise": "Co", "description": "D"}
+
+    with patch.object(ips, "DEFAULT_INTERVIEW_MODEL", model), \
+         patch("app.services.interview_prep_service.acompletion", return_value=mock_resp) as mock_llm, \
+         patch("app.services.interview_prep_service.record_api_usage", return_value=None):
+        await ips.generate_star_stories(db=None, user_id=ObjectId(), profile={}, offer=offer)
+        await ips.generate_anticipated_questions(db=None, user_id=ObjectId(), profile={}, offer=offer)
+        await ips.generate_reverse_questions(db=None, user_id=ObjectId(), offer=offer)
+        try:
+            await ips.generate_audience_packs(db=None, user_id=ObjectId(), profile={}, offer=offer)
+        except Exception:
+            pass  # "[]" n'est pas un objet de packs : seul l'appel LLM nous intéresse ici
+
+    assert mock_llm.call_count == 4
+    for call in mock_llm.call_args_list:
+        assert call.kwargs["model"] == model
+        assert call.kwargs.get("temperature") == expected_temperature
+        assert call.kwargs["drop_params"] is True

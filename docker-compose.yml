@@ -33,6 +33,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - TAVILY_API_KEY=${TAVILY_API_KEY}
       - FRANCE_TRAVAIL_CLIENT_ID=${FRANCE_TRAVAIL_CLIENT_ID:-}
       - FRANCE_TRAVAIL_CLIENT_SECRET=${FRANCE_TRAVAIL_CLIENT_SECRET:-}
@@ -42,6 +43,14 @@ services:
       - EVALUATION_MODEL=${EVALUATION_MODEL:-gemini/gemini-3.8-flash}
       - EVALUATION_FALLBACK_MODEL=${EVALUATION_FALLBACK_MODEL:-gemini/gemini-3.8-flash}
       - CV_TAILOR_MODEL=${CV_TAILOR_MODEL:-gemini/gemini-3.8-flash}
+      # Défauts recopiés du code : une variable transmise vide remplacerait
+      # le défaut de os.getenv par "".
+      - LETTER_MODEL_ANALYST=${LETTER_MODEL_ANALYST:-gemini/gemini-3.8-flash}
+      - LETTER_MODEL_WRITER=${LETTER_MODEL_WRITER:-openai/gpt-5.6-terra}
+      - LETTER_MODEL_CRITIC=${LETTER_MODEL_CRITIC:-gemini/gemini-3.8-flash}
+      - LETTER_MODEL_REVISER=${LETTER_MODEL_REVISER:-openai/gpt-5.6-terra}
+      - INTERVIEW_PREP_MODEL=${INTERVIEW_PREP_MODEL:-${EVALUATION_MODEL:-gemini/gemini-3.8-flash}}
+      - ROLE_SUGGESTION_MODEL=${ROLE_SUGGESTION_MODEL:-openai/gpt-4o-mini}
       - PATH=/app/.venv/bin:$PATH
 
       - UV_CACHE_DIR=/app/.cache/uv

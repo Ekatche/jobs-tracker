@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -21,6 +22,14 @@ from app.models import (
 )
 from app.services.profile.context import build_candidate_context
 from app.services.usage_tracker import record_api_usage
+
+# `letter_llm` vit hors du package `app` (même montage que profile/collectors/website.py).
+_JOB_TRACKERS_SRC = Path(__file__).resolve().parents[2] / "job_trackers" / "src" / "job_trackers"
+if str(_JOB_TRACKERS_SRC) not in sys.path:
+    sys.path.insert(0, str(_JOB_TRACKERS_SRC))
+
+# GPT-5 et Claude 5 rejettent `temperature` : build_completion_kwargs l'omet pour eux.
+from letter_llm import build_completion_kwargs  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +156,8 @@ async def generate_star_stories(
     response = await acompletion(
         model=DEFAULT_INTERVIEW_MODEL,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
+        drop_params=True,
+        **build_completion_kwargs(DEFAULT_INTERVIEW_MODEL, 0.2),
     )
     latency_ms = int((time.time() - t0) * 1000)
 
@@ -213,7 +223,8 @@ async def generate_audience_packs(
     response = await acompletion(
         model=DEFAULT_INTERVIEW_MODEL,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
+        drop_params=True,
+        **build_completion_kwargs(DEFAULT_INTERVIEW_MODEL, 0.2),
     )
     latency_ms = int((time.time() - t0) * 1000)
 
@@ -291,7 +302,8 @@ async def generate_anticipated_questions(
     response = await acompletion(
         model=DEFAULT_INTERVIEW_MODEL,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
+        drop_params=True,
+        **build_completion_kwargs(DEFAULT_INTERVIEW_MODEL, 0.2),
     )
     latency_ms = int((time.time() - t0) * 1000)
 
@@ -351,7 +363,8 @@ async def generate_reverse_questions(
     response = await acompletion(
         model=DEFAULT_INTERVIEW_MODEL,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
+        drop_params=True,
+        **build_completion_kwargs(DEFAULT_INTERVIEW_MODEL, 0.2),
     )
     latency_ms = int((time.time() - t0) * 1000)
 
