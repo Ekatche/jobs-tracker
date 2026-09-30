@@ -23,7 +23,9 @@ ROLE_TEMPERATURES = {
     "company_researcher": 0.3,
 }
 
-_OPENAI_NO_TEMP_PREFIXES = ("o1", "o3", "gpt-5", "gpt-o")
+# GPT-6 : `temperature` refusée dès que l'effort de raisonnement n'est pas `none`
+# (6.1 Sol et Astra ne supportent pas `none`).
+_OPENAI_NO_TEMP_PREFIXES = ("o1", "o3", "gpt-5", "gpt-6", "gpt-o")
 # Génération 5 de Claude : l'API rejette `temperature` et drop_params ne le retire pas.
 _ANTHROPIC_NO_TEMP_PREFIXES = ("claude-sonnet-5", "claude-opus-5", "claude-fable-5")
 

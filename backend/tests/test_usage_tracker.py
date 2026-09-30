@@ -285,3 +285,9 @@ def test_get_my_usage_records(client_with_auth):
     assert len(data) == 1
     assert data[0]["action"] == "cover_letter"
     assert data[0]["user_id"] == TEST_USER_ID
+
+
+def test_estimate_llm_cost_gpt_6_1_sol():
+    # Doc OpenAI (2026-09-30) : 2 $ entrée, 10 $ sortie par million de tokens.
+    from app.services.usage_tracker import estimate_llm_cost
+    assert estimate_llm_cost("openai/gpt-6.1-sol", 1_000_000, 1_000_000) == 12.0

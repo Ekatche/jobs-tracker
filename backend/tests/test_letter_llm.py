@@ -107,3 +107,9 @@ def test_get_api_status_lists_anthropic(monkeypatch):
     from letter_llm import get_api_status
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     assert get_api_status()["anthropic"]["configured"] is True
+
+
+def test_build_completion_kwargs_omits_temperature_for_gpt6():
+    # Doc OpenAI : GPT-6.1 Sol ne supporte pas l'effort `none`, donc jamais `temperature`.
+    from letter_llm import build_completion_kwargs
+    assert build_completion_kwargs("openai/gpt-6.1-sol", 0.7) == {}
