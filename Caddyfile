@@ -18,17 +18,29 @@
         reverse_proxy backend:8000
     }
 
-    # Routes d'API directes du Backend FastAPI
-    # POST sur /auth/login et /auth/register → backend (appels API du formulaire Next.js)
-    # GET sur /auth/login et /auth/register → frontend (pages Next.js)
-    @api_auth_write {
-        not method GET
-        path /auth/login /auth/register
-    }
-    handle @api_auth_write {
-        reverse_proxy backend:8000
+    # /auth/login : GET → page Next.js, POST → backend API
+    route /auth/login {
+        @post method POST PUT PATCH DELETE
+        handle @post {
+            reverse_proxy backend:8000
+        }
+        handle {
+            reverse_proxy frontend:3875
+        }
     }
 
+    # /auth/register : GET → page Next.js, POST → backend API
+    route /auth/register {
+        @post method POST PUT PATCH DELETE
+        handle @post {
+            reverse_proxy backend:8000
+        }
+        handle {
+            reverse_proxy frontend:3875
+        }
+    }
+
+    # Routes d'API pures du Backend FastAPI (pas de pages frontend)
     @api_routes {
         path /auth/token /auth/me /auth/refresh /auth/logout /auth/change-password
         path /users/* /applications/* /tasks/* /job_offers/* /cover_letters/* /candidates/* /usage/* /resumes/* /interview-prep/* /uploads/* /docs* /openapi.json
