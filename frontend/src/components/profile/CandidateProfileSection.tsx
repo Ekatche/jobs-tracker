@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   FiFileText,
   FiBriefcase,
@@ -480,7 +481,10 @@ export default function CandidateProfileSection() {
                 )}
               </div>
               <p className="text-xs text-slate-400 mt-1">
-                Synthèse consolidée issue de votre CV, portfolio et GitHub, utilisée par l'IA pour personnaliser vos candidatures.
+                Synthèse consolidée issue de votre CV, portfolio et GitHub, utilisée par l'IA pour personnaliser vos candidatures.{" "}
+                <Link href="/guide" className="text-blue-400 hover:text-blue-300 underline font-medium">
+                  Comprendre le fonctionnement
+                </Link>
               </p>
             </div>
           </div>

@@ -185,9 +185,28 @@ export default function Header() {
                 >
                   CV Adaptés
                 </Link>
+                <Link
+                  href="/guide"
+                  className={`text-sm font-medium transition-colors ${
+                    isActive("/guide")
+                      ? "text-white border-b-2 border-blue-400"
+                      : "text-gray-300 hover:text-white"
+                  }`}
+                >
+                  Guide & FAQ
+                </Link>
               </>
             ) : (
-              <></>
+              <Link
+                href="/guide"
+                className={`text-sm font-medium transition-colors ${
+                  isActive("/guide")
+                    ? "text-white border-b-2 border-blue-400"
+                    : "text-gray-300 hover:text-white"
+                }`}
+              >
+                Guide & FAQ
+              </Link>
             )}
           </nav>
 
@@ -238,6 +257,13 @@ export default function Header() {
                         onClick={closeMenu}
                       >
                         Quotas & Abonnement
+                      </Link>
+                      <Link
+                        href="/guide"
+                        className="block px-4 py-2 text-sm text-gray-200 hover:bg-blue-800/40"
+                        onClick={closeMenu}
+                      >
+                        Guide & FAQ
                       </Link>
                       <button
                         onClick={handleLogout}
@@ -357,6 +383,13 @@ export default function Header() {
                   onClick={closeMenu}
                 >
                   Quotas & Abonnement
+                </Link>
+                <Link
+                  href="/guide"
+                  className="block py-2 text-base font-medium text-gray-200 hover:text-white"
+                  onClick={closeMenu}
+                >
+                  Guide & FAQ
                 </Link>
                 <button
                   onClick={handleLogout}
