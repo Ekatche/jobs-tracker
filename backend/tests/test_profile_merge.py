@@ -615,3 +615,108 @@ def test_manual_without_mobility_key_keeps_cv_value():
         "manual": {"contact": {"email": "a@b.fr"}},
     })
     assert profile["contact"]["mobility"] == "Permis B"
+
+
+def test_education_merges_with_loose_school_names_and_degree_enrichment():
+    """Vérifie que les variations de nom d'école et de diplôme fusionnent en une seule entrée enrichie."""
+    cv_payload = {
+        "education": [
+            {
+                "school": "Université Claude Bernard Lyon 1",
+                "degree": "Master Informatique",
+                "years": "2023 - 2025",
+                "topics": ["Bases de données"],
+            }
+        ]
+    }
+    website_payload = {
+        "education": [
+            {
+                "school": "Université Lyon 1",
+                "degree": "Master en Informatique / Data Science & IA",
+                "years": "2025",
+                "topics": ["Machine Learning", "Deep Learning"],
+            }
+        ]
+    }
+    profile, _ = build_profile_from_sources({"cv": cv_payload, "website": website_payload})
+    assert len(profile["education"]) == 1
+    edu = profile["education"][0]
+    # L'école la plus complète est retenue
+    assert edu["school"] == "Université Claude Bernard Lyon 1"
+    # Le diplôme le plus descriptif et riche est retenu
+    assert edu["degree"] == "Master en Informatique / Data Science & IA"
+    # La période complète (intervalle) est retenue
+    assert edu["years"] == "2023 - 2025"
+    # Les compétences / sujets sont combinés sans doublon
+    assert "Bases de données" in edu["topics"]
+    assert "Machine Learning" in edu["topics"]
+    assert "Deep Learning" in edu["topics"]
+
+
+def test_education_does_not_merge_different_levels_same_school():
+    """Deux niveaux de diplômes différents (Licence vs Master) à la même école ne doivent pas être fusionnés."""
+    cv_payload = {
+        "education": [
+            {
+                "school": "Université Lyon 1",
+                "degree": "Licence Mathématiques & Informatique",
+                "years": "2020 - 2023",
+            }
+        ]
+    }
+    website_payload = {
+        "education": [
+            {
+                "school": "Université Lyon 1",
+                "degree": "Master Data Science",
+                "years": "2023 - 2025",
+            }
+        ]
+    }
+    profile, _ = build_profile_from_sources({"cv": cv_payload, "website": website_payload})
+    assert len(profile["education"]) == 2
+    degrees = {e["degree"] for e in profile["education"]}
+    assert "Licence Mathématiques & Informatique" in degrees
+    assert "Master Data Science" in degrees
+
+
+def test_education_does_not_merge_distinct_diplomas_from_same_source():
+    """Deux diplômes listés dans la même source ne doivent jamais fusionner entre eux."""
+    cv_payload = {
+        "education": [
+            {"school": "CNAM", "degree": "Spécialisation IA", "years": "2024"},
+            {"school": "CNAM", "degree": "Spécialisation Data", "years": "2025"},
+        ]
+    }
+    profile, _ = build_profile_from_sources({"cv": cv_payload})
+    assert len(profile["education"]) == 2
+
+
+def test_education_tracks_conflicts_for_divergent_degrees():
+    """Une divergence notable entre deux sources sur un même diplôme est tracée dans conflicts."""
+    cv_payload = {
+        "education": [
+            {
+                "school": "CNAM Lyon",
+                "degree": "Diplôme d'Ingénieur en Informatique",
+                "years": "2022 - 2025",
+            }
+        ]
+    }
+    website_payload = {
+        "education": [
+            {
+                "school": "CNAM",
+                "degree": "Diplôme d'Ingénieur Big Data",
+                "years": "2022 - 2025",
+            }
+        ]
+    }
+    profile, conflicts = build_profile_from_sources({"cv": cv_payload, "website": website_payload})
+    assert len(profile["education"]) == 1
+    degree_conflicts = [c for c in conflicts if c.get("field") == "degree"]
+    assert len(degree_conflicts) >= 1
+    assert degree_conflicts[0]["kept"] == "Diplôme d'Ingénieur en Informatique"
+    assert degree_conflicts[0]["discarded"] == "Diplôme d'Ingénieur Big Data"
+

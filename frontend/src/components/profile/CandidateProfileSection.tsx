@@ -23,6 +23,8 @@ import {
   FiTrash2,
   FiHeart,
   FiTruck,
+  FiX,
+  FiEye,
 } from "react-icons/fi";
 import { coverLetterApi } from "@/lib/api";
 import {
@@ -74,6 +76,7 @@ export default function CandidateProfileSection() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [dismissedConflicts, setDismissedConflicts] = useState(false);
 
   // Inline writing style editor (always visible, independent of full edit mode)
   const [isEditingStyle, setIsEditingStyle] = useState(false);
@@ -751,19 +754,43 @@ export default function CandidateProfileSection() {
                   <FiBriefcase className="mr-2 text-blue-400" /> Expériences clés ({profile.experiences.length})
                 </h3>
               </div>
-              {profile?.conflicts && profile.conflicts.length > 0 && (
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200 mb-4">
-                  <p className="font-semibold mb-1">
-                    Divergences détectées entre vos sources ({profile.conflicts.length})
-                  </p>
-                  <ul className="space-y-1">
+              {profile?.conflicts && profile.conflicts.length > 0 && !dismissedConflicts && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200 mb-4 transition-all">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-semibold flex items-center gap-1.5 text-amber-300">
+                      <FiAlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                      Divergences détectées entre vos sources ({profile.conflicts.length})
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setDismissedConflicts(true)}
+                      className="text-amber-400 hover:text-amber-100 hover:bg-amber-500/20 px-2 py-0.5 rounded-md transition-colors flex items-center gap-1 text-[11px] font-medium"
+                      title="Masquer ces divergences de la vue"
+                    >
+                      <span>Masquer</span>
+                      <FiX className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <ul className="space-y-1.5 pl-1">
                     {profile.conflicts.map((c: CandidateConflict, i) => (
-                      <li key={i}>
-                        <span className="font-medium text-amber-300">{c.company}</span> — {c.field} : « {String(c.kept)} » retenu depuis {c.kept_source},
-                        « {String(c.discarded)} » écarté depuis {c.discarded_source}.
+                      <li key={i} className="text-slate-300">
+                        <span className="font-medium text-amber-300">{c.company}</span> — {c.field} : « <span className="text-white">{String(c.kept)}</span> » retenu depuis <span className="text-blue-300 font-mono text-[11px]">{c.kept_source}</span>,
+                        « <span className="line-through text-slate-400">{String(c.discarded)}</span> » écarté depuis <span className="text-slate-400 font-mono text-[11px]">{c.discarded_source}</span>.
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+              {profile?.conflicts && profile.conflicts.length > 0 && dismissedConflicts && (
+                <div className="flex justify-end mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setDismissedConflicts(false)}
+                    className="text-[11px] text-amber-400/80 hover:text-amber-300 hover:underline flex items-center gap-1.5 py-1 px-2 rounded hover:bg-amber-500/10 transition-colors"
+                  >
+                    <FiEye className="w-3.5 h-3.5" />
+                    <span>Afficher les {profile.conflicts.length} divergences masquées</span>
+                  </button>
                 </div>
               )}
               <div className="max-h-[560px] overflow-y-auto pr-1.5 custom-scrollbar space-y-3.5">

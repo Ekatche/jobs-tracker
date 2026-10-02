@@ -5,7 +5,7 @@ source gagne sur quel champ, ce qui rend la règle lisible et testable.
 """
 
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.services.profile.periods import company_slug, is_open_ended, normalize_month
 
@@ -399,34 +399,137 @@ def _education_key(school: str, degree: str) -> str:
     return f"{school_slug}::{degree_slug}" if degree_slug else school_slug
 
 
-def _excluded_education_keys(
-    sources: Dict[str, Dict[str, Any]], order: List[str]
-) -> set[str]:
-    """Clés school::degree exclues. Chaque entrée brute reprend le format
-    "école::diplôme" (ou juste "école") avant normalisation, pour retomber
-    exactement sur le même schéma de clé que le regroupement ci-dessous.
-    """
-    excluded: set[str] = set()
-    for source in order:
-        for exc in sources[source].get("excluded_education") or []:
-            if not isinstance(exc, str) or not exc:
-                continue
-            school, _, degree = exc.partition("::")
-            excluded.add(_education_key(school, degree))
-    return excluded
+def _normalize_tokens(text: str) -> set[str]:
+    stopwords = {
+        "de", "des", "du", "et", "en", "d", "l", "la", "le", "les", "a", "au", "aux",
+        "pour", "and", "of", "the", "in", "at", "sur", "sous", "par", "with"
+    }
+    tokens = set(re.split(r"[^a-z0-9]+", (text or "").lower()))
+    return {t for t in tokens if len(t) > 1 and t not in stopwords}
+
+
+def _schools_match(s1: str, s2: str) -> bool:
+    slug1 = _normalize_key(s1)
+    slug2 = _normalize_key(s2)
+    if not slug1 or not slug2:
+        return False
+    if slug1 == slug2 or _keys_loosely_match(slug1, slug2):
+        return True
+    tok1 = _normalize_tokens(s1)
+    tok2 = _normalize_tokens(s2)
+    if not tok1 or not tok2:
+        return False
+    generic = {"universite", "university", "ecole", "school", "institut", "institute", "faculte", "faculty"}
+    distinctive_intersection = (tok1 & tok2) - generic
+    if distinctive_intersection:
+        shorter_distinctive = (tok1 if len(tok1) <= len(tok2) else tok2) - generic
+        if shorter_distinctive and shorter_distinctive.issubset(distinctive_intersection):
+            return True
+        if len(distinctive_intersection) >= 2:
+            return True
+    return False
+
+
+def _degrees_match(d1: str, d2: str) -> bool:
+    slug1 = _normalize_key(d1)
+    slug2 = _normalize_key(d2)
+    if not slug1 or not slug2:
+        return True
+    if slug1 == slug2 or _keys_loosely_match(slug1, slug2):
+        return True
+    tok1 = _normalize_tokens(d1)
+    tok2 = _normalize_tokens(d2)
+    if not tok1 or not tok2:
+        return True
+    levels = {"master", "m2", "m1", "ingenieur", "engineer", "licence", "bachelor", "doctorat", "phd", "dut", "bts"}
+    level1 = tok1 & levels
+    level2 = tok2 & levels
+    if level1 and level2 and not (level1 & level2):
+        return False
+    intersection = tok1 & tok2
+    return len(intersection) >= 1 or tok1.issubset(tok2) or tok2.issubset(tok1)
+
+
+def _extract_years(years_str: str | None) -> set[str]:
+    if not years_str:
+        return set()
+    return set(re.findall(r"\b(19\d\d|20\d\d)\b", years_str))
+
+
+def _years_compatible(y1: str | None, y2: str | None) -> bool:
+    years1 = _extract_years(y1)
+    years2 = _extract_years(y2)
+    if not years1 or not years2:
+        return True
+    return bool(years1 & years2)
+
+
+def _education_items_match(item1: Dict[str, Any], item2: Dict[str, Any]) -> bool:
+    s1 = item1.get("school") or item1.get("institution") or ""
+    s2 = item2.get("school") or item2.get("institution") or ""
+    if not _schools_match(s1, s2):
+        return False
+    d1 = item1.get("degree") or ""
+    d2 = item2.get("degree") or ""
+    if not _degrees_match(d1, d2):
+        return False
+    y1 = item1.get("years") or item1.get("dates")
+    y2 = item2.get("years") or item2.get("dates")
+    return _years_compatible(y1, y2)
 
 
 def _merge_education(
-    sources: Dict[str, Dict[str, Any]], order: List[str]
+    sources: Dict[str, Dict[str, Any]],
+    order: List[str],
+    conflicts: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
-    excluded_keys = _excluded_education_keys(sources, order)
-    grouped: Dict[str, Dict[str, Any]] = {}
+    excluded_raw: List[Dict[str, str]] = []
+    for source in order:
+        for exc in sources[source].get("excluded_education") or []:
+            if isinstance(exc, str) and exc:
+                school, _, degree = exc.partition("::")
+                excluded_raw.append({"school": school.strip(), "degree": degree.strip()})
+
+    def is_excluded(item: Dict[str, Any]) -> bool:
+        s = (item.get("school") or item.get("institution") or "").strip()
+        d = (item.get("degree") or "").strip()
+        for exc in excluded_raw:
+            if _schools_match(s, exc["school"]) and (not exc["degree"] or _degrees_match(d, exc["degree"])):
+                return True
+        return False
+
+    groups: List[List[Tuple[str, Dict[str, Any]]]] = []
+
     for source in order:
         for item in sources[source].get("education") or []:
             school = (item.get("school") or item.get("institution") or "").strip()
             degree = (item.get("degree") or "").strip()
-            years = (item.get("years") or item.get("dates") or "").strip() or None
+            if not school and not degree:
+                continue
+            if is_excluded(item):
+                continue
 
+            matched_group = None
+            for group in groups:
+                # Ne jamais fusionner deux diplômes distincts de la même source
+                if any(s == source for s, _ in group):
+                    continue
+                _, primary_item = group[0]
+                if _education_items_match(item, primary_item):
+                    matched_group = group
+                    break
+
+            if matched_group is not None:
+                matched_group.append((source, item))
+            else:
+                groups.append([(source, item)])
+
+    merged_list: List[Dict[str, Any]] = []
+    for group in groups:
+        winner_source, winner_item = group[0]
+
+        all_topics: List[str] = []
+        for _, item in group:
             raw_topics = item.get("topics") or []
             if isinstance(raw_topics, str):
                 raw_topics = [t.strip() for t in raw_topics.split(",") if t.strip()]
@@ -436,35 +539,81 @@ def _merge_education(
             raw_details = item.get("details")
             if raw_details and isinstance(raw_details, str):
                 details_list = [d.strip() for d in re.split(r"[,;.]\s*", raw_details) if d.strip()]
-                topics = _dedup_preserving_order(raw_topics + details_list)
+                all_topics.extend(raw_topics + details_list)
             else:
-                topics = _dedup_preserving_order(raw_topics)
+                all_topics.extend(raw_topics)
 
-            if not school and not degree:
-                continue
+        # École : priorité gagnante, enrichie par le libellé le plus exhaustif si non-manuel
+        schools = [
+            (s, (it.get("school") or it.get("institution") or "").strip())
+            for s, it in group
+            if (it.get("school") or it.get("institution") or "").strip()
+        ]
+        kept_school = schools[0][1] if schools else ""
+        if winner_source != "manual" and len(schools) > 1:
+            longest_school = max((sc for _, sc in schools), key=len)
+            if len(longest_school) > len(kept_school) and _schools_match(kept_school, longest_school):
+                kept_school = longest_school
 
-            key = _education_key(school, degree)
-            if key in excluded_keys:
-                continue
+        # Diplôme : priorité gagnante, enrichie par le libellé le plus informatif si non-manuel
+        degrees = [(s, (it.get("degree") or "").strip()) for s, it in group if (it.get("degree") or "").strip()]
+        kept_degree = degrees[0][1] if degrees else ""
+        if winner_source != "manual" and len(degrees) > 1:
+            longest_degree = max((dg for _, dg in degrees), key=len)
+            if len(longest_degree) > len(kept_degree) and _degrees_match(kept_degree, longest_degree):
+                kept_degree = longest_degree
 
-            if key not in grouped:
-                grouped[key] = {
-                    "school": school,
-                    "degree": degree,
-                    "years": years,
-                    "topics": topics,
-                }
-            else:
-                current = grouped[key]
-                if not current.get("school") and school:
-                    current["school"] = school
-                if not current.get("degree") and degree:
-                    current["degree"] = degree
-                if not current.get("years") and years:
-                    current["years"] = years
-                current["topics"] = _dedup_preserving_order(current.get("topics", []) + topics)
+        # Années : privilégier le format le plus complet (intervalle)
+        years_list = [
+            (s, (it.get("years") or it.get("dates") or "").strip())
+            for s, it in group
+            if (it.get("years") or it.get("dates") or "").strip()
+        ]
+        kept_years = None
+        if years_list:
+            years_sorted = sorted(years_list, key=lambda x: ("-" in x[1], len(x[1])), reverse=True)
+            kept_years = years_sorted[0][1]
 
-    return list(grouped.values())
+        # Traçabilité des divergences sur les diplômes
+        if conflicts is not None and len(group) > 1:
+            for other_source, other_item in group[1:]:
+                other_degree = (other_item.get("degree") or "").strip()
+                if (
+                    other_degree
+                    and kept_degree
+                    and other_degree.lower() != kept_degree.lower()
+                    and not _keys_loosely_match(_normalize_key(other_degree), _normalize_key(kept_degree))
+                ):
+                    conflicts.append({
+                        "company": kept_school,
+                        "field": "degree",
+                        "kept": kept_degree,
+                        "kept_source": winner_source,
+                        "discarded": other_degree,
+                        "discarded_source": other_source,
+                    })
+                other_years = (other_item.get("years") or other_item.get("dates") or "").strip()
+                if other_years and kept_years and other_years != kept_years:
+                    y_kept = _extract_years(kept_years)
+                    y_other = _extract_years(other_years)
+                    if y_kept and y_other and not (y_kept & y_other):
+                        conflicts.append({
+                            "company": kept_school,
+                            "field": "years",
+                            "kept": kept_years,
+                            "kept_source": winner_source,
+                            "discarded": other_years,
+                            "discarded_source": other_source,
+                        })
+
+        merged_list.append({
+            "school": kept_school,
+            "degree": kept_degree,
+            "years": kept_years,
+            "topics": _dedup_preserving_order(all_topics),
+        })
+
+    return merged_list
 
 
 def _merge_certifications(
@@ -563,7 +712,7 @@ def build_profile_from_sources(
         "writing_samples": writing_samples or "",
         "experiences": experiences,
         "projects": _merge_projects(sources, order),
-        "education": _merge_education(sources, order),
+        "education": _merge_education(sources, order, conflicts),
         "certifications": _merge_certifications(sources, order),
         "languages": _dedup_preserving_order(languages),
         "interests": _dedup_preserving_order(interests),
