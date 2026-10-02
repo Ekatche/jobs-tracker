@@ -45,7 +45,26 @@ PROMPTS_DIR = Path(__file__).resolve().parents[3] / "app" / "llm" / "prompts" / 
 # fenêtre d'acceptation plus large des garde-fous côté letter_guards.py).
 MIN_WORDS = 230
 MAX_WORDS = 320
-PROMPT_VERSION = "01_fond+02_style+03_critique+04_revision-v6"
+PROMPT_VERSION = "01_fond+02_style+03_critique+04_revision-v7"
+
+
+_NAME_PARTICLES = {"de", "du", "des", "la", "le", "van", "von", "der", "den", "da", "di"}
+
+
+def _format_person_name(name: str) -> str:
+    """Majuscule initiale aux parties du nom saisies en minuscules.
+
+    « eliel Katche » signerait la lettre tel quel. Les particules (« de »,
+    « van »...) restent en minuscules hors première position, et une partie
+    déjà capitalisée n'est jamais touchée.
+    """
+    words = (name or "").split()
+    formatted = []
+    for i, word in enumerate(words):
+        if word.islower() and (i == 0 or word not in _NAME_PARTICLES):
+            word = "-".join(part[:1].upper() + part[1:] for part in word.split("-"))
+        formatted.append(word)
+    return " ".join(formatted)
 
 
 class _SafePromptDict(dict):
@@ -106,6 +125,7 @@ async def _call_analyst(
 2. Formule une idée directrice unique (thèse) : une idée concrète, tirée du métier du candidat, montrant comment le candidat répond à ce défi.
 3. Dégage une synthèse thématique (fil rouge) qui relie l'ensemble du parcours du candidat (ou ses expériences les plus pertinentes) à cette thèse, SANS lister les expériences chronologiquement.
 4. Extrais 2 à 3 missions clés de l'offre.
+5. Relève 3 à 5 termes métier employés tels quels dans l'offre (outils, systèmes, procédés, données), recopiés à l'identique.
 
 Expériences candidates disponibles :
 {json.dumps(raw_exps, ensure_ascii=False)}
@@ -118,7 +138,8 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
     "missions": ["Mission 1", "Mission 2", "Mission 3"],
     "target_challenge": "Défi central du poste",
     "guiding_thesis": "Idée directrice du candidat face à ce défi",
-    "career_thread": "Synthèse thématique liant le parcours du candidat à cette idée (pas de chronologie)"
+    "career_thread": "Synthèse thématique liant le parcours du candidat à cette idée (pas de chronologie)",
+    "offer_terms": ["Terme 1", "Terme 2", "Terme 3"]
 }}"""
 
     # Aucun fallback silencieux ici : une panne de l'analyste ne doit jamais
@@ -152,6 +173,7 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
         "target_challenge": target_challenge,
         "guiding_thesis": guiding_thesis,
         "career_thread": career_thread,
+        "offer_terms": data.get("offer_terms", []),
         "selected_experiences": selected_exps,
         "stacks": list(candidate_stacks),
         "companies": selected_companies,
@@ -212,11 +234,17 @@ Synthèse (2-3 phrases claires et directes) :"""
             model=llm.model,
             api_key=llm.api_key,
             messages=[{"role": "user", "content": prompt}],
-            max_completion_tokens=400,
+            # Les modèles à réflexion décomptent leur réflexion de ce budget :
+            # à 400, la synthèse sortait coupée en pleine phrase.
+            max_completion_tokens=3000,
             drop_params=True,
             **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["company_researcher"]),
         )
         _track_usage(usage_acc, resp)
+        # Une synthèse tronquée induirait le rédacteur en erreur : mieux vaut aucune.
+        if resp.choices[0].finish_reason == "length":
+            logger.warning(f"Synthèse entreprise tronquée pour '{company_name}' : ignorée")
+            return ""
         content = (resp.choices[0].message.content or "").strip()
         return content
     except Exception as e:
@@ -282,7 +310,14 @@ def _build_company_context_block(company_context: str) -> str:
     clean = (company_context or "").strip()
     if not clean:
         return ""
-    return f"## Contexte de l'entreprise (recherche live)\n\nVoici des informations récentes sur l'entreprise issues d'une recherche web :\n{clean}"
+    return (
+        "## Contexte de l'entreprise (recherche live)\n\n"
+        f"Voici des informations récentes sur l'entreprise issues d'une recherche web :\n{clean}\n\n"
+        "Cite un élément concret de cette activité (produit, procédé, site, actualité) dans une phrase "
+        "de la lettre, pour montrer que la candidature vise cette entreprise et pas une autre. "
+        "Décris-le avec des mots courants, sans autre nom propre que celui de l'entreprise. "
+        "Une phrase suffit : la lettre ne présente pas l'entreprise."
+    )
 
 
 async def _call_writer(
@@ -308,6 +343,8 @@ async def _call_writer(
         candidate_name=analyst_json.get("candidate_name", ""),
         candidate_headline=analyst_json.get("candidate_headline", ""),
         company_name=company_name,
+        job_title=analyst_json.get("job_title", ""),
+        offer_terms=", ".join(analyst_json.get("offer_terms", [])),
         min_words=MIN_WORDS,
         max_words=MAX_WORDS,
         target_challenge=analyst_json.get("target_challenge", ""),
@@ -443,6 +480,7 @@ async def run_letter_pipeline_async(
     candidate_profile: Dict[str, Any],
     company_name: str,
     candidate_name: str = "",
+    job_title: str = "",
 ) -> Dict[str, Any]:
     # Validation fournisseur croisé au démarrage
     validate_cross_provider(
@@ -451,6 +489,7 @@ async def run_letter_pipeline_async(
     )
 
     usage_acc: List[Tuple[int, int]] = []
+    candidate_name = _format_person_name(candidate_name)
 
     # 1. Analyse de l'offre et recherche entreprise (en parallèle)
     analyst_task = _call_analyst(offer_description, candidate_profile, candidate_name, usage_acc=usage_acc)
@@ -458,6 +497,7 @@ async def run_letter_pipeline_async(
     
     analyst_output, company_context = await asyncio.gather(analyst_task, company_task)
     analyst_output["company_name"] = company_name
+    analyst_output["job_title"] = job_title
 
     # 2. Rédaction (ne voit que le JSON d'analyst, le contexte entreprise et le style de voix)
     draft_letter = await _call_writer(

@@ -48,6 +48,10 @@ CAPPED_REPETITIONS = {
     "je souhaite": 1,
     "je suis": 1,
     "je serais": 1,
+    # Conditionnel réservé à la demande d'entretien : répété, il fait hésitant.
+    "je voudrais": 1,
+    "j'aimerais": 1,
+    "je souhaiterais": 1,
     "j'ai": 3,
 }
 
@@ -94,6 +98,8 @@ def _check_entities(letter_text: str, offer_description: str, analyst_data: Dict
             list(analyst_data.get("companies") or [])
             + list(analyst_data.get("stacks") or [])
             + list(analyst_data.get("projects") or [])
+            + list(analyst_data.get("offer_terms") or [])
+            + [analyst_data.get("job_title") or ""]
             + [analyst_data.get("company_name") or ""]
             + [analyst_data.get("candidate_name") or ""]
             + [analyst_data.get("candidate_headline") or ""]
@@ -104,7 +110,9 @@ def _check_entities(letter_text: str, offer_description: str, analyst_data: Dict
     # recruteur) n'est PAS légitime pour autant dans la lettre : seuls les
     # faits fournis à l'analyste (companies/stacks/projects/company_name/
     # candidate_name ci-dessus) blanchissent une entité. Ne jamais construire
-    # `allowed` à partir de `offer_description`.
+    # `allowed` à partir de `offer_description`. `offer_terms` est l'exception
+    # bornée : l'analyste n'y relève que des termes métier (outils, systèmes,
+    # procédés), et `job_title` est l'intitulé saisi sur la candidature.
 
     violations: List[str] = []
     seen: set = set()

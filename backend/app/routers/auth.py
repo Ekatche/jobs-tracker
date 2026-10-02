@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Body, Depends, status, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
@@ -86,6 +87,14 @@ async def login_for_access_token(
     "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
 )
 async def register_user(user: UserCreate = Body(...), db=Depends(get_database)):
+    required_invite_code = os.getenv("INVITATION_CODE")
+    if required_invite_code and required_invite_code.strip():
+        if not user.invitation_code or user.invitation_code.strip() != required_invite_code.strip():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Code d'invitation invalide ou manquant. L'accès est restreint au cercle autorisé.",
+            )
+
     from .users import create_user
 
     return await create_user(user, db)

@@ -268,3 +268,32 @@ async def test_build_search_queries_intra_profile_role_dedup():
     assert len(queries) == 1
     assert queries[0] == "Je recherche un poste de AI Engineer proche de Lyon"
 
+
+@pytest.mark.asyncio
+async def test_build_search_queries_skips_inactive_profiles():
+    """Vérifie qu'un profil avec search_active=False est ignoré lors de la génération des requêtes."""
+    profiles = [
+        {
+            "preferences": {
+                "target_roles": ["Data Analyst"],
+                "locations": ["Paris"],
+                "search_active": False,
+            }
+        },
+        {
+            "preferences": {
+                "target_roles": ["MLOps Engineer"],
+                "locations": ["Bordeaux"],
+                "search_active": True,
+            }
+        },
+    ]
+    mock_db = _mock_db_with_profiles(profiles)
+
+    with patch("app.tasks.job_offers_collectors.get_database", AsyncMock(return_value=mock_db)):
+        queries = await build_search_queries()
+
+    assert len(queries) == 1
+    assert queries[0] == "Je recherche un poste de MLOps Engineer proche de Bordeaux"
+
+

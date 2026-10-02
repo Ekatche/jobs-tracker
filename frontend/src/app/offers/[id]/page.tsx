@@ -32,6 +32,7 @@ import NewApplicationModal, {
   PrefilledData,
 } from "@/components/dashboard/NewApplicationModal";
 import InterviewPrepTab from "@/components/interview/InterviewPrepTab";
+import { getContractBadgeStyles } from "@/lib/contractBadge";
 
 export default function OfferDetailPage() {
   const params = useParams();
@@ -43,7 +44,7 @@ export default function OfferDetailPage() {
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"matching" | "analysis" | "job" | "interview">("matching");
+  const [activeTab, setActiveTab] = useState<"matching" | "analysis" | "job" | "interview">("job");
 
   // Modal application
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
@@ -293,11 +294,15 @@ export default function OfferDetailPage() {
                 <span className="px-2.5 py-1 bg-blue-500/20 text-blue-300 text-xs font-medium rounded-full border border-blue-500/30">
                   {offer.pipeline_stage || "discovered"}
                 </span>
-                {offer.type_contrat && (
-                  <span className="px-2.5 py-1 bg-gray-700/50 text-gray-300 text-xs font-medium rounded-full border border-gray-600/40">
-                    {offer.type_contrat}
-                  </span>
-                )}
+                {(() => {
+                  const badge = getContractBadgeStyles(offer.type_contrat);
+                  if (!badge) return null;
+                  return (
+                    <span className={`px-2.5 py-1 text-xs rounded-full border shadow-sm ${badge.className}`}>
+                      {badge.label}
+                    </span>
+                  );
+                })()}
                 {offer.mode_travail && (
                   <span className="px-2.5 py-1 bg-purple-500/20 text-purple-300 text-xs font-medium rounded-full border border-purple-500/30">
                     {offer.mode_travail}
@@ -379,14 +384,14 @@ export default function OfferDetailPage() {
 
               {!evaluation && (
                 <p className="text-[11px] text-gray-400 mt-2 text-center md:text-right">
-                  Score IA Two-Pass calculé selon votre profil
+                  Score IA d'adéquation calculé selon votre profil
                 </p>
               )}
             </div>
           </div>
         </div>
 
-        {/* Drapeaux rouges Bloc A (s'il y en a) */}
+        {/* Points de vigilance critiques (s'il y en a) */}
         {evaluation &&
           (evaluation.bloc_a.geo_mismatch ||
             evaluation.bloc_a.visa_sponsoring_refused ||
@@ -394,7 +399,7 @@ export default function OfferDetailPage() {
             <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-5 mb-6 text-rose-200">
               <div className="flex items-center gap-2.5 font-bold text-rose-400 mb-2">
                 <FiAlertTriangle className="w-5 h-5 flex-shrink-0" />
-                Drapeaux rouges identifiés (Bloc A)
+                Points de vigilance identifiés
               </div>
               <ul className="list-disc list-inside space-y-1 text-sm pl-2">
                 {evaluation.bloc_a.geo_mismatch && (
@@ -413,6 +418,18 @@ export default function OfferDetailPage() {
         {/* Onglets de Navigation Unifiés */}
         <div className="flex border-b border-gray-700/80 mb-6 gap-2 overflow-x-auto">
           <button
+            onClick={() => setActiveTab("job")}
+            className={`px-4 py-2.5 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === "job"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-gray-400 hover:text-gray-200"
+            }`}
+          >
+            <FiFileText className="w-4 h-4" />
+            Annonce du Poste
+          </button>
+
+          <button
             onClick={() => setActiveTab("matching")}
             className={`px-4 py-2.5 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
               activeTab === "matching"
@@ -421,7 +438,7 @@ export default function OfferDetailPage() {
             }`}
           >
             <FiAward className="w-4 h-4" />
-            Adéquation Exigences (Bloc B)
+            Adéquation Exigences
             {evaluation && (
               <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
                 {evaluation.bloc_b.matched_requirements.length}
@@ -438,19 +455,7 @@ export default function OfferDetailPage() {
             }`}
           >
             <FiShield className="w-4 h-4" />
-            Stratégie & Intégrité (Blocs A & G)
-          </button>
-
-          <button
-            onClick={() => setActiveTab("job")}
-            className={`px-4 py-2.5 text-sm font-semibold flex items-center gap-2 border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === "job"
-                ? "border-blue-500 text-blue-400"
-                : "border-transparent text-gray-400 hover:text-gray-200"
-            }`}
-          >
-            <FiFileText className="w-4 h-4" />
-            Annonce du Poste
+            Stratégie & Intégrité
           </button>
 
           <button
@@ -476,9 +481,8 @@ export default function OfferDetailPage() {
               Cette offre n'a pas encore été évaluée
             </h2>
             <p className="text-gray-300 text-sm max-w-xl mx-auto mb-6">
-              L'évaluation Two-Pass analyse d'abord les exigences réelles et la viabilité
-              de l'offre sans a priori, puis confronte minutieusement vos compétences et
-              votre profil avec des citations textuelles exactes.
+              L'évaluation d'adéquation analyse minutieusement les exigences réelles et la viabilité
+              du poste, puis les confronte avec vos compétences et réalisations exactes.
             </p>
             <button
               onClick={handleTriggerEvaluation}
@@ -486,12 +490,43 @@ export default function OfferDetailPage() {
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-semibold shadow-lg hover:shadow-blue-500/25 transition-all text-sm"
             >
               <FiRefreshCw className={`w-4 h-4 ${evaluating ? "animate-spin" : ""}`} />
-              {evaluating ? "Analyse Two-Pass en cours..." : "Lancer l'évaluation complète"}
+              {evaluating ? "Analyse d'adéquation en cours..." : "Lancer l'évaluation complète"}
             </button>
           </div>
         )}
 
-        {/* CONTENU ONGLET 1: MATCHING EXIGENCES (BLOC B) */}
+        {/* CONTENU ONGLET 1: ANNONCE DU POSTE */}
+        {activeTab === "job" && (
+          <div className="bg-blue-night-lighter rounded-xl p-6 border border-gray-700/60 shadow-md mb-6">
+            <h3 className="text-base font-bold text-white mb-4">
+              Description du Poste
+            </h3>
+
+            {offer.competences_cles && offer.competences_cles.length > 0 && (
+              <div className="mb-6">
+                <span className="text-xs text-gray-400 uppercase font-semibold block mb-2">
+                  Compétences identifiées :
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {offer.competences_cles.map((comp, i) => (
+                    <span
+                      key={i}
+                      className="px-2.5 py-1 rounded bg-gray-800 text-gray-200 text-xs font-medium border border-gray-700"
+                    >
+                      {comp}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="prose prose-invert max-w-none text-sm text-gray-300 leading-relaxed whitespace-pre-line">
+              {offer.description || "Aucune description détaillée disponible."}
+            </div>
+          </div>
+        )}
+
+        {/* CONTENU ONGLET 2: ADÉQUATION EXIGENCES */}
         {evaluation && activeTab === "matching" && (
           <div className="space-y-6">
                 {/* Synthèse du matching */}
@@ -620,15 +655,15 @@ export default function OfferDetailPage() {
               </div>
             )}
 
-            {/* CONTENU ONGLET 2: STRATÉGIE & INTÉGRITÉ (BLOCS A & G) */}
+            {/* CONTENU ONGLET 3: STRATÉGIE & INTÉGRITÉ */}
             {evaluation && activeTab === "analysis" && (
               <div className="space-y-6">
-                {/* Bloc A: Archétype & Résumé exécutif */}
+                {/* Archétype & Résumé exécutif */}
                 <div className="bg-blue-night-lighter rounded-xl p-6 border border-gray-700/60 shadow-md">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-base font-bold text-white flex items-center gap-2">
                       <FiBriefcase className="text-blue-400" />
-                      Archétype Métier & Vision (Bloc A)
+                      Archétype Métier & Vision
                     </h3>
                     <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
                       {evaluation.bloc_a.archetype}
@@ -703,11 +738,11 @@ export default function OfferDetailPage() {
                     )}
                 </div>
 
-                {/* Bloc G: Viabilité & Détection Ghost Job / Scam */}
+                {/* Viabilité & Détection Ghost Job / Scam */}
                 <div className="bg-blue-night-lighter rounded-xl p-6 border border-gray-700/60 shadow-md">
                   <h3 className="text-base font-bold text-white flex items-center gap-2 mb-4">
                     <FiShield className="text-emerald-400" />
-                    Viabilité de l'Offre & Signaux d'Intégrité (Bloc G)
+                    Viabilité de l'Offre & Signaux d'Intégrité
                   </h3>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -762,38 +797,7 @@ export default function OfferDetailPage() {
               </div>
             )}
 
-            {/* CONTENU ONGLET 3: ANNONCE DU POSTE */}
-            {activeTab === "job" && (
-              <div className="bg-blue-night-lighter rounded-xl p-6 border border-gray-700/60 shadow-md">
-                <h3 className="text-base font-bold text-white mb-4">
-                  Description du Poste
-                </h3>
-
-                {offer.competences_cles && offer.competences_cles.length > 0 && (
-                  <div className="mb-6">
-                    <span className="text-xs text-gray-400 uppercase font-semibold block mb-2">
-                      Compétences identifiées :
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      {offer.competences_cles.map((comp, i) => (
-                        <span
-                          key={i}
-                          className="px-2.5 py-1 rounded bg-gray-800 text-gray-200 text-xs font-medium border border-gray-700"
-                        >
-                          {comp}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="prose prose-invert max-w-none text-sm text-gray-300 leading-relaxed whitespace-pre-line">
-                  {offer.description || "Aucune description détaillée disponible."}
-                </div>
-              </div>
-            )}
-
-            {/* CONTENU ONGLET 4: PRÉPARATION D'ENTRETIEN (PHASE 6) */}
+            {/* CONTENU ONGLET 4: PRÉPARATION D'ENTRETIEN */}
             {activeTab === "interview" && (
               <InterviewPrepTab
                 offerId={offerId}

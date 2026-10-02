@@ -444,6 +444,7 @@ export const authApi = {
     email: string;
     password: string;
     full_name?: string;
+    invitation_code?: string;
   }) => {
     return fetchApi<User>("/auth/register", "POST", userData, { noAuth: true });
   },
@@ -765,7 +766,6 @@ export const coverLetterApi = {
 };
 
 // API Tailored Resumes (CV Adaptés)
-export const resumeApi = {
 const pdfQuery = ({ template, accent, withPhoto }: PdfOptions): string => {
   const params = new URLSearchParams();
   if (template) params.append("template", template);
@@ -775,6 +775,7 @@ const pdfQuery = ({ template, accent, withPhoto }: PdfOptions): string => {
   return query ? `?${query}` : "";
 };
 
+export const resumeApi = {
   getAll: async (): Promise<TailoredResume[]> => {
     return fetchApi<TailoredResume[]>("/resumes", "GET");
   },

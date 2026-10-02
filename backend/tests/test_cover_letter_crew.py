@@ -479,3 +479,84 @@ async def test_acompletion_retry_gives_up_and_skips_non_transient(monkeypatch):
     with pytest.raises(ValueError):
         await cover_letter_crew._acompletion_retry(model="gemini/gemini-3.8-flash")
     assert calls["n"] == 1
+
+
+@pytest.mark.parametrize("raw, expected", [
+    ("eliel Katche", "Eliel Katche"),
+    ("jean de la fontaine", "Jean de la Fontaine"),
+    ("marie-claire dupont", "Marie-Claire Dupont"),
+    ("Anne McDonald", "Anne McDonald"),
+    ("", ""),
+])
+def test_format_person_name_capitalizes_lowercase_parts(raw, expected):
+    assert cover_letter_crew._format_person_name(raw) == expected
+
+
+@pytest.mark.asyncio
+async def test_pipeline_passes_job_title_and_capitalized_name_to_writer():
+    mock_analyst = {"missions": [], "selected_experiences": [], "stacks": [], "companies": [], "projects": []}
+
+    with patch("cover_letter_crew._call_analyst", return_value=mock_analyst) as analyst, \
+         patch("cover_letter_crew._call_writer", return_value="Lettre") as writer, \
+         patch("cover_letter_crew._call_critic", return_value={"verdict": "pass", "flaws": []}), \
+         patch("cover_letter_crew._get_cached_or_research_company", return_value=""), \
+         patch("cover_letter_crew.evaluate_letter_guards") as guards, \
+         patch("cover_letter_crew.validate_cross_provider"):
+        guards.return_value.is_blocking = False
+        guards.return_value.model_dump.return_value = {}
+
+        await run_letter_pipeline_async(
+            offer_description="Offre",
+            candidate_profile={},
+            company_name="Acme",
+            candidate_name="eliel Katche",
+            job_title="Ingénieur Data & IA",
+        )
+
+    assert analyst.call_args[0][2] == "Eliel Katche"
+    assert writer.call_args[0][0]["job_title"] == "Ingénieur Data & IA"
+
+
+@pytest.mark.asyncio
+async def test_writer_prompt_includes_job_title_and_offer_terms():
+    mock_choice = MagicMock()
+    mock_choice.message.content = "Lettre générée"
+    mock_resp = MagicMock(choices=[mock_choice], usage=None)
+
+    with patch("cover_letter_crew.acompletion", return_value=mock_resp) as mock_comp, \
+         patch("cover_letter_crew.get_letter_llm") as mock_llm:
+        mock_llm.return_value.model = "openai/gpt-5.6-terra"
+        mock_llm.return_value.api_key = "fake_key"
+
+        await cover_letter_crew._call_writer(
+            analyst_json={
+                "job_title": "Ingénieur Data & IA",
+                "offer_terms": ["LIMS", "historian"],
+                "missions": [],
+                "selected_experiences": [],
+                "stacks": [],
+                "projects": [],
+            },
+            company_name="Acme",
+        )
+
+    sent_prompt = mock_comp.call_args[1]["messages"][0]["content"]
+    assert "Intitulé du poste visé : Ingénieur Data & IA" in sent_prompt
+    assert "LIMS, historian" in sent_prompt
+
+
+@pytest.mark.asyncio
+async def test_company_researcher_discards_truncated_summary():
+    mock_choice = MagicMock()
+    mock_choice.message.content = "Spécialisée dans la chimie verte, Acme produit sept"
+    mock_choice.finish_reason = "length"
+    mock_resp = MagicMock(choices=[mock_choice], usage=None)
+
+    with patch("cover_letter_crew.acompletion", return_value=mock_resp), \
+         patch("cover_letter_crew.get_letter_llm") as mock_llm:
+        mock_llm.return_value.model = "gemini/gemini-3.8-flash"
+        mock_llm.return_value.api_key = "fake_key"
+
+        context = await cover_letter_crew._call_company_researcher("Acme", ["extrait"])
+
+    assert context == ""

@@ -470,6 +470,21 @@ def normalize_offer_fields(offer: Dict[str, Any]) -> Dict[str, Any]:
 
     cleaned = dict(offer)
 
+    # 0. Extraction préventive du type de contrat depuis le poste si absent
+    current_contract = cleaned.get("type_contrat")
+    if not current_contract or current_contract == "Non spécifié":
+        raw_poste = str(cleaned.get("poste") or "")
+        if re.search(r"\b(stage|stagiaire|internship|intern)\b", raw_poste, flags=re.IGNORECASE):
+            cleaned["type_contrat"] = "Stage"
+        elif re.search(r"\b(alternance|alternant|alternante|apprentissage|apprenti|apprentie)\b", raw_poste, flags=re.IGNORECASE):
+            cleaned["type_contrat"] = "Alternance"
+        elif re.search(r"\b(freelance|ind[ée]pendant|prestation)\b", raw_poste, flags=re.IGNORECASE):
+            cleaned["type_contrat"] = "Freelance"
+        elif re.search(r"\b(cdi)\b", raw_poste, flags=re.IGNORECASE):
+            cleaned["type_contrat"] = "CDI"
+        elif re.search(r"\b(cdd)\b", raw_poste, flags=re.IGNORECASE):
+            cleaned["type_contrat"] = "CDD"
+
     # 1. Intitulé de poste
     if "poste" in cleaned and cleaned["poste"]:
         cleaned["poste"] = clean_job_title_syntax(cleaned["poste"])

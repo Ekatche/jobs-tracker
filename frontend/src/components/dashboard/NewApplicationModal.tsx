@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { FiX, FiPlus, FiCalendar, FiCheck } from "react-icons/fi";
+import { FiX, FiPlus, FiCalendar, FiCheck, FiFileText } from "react-icons/fi";
 import { applicationApi } from "@/lib/api";
 import { format } from "date-fns";
 
@@ -191,10 +192,23 @@ export default function NewApplicationModal({
         <div className="px-6 py-4">
           {/* Message de pré-remplissage */}
           {prefilledData && (
-            <div className="bg-blue-900/40 border border-blue-600 text-blue-200 p-3 rounded-md mb-4 flex items-center">
-              <FiCheck className="mr-2" />
-              Informations pré-remplies depuis l'offre. Vérifiez et modifiez si
-              nécessaire.
+            <div className="bg-blue-900/40 border border-blue-600/70 text-blue-200 p-3 rounded-lg mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center text-sm">
+                <FiCheck className="mr-2 text-emerald-400 shrink-0" />
+                <span>Informations pré-remplies depuis l'offre.</span>
+              </div>
+              {prefilledData.offer_id && (
+                <Link
+                  href={`/resumes?generate_offer_id=${prefilledData.offer_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-all shadow-sm shadow-indigo-500/30 shrink-0"
+                  title="Générer un CV adapté sur-mesure pour cette offre (ouvre un nouvel onglet)"
+                >
+                  <FiFileText className="w-3.5 h-3.5" />
+                  <span>CV Adapté</span>
+                </Link>
+              )}
             </div>
           )}
 

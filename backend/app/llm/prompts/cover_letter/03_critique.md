@@ -44,6 +44,9 @@ Recherche notamment :
 * accumulation de formulations destinées à convaincre ;
 * phrases qui expliquent explicitement pourquoi une expérience correspond au poste au lieu de le montrer par le récit (« cette expérience correspond à... », « cela répond directement à... », « c'est précisément ce que vous recherchez... ») ;
 * transitions trop mécaniques ;
+* antithèses symétriques répétées (« plutôt que de... », « sans séparer X de Y », « non pas X mais Y ») ;
+* conditionnel répété (« je voudrais », « j'aimerais ») pour ce que le candidat fera dans le poste, qui le fait paraître hésitant ;
+* outils ou logiciels désignés par une catégorie générique (« outils commerciaux », « logiciels de gestion ») ;
 * phrases pouvant être copiées dans presque n'importe quelle candidature.
 
 Ne considère pas comme un défaut le simple fait que la lettre soit professionnelle.
@@ -67,6 +70,7 @@ Ne demande pas au texte de mentionner toutes les expériences ou toutes les tech
 Le premier paragraphe doit être court, à la première personne et factuel : ce que le candidat fait, un point concret qui rejoint le poste, et pourquoi ce poste l'intéresse.
 
 Signale-le si :
+* il ne dit pas le métier du candidat : « Je travaille sur... » sans métier ne présente personne ;
 * il contient une phrase générale sans « je » : maxime, vérité universelle, constat sur le secteur ;
 * il sonne solennel ou récité lu à voix haute ;
 * il emploie « conviction », « enjeu », « au cœur de », « exige avant tout », « véritable », « crucial », « passionné » ou « défi » ;

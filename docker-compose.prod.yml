@@ -1,38 +1,46 @@
 services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: jobtracker-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app-network
+
   backend:
     container_name: jobtracker-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-    ports:
-      - "127.0.0.1:8000:8000"
-    volumes:
-      - ./backend:/app
-      - /app/.venv
-
-
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+    restart: unless-stopped
     environment:
-      - TEST_ENV=docker
-      # conftest.py charge un .env introuvable depuis le conteneur
-      # (/app/tests/../../../.env = /.env) : les variables de test doivent
-      # venir de l'environnement, sinon DATABASE_NAME_TEST vaut None et
-      # pymongo lève "name must be an instance of str, not NoneType".
-      - MONGO_TEST_USER=${MONGO_TEST_USER}
-      - MONGO_TEST_PASSWORD=${MONGO_TEST_PASSWORD}
-      - MONGO_TEST_HOST=mongo_test
-      - DATABASE_NAME_TEST=${DATABASE_NAME_TEST}
+      - ENVIRONMENT=production
       - MONGO_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/${DATABASE_NAME}?authSource=admin
       - DATABASE_NAME=${DATABASE_NAME}
       - MONGO_USER=${MONGO_USER}
       - MONGO_PASSWORD=${MONGO_PASSWORD}
       - MONGO_HOST=mongodb
       - SECRET_KEY=${SECRET_KEY}
-      - ALGORITHM=${ALGORITHM}
-      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - ALGORITHM=${ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      - INVITATION_CODE=${INVITATION_CODE:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - TAVILY_API_KEY=${TAVILY_API_KEY}
       - FRANCE_TRAVAIL_CLIENT_ID=${FRANCE_TRAVAIL_CLIENT_ID:-}
@@ -43,8 +51,6 @@ services:
       - EVALUATION_MODEL=${EVALUATION_MODEL:-gemini/gemini-3.8-flash}
       - EVALUATION_FALLBACK_MODEL=${EVALUATION_FALLBACK_MODEL:-gemini/gemini-3.8-flash}
       - CV_TAILOR_MODEL=${CV_TAILOR_MODEL:-gemini/gemini-3.8-flash}
-      # Défauts recopiés du code : une variable transmise vide remplacerait
-      # le défaut de os.getenv par "".
       - LETTER_MODEL_ANALYST=${LETTER_MODEL_ANALYST:-gemini/gemini-3.8-flash}
       - LETTER_MODEL_WRITER=${LETTER_MODEL_WRITER:-openai/gpt-5.6-terra}
       - LETTER_MODEL_CRITIC=${LETTER_MODEL_CRITIC:-gemini/gemini-3.8-flash}
@@ -52,27 +58,24 @@ services:
       - INTERVIEW_PREP_MODEL=${INTERVIEW_PREP_MODEL:-${EVALUATION_MODEL:-gemini/gemini-3.8-flash}}
       - ROLE_SUGGESTION_MODEL=${ROLE_SUGGESTION_MODEL:-openai/gpt-4o-mini}
       - PATH=/app/.venv/bin:$PATH
-
       - UV_CACHE_DIR=/app/.cache/uv
       - UV_LINK_MODE=copy
     depends_on:
       mongodb:
         condition: service_healthy
-    restart: unless-stopped
     networks:
       - app-network
 
   mongodb:
     image: mongo:latest
-    ports:
-      - "127.0.0.1:27019:27017"
+    container_name: jobtracker-mongodb
+    restart: unless-stopped
     volumes:
       - mongodb_data:/data/db
     environment:
       - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
       - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
       - MONGO_INITDB_DATABASE=${DATABASE_NAME}
-    restart: unless-stopped
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 5s
@@ -82,59 +85,21 @@ services:
     networks:
       - app-network
 
-  mongo-express:
-    image: mongo-express:latest
-    ports:
-      - "127.0.0.1:8081:8081"
-    environment:
-      - ME_CONFIG_MONGODB_SERVER=mongodb
-      - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGO_USER}
-      - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGO_PASSWORD}
-      - ME_CONFIG_MONGODB_PORT=27017
-      - ME_CONFIG_MONGODB_AUTH_DATABASE=admin
-      - ME_CONFIG_BASICAUTH_USERNAME=${MONGO_EXPRESS_USER}
-      - ME_CONFIG_BASICAUTH_PASSWORD=${MONGO_EXPRESS_PASSWORD}
-    depends_on:
-      - mongodb
-    restart: unless-stopped
-    networks:
-      - app-network
-
   frontend:
     container_name: jobtracker-frontend
-    image: job-tracker-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    command: ["npm", "run", "dev"]
-    ports:
-      - "127.0.0.1:3875:3875"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+    command: ["npm", "run", "start"]
+    restart: unless-stopped
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://${DOMAIN:-localhost}}
       - INTERNAL_API_URL=http://backend:8000
       - HOSTNAME=0.0.0.0
       - PORT=3875
-      - WATCHPACK_POLLING=true
     depends_on:
       - backend
-    restart: unless-stopped
-    networks:
-      - app-network
-  
-  mongo_test:
-    image: mongo:latest
-    ports:
-      - "127.0.0.1:27018:27017"
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_TEST_USER}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_TEST_PASSWORD}
-      - MONGO_INITDB_DATABASE=${DATABASE_NAME_TEST}
-    volumes:
-      - mongodb_test_data:/data/db
     networks:
       - app-network
 
@@ -143,41 +108,34 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.airflow
-    ports:
-      - "127.0.0.1:8080:8080"
-    depends_on:
-      mongodb:
-        condition: service_healthy
+    restart: unless-stopped
     volumes:
       - ./backend:/app
       - ./airflow/dags:/opt/airflow/dags
       - airflow_data:/opt/airflow
       - airflow_logs:/opt/airflow/logs
       - /app/.venv
-
     environment:
       - TZ=Europe/Paris
-      # Configuration Airflow
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW_HOME=/opt/airflow
-      - AIRFLOW__CORE__TASK_HEARTBEAT_TIMEOUT=900  # 15 minutes au lieu de 5
+      - AIRFLOW__CORE__TASK_HEARTBEAT_TIMEOUT=900
       - AIRFLOW__CORE__DAG_FILE_PROCESSOR_TIMEOUT=900
-      - AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL=300  # 5 minutes au lieu de 30s
-      - AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL=60  #
-      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_SECRET_KEY:-change_me}
+      - AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL=300
+      - AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL=60
+      - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_SECRET_KEY:-change_me_super_secret_key}
       - AIRFLOW__CORE__PARALLELISM=2
       - AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG=1
       - AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG=1
       - AIRFLOW__WEBSERVER__WORKERS=1
       - AIRFLOW__WEBSERVER__WORKER_TIMEOUT=300
-      # Variables métier
       - MONGO_USER=${MONGO_USER}
       - MONGO_PASSWORD=${MONGO_PASSWORD}
       - MONGO_HOST=mongodb
       - DATABASE_NAME=${DATABASE_NAME}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
       - TAVILY_API_KEY=${TAVILY_API_KEY}
       - FRANCE_TRAVAIL_CLIENT_ID=${FRANCE_TRAVAIL_CLIENT_ID:-}
       - FRANCE_TRAVAIL_CLIENT_SECRET=${FRANCE_TRAVAIL_CLIENT_SECRET:-}
@@ -202,21 +160,19 @@ services:
       Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
       airflow standalone
       "
+    depends_on:
+      mongodb:
+        condition: service_healthy
     networks:
       - app-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/v2/monitor/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 120s
 
 volumes:
   mongodb_data:
   airflow_data:
   airflow_logs:
-  mongodb_test_data:
+  caddy_data:
+  caddy_config:
 
 networks:
   app-network:
+    driver: bridge

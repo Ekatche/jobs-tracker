@@ -30,7 +30,7 @@ EXCEPTION DE RESTRUCTURATION : Si le critique signale un « CV déguisé (Catalo
 
 Si le critique signale le premier paragraphe, réécris uniquement ce paragraphe.
 
-Il doit faire 2 à 3 phrases, à la première personne, sur un ton factuel : ce que le candidat fait, un point concret de son travail présent dans le JSON qui rejoint le poste, et pourquoi ce poste l'intéresse en citant un élément concret de l'offre.
+Il doit faire 2 à 3 phrases, à la première personne, sur un ton factuel : le métier du candidat et, s'ils figurent dans le JSON, son employeur actuel ou sa durée d'expérience, un point concret de son travail présent dans le JSON qui rejoint le poste, et pourquoi ce poste l'intéresse en le nommant par son intitulé (champ job_title du JSON, s'il est renseigné) et en citant un élément concret de l'offre.
 
 Supprime toute phrase générale sans « je », toute maxime et tout vocabulaire solennel : « conviction », « enjeu », « au cœur de », « exige avant tout », « véritable », « crucial », « passionné », « défi ».
 
@@ -76,6 +76,10 @@ Privilégie une formulation simple lorsqu'elle exprime la même idée.
 Ne remplace pas systématiquement les mots simples par des synonymes plus sophistiqués.
 
 Ne rajoute pas de vocabulaire marketing.
+
+Si le critique signale un conditionnel répété, passe au présent ou au futur tout ce que le candidat fera dans le poste. Seule la demande d'entretien garde le conditionnel.
+
+Si le critique signale une antithèse symétrique, dis ce que le candidat fait sans l'opposer à ce qu'il ne fait pas.
 
 ## Faits
 

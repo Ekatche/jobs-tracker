@@ -99,3 +99,13 @@ backend/scripts/data/
 # Added by code-review-graph
 .code-review-graph/
 .token-savior-cache.json
+
+# Configuration MCP locale (chemins absolus de la machine)
+.mcp.json
+
+# Dumps et artefacts d'évaluation de tests (contiennent des extraits de profils/offres)
+docs/micro/**/*.json
+docs/micro/*.json
+
+# Sessions de brainstorming superpowers (maquettes, jeton et PID du serveur local)
+.superpowers/

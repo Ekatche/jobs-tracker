@@ -92,9 +92,11 @@ async def create_user(user: UserCreate = Body(...), db=Depends(get_database)):
 async def get_users(
     db=Depends(get_database), current_user: UserModel = Depends(get_current_user)
 ):
-    users = await db["users"].find().to_list(length=100)
-    serialized_users = [serialize_mongodb_doc(user) for user in users]
-    return serialized_users
+    # Sécurité anti-énumération : un utilisateur authentifié ne voit que son propre profil
+    user = await db["users"].find_one({"_id": ObjectId(current_user.id)})
+    if not user:
+        return []
+    return [serialize_mongodb_doc(user)]
 
 
 @user_router.get("/{user_id}", response_model=UserResponse)
@@ -104,7 +106,10 @@ async def get_user(
     current_user: UserModel = Depends(get_current_user),
 ):
     if str(current_user.id) != user_id:
-        pass
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès interdit aux informations d'un autre utilisateur",
+        )
 
     user = await db["users"].find_one({"_id": ObjectId(user_id)})
     if not user:
@@ -121,7 +126,10 @@ async def update_user(
     current_user: UserModel = Depends(get_current_user),
 ):
     if str(current_user.id) != user_id:
-        pass
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Modification interdite pour un autre utilisateur",
+        )
 
     update_data = {k: v for k, v in user_data.items() if v is not None}
 
@@ -151,7 +159,10 @@ async def delete_user(
     current_user: UserModel = Depends(get_current_user),
 ):
     if str(current_user.id) != user_id:
-        pass
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Suppression interdite pour un autre utilisateur",
+        )
 
     result = await db["users"].delete_one({"_id": ObjectId(user_id)})
 

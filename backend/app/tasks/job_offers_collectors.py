@@ -693,7 +693,12 @@ async def build_search_queries() -> list[str]:
     """
     try:
         db = await get_database()
-        cursor = db["candidate_profile"].find({})
+        cursor = db["candidate_profile"].find({
+            "$or": [
+                {"preferences.search_active": True},
+                {"preferences.search_active": {"$exists": False}},
+            ]
+        })
         profiles = await cursor.to_list(length=100)
 
         from app.services.role_normalizer import normalize_role
@@ -703,6 +708,8 @@ async def build_search_queries() -> list[str]:
 
         for profile in profiles:
             prefs = profile.get("preferences") or {}
+            if prefs.get("search_active") is False:
+                continue
             raw_target_roles = [
                 r.strip() for r in (prefs.get("target_roles") or []) if isinstance(r, str) and r.strip()
             ]

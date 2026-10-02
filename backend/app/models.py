@@ -80,6 +80,7 @@ class UserCreate(BaseModel):
     email: str
     password: str
     full_name: Optional[str] = None
+    invitation_code: Optional[str] = None
 
     model_config = {
         "json_schema_extra": {
@@ -88,6 +89,7 @@ class UserCreate(BaseModel):
                 "email": "john.doe@example.com",
                 "password": "strongpassword",
                 "full_name": "John Doe",
+                "invitation_code": "secret-invite-token",
             }
         }
     }
@@ -577,6 +579,7 @@ class CandidatePreferences(BaseModel):
     work_authorization: Optional[str] = None
     excluded_keywords: List[str] = Field(default_factory=list)
     preferred_industries: List[str] = Field(default_factory=list)
+    search_active: bool = True
 
     @model_validator(mode="after")
     def sync_seniority(self) -> "CandidatePreferences":

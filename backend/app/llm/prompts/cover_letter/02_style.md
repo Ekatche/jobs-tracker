@@ -1,5 +1,7 @@
 Tu rédiges une lettre de motivation pour {candidate_name}, {candidate_headline}, qui postule chez {company_name}.
 
+Intitulé du poste visé : {job_title}
+
 L'objectif n'est pas d'écrire une lettre parfaite ou particulièrement élégante. L'objectif est d'écrire une lettre crédible, naturelle et personnelle, qui pourrait réellement avoir été rédigée par le candidat après avoir étudié l'offre.
 
 ## Ton général
@@ -45,6 +47,8 @@ Utilise principalement la voix active avec des verbes d'action variés et préci
 
 Évite les formulations passives lorsque la formulation active est naturelle.
 
+Le conditionnel « je voudrais », « j'aimerais », « je souhaiterais » est réservé à la demande d'entretien. Pour ce que le candidat fera dans le poste, écris au présent ou au futur : « Je commencerai par... », « Je pourrai... ». Répété, le conditionnel donne l'image d'un candidat qui hésite.
+
 N'enchaîne pas systématiquement des phrases construites de la même manière. Alterne les longueurs de phrases et les constructions syntaxiques.
 
 Certaines phrases peuvent être courtes. D'autres peuvent développer une idée en deux propositions. Le texte doit avoir un rythme naturel.
@@ -61,6 +65,12 @@ Une technologie ne doit apparaître que si elle sert à expliquer une réalisati
 
 Évite les longues listes de technologies.
 
+## Vocabulaire du métier
+
+Termes employés par l'offre : {offer_terms}
+
+Lorsqu'un de ces termes sert le propos, reprends-le tel quel plutôt que de le paraphraser. Un recruteur reconnaît son propre vocabulaire, et une paraphrase approximative trahit une connaissance superficielle du métier.
+
 {company_context_block}
 
 ## Premier paragraphe
@@ -68,9 +78,9 @@ Une technologie ne doit apparaître que si elle sert à expliquer une réalisati
 Le premier paragraphe est court : 2 à 3 phrases, à la première personne, sur un ton factuel. Il doit ressembler à ce que le candidat dirait en se présentant au début d'un entretien, pas à une introduction de discours.
 
 Il dit simplement :
-* ce que le candidat fait aujourd'hui ou a fait récemment, avec un élément concret ;
+* qui est le candidat : son métier, et son employeur actuel ou sa durée d'expérience lorsqu'ils figurent dans les faits. « Je travaille sur... » sans métier ne présente personne ;
 * un point précis de ce travail qui rejoint le poste ;
-* pourquoi ce poste l'intéresse, en une phrase qui cite un élément concret de l'offre ou du contexte entreprise fourni.
+* pourquoi ce poste l'intéresse, en une phrase qui nomme le poste par son intitulé s'il est fourni et cite un élément concret de l'offre ou du contexte entreprise fourni.
 
 Ce lien doit être précis. Si la phrase de motivation reste vraie en remplaçant le nom de l'entreprise par celui d'un concurrent, elle ne dit rien et doit être réécrite.
 
@@ -83,7 +93,7 @@ Interdit dans le premier paragraphe :
 Test avant de rendre la lettre : lue à voix haute, chaque phrase du premier paragraphe doit sonner naturelle, pas récitée. Sinon, réécris-la plus simplement.
 
 Exemple de registre attendu, à ne pas recopier :
-« Je travaille depuis trois ans sur des pipelines de données en production, surtout sur la partie ingestion. C'est ce qui m'a fait regarder votre offre de près : vous reprenez la chaîne de collecte de vos capteurs et c'est exactement le type de chantier sur lequel j'aime travailler. »
+« Data engineer chez Initech depuis trois ans, je m'occupe surtout de l'ingestion des données en production. C'est ce qui m'a fait regarder de près votre offre de data engineer : vous reprenez la chaîne de collecte de vos capteurs et c'est exactement le type de chantier sur lequel j'aime travailler. »
 
 ## Structure narrative
 
@@ -114,7 +124,7 @@ Ne commence aucun paragraphe par le nom d'un employeur ni par une formule d'ouve
 
 L'ordre des paragraphes suit la logique de l'argument (Présentation sobre et raison de la candidature -> Ce qui attire dans le poste et la structure -> Une ou deux preuves tirées du parcours -> Ce que le candidat veut faire dans le poste), jamais la chronologie du parcours.
 
-Trois outils, logiciels ou technologies nommés au maximum dans toute la lettre.
+Trois outils, logiciels ou technologies nommés au maximum dans toute la lettre. Lorsqu'un outil figure dans les faits, nomme-le plutôt que sa catégorie : « Salesforce » plutôt que « un outil commercial ». Une catégorie générique rend l'expérience invérifiable.
 
 ### Exemple contrastif (Ce qu'il faut faire vs ne pas faire)
 
@@ -133,7 +143,7 @@ Lorsqu'une expérience est mentionnée, explique ce que le candidat a réellemen
 
 Privilégie les réalisations concrètes aux déclarations de compétence.
 
-Ne transforme pas systématiquement chaque réalisation en résultat chiffré. Utilise un chiffre uniquement lorsqu'il figure dans les faits fournis et lorsqu'il apporte réellement quelque chose à la compréhension de la réalisation.
+Lorsque les faits fournis contiennent un chiffre lié à une expérience racontée (volume, durée, nombre d'utilisateurs, gain), cite-le : un chiffre rend le récit vérifiable, là où une affirmation seule ne l'est pas. Un ou deux chiffres suffisent dans toute la lettre.
 
 Ne fabrique aucun chiffre, volume, gain, pourcentage, délai ou résultat.
 
@@ -170,6 +180,8 @@ Ne force toutefois pas une transition lorsqu'elle n'apporte rien. Un changement 
 « Grâce à X, j'ai pu Y, ce qui m'a permis de Z. »
 
 N'utilise pas plusieurs fois la même construction syntaxique dans des paragraphes successifs.
+
+Évite les antithèses symétriques, qui sonnent écrites par une machine : « plutôt que de... », « plutôt qu'à... », « sans séparer X de Y », « non pas X mais Y ». Une seule au plus dans toute la lettre. Dis ce que le candidat fait, sans l'opposer à ce qu'il ne fait pas.
 
 ## Principe de subtilité
 
@@ -239,7 +251,7 @@ Entre {min_words} et {max_words} mots.
 
 Le dernier paragraphe est court : 2 à 3 phrases.
 
-* Une phrase dit concrètement ce que le candidat apporterait au poste, en s'appuyant sur ce qui précède. Elle ne résume pas toutes ses compétences et ne pourrait pas figurer dans une autre lettre.
+* Une phrase dit concrètement ce que le candidat apportera au poste, au présent ou au futur, en s'appuyant sur ce qui précède. Elle ne résume pas toutes ses compétences et ne pourrait pas figurer dans une autre lettre.
 * La dernière phrase demande un entretien, simplement et directement.
 
 Formulations neutres en genre uniquement : aucun adjectif ni participe accordé au candidat (« ravi », « heureux », « convaincu », « motivé », « disponible »). Par exemple : « J'aimerais vous en parler lors d'un entretien. »

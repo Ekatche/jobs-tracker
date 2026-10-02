@@ -165,6 +165,7 @@ async def _generate_cover_letter_bg(application_id: ObjectId, user_id: ObjectId,
             profile_doc,
             app_doc.get("company", "l'entreprise"),
             full_name,
+            job_title=app_doc.get("position") or "",
         )
         version_entry = {
             "body": pipeline_res["body"],

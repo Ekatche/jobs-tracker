@@ -31,8 +31,10 @@ import {
   FiLayers,
   FiCheckCircle,
   FiTarget,
+  FiFileText,
 } from "react-icons/fi";
 import { PrefilledData } from "@/components/dashboard/NewApplicationModal";
+import { getContractBadgeStyles } from "@/lib/contractBadge";
 
 function cleanDescriptionPreview(text: string | undefined): string {
   if (!text || text === "Non spécifié") return "";
@@ -108,6 +110,7 @@ export default function OffersPage() {
   const [minScoreFilter, setMinScoreFilter] = useState<number | undefined>(undefined);
   const [profileRoles, setProfileRoles] = useState<string[]>([]);
   const [profileLocations, setProfileLocations] = useState<string[]>([]);
+  const [profileContracts, setProfileContracts] = useState<string[]>([]);
   const [profileEmpty, setProfileEmpty] = useState(false);
 
   // Pagination
@@ -129,7 +132,15 @@ export default function OffersPage() {
     if (searchTerm) f.keywords = searchTerm;
     if (locationFilter) f.location = locationFilter;
     if (companyFilter) f.company = companyFilter;
-    if (contractTypeFilter) f.contract_type = contractTypeFilter;
+    if (contractTypeFilter) {
+      if (contractTypeFilter === "profile_targeted" && profileContracts.length > 0) {
+        // Nettoyer les types de contrats du profil pour construire la regex (ex: "CDI|CDD|Freelance")
+        const simplified = profileContracts.map((c) => c.split("/")[0].trim());
+        f.contract_type = simplified.join("|");
+      } else {
+        f.contract_type = contractTypeFilter;
+      }
+    }
     if (workModeFilter) f.work_mode = workModeFilter;
     if (daysRecentFilter !== undefined) f.days_recent = daysRecentFilter;
     if (onlySaved) f.only_saved = true;
@@ -141,6 +152,7 @@ export default function OffersPage() {
     locationFilter,
     companyFilter,
     contractTypeFilter,
+    profileContracts,
     workModeFilter,
     daysRecentFilter,
     onlySaved,
@@ -298,10 +310,17 @@ export default function OffersPage() {
       const targetRoles = prefs.target_roles || [];
       const allRoles = targetRoles.length > 0 ? targetRoles : suggested.roles || [];
       const locs = prefs.locations || [];
+      const contracts = prefs.contract_types || [];
 
       setProfileRoles(allRoles);
       setProfileLocations(locs);
-      setProfileEmpty(allRoles.length === 0 && locs.length === 0);
+      setProfileContracts(contracts);
+      setProfileEmpty(allRoles.length === 0 && locs.length === 0 && contracts.length === 0);
+
+      // Pré-positionner le filtre de contrat sur les préférences du profil
+      if (contracts.length > 0) {
+        setContractTypeFilter((prev) => (prev === "" ? "profile_targeted" : prev));
+      }
     } catch (err) {
       console.error("Erreur lors de la récupération des critères du profil:", err);
     }
@@ -490,11 +509,17 @@ export default function OffersPage() {
                 </span>
               ) : null}
 
-              {offer.type_contrat && offer.type_contrat !== "Non spécifié" && (
-                <span className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[11px] font-medium rounded-md border border-slate-700/60">
-                  {offer.type_contrat}
-                </span>
-              )}
+              {(() => {
+                const badge = getContractBadgeStyles(offer.type_contrat);
+                if (!badge) return null;
+                return (
+                  <span
+                    className={`px-2 py-0.5 text-[11px] rounded-md border shadow-sm ${badge.className}`}
+                  >
+                    {badge.label}
+                  </span>
+                );
+              })()}
 
               {offer.mode_travail && offer.mode_travail !== "Non spécifié" && (
                 <span className="px-2 py-0.5 bg-purple-500/10 text-purple-300 text-[11px] font-medium rounded-md border border-purple-500/20">
@@ -593,6 +618,15 @@ export default function OffersPage() {
             >
               <FiEye className="w-3.5 h-3.5 text-blue-400" />
               <span>Détails</span>
+            </Link>
+
+            <Link
+              href={`/resumes?generate_offer_id=${offer.id}`}
+              className="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border border-indigo-500/30 shadow-sm"
+              title="Générer un CV adapté sur-mesure pour cette offre"
+            >
+              <FiFileText className="w-3.5 h-3.5 text-indigo-400" />
+              <span>CV Adapté</span>
             </Link>
 
             {offer.url && (
@@ -1086,12 +1120,17 @@ export default function OffersPage() {
                       onChange={(e) => setContractTypeFilter(e.target.value)}
                       className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     >
-                      <option value="">Tous les contrats</option>
+                      {profileContracts.length > 0 && (
+                        <option value="profile_targeted">
+                          🎯 Mes contrats ciblés ({profileContracts.join(", ")})
+                        </option>
+                      )}
+                      <option value="">Tous les contrats (inclus Stages)</option>
                       <option value="CDI">CDI</option>
                       <option value="CDD">CDD</option>
                       <option value="Freelance">Freelance</option>
-                      <option value="Stage">Stage</option>
-                      <option value="Alternance">Alternance</option>
+                      <option value="Stage">🎓 Stage</option>
+                      <option value="Alternance">📚 Alternance</option>
                     </select>
                   </div>
 

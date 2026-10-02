@@ -276,7 +276,7 @@ export default function InterviewPrepTab({
           <div className="space-y-4">
             <div className="flex items-center justify-between bg-slate-900/40 p-3 rounded-xl border border-slate-800/80">
               <span className="text-xs text-slate-400">
-                Génération de 3 à 5 histoires structurées basées sur vos expériences déclarées et les exigences du Bloc B.
+                Génération de 3 à 5 histoires structurées basées sur vos expériences déclarées et les exigences clés du poste.
               </span>
               <button
                 type="button"

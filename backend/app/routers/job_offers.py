@@ -191,6 +191,34 @@ def _build_keywords_filter(keywords: str) -> dict:
     return {"$or": or_branches}
 
 
+def _build_contract_type_filter(contract_type: str) -> dict:
+    """Construit le filtre de contrat.
+
+    Pour les recherches de contrats standards (CDI, CDD, Freelance, profile_targeted) :
+    inclut le contrat recherché ET les offres à contrat 'Non spécifié' (ou absent),
+    tout en excluant les stages et alternances.
+    Pour une recherche ciblant explicitement 'Stage' ou 'Alternance' :
+    filtre uniquement sur ces contrats.
+    """
+    c_lower = contract_type.lower()
+    if ("stage" in c_lower or "alternance" in c_lower) and "cdi" not in c_lower and "cdd" not in c_lower:
+        return {"type_contrat": {"$regex": contract_type, "$options": "i"}}
+
+    return {
+        "$and": [
+            {
+                "$or": [
+                    {"type_contrat": {"$regex": contract_type, "$options": "i"}},
+                    {"type_contrat": "Non spécifié"},
+                    {"type_contrat": None},
+                    {"type_contrat": {"$exists": False}},
+                ]
+            },
+            {"type_contrat": {"$not": {"$regex": "stage|alternance", "$options": "i"}}},
+        ]
+    }
+
+
 def restrict_to_profile_offers(
     match_filter: dict,
     current_user: Optional[UserModel],
@@ -336,7 +364,9 @@ async def get_job_offers(
             match_filter["entreprise"] = {"$regex": company, "$options": "i"}
 
         if contract_type:
-            match_filter["type_contrat"] = {"$regex": contract_type, "$options": "i"}
+            cf = _build_contract_type_filter(contract_type)
+            match_filter["$and"] = match_filter.get("$and", [])
+            match_filter["$and"].append(cf)
 
         if work_mode:
             match_filter["mode_travail"] = {"$regex": work_mode, "$options": "i"}
@@ -869,7 +899,9 @@ async def get_job_offers_count(
             match_filter["entreprise"] = {"$regex": company, "$options": "i"}
 
         if contract_type:
-            match_filter["type_contrat"] = {"$regex": contract_type, "$options": "i"}
+            cf = _build_contract_type_filter(contract_type)
+            match_filter["$and"] = match_filter.get("$and", [])
+            match_filter["$and"].append(cf)
 
         if work_mode:
             match_filter["mode_travail"] = {"$regex": work_mode, "$options": "i"}

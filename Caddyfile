@@ -1,0 +1,31 @@
+# Caddyfile pour Job Tracker sur VPS Netcup
+# Gère automatiquement les certificats HTTPS Let's Encrypt et le reverse proxy hermétique.
+
+{$DOMAIN:localhost} {
+    # Headers de sécurité
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Compression moderne (Gzip + Zstandard)
+    encode gzip zstd
+
+    # Route /api/* vers backend:8000 en retirant automatiquement le préfixe /api
+    handle_path /api/* {
+        reverse_proxy backend:8000
+    }
+
+    # Routes d'API directes du Backend FastAPI
+    @api_routes path /auth/* /users/* /applications/* /tasks/* /job_offers/* /cover_letters/* /candidates/* /usage/* /resumes/* /interview-prep/* /uploads/* /docs* /openapi.json
+    handle @api_routes {
+        reverse_proxy backend:8000
+    }
+
+    # Toutes les autres requêtes vont au Frontend Next.js
+    handle {
+        reverse_proxy frontend:3875
+    }
+}

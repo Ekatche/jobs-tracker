@@ -11,6 +11,7 @@ def test_candidate_preferences_defaults():
     assert pref.currency == "EUR"
     assert pref.contract_types == []
     assert pref.excluded_keywords == []
+    assert pref.search_active is True
 
 
 def test_candidate_preferences_custom():
@@ -27,11 +28,13 @@ def test_candidate_preferences_custom():
         work_authorization="Citoyen UE",
         excluded_keywords=["PHP", "Stage"],
         preferred_industries=["IA", "Santé"],
+        search_active=False,
     )
     assert len(pref.target_roles) == 2
     assert pref.remote_policy == RemotePolicy.FULL_REMOTE
     assert pref.min_salary == 65000
     assert "PHP" in pref.excluded_keywords
+    assert pref.search_active is False
 
 
 def test_candidate_profile_with_preferences():

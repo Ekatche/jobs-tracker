@@ -177,7 +177,7 @@ export default function ApplicationDetails({
     try {
       const result = await applicationApi.evaluate(application._id);
       setEvaluation(result);
-      setScoreSuccessMessage("Scoring IA Two-Pass terminé avec succès !");
+      setScoreSuccessMessage("Évaluation d'adéquation IA terminée avec succès !");
 
       // If application didn't have an offer_id linked, link it now
       if (result.offer_id && !application.offer_id) {
@@ -331,13 +331,25 @@ export default function ApplicationDetails({
             )}
 
             {(application.offer_id || evaluation?.offer_id) && (
-              <Link
-                href={`/offers/${application.offer_id || evaluation?.offer_id}`}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 transition-colors font-medium"
-              >
-                <FiLink className="w-3.5 h-3.5" />
-                <span>Offre scrapée</span>
-              </Link>
+              <>
+                <Link
+                  href={`/offers/${application.offer_id || evaluation?.offer_id}`}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 transition-colors font-medium"
+                >
+                  <FiLink className="w-3.5 h-3.5" />
+                  <span>Offre scrapée</span>
+                </Link>
+                <Link
+                  href={`/resumes?generate_offer_id=${application.offer_id || evaluation?.offer_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium shadow-sm shadow-indigo-500/20"
+                  title="Générer un CV adapté sur-mesure pour cette offre (ouvre un nouvel onglet)"
+                >
+                  <FiFileText className="w-3.5 h-3.5" />
+                  <span>CV Adapté</span>
+                </Link>
+              </>
             )}
           </div>
         </div>
@@ -473,8 +485,8 @@ export default function ApplicationDetails({
               // UNSCORED VIEW
               <div className="flex flex-col items-start gap-3 py-1">
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Mesurez instantanément la pertinence de votre candidature grâce à l'analyse en profondeur
-                  Two-Pass (Blocs A, B et G) confrontant votre profil aux exigences réelles du poste.
+                  Mesurez instantanément la pertinence de votre candidature grâce à l'analyse d'adéquation
+                  confrontant minutieusement votre profil aux exigences réelles et à la viabilité du poste.
                 </p>
 
                 <button
@@ -484,7 +496,7 @@ export default function ApplicationDetails({
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <FiZap className={`w-4 h-4 ${isScoring ? "animate-spin" : ""}`} />
-                  <span>{isScoring ? "Analyse Two-Pass en cours (Gemini 3.7)..." : "✨ Lancer le scoring IA"}</span>
+                  <span>{isScoring ? "Analyse d'adéquation en cours..." : "✨ Lancer le scoring IA"}</span>
                 </button>
               </div>
             )}

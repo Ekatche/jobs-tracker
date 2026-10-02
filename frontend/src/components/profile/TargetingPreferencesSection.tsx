@@ -59,6 +59,7 @@ export default function TargetingPreferencesSection({
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [suggestedRoles, setSuggestedRoles] = useState<string[]>([]);
   const [newRoleInput, setNewRoleInput] = useState("");
+  const [searchActive, setSearchActive] = useState<boolean>(true);
 
   const [locations, setLocations] = useState<string[]>([]);
   const [newLocationInput, setNewLocationInput] = useState("");
@@ -99,6 +100,7 @@ export default function TargetingPreferencesSection({
     setNoticePeriod(pref.notice_period || "");
     setWorkAuthorization(pref.work_authorization || "");
     setExcludedKeywords(pref.excluded_keywords || []);
+    setSearchActive(pref.search_active ?? true);
   };
 
   useEffect(() => {
@@ -197,6 +199,7 @@ export default function TargetingPreferencesSection({
       notice_period: noticePeriod || undefined,
       work_authorization: workAuthorization || undefined,
       excluded_keywords: excludedKeywords,
+      search_active: searchActive,
     };
 
     try {
@@ -218,6 +221,35 @@ export default function TargetingPreferencesSection({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
+      {/* Veille automatique Toggle Card */}
+      <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className={`p-2.5 rounded-xl border ${searchActive ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+            <FiTarget className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-white">Veille automatique des offres</h3>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${searchActive ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}>
+                {searchActive ? 'Actif' : 'En pause'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1 max-w-xl">
+              Lorsque cette option est activée, vos rôles cibles et villes sont automatiquement inclus dans les collectes d&apos;offres d&apos;Airflow. Désactivez-la pour suspendre la recherche sans altérer votre profil.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setSearchActive(!searchActive)}
+          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${searchActive ? 'bg-blue-600' : 'bg-slate-700'}`}
+        >
+          <span
+            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${searchActive ? 'translate-x-5' : 'translate-x-0'}`}
+          />
+        </button>
+      </div>
+
       {/* Floating Toast Notification */}
       {saveSuccess && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 p-4 bg-emerald-950/90 border border-emerald-500/50 text-emerald-100 rounded-2xl shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-5 duration-300">

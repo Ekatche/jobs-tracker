@@ -200,3 +200,80 @@ def test_update_user(client):
     assert updated_user["full_name"] == "Updated Full Name"
     assert updated_user["email"] == "new.email@example.com"
     assert updated_user["username"] == "updateuser"
+
+
+def test_invitation_code_validation(client, monkeypatch):
+    """
+    Test de la validation du code d'invitation lors de l'inscription.
+    """
+    monkeypatch.setenv("INVITATION_CODE", "VIP-CIRCULAR-2026")
+
+    user_without_code = {
+        "username": "noinvite",
+        "email": "noinvite@example.com",
+        "password": "Password123!",
+        "full_name": "No Invite",
+    }
+    # Sans code -> 403
+    resp_no_code = client.post("auth/register", json=user_without_code)
+    assert resp_no_code.status_code == 403
+    assert "Code d'invitation invalide" in resp_no_code.json()["detail"]
+
+    # Avec code erroné -> 403
+    user_wrong_code = dict(user_without_code, invitation_code="WRONG-CODE")
+    resp_wrong = client.post("auth/register", json=user_wrong_code)
+    assert resp_wrong.status_code == 403
+
+    # Avec bon code -> 201
+    user_good_code = dict(user_without_code, invitation_code="VIP-CIRCULAR-2026")
+    resp_good = client.post("auth/register", json=user_good_code)
+    assert resp_good.status_code == 201
+
+
+def test_idor_protection_users(client, registered_user, auth_headers):
+    """
+    Test de protection contre les failles IDOR :
+    Un utilisateur ne peut ni consulter, ni modifier, ni supprimer le profil d'un autre.
+    """
+    # Création d'un second utilisateur cible
+    other_user_data = {
+        "username": "victimuser",
+        "email": "victim@example.com",
+        "password": "Password123!",
+        "full_name": "Victim User",
+    }
+    resp = client.post("auth/register", json=other_user_data)
+    assert resp.status_code == 201
+    other_user_id = resp.json()["_id"]
+
+    # registered_user tente d'accéder à other_user_id -> 403
+    get_resp = client.get(f"users/{other_user_id}", headers=auth_headers)
+    assert get_resp.status_code == 403
+    assert "Accès interdit" in get_resp.json()["detail"]
+
+    # registered_user tente de modifier other_user_id -> 403
+    put_resp = client.put(
+        f"users/{other_user_id}",
+        headers=auth_headers,
+        json={"full_name": "Hacked Name"},
+    )
+    assert put_resp.status_code == 403
+    assert "Modification interdite" in put_resp.json()["detail"]
+
+    # registered_user tente de supprimer other_user_id -> 403
+    del_resp = client.delete(f"users/{other_user_id}", headers=auth_headers)
+    assert del_resp.status_code == 403
+    assert "Suppression interdite" in del_resp.json()["detail"]
+
+
+def test_get_users_anti_enumeration(client, registered_user, auth_headers):
+    """
+    Test que GET /users ne retourne que les données de l'utilisateur connecté
+    pour empêcher l'énumération des utilisateurs.
+    """
+    resp = client.get("users/", headers=auth_headers)
+    assert resp.status_code == 200
+    users_list = resp.json()
+    assert len(users_list) == 1
+    assert users_list[0]["username"] == registered_user["username"]
+

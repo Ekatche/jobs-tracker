@@ -12,6 +12,7 @@ from app.services.normalization import (
     get_source_priority,
     merge_multidiffusion_offers,
     deduplicate_and_merge_offers,
+    normalize_offer_fields,
 )
 from app.models import JobOfferCreate, JobOfferResponse
 
@@ -243,3 +244,35 @@ class TestModelCompatibility:
         assert response_model.canonical_title == "Data Scientist"
         assert response_model.seniority_level == "senior"
         assert response_model.alternative_urls == ["https://indeed.com/1"]
+
+
+class TestNormalizeOfferFields:
+    def test_extract_stage_from_title_when_contract_missing(self):
+        offer = {
+            "poste": "Stage Développeur Python Fullstack H/F",
+            "entreprise": "TechCorp",
+            "type_contrat": None,
+        }
+        normalized = normalize_offer_fields(offer)
+        assert normalized["type_contrat"] == "Stage"
+        assert normalized["poste"] == "Développeur Python Fullstack"
+
+    def test_extract_alternance_from_title(self):
+        offer = {
+            "poste": "Alternance Data Scientist - Paris",
+            "entreprise": "DataCo",
+            "type_contrat": "Non spécifié",
+        }
+        normalized = normalize_offer_fields(offer)
+        assert normalized["type_contrat"] == "Alternance"
+        assert normalized["poste"] == "Data Scientist"
+
+    def test_preserve_existing_contract_if_present(self):
+        offer = {
+            "poste": "Développeur Stage Master",
+            "entreprise": "DevCo",
+            "type_contrat": "CDI",
+        }
+        normalized = normalize_offer_fields(offer)
+        assert normalized["type_contrat"] == "CDI"
+

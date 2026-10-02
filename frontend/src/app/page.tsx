@@ -16,6 +16,10 @@ import {
   FiEyeOff,
   FiTrash2,
   FiHelpCircle,
+  FiLayers,
+  FiFilter,
+  FiTarget,
+  FiRefreshCw,
 } from "react-icons/fi";
 
 export const metadata: Metadata = {
@@ -269,6 +273,148 @@ export default function Home() {
       </section>
 
       {/* ============================================================ */}
+      {/* 2.bis. FONCTIONNEMENT DU MOTEUR DE RECHERCHE & VEILLE        */}
+      {/* ============================================================ */}
+      <section className="py-16 md:py-24 bg-slate-950/70 border-b border-slate-800/80">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-14">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-medium bg-blue-900/30 border border-blue-700/50 text-blue-300 mb-4 shadow-sm">
+              <FiSearch className="text-blue-400" />
+              <span>Transparence & Simplicité • Zéro boîte noire</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+              Comment fonctionne notre recherche & veille d'offres ?
+            </h2>
+            <p className="mt-3 text-slate-300 text-sm sm:text-base leading-relaxed">
+              Fini de passer 2 heures par jour à écumer manuellement 15 plateformes différentes.
+              Découvrez comment notre moteur sélectionne, filtre et organise les meilleures opportunités pour vous.
+            </p>
+          </div>
+
+          {/* Étapes du pipeline sous forme de cartes progressives */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Étape 1 */}
+            <div className="relative bg-slate-900/90 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between hover:border-slate-700 transition-all hover:-translate-y-1">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-xl bg-blue-900/30 border border-blue-700/40 flex items-center justify-center text-blue-400">
+                    <FiLayers className="text-2xl" />
+                  </div>
+                  <span className="text-xs font-mono font-bold text-blue-400/80 bg-blue-950/80 px-2.5 py-1 rounded-md border border-blue-800/40">
+                    Étape 01
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-white mb-2">
+                  Veille directe & multi-sources
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  Le système scrute en continu les espaces carrières officiels des entreprises (Greenhouse, Lever, Ashby, Workable...) ainsi que les principales plateformes de l'emploi en fonction de vos métiers cibles, localisations et critères de télétravail.
+                </p>
+              </div>
+              <div className="mt-5 pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center gap-1.5">
+                <FiCheckCircle className="text-emerald-400 shrink-0 text-xs" />
+                <span>Accès direct aux offres à la source</span>
+              </div>
+            </div>
+
+            {/* Étape 2 */}
+            <div className="relative bg-slate-900/90 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between hover:border-slate-700 transition-all hover:-translate-y-1">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-xl bg-indigo-900/30 border border-indigo-700/40 flex items-center justify-center text-indigo-400">
+                    <FiFilter className="text-2xl" />
+                  </div>
+                  <span className="text-xs font-mono font-bold text-indigo-400/80 bg-indigo-950/80 px-2.5 py-1 rounded-md border border-indigo-800/40">
+                    Étape 02
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-white mb-2">
+                  Nettoyage & Déduplication
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  Une même annonce multi-diffusée sur plusieurs sites est instantanément reconnue et regroupée en une fiche unique. Les titres et descriptions sont épurés des balises parasites et des mentions légales encombrantes.
+                </p>
+              </div>
+              <div className="mt-5 pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center gap-1.5">
+                <FiCheckCircle className="text-emerald-400 shrink-0 text-xs" />
+                <span>Zéro doublon, lecture nette et fluide</span>
+              </div>
+            </div>
+
+            {/* Étape 3 */}
+            <div className="relative bg-slate-900/90 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between hover:border-slate-700 transition-all hover:-translate-y-1">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-xl bg-teal-900/30 border border-teal-700/40 flex items-center justify-center text-teal-400">
+                    <FiTarget className="text-2xl" />
+                  </div>
+                  <span className="text-xs font-mono font-bold text-teal-400/80 bg-teal-950/80 px-2.5 py-1 rounded-md border border-teal-800/40">
+                    Étape 03
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-white mb-2">
+                  Décryptage d'adéquation
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  Les exigences clés (compétences réelles, responsabilités, niveau d'expérience requis) sont synthétisées clairement. Vous comprenez en 30 secondes ce que le recruteur recherche sans devoir lire des pavés de texte.
+                </p>
+              </div>
+              <div className="mt-5 pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center gap-1.5">
+                <FiCheckCircle className="text-emerald-400 shrink-0 text-xs" />
+                <span>Points forts & signaux d'attention</span>
+              </div>
+            </div>
+
+            {/* Étape 4 */}
+            <div className="relative bg-slate-900/90 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between hover:border-slate-700 transition-all hover:-translate-y-1">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-xl bg-amber-900/30 border border-amber-700/40 flex items-center justify-center text-amber-400">
+                    <FiRefreshCw className="text-2xl" />
+                  </div>
+                  <span className="text-xs font-mono font-bold text-amber-400/80 bg-amber-950/80 px-2.5 py-1 rounded-md border border-amber-800/40">
+                    Étape 04
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-white mb-2">
+                  Pilotage 100 % automatique
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  La veille s'exécute de façon autonome et programmée en arrière-plan. Vous recevez directement les opportunités qualifiées dans votre espace sans avoir à relancer manuellement de requêtes.
+                </p>
+              </div>
+              <div className="mt-5 pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center gap-1.5">
+                <FiCheckCircle className="text-emerald-400 shrink-0 text-xs" />
+                <span>Mise à jour régulière sans effort</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Bandeau récapitulatif accessible */}
+          <div className="mt-10 p-5 rounded-2xl bg-gradient-to-r from-blue-900/20 via-indigo-900/20 to-teal-900/20 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                <FiShield className="text-xl" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-white">Isolation & Confidentialité garantie</h4>
+                <p className="text-xs text-slate-400">
+                  Chaque candidat dispose de ses propres critères de recherche et de ses données privées. Vos interactions (offres sauvegardées, candidatures, lettres et CVs) restent strictement confidentielles.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/offers"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600/90 hover:bg-blue-600 text-white text-xs font-medium transition-colors shrink-0"
+            >
+              <span>Voir le catalogue d'offres</span>
+              <FiArrowRight />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================ */}
       {/* 3. ENGAGEMENT RGPD & CONFIDENTIALITÉ TRANSPARENTE             */}
       {/* ============================================================ */}
       <section className="py-16 md:py-24 border-b border-slate-800/80 bg-blue-night">
@@ -386,6 +532,34 @@ export default function Home() {
                   <p className="mt-1.5 text-xs sm:text-sm text-slate-300 leading-relaxed">
                     Vous créez votre compte en quelques secondes, puis vous ajoutez manuellement ou collez le lien de votre
                     première candidature. Si vous le souhaitez, vous pouvez aussi importer votre CV pour faciliter vos rédactions.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800">
+              <div className="flex items-start gap-3">
+                <FiHelpCircle className="text-blue-400 text-lg mt-0.5 shrink-0" />
+                <div>
+                  <h4 className="text-sm sm:text-base font-semibold text-white">
+                    D'où proviennent les offres d'emploi affichées sur la plateforme ?
+                  </h4>
+                  <p className="mt-1.5 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                    Les offres sont indexées directement depuis les sites carrières officiels des entreprises (via leurs logiciels de recrutement directs comme Greenhouse, Lever, Ashby, Workable...) et complétées par les principales plateformes de l'emploi. Cela vous garantit des offres réelles, à jour, sans intermédiaires inutiles.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800">
+              <div className="flex items-start gap-3">
+                <FiHelpCircle className="text-blue-400 text-lg mt-0.5 shrink-0" />
+                <div>
+                  <h4 className="text-sm sm:text-base font-semibold text-white">
+                    Dois-je lancer une recherche manuellement tous les jours ?
+                  </h4>
+                  <p className="mt-1.5 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                    Non, c'est tout l'intérêt du système : une fois vos préférences de recherche renseignées dans votre profil (métiers, localisation, télétravail), le moteur veille automatiquement pour vous et met à jour votre catalogue sans que vous ayez à cliquer sur un bouton.
                   </p>
                 </div>
               </div>

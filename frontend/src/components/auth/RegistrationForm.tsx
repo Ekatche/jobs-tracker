@@ -24,6 +24,7 @@ const registerSchema = z
       .regex(/[0-9]/, "Le mot de passe doit contenir au moins un chiffre"),
     confirmPassword: z.string(),
     full_name: z.string().optional(),
+    invitation_code: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Les mots de passe ne correspondent pas",
@@ -49,6 +50,7 @@ export default function RegistrationForm() {
       password: "",
       confirmPassword: "",
       full_name: "",
+      invitation_code: "",
     },
   });
 
@@ -192,6 +194,23 @@ export default function RegistrationForm() {
               {errors.confirmPassword.message}
             </p>
           )}
+        </div>
+
+        <div>
+          <label
+            htmlFor="invitation_code"
+            className="block text-sm font-medium text-gray-300 mb-1"
+          >
+            Code d'invitation <span className="text-gray-400 text-xs">(requis si configuré sur le serveur)</span>
+          </label>
+          <input
+            id="invitation_code"
+            type="text"
+            placeholder="Code d'accès cercle restreint"
+            {...register("invitation_code")}
+            className="w-full px-3 py-2 bg-blue-night border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent font-mono text-sm"
+            disabled={isLoading}
+          />
         </div>
 
         <button

@@ -318,3 +318,23 @@ def test_gendered_closing_is_flagged():
     for phrase in ("Je serais heureuse de vous rencontrer.", "Je serais ravi d'en parler."):
         report = evaluate_letter_guards(phrase, "offre", {})
         assert any("Formule accordée au candidat" in v for v in report.violations), phrase
+
+
+def test_repeated_conditional_is_capped():
+    letter = (
+        "Madame, Monsieur,\n\nJe voudrais comprendre vos flux.\n\n"
+        "Je voudrais ensuite les fiabiliser.\n\nJ'aimerais vous en parler lors d'un entretien.\n\nCordialement"
+    )
+    report = evaluate_letter_guards(letter, "", {"stacks": [], "companies": []})
+    assert any("je voudrais" in v for v in report.violations)
+    assert not any("j'aimerais" in v for v in report.violations)
+
+
+def test_offer_terms_and_job_title_are_allowed_entities():
+    letter = (
+        "Madame, Monsieur,\n\nLe poste de Responsable Data m'intéresse.\n\n"
+        "Relier le LIMS aux données de procédé me motive.\n\nCordialement"
+    )
+    analyst_data = {"stacks": [], "companies": [], "offer_terms": ["LIMS"], "job_title": "Responsable Data"}
+    report = evaluate_letter_guards(letter, "", analyst_data)
+    assert not any("LIMS" in v or "Responsable" in v for v in report.violations)

@@ -7,7 +7,11 @@ from fastapi.testclient import TestClient
 from app.auth import get_current_user
 from app.database import get_database
 from app.models import UserModel
-from app.routers.job_offers import apply_user_interaction_filters, restrict_to_profile_offers
+from app.routers.job_offers import (
+    apply_user_interaction_filters,
+    restrict_to_profile_offers,
+    _build_contract_type_filter,
+)
 from main import app
 
 USER_A_ID = "507f1f77bcf86cd799439011"
@@ -333,3 +337,36 @@ def test_restrict_to_profile_offers_keeps_user_lists(mock_user_a, only_saved, st
 
 def test_restrict_to_profile_offers_anonymous_untouched():
     assert restrict_to_profile_offers({}, None) == {}
+
+
+class TestContractTypeFilter:
+    def test_cdi_filter_includes_unspecified_and_excludes_stage(self):
+        f = _build_contract_type_filter("CDI")
+        assert "$and" in f
+        branches = f["$and"][0]["$or"]
+        # Pattern branch
+        assert any(b.get("type_contrat", {}).get("$regex") == "CDI" for b in branches if isinstance(b.get("type_contrat"), dict))
+        # Non spécifié branch
+        assert any(b.get("type_contrat") == "Non spécifié" for b in branches)
+        # None branch
+        assert any(b.get("type_contrat") is None for b in branches)
+        # Missing branch
+        assert any(b.get("type_contrat") == {"$exists": False} for b in branches)
+        # Negation branch
+        assert f["$and"][1]["type_contrat"]["$not"]["$regex"] == "stage|alternance"
+
+    def test_multi_contract_filter_includes_unspecified(self):
+        f = _build_contract_type_filter("CDI|CDD|Freelance")
+        assert "$and" in f
+        branches = f["$and"][0]["$or"]
+        assert any(b.get("type_contrat", {}).get("$regex") == "CDI|CDD|Freelance" for b in branches if isinstance(b.get("type_contrat"), dict))
+        assert any(b.get("type_contrat") == "Non spécifié" for b in branches)
+
+    def test_pure_stage_filter_does_not_include_unspecified(self):
+        f = _build_contract_type_filter("Stage")
+        assert f == {"type_contrat": {"$regex": "Stage", "$options": "i"}}
+
+    def test_pure_alternance_filter_does_not_include_unspecified(self):
+        f = _build_contract_type_filter("Alternance")
+        assert f == {"type_contrat": {"$regex": "Alternance", "$options": "i"}}
+
