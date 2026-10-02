@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FiDownload, FiEye, FiTrash2, FiCalendar, FiBriefcase, FiLayers, FiRefreshCw, FiEdit3 } from "react-icons/fi";
 import { TailoredResume } from "@/types/resume";
 import { resumeApi } from "@/lib/api";
+import { getTemplate, resolveAccentKey, resolveTemplateKey } from "@/lib/cvTemplates";
 
 interface ResumeCardProps {
   resume: TailoredResume;
@@ -43,7 +44,15 @@ export default function ResumeCard({ resume, onPreview, onDelete, onRegenerate, 
       const filename = `CV_${resume.target_role}_${resume.target_company}.pdf`
         .replace(/\s+/g, "_")
         .replace(/[^\w.-]/g, "");
-      await resumeApi.downloadPdf(resumeId, resume.template, resume.with_photo, filename);
+      await resumeApi.downloadPdf(
+        resumeId,
+        {
+          template: resolveTemplateKey(resume.template),
+          accent: resolveAccentKey(resume.accent),
+          withPhoto: resume.with_photo,
+        },
+        filename,
+      );
     } catch (err) {
       console.error("Download failed:", err);
       alert("Erreur lors du téléchargement du PDF.");
@@ -84,7 +93,7 @@ export default function ResumeCard({ resume, onPreview, onDelete, onRegenerate, 
         <div className="flex items-center justify-between gap-2 mb-3">
           <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md bg-blue-900/40 text-blue-300 border border-blue-700/40 font-medium">
             <FiLayers className="text-xs" />
-            {resume.template === "executive_minimalist" ? "Executive Minimalist" : "Sidebar Elegance"}
+            {getTemplate(resolveTemplateKey(resume.template)).label}
           </span>
           <div className="flex items-center gap-1.5 text-xs text-slate-400">
             <FiCalendar />

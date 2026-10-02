@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
@@ -16,7 +16,13 @@ from app.models import (
 )
 from app.services.cv_pdf_renderer import generate_cv_pdf
 from app.services.cv_tailor import DEFAULT_CV_MODEL, generate_tailored_cv_content
-from app.services.cv_templates import render_cv_html
+from app.services.cv_templates import (
+    CV_ACCENTS,
+    CV_TEMPLATES,
+    DEFAULT_ACCENT,
+    DEFAULT_TEMPLATE,
+    render_cv_html,
+)
 from app.services.usage_tracker import record_api_usage, require_user_quota
 from app.utils import serialize_mongodb_doc
 
@@ -25,16 +31,23 @@ logger = logging.getLogger(__name__)
 resumes_router = APIRouter(prefix="/resumes", tags=["resumes"])
 
 
+# Construits depuis le registre : une valeur hors registre renvoie une 422.
+TemplateKey = Literal[CV_TEMPLATES]
+AccentKey = Literal[tuple(CV_ACCENTS)]
+
+
 class GenerateResumeRequest(BaseModel):
     offer_id: str
     application_id: Optional[str] = None
-    template: str = "sidebar_elegance"
+    template: TemplateKey = DEFAULT_TEMPLATE
+    accent: AccentKey = DEFAULT_ACCENT
     with_photo: bool = False
 
 
 class UpdateResumeRequest(BaseModel):
     content: Optional[TailoredCVSchema] = None
-    template: Optional[str] = None
+    template: Optional[TemplateKey] = None
+    accent: Optional[AccentKey] = None
     with_photo: Optional[bool] = None
 
 
@@ -155,6 +168,7 @@ async def generate_resume(
         "target_role": offer_doc.get("poste") or offer_doc.get("title") or tailored_cv.target_role_title,
         "target_company": offer_doc.get("entreprise") or offer_doc.get("company") or "",
         "template": request.template,
+        "accent": request.accent,
         "with_photo": request.with_photo,
         "content": tailored_cv.model_dump(),
         "created_at": now,
@@ -210,6 +224,8 @@ async def update_resume(
         update_fields["content"] = request.content.model_dump()
     if request.template is not None:
         update_fields["template"] = request.template
+    if request.accent is not None:
+        update_fields["accent"] = request.accent
     if request.with_photo is not None:
         update_fields["with_photo"] = request.with_photo
 
@@ -225,7 +241,8 @@ async def update_resume(
 @resumes_router.get("/{resume_id}/pdf")
 async def get_resume_pdf(
     resume_id: str,
-    template: Optional[str] = Query(None),
+    template: Optional[TemplateKey] = Query(None),
+    accent: Optional[AccentKey] = Query(None),
     with_photo: Optional[bool] = Query(None),
     db=Depends(get_database),
     current_user: UserModel = Depends(get_current_user),
@@ -250,7 +267,9 @@ async def get_resume_pdf(
 
     candidate = _build_candidate(profile_doc, current_user)
 
-    chosen_template = template or resume.get("template", "sidebar_elegance")
+    # Paramètre d'URL, sinon valeur enregistrée, sinon défaut (ancien document sans accent).
+    chosen_template = template or resume.get("template") or DEFAULT_TEMPLATE
+    chosen_accent = accent or resume.get("accent") or DEFAULT_ACCENT
     chosen_with_photo = with_photo if with_photo is not None else resume.get("with_photo", False)
     photo_url = contact_info.get("photo_url") or profile_doc.get("photo_url")
 
@@ -261,6 +280,7 @@ async def get_resume_pdf(
         template_name=chosen_template,
         with_photo=chosen_with_photo,
         photo_url=photo_url,
+        accent=chosen_accent,
     )
 
     # Render vector PDF

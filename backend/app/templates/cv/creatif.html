@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fr">
+{% import "_macros.html" as m %}
+<head>
+  <meta charset="UTF-8">
+  <title>{{ candidate.full_name }} - {{ cv.target_role_title }}</title>
+  <style>
+    {{ base_css }}
+
+    .cr-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--accent-tint);
+      border-radius: 10px;
+      padding: 13px 14px;
+      margin-bottom: 10px;
+    }
+
+    .cr-photo { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: none; }
+
+    .cr-name {
+      font-size: 21pt;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      color: var(--color-slate-900);
+    }
+
+    .cr-role { font-size: 10.5pt; font-weight: 600; color: var(--accent); margin-top: 3px; }
+
+    .cr-contact {
+      display: flex;
+      flex-wrap: wrap;
+      column-gap: 12px;
+      row-gap: 2px;
+      font-size: 8pt;
+      color: var(--color-slate-600);
+      margin-top: 6px;
+    }
+
+    .cr-body { padding: 0 2px; }
+    .cr-summary { font-size: 8.8pt; color: var(--color-slate-700); line-height: 1.5; }
+
+    .cr-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10pt;
+      font-weight: 700;
+      color: var(--color-slate-900);
+      margin: 13px 0 6px;
+    }
+
+    .cr-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; }
+    .cr-rule { flex: 1; height: 1px; background: var(--accent-line); }
+    .cr-item { margin-bottom: 9px; }
+
+    .cr-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .cr-dates { font-size: 8pt; color: var(--color-slate-500); white-space: nowrap; }
+    .cr-item ul { padding-left: 14px; margin-top: 2px; }
+    .cr-item li { font-size: 8.5pt; color: var(--color-slate-700); margin-bottom: 2px; line-height: 1.35; }
+    .cr-skill-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; }
+    .cr-skill-cat { width: 20%; flex: none; font-size: 8pt; font-weight: 600; color: var(--color-slate-600); }
+    .cr-cert { font-size: 8.5pt; color: var(--color-slate-700); margin-bottom: 3px; }
+
+    .cr-footer { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
+
+    .cr-lbl {
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .cr-footer-line { font-size: 8pt; color: var(--color-slate-700); margin-bottom: 3px; }
+    .cr-muted { color: var(--color-slate-500); }
+  </style>
+</head>
+<body>
+  <header class="cr-card">
+    {% if with_photo and photo_url %}
+    <img class="cr-photo" src="{{ photo_url }}" alt="" />
+    {% endif %}
+    <div>
+      <h1 class="cr-name">{{ candidate.full_name }}</h1>
+      <div class="cr-role">{{ cv.target_role_title }}</div>
+      <div class="cr-contact">{{ m.contacts(candidate) }}</div>
+      {{ m.mobility_line(candidate) }}
+    </div>
+  </header>
+
+  <div class="cr-body">
+    {% if cv.professional_summary %}
+    <p class="cr-summary">{{ cv.professional_summary }}</p>
+    {% endif %}
+
+    {% if cv.experiences %}
+    <h2 class="cr-title"><span class="cr-dot"></span><span>{{ SECTION_TITLES.experience }}</span><span class="cr-rule"></span></h2>
+    {% for exp in cv.experiences %}
+    <article class="cr-item page-break-avoid">
+      <div class="cr-row">
+        <span><strong>{{ exp.title }}</strong> · {{ exp.company }}{% if exp.location %}, {{ exp.location }}{% endif %}</span>
+        <span class="cr-dates">{{ exp.start_date }} – {{ exp.end_date or 'Présent' }}</span>
+      </div>
+      {% if exp.bullet_points %}
+      <ul>
+        {% for bp in exp.bullet_points %}
+        <li>{{ bp }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% if exp.relevant_technologies %}{{ m.tools_line(exp.relevant_technologies) }}{% endif %}
+    </article>
+    {% endfor %}
+    {% endif %}
+
+    {% if cv.prioritized_skills %}
+    <h2 class="cr-title"><span class="cr-dot"></span><span>{{ SECTION_TITLES.skills }}</span><span class="cr-rule"></span></h2>
+    {% for group in cv.prioritized_skills %}
+    <div class="cr-skill-row">
+      <div class="cr-skill-cat">{{ group.category }}</div>
+      <div>{{ m.chips(group.skills) }}</div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if cv.certifications %}
+    <h2 class="cr-title"><span class="cr-dot"></span><span>{{ SECTION_TITLES.certifications }}</span><span class="cr-rule"></span></h2>
+    {% for cert in cv.certifications %}
+    <div class="cr-cert">{{ cert }}</div>
+    {% endfor %}
+    {% endif %}
+
+    {% if cv.featured_projects %}
+    <h2 class="cr-title"><span class="cr-dot"></span><span>{{ SECTION_TITLES.projects }}</span><span class="cr-rule"></span></h2>
+    {% for proj in cv.featured_projects %}
+    <div class="cr-item page-break-avoid">
+      <strong>{{ proj.name }}</strong>{% if proj.url %} <span class="cr-muted">({{ proj.url }})</span>{% endif %} — {{ proj.description }}
+      {% if proj.technologies %}{{ m.tools_line(proj.technologies) }}{% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if cv.education or cv.languages or candidate.interests %}
+    <div class="cr-footer">
+      {% if cv.education %}
+      <div>
+        <h2 class="cr-lbl">{{ SECTION_TITLES.education }}</h2>
+        {% for edu in cv.education %}
+        <div class="cr-footer-line">
+          {{ edu.degree }}<br><span class="cr-muted">{{ edu.institution }} · {{ edu.year }}</span>
+          {% if edu.details %}<br><span class="cr-muted">{{ edu.details }}</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if cv.languages %}
+      <div>
+        <h2 class="cr-lbl">{{ SECTION_TITLES.languages }}</h2>
+        {% for lang in cv.languages %}
+        <div class="cr-footer-line">{{ lang.language }} {{ lang.level }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if candidate.interests %}
+      <div>
+        <h2 class="cr-lbl">{{ SECTION_TITLES.interests }}</h2>
+        <div class="cr-footer-line">{{ candidate.interests | join(" · ") }}</div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</body>
+</html>

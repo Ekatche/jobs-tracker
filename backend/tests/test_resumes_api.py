@@ -298,3 +298,121 @@ def test_build_candidate_falls_back_to_user_identity():
     assert candidate["email"] == "test@example.com"
     assert candidate["website_url"] is None
     assert candidate["interests"] == []
+
+
+def _resume_doc(**overrides):
+    """Document Mongo d'un CV ; sans `accent` par défaut, comme un ancien document."""
+    return {
+        "_id": ObjectId(),
+        "user_id": ObjectId(MOCK_USER_ID),
+        "target_role": "Lead Architect",
+        "target_company": "Cloud SA",
+        "template": "sidebar_elegance",
+        "with_photo": False,
+        "content": SAMPLE_CV_SCHEMA.model_dump(),
+        **overrides,
+    }
+
+
+def _post_generate(client, payload):
+    offer_id = ObjectId()
+    insert_one = AsyncMock(return_value=MagicMock(inserted_id=ObjectId()))
+    colls = {
+        "candidate_profile": MagicMock(find_one=AsyncMock(return_value={"user_id": ObjectId(MOCK_USER_ID), "full_name": "Jean Dupont"})),
+        "job_offers": MagicMock(find_one=AsyncMock(return_value={"_id": offer_id, "title": "Dev", "company": "Acme"})),
+        "offer_evaluations": MagicMock(find_one=AsyncMock(return_value=None)),
+        "tailored_resumes": MagicMock(insert_one=insert_one),
+    }
+    app.dependency_overrides[get_current_user] = lambda: mock_current_user
+    app.dependency_overrides[get_database] = lambda: create_mock_db(colls)
+    with patch("app.routers.resumes.generate_tailored_cv_content", new_callable=AsyncMock, return_value=SAMPLE_CV_SCHEMA), \
+         patch("app.routers.resumes.require_user_quota", new_callable=AsyncMock), \
+         patch("app.routers.resumes.record_api_usage", new_callable=AsyncMock):
+        res = client.post("/resumes/generate", json={"offer_id": str(offer_id), **payload})
+    return res, insert_one
+
+
+def test_generate_resume_saves_accent(client):
+    res, insert_one = _post_generate(client, {"template": "executive_minimalist", "accent": "bordeaux"})
+    assert res.status_code == 200
+    saved = insert_one.call_args.args[0]
+    assert saved["template"] == "executive_minimalist"
+    assert saved["accent"] == "bordeaux"
+    assert res.json()["accent"] == "bordeaux"
+
+
+def test_generate_resume_defaults_to_sidebar_and_marine(client):
+    res, insert_one = _post_generate(client, {})
+    assert res.status_code == 200
+    saved = insert_one.call_args.args[0]
+    assert saved["template"] == "sidebar_elegance"
+    assert saved["accent"] == "marine"
+
+
+def test_update_resume_saves_accent(client):
+    doc = _resume_doc()
+    tailored = MagicMock(find_one=AsyncMock(return_value=doc), update_one=AsyncMock())
+    app.dependency_overrides[get_current_user] = lambda: mock_current_user
+    app.dependency_overrides[get_database] = lambda: create_mock_db({"tailored_resumes": tailored})
+
+    res = client.put(f"/resumes/{doc['_id']}", json={"accent": "sauge"})
+
+    assert res.status_code == 200
+    update_set = tailored.update_one.call_args.args[1]["$set"]
+    assert update_set["accent"] == "sauge"
+    assert "template" not in update_set
+
+
+INVALID_APPEARANCE_REQUESTS = [
+    ("post", "generate", {"json": {"offer_id": "60c72b2f9b1d8b2bad7f0001", "template": "fancy"}}),
+    ("post", "generate", {"json": {"offer_id": "60c72b2f9b1d8b2bad7f0001", "accent": "fluo"}}),
+    ("put", "{id}", {"json": {"template": "fancy"}}),
+    ("put", "{id}", {"json": {"accent": "fluo"}}),
+    ("get", "{id}/pdf", {"params": {"template": "fancy"}}),
+    ("get", "{id}/pdf", {"params": {"accent": "fluo"}}),
+]
+
+
+@pytest.mark.parametrize("method, path, kwargs", INVALID_APPEARANCE_REQUESTS)
+def test_unknown_template_or_accent_is_rejected(client, method, path, kwargs):
+    doc = _resume_doc()
+    tailored = MagicMock(find_one=AsyncMock(return_value=doc), update_one=AsyncMock())
+    app.dependency_overrides[get_current_user] = lambda: mock_current_user
+    app.dependency_overrides[get_database] = lambda: create_mock_db({"tailored_resumes": tailored})
+
+    res = getattr(client, method)("/resumes/" + path.format(id=doc["_id"]), **kwargs)
+
+    assert res.status_code == 422
+    tailored.update_one.assert_not_called()
+
+
+@pytest.mark.parametrize("stored, query, expected", [
+    ({}, {}, "marine"),
+    ({"accent": "bordeaux"}, {}, "bordeaux"),
+    ({"accent": "bordeaux"}, {"accent": "sauge"}, "sauge"),
+    ({"template": None}, {}, "marine"),
+])
+def test_pdf_uses_query_then_stored_then_default_accent(client, stored, query, expected):
+    doc = _resume_doc(**stored)
+    colls = {
+        "tailored_resumes": MagicMock(find_one=AsyncMock(return_value=doc)),
+        "candidate_profile": MagicMock(find_one=AsyncMock(return_value={"full_name": "Jean Dupont"})),
+    }
+    app.dependency_overrides[get_current_user] = lambda: mock_current_user
+    app.dependency_overrides[get_database] = lambda: create_mock_db(colls)
+
+    with patch("app.routers.resumes.render_cv_html", return_value="<html>CV</html>") as mock_render, \
+         patch("app.routers.resumes.generate_cv_pdf", new_callable=AsyncMock, return_value=b"%PDF-1.4"):
+        res = client.get(f"/resumes/{doc['_id']}/pdf", params=query)
+
+    assert res.status_code == 200
+    assert mock_render.call_args.kwargs["accent"] == expected
+    assert mock_render.call_args.kwargs["template_name"] == (stored.get("template") or "sidebar_elegance")
+
+
+def test_generate_accepts_classique(client):
+    res, insert_one = _post_generate(client, {"template": "classique"})
+    assert res.status_code == 200
+    assert insert_one.call_args.args[0]["template"] == "classique"
+
+

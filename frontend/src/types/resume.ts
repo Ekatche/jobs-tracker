@@ -1,3 +1,5 @@
+import type { CvAccentKey, CvTemplateKey } from "@/lib/cvTemplates";
+
 export interface TailoredExperienceItem {
   title: string;
   company: string;
@@ -51,7 +53,9 @@ export interface TailoredResume {
   application_id?: string;
   target_role: string;
   target_company: string;
-  template: "sidebar_elegance" | "executive_minimalist" | string;
+  // Clés brutes du document Mongo (un ancien CV n'a pas `accent`) : lire via resolveTemplateKey / resolveAccentKey.
+  template: string;
+  accent?: string;
   with_photo: boolean;
   content: TailoredCVSchema;
   created_at: string;
@@ -61,12 +65,20 @@ export interface TailoredResume {
 export interface GenerateResumeRequest {
   offer_id: string;
   application_id?: string;
-  template?: string;
+  template?: CvTemplateKey;
+  accent?: CvAccentKey;
   with_photo?: boolean;
 }
 
 export interface UpdateResumeRequest {
   content?: Partial<TailoredCVSchema>;
-  template?: string;
+  template?: CvTemplateKey;
+  accent?: CvAccentKey;
   with_photo?: boolean;
+}
+
+export interface PdfOptions {
+  template?: CvTemplateKey;
+  accent?: CvAccentKey;
+  withPhoto?: boolean;
 }

@@ -1,5 +1,5 @@
 /* Base European A4 Print & ATS Stylesheet */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
   --color-slate-900: #0f172a;
@@ -11,9 +11,9 @@
   --color-slate-200: #e2e8f0;
   --color-slate-100: #f1f5f9;
   --color-slate-50: #f8fafc;
-  --color-primary: #1e3a8a;
-  --color-primary-light: #eff6ff;
-  --color-accent: #0284c7;
+  /* Alias de l'accent injecté par render_cv_html depuis le registre CV_ACCENTS */
+  --color-primary: var(--accent);
+  --color-primary-light: var(--accent-tint);
   --color-border: #cbd5e1;
 }
 
@@ -35,6 +35,7 @@ body {
   line-height: 1.45;
   font-size: 9.5pt;
   -webkit-font-smoothing: antialiased;
+  font-variant-ligatures: none; /* « fi » extrait en deux lettres, pas en U+FB01 (règle ATS 6) */
 }
 
 @media print {
@@ -47,6 +48,11 @@ body {
     break-inside: avoid;
     page-break-inside: avoid;
   }
+  /* Un titre de section ne finit jamais une page : il part avec son contenu. */
+  h2 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
 }
 
 a {
@@ -55,37 +61,12 @@ a {
 }
 
 /* Common Components */
-.badge {
-  display: inline-block;
-  padding: 2px 7px;
-  font-size: 8pt;
-  font-weight: 500;
-  border-radius: 4px;
-  background-color: var(--color-slate-100);
-  color: var(--color-slate-700);
-  border: 1px solid var(--color-slate-200);
-  margin-right: 4px;
-  margin-bottom: 4px;
-}
-
-.badge-primary {
-  background-color: var(--color-primary-light);
-  color: var(--color-primary);
-  border-color: #bfdbfe;
-}
 
 .monogram {
+  display: block;
   width: 58px;
   height: 58px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-slate-800) 0%, var(--color-primary) 100%);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 16pt;
-  letter-spacing: 0.5px;
 }
 
 .avatar-img {
@@ -96,13 +77,57 @@ a {
   border: 2px solid var(--color-slate-200);
 }
 
+/* Majuscules par text-transform, interlettrage ≤ .08em : pas de petites capitales (cassent l'extraction). */
 .section-title {
-  font-size: 10.5pt;
+  font-size: 8.5pt;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: var(--color-slate-900);
-  border-bottom: 1.5px solid var(--color-slate-200);
-  padding-bottom: 3px;
-  margin-bottom: 8px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.chip {
+  display: inline-block;
+  padding: 1px 7px;
+  font-size: 8pt;
+  color: var(--color-slate-800);
+  background: #ffffff;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  margin-bottom: 3px;
+}
+
+.dot {
+  color: var(--accent-line);
+  font-size: 7pt;
+}
+
+.icon {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  stroke: var(--accent);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.contact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tools {
+  margin-top: 2px;
+  font-size: 8pt;
+  color: var(--color-slate-500);
+}
+
+.cv-mobility {
+  font-size: 8.5pt;
+  color: var(--color-slate-600);
+  margin-top: 3px;
 }

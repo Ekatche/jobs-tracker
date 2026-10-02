@@ -1,0 +1,64 @@
+{# Macros partagées par les quatre modèles de CV. Règles ATS : spec 2026-10-02 section 1. #}
+
+{% macro icon(name) -%}
+<svg class="icon" data-icon="{{ name }}" viewBox="0 0 24 24" aria-hidden="true">
+{%- if name == "mail" %}<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>
+{%- elif name == "phone" %}<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>
+{%- elif name == "pin" %}<path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>
+{%- elif name == "in" %}<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 10v7M8 7v.01M12 17v-4a2 2 0 0 1 4 0v4M12 10v7"/>
+{%- elif name == "git" %}<path d="M9 19c-4 1.5-4-2-6-2.5M15 21v-3.5a3 3 0 0 0-1-2.5c3 0 6-1.5 6-6.5a5 5 0 0 0-1.5-3.5 4.5 4.5 0 0 0-.1-3.5s-1.2-.3-3.9 1.5a13 13 0 0 0-7 0C4.8 1.2 3.6 1.5 3.6 1.5a4.5 4.5 0 0 0-.1 3.5A5 5 0 0 0 2 8.5c0 5 3 6.5 6 6.5a3 3 0 0 0-1 2.5V21"/>
+{%- elif name == "web" %}<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>
+{%- endif %}</svg>
+{%- endmacro %}
+
+{# Chaque contact : icône décorative puis le texte réel (règle ATS 5). #}
+{% macro contacts(candidate) -%}
+{%- for field, name in [("email", "mail"), ("phone", "phone"), ("location", "pin"), ("linkedin_url", "in"), ("github_url", "git"), ("website_url", "web")] %}
+{%- if candidate[field] %}
+<span class="contact">{{ icon(name) }}<span>{{ candidate[field] }}</span></span>
+{%- endif %}
+{%- endfor %}
+{%- endmacro %}
+
+{% macro mobility_line(candidate) -%}
+{%- if candidate.mobility or candidate.availability -%}
+<div class="cv-mobility">{{ [candidate.mobility, candidate.availability] | select | join(" · ") }}</div>
+{%- endif -%}
+{%- endmacro %}
+
+{# Le « · » visible est le seul séparateur restitué à l'extraction (règle ATS 4). #}
+{% macro chips(items) -%}
+{%- for item in items -%}
+{%- if not loop.first %}<span class="dot"> · </span>{% endif -%}
+<span class="chip">{{ item }}</span>
+{%- endfor -%}
+{%- endmacro %}
+
+{% macro tools_line(items) -%}
+<div class="tools">{{ items | join(" · ") }}</div>
+{%- endmacro %}
+
+{# Initiales dessinées dans un canvas (4×, impression) : une image dans le PDF, jamais du texte (règle ATS 8). #}
+{% macro monogram(initials) -%}
+<canvas class="monogram" width="232" height="232" data-initials="{{ initials }}" aria-hidden="true"></canvas>
+<script>
+(function (c) {
+  function draw() {
+    var ctx = c.getContext("2d");
+    var s = c.width;
+    ctx.clearRect(0, 0, s, s);
+    ctx.fillStyle = getComputedStyle(c).getPropertyValue("--accent").trim() || "#1e3a8a";
+    ctx.beginPath();
+    ctx.arc(s / 2, s / 2, s / 2, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "700 " + Math.round(s * 0.36) + "px Inter, Helvetica, Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(c.dataset.initials, s / 2, s / 2 + s * 0.02);
+  }
+  draw();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+})(document.currentScript.previousElementSibling);
+</script>
+{%- endmacro %}

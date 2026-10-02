@@ -17,7 +17,7 @@ import {
 } from "./auth";
 import { Task } from "@/types/tasks";
 import { CoverLetter, CandidateProfile, CandidatePreferences } from "@/types/coverLetter";
-import { TailoredResume, GenerateResumeRequest, UpdateResumeRequest } from "@/types/resume";
+import { TailoredResume, GenerateResumeRequest, UpdateResumeRequest, PdfOptions } from "@/types/resume";
 import { InterviewPrep, UpdateInterviewPrepPayload } from "@/types/interview";
 import { UserQuotaSummary, ApiUsageRecord, TierPricingInfo, UserTier } from "@/types/usage";
 import Cookies from "js-cookie";
@@ -766,6 +766,15 @@ export const coverLetterApi = {
 
 // API Tailored Resumes (CV Adaptés)
 export const resumeApi = {
+const pdfQuery = ({ template, accent, withPhoto }: PdfOptions): string => {
+  const params = new URLSearchParams();
+  if (template) params.append("template", template);
+  if (accent) params.append("accent", accent);
+  if (withPhoto !== undefined) params.append("with_photo", withPhoto ? "true" : "false");
+  const query = params.toString();
+  return query ? `?${query}` : "";
+};
+
   getAll: async (): Promise<TailoredResume[]> => {
     return fetchApi<TailoredResume[]>("/resumes", "GET");
   },
@@ -781,11 +790,8 @@ export const resumeApi = {
   delete: async (id: string): Promise<{ status: string }> => {
     return fetchApi<{ status: string }>(`/resumes/${id}`, "DELETE");
   },
-  downloadPdf: async (id: string, template?: string, withPhoto?: boolean, filename?: string): Promise<void> => {
-    const params = new URLSearchParams();
-    if (template) params.append("template", template);
-    if (withPhoto !== undefined) params.append("with_photo", withPhoto ? "true" : "false");
-    const query = params.toString() ? `?${params.toString()}` : "";
+  downloadPdf: async (id: string, options: PdfOptions = {}, filename?: string): Promise<void> => {
+    const query = pdfQuery(options);
     const token = getToken();
 
     const baseUrl = getApiBaseUrl();
@@ -807,11 +813,8 @@ export const resumeApi = {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
   },
-  getPdfBlobUrl: async (id: string, template?: string, withPhoto?: boolean): Promise<string> => {
-    const params = new URLSearchParams();
-    if (template) params.append("template", template);
-    if (withPhoto !== undefined) params.append("with_photo", withPhoto ? "true" : "false");
-    const query = params.toString() ? `?${params.toString()}` : "";
+  getPdfBlobUrl: async (id: string, options: PdfOptions = {}): Promise<string> => {
+    const query = pdfQuery(options);
     const token = getToken();
 
     const baseUrl = getApiBaseUrl();

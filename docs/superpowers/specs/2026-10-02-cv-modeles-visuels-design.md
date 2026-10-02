@@ -90,10 +90,14 @@ PDF de la section 6.
    - Projets ;
    - Centres d'intérêt.
 4. **Les compétences sont séparées dans le texte.** Entre deux pastilles se
-   trouve un séparateur « , » réel, invisible à l'œil. Il utilise la technique
-   `sr-only` : position absolue, zone découpée à 1 px. C'est le test qui
-   tranche : si l'extraction ne restitue pas le séparateur, on le remplace par
-   un « · » visible et discret.
+   trouve un « · » visible et discret (classe `.dot`, couleur
+   `--accent-line`).
+   - Essai du 2026-10-02 (Chromium, pdfplumber et pymupdf) : un séparateur
+     invisible n'est pas restitué. Les techniques `sr-only` (zone découpée),
+     texte transparent et largeur nulle le perdent ou le déplacent. Un texte
+     blanc de 1 px passe, mais c'est du texte caché, que certains ATS
+     pénalisent. Seul le « · » visible est extrait correctement
+     (« Python · FastAPI »).
 5. **Le PDF ne contient aucun emoji.** Les icônes sont des SVG au trait
    (chemins, aucun `<text>`). Chaque contact reste écrit en texte réel.
 6. **Les ligatures sont désactivées** : `font-variant-ligatures: none` sur
@@ -229,8 +233,7 @@ export type CvAccentKey = (typeof CV_ACCENTS)[number]["key"];
   - `contacts(candidate)` : chaque contact affiche une icône SVG au trait
     (e-mail, téléphone, lieu, LinkedIn, GitHub, site, mobilité,
     disponibilité), suivie du texte réel ;
-  - `chips(skills)` : les pastilles, avec le séparateur `sr-only` de la règle
-    ATS 4 ;
+  - `chips(skills)` : les pastilles, séparées par le « · » de la règle ATS 4 ;
   - `tools_line(techs)` : les outils sous chaque poste, sous la forme
     « A · B » ;
   - `monogram(initials)` : le `<canvas>` et son script de dessin.
@@ -238,7 +241,7 @@ export type CvAccentKey = (typeof CV_ACCENTS)[number]["key"];
   - `--color-primary` et `--color-primary-light` deviennent des alias de
     `--accent` et `--accent-tint` ;
   - ajout de `font-variant-ligatures: none` sur `body` ;
-  - `.chip`, `.sr-only` et `.icon` remplacent `.badge` et `.badge-primary` ;
+  - `.chip`, `.dot` et `.icon` remplacent `.badge` et `.badge-primary` ;
   - `.monogram` passe d'un dégradé à un fond uni `--accent`.
 - Chaque modèle garde dans son fichier le CSS de sa propre mise en page.
 
@@ -249,13 +252,20 @@ export type CvAccentKey = (typeof CV_ACCENTS)[number]["key"];
 - outils en texte « A · B » sous chaque poste ;
 - suppression du trait noir de 2 px et du cadre gris de l'accroche ;
 - nom plus grand, avec un interlettrage resserré ;
-- titres de section en petites capitales espacées, dans la couleur d'accent.
+- titres de section en majuscules (`text-transform: uppercase`), en petite
+  taille, avec un interlettrage de `.08em` au plus, dans la couleur d'accent.
+  - Pas de `font-variant: small-caps` : l'essai du 2026-10-02 montre que
+    Chromium casse alors l'extraction (« C ' / ENTRES D INTÉRÊT »). Un
+    interlettrage plus large risque de séparer les lettres à l'extraction.
+  - Le HTML garde la casse normale (« Expérience professionnelle ») ; seul le
+    CSS met en majuscules. Les tests d'extraction comparent sans tenir compte
+    de la casse.
 
 **Les quatre modèles** :
 
 | Modèle | Ordre dans le HTML | Mise en page |
 |---|---|---|
-| `sidebar_elegance` | `<main>` (en-tête, accroche, expériences, projets), puis `<aside>` | `grid-template-areas` place `aside` à gauche. Colonne en teinte `--accent-tint`. Photo ou monogramme canvas sur fond `--accent`. La colonne latérale contient les contacts, les compétences, les langues, les certifications et les intérêts. |
+| `sidebar_elegance` | `<main>` (en-tête, accroche, expériences, projets), puis `<aside>` | `grid-template-areas` place `aside` à gauche. Colonne en teinte `--accent-tint`. Photo ou monogramme canvas sur fond `--accent`. La colonne latérale contient les contacts, les compétences, la formation, les langues, les certifications et les intérêts. |
 | `executive_minimalist` | une colonne | En-tête, accroche, expériences, compétences, certifications, projets. Le pied de page sur trois colonnes regroupe formation, langues et intérêts. |
 | `classique` | une colonne | En-tête aligné à gauche, police sans empattement. Titres sur bandeau gris (`--color-slate-100`), dates alignées à droite. L'accent ne colore que le nom et le titre visé. Jamais de photo. |
 | `creatif` | une colonne | Carte d'en-tête arrondie, teinte `--accent-tint`, avec photo ronde en option, nom, titre et contacts. Corps en une colonne. Titres marqués d'un point `--accent` et d'un filet `--accent-line`. Pastilles fines. Le bas de page sur trois colonnes regroupe formation, langues et intérêts. |
@@ -273,7 +283,9 @@ car chaque colonne ne contient que deux ou trois lignes courtes sous un titre
 standard. Le test vérifie que, dans l'ordre du HTML, chaque titre est suivi de
 son contenu.
 
-**Pagination** : chaque poste garde la classe `.page-break-avoid`.
+**Pagination** : chaque poste garde la classe `.page-break-avoid`. Les
+sections entières (Expérience, Projets) ne l'ont pas, pour pouvoir se couper
+entre deux pages.
 
 ### 5. Gestion des erreurs
 
@@ -311,7 +323,7 @@ trois postes, des listes de compétences longues, une certification contenant
 
 1. La première ligne non vide extraite est le nom.
 2. Chaque titre de `section_titles` présent dans les données est extrait.
-3. « Python, FastAPI » est extrait, jamais « PythonFastAPI ».
+3. « Python · FastAPI » est extrait, jamais « PythonFastAPI ».
 4. Les puces d'un poste suivent son intitulé, sans ligne de la colonne
    latérale entre elles. Ce contrôle lit l'ordre du flux avec `pymupdf`
    (`get_text(sort=False)`).

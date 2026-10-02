@@ -7,7 +7,7 @@ from app.models import (
     TailoredEducationItem,
     TailoredProjectItem,
 )
-from app.services.cv_templates import render_cv_html
+from app.services.cv_templates import CV_TEMPLATES, render_cv_html
 
 SAMPLE_CANDIDATE = {
     "full_name": "Jean Dupont",
@@ -79,7 +79,9 @@ def test_render_sidebar_elegance():
     assert "Français" in html
     assert "C1 - Professionnel courant" in html
     assert "@page" in html
-    assert "JD" in html  # Monogram initials when with_photo is False
+    assert '<canvas class="monogram"' in html  # Monogramme dessiné, pas du texte
+    assert 'data-initials="JD"' in html
+    assert ">JD<" not in html
 
 
 def test_render_sidebar_elegance_with_photo():
@@ -123,7 +125,7 @@ def test_render_invalid_template_defaults_gracefully():
     assert "Jean Dupont" in html
 
 
-TEMPLATES = ["sidebar_elegance", "executive_minimalist"]
+TEMPLATES = list(CV_TEMPLATES)
 
 
 def _render(template, cv=SAMPLE_CV, **candidate_overrides):
@@ -151,7 +153,7 @@ def test_interests_section_shown_only_when_filled(template):
 @pytest.mark.parametrize("template", TEMPLATES)
 def test_portfolio_link_shown_only_when_set(template):
     assert "https://jeandupont.fr" in _render(template, website_url="https://jeandupont.fr")
-    assert "🌐" not in _render(template, website_url=None)
+    assert 'data-icon="web"' not in _render(template, website_url=None)
 
 
 @pytest.mark.parametrize("template", TEMPLATES)
@@ -180,14 +182,14 @@ def test_certifications_section_hidden_when_empty(template):
 @pytest.mark.parametrize("template", TEMPLATES)
 def test_projects_section_hidden_when_empty(template):
     html = _render(template, cv=SAMPLE_CV.model_copy(update={"featured_projects": []}))
-    assert ">Projets Clés & Réalisations<" not in html
-    assert ">Projets Clés & Réalisations<" in _render(template)
+    assert ">Projets<" not in html
+    assert ">Projets<" in _render(template)
 
 
 def test_sidebar_order_skills_certifications_languages_formation_interests():
     html = _render("sidebar_elegance", interests=["Football"])
     positions = [
-        html.index(">Compétences Clés<"),
+        html.index(">Compétences<"),
         html.index(">Certifications & habilitations<"),
         html.index(">Langues<"),
         html.index(">Formation<"),
@@ -201,3 +203,278 @@ def test_executive_certifications_follow_skills_and_languages_stay_last():
     assert html.index(">Compétences<") < html.index(">Certifications & habilitations<")
     assert html.index(">Certifications & habilitations<") < html.index(">Langues<")
     assert "Langues & Certifications" not in html
+
+
+import logging
+
+from app.services.cv_templates import SECTION_TITLES
+
+
+def test_accent_injects_registry_colors():
+    html = render_cv_html(cv=SAMPLE_CV, candidate=SAMPLE_CANDIDATE, accent="bordeaux")
+    assert "--accent: #8b1e3f" in html
+    assert "--accent-tint: #f8eef1" in html
+    assert "--accent-line: #d8a9b7" in html
+
+
+def test_unknown_accent_falls_back_to_marine_with_warning(caplog):
+    with caplog.at_level(logging.WARNING, logger="app.services.cv_templates"):
+        html = render_cv_html(cv=SAMPLE_CV, candidate=SAMPLE_CANDIDATE, accent="fluo")
+    assert "--accent: #1e3a8a" in html
+    assert "fluo" in caplog.text
+
+
+def test_missing_template_and_accent_fall_back_to_defaults():
+    html = render_cv_html(cv=SAMPLE_CV, candidate=SAMPLE_CANDIDATE, template_name=None, accent=None)
+    assert "cv-layout-sidebar" in html
+    assert "--accent: #1e3a8a" in html
+
+
+def test_base_css_is_not_html_escaped():
+    html = render_cv_html(cv=SAMPLE_CV, candidate=SAMPLE_CANDIDATE)
+    assert "@import url('https://fonts.googleapis.com" in html
+    assert "&#39;Inter&#39;" not in html
+
+
+def test_accent_block_follows_font_import():
+    html = render_cv_html(cv=SAMPLE_CV, candidate=SAMPLE_CANDIDATE)
+    assert html.index("@import") < html.index("--accent: #")
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_section_titles_come_from_registry(template):
+    html = _render(template)
+    assert f">{SECTION_TITLES['experience']}<" in html
+    assert "Expérience Professionnelle" not in html
+    assert "Projets Clés" not in html
+    assert "Compétences Clés" not in html
+
+
+from app.services.cv_templates import _jinja_env
+
+
+def _macro(call, **context):
+    return _jinja_env.from_string('{% import "_macros.html" as m %}' + call).render(**context)
+
+
+def test_chips_separated_by_visible_dot():
+    assert _macro('{{ m.chips(["Python", "FastAPI"]) }}') == (
+        '<span class="chip">Python</span><span class="dot"> · </span><span class="chip">FastAPI</span>'
+    )
+
+
+def test_chips_escape_content():
+    assert "&lt;b&gt;" in _macro('{{ m.chips(["<b>"]) }}')
+
+
+def test_tools_line_is_plain_text():
+    assert _macro('{{ m.tools_line(["SAP", "Excel"]) }}') == '<div class="tools">SAP · Excel</div>'
+
+
+def test_contacts_use_svg_icons_and_real_text():
+    html = _macro("{{ m.contacts(candidate) }}", candidate={"email": "jean@x.fr", "website_url": "https://jean.fr"})
+    assert 'data-icon="mail"' in html
+    assert 'data-icon="web"' in html
+    assert ">jean@x.fr<" in html
+    assert 'data-icon="phone"' not in html
+    assert "<text" not in html
+
+
+def test_mobility_line_only_when_filled():
+    both = _macro("{{ m.mobility_line(candidate) }}", candidate={"mobility": "Permis B", "availability": "2x8"})
+    assert both == '<div class="cv-mobility">Permis B · 2x8</div>'
+    assert _macro("{{ m.mobility_line(candidate) }}", candidate={}) == ""
+
+
+def test_monogram_is_canvas_not_text():
+    html = _macro('{{ m.monogram("JD") }}')
+    assert '<canvas class="monogram"' in html
+    assert 'data-initials="JD"' in html
+    assert ">JD<" not in html
+
+
+def test_base_css_disables_ligatures_and_aliases_accent():
+    html = render_cv_html(cv=SAMPLE_CV, candidate=SAMPLE_CANDIDATE)
+    assert "font-variant-ligatures: none" in html
+    assert "--color-primary: var(--accent)" in html
+    assert "small-caps" not in html
+
+
+import re
+
+EMOJI_RE = re.compile("[\U0001F000-\U0001FAFF☀-➿-]")
+ATS_SAFE_TEMPLATES = TEMPLATES
+
+
+@pytest.mark.parametrize("template", ATS_SAFE_TEMPLATES)
+def test_no_emoji_in_html(template):
+    html = _render(template, website_url="https://jeandupont.fr", interests=["Football"])
+    assert not EMOJI_RE.search(html)
+
+
+@pytest.mark.parametrize("template", ATS_SAFE_TEMPLATES)
+def test_contacts_use_svg_icons(template):
+    html = _render(template)
+    assert 'data-icon="mail"' in html
+    assert 'data-icon="pin"' in html
+
+
+def test_sidebar_main_precedes_aside():
+    html = _render("sidebar_elegance")
+    assert html.index("<main") < html.index("<aside")
+
+
+def test_sidebar_skills_render_as_chips():
+    html = _render("sidebar_elegance")
+    assert '<span class="chip">Python</span><span class="dot"> · </span><span class="chip">FastAPI</span>' in html
+    assert 'class="badge' not in html
+
+
+def test_executive_footer_titles_followed_by_their_content():
+    html = _render("executive_minimalist", interests=["Randonnée"])
+    positions = [
+        html.index(">Formation<"),
+        html.index("Master Informatique"),
+        html.index(">Langues<"),
+        html.index("C1 - Professionnel courant"),
+        html.index(">Centres d'intérêt<"),
+        html.index("Randonnée"),
+    ]
+    assert positions == sorted(positions)
+
+
+def test_executive_has_no_black_rule_nor_summary_frame():
+    html = _render("executive_minimalist")
+    assert "2px solid var(--color-slate-900)" not in html
+    assert "border-left: 3px" not in html
+
+
+def test_badges_are_gone_from_base_css():
+    assert ".badge" not in render_cv_html(cv=SAMPLE_CV, candidate=SAMPLE_CANDIDATE)
+
+
+def test_classique_never_renders_photo():
+    html = render_cv_html(
+        cv=SAMPLE_CV,
+        candidate=SAMPLE_CANDIDATE,
+        template_name="classique",
+        with_photo=True,
+        photo_url="https://example.com/avatar.jpg",
+    )
+    assert "<img" not in html
+    assert "avatar.jpg" not in html
+
+
+def test_classique_section_order():
+    html = _render("classique", interests=["Football"])
+    positions = [
+        html.index(">Expérience professionnelle<"),
+        html.index(">Projets<"),
+        html.index(">Certifications & habilitations<"),
+        html.index(">Compétences<"),
+        html.index(">Formation<"),
+        html.index(">Langues<"),
+        html.index(">Centres d'intérêt<"),
+    ]
+    assert positions == sorted(positions)
+
+
+def test_classique_skills_as_plain_text_lines():
+    assert "<strong>Backend</strong> : Python · FastAPI · Go" in _render("classique")
+
+
+def test_classique_uses_grey_bands_and_accent_only_on_name():
+    html = _render("classique")
+    assert '<h2 class="cl-band">' in html
+    assert ".cl-band" in html and "var(--color-slate-100)" in html
+
+
+def test_registry_lists_four_templates_in_display_order():
+    assert CV_TEMPLATES == ("sidebar_elegance", "executive_minimalist", "classique", "creatif")
+
+
+def test_creatif_photo_is_optional_and_never_a_monogram():
+    with_photo = render_cv_html(
+        cv=SAMPLE_CV, candidate=SAMPLE_CANDIDATE, template_name="creatif",
+        with_photo=True, photo_url="https://example.com/avatar.jpg",
+    )
+    assert 'class="cr-photo"' in with_photo
+    without = _render("creatif")
+    assert "<img" not in without
+    assert "<canvas" not in without
+
+
+def test_creatif_titles_have_dot_and_rule():
+    html = _render("creatif")
+    assert '<span class="cr-dot"></span><span>Expérience professionnelle</span><span class="cr-rule"></span>' in html
+
+
+def test_creatif_footer_titles_followed_by_their_content():
+    html = _render("creatif", interests=["Randonnée"])
+    positions = [
+        html.index(">Formation<"),
+        html.index("Master Informatique"),
+        html.index(">Langues<"),
+        html.index("C1 - Professionnel courant"),
+        html.index(">Centres d'intérêt<"),
+        html.index("Randonnée"),
+    ]
+    assert positions == sorted(positions)
+
+
+def _dated_job(title, start, end):
+    return TailoredExperienceItem(title=title, company="Société", start_date=start, end_date=end)
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_experiences_rendered_most_recent_first(template):
+    # Ordre et formats tels que le LLM les renvoie (cf. CV stockés) : mois optionnel, séparateurs variés.
+    cv = SAMPLE_CV.model_copy(update={"experiences": [
+        _dated_job("Poste 2023", "2023-02", "2024-06"),
+        _dated_job("Poste 2019", "2019", "2020"),
+        _dated_job("Poste 2025", "08/2025", "Présent"),
+        _dated_job("Poste 2021", "sept. 2021", "2022"),
+        _dated_job("Poste 2022", "2022-09", "02/2023"),
+    ]})
+    html = _render(template, cv=cv)
+    positions = [html.index(f"Poste {year}") for year in (2025, 2023, 2022, 2021, 2019)]
+    assert positions == sorted(positions)
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_experience_dates_show_years_only(template):
+    cv = SAMPLE_CV.model_copy(update={"experiences": [
+        _dated_job("Poste actuel", "08/2025", "Présent"),
+        _dated_job("Poste passé", "2023-02", "2024-06"),
+        _dated_job("Poste ancien", "sept. 2019", "mars 2021"),
+    ]})
+    html = _render(template, cv=cv)
+    assert "2025 – Présent" in html
+    assert "2023 – 2024" in html
+    assert "2019 – 2021" in html
+    assert "08/2025" not in html and "2023-02" not in html and "sept." not in html
+
+
+def test_same_start_puts_current_job_first():
+    cv = SAMPLE_CV.model_copy(update={"experiences": [
+        _dated_job("Poste terminé", "2022-01", "2023-06"),
+        _dated_job("Poste actuel", "2022-01", "Présent"),
+    ]})
+    html = _render("classique", cv=cv)
+    assert html.index("Poste actuel") < html.index("Poste terminé")
+
+
+def test_undated_experiences_keep_their_order_after_dated_ones():
+    cv = SAMPLE_CV.model_copy(update={"experiences": [
+        _dated_job("Sans date A", "", None),
+        _dated_job("Poste daté", "2020", "2021"),
+        _dated_job("Sans date B", "n.c.", None),
+    ]})
+    html = _render("classique", cv=cv)
+    assert html.index("Poste daté") < html.index("Sans date A") < html.index("Sans date B")
+
+
+
+
+
+

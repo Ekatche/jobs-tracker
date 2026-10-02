@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FiX,
   FiDownload,
@@ -16,12 +16,24 @@ import {
 } from "react-icons/fi";
 import { TailoredResume, TailoredCVSchema } from "@/types/resume";
 import { resumeApi } from "@/lib/api";
+import {
+  CV_TEMPLATES,
+  DEFAULT_ACCENT,
+  DEFAULT_TEMPLATE,
+  getTemplate,
+  resolveAccentKey,
+  resolveTemplateKey,
+  type CvAccentKey,
+  type CvTemplateKey,
+  type ResumeAppearance,
+} from "@/lib/cvTemplates";
+import AccentSwatches from "@/components/resumes/AccentSwatches";
 
 interface ResumePreviewModalProps {
   resume: TailoredResume | null;
   isOpen: boolean;
   onClose: () => void;
-  onUpdateTemplate?: (resumeId: string, template: string, withPhoto: boolean) => Promise<void>;
+  onUpdateAppearance?: (resumeId: string, appearance: ResumeAppearance) => Promise<void>;
   onUpdateContent?: (resumeId: string, content: TailoredCVSchema) => Promise<void>;
   onRegenerate?: (resume: TailoredResume) => Promise<void>;
   initialTab?: "preview" | "edit";
@@ -31,13 +43,14 @@ export default function ResumePreviewModal({
   resume,
   isOpen,
   onClose,
-  onUpdateTemplate,
+  onUpdateAppearance,
   onUpdateContent,
   onRegenerate,
   initialTab = "preview",
 }: ResumePreviewModalProps) {
   const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
-  const [selectedTemplate, setSelectedTemplate] = useState<string>("sidebar_elegance");
+  const [selectedTemplate, setSelectedTemplate] = useState<CvTemplateKey>(DEFAULT_TEMPLATE);
+  const [selectedAccent, setSelectedAccent] = useState<CvAccentKey>(DEFAULT_ACCENT);
   const [withPhoto, setWithPhoto] = useState<boolean>(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loadingPdf, setLoadingPdf] = useState<boolean>(false);
@@ -47,48 +60,79 @@ export default function ResumePreviewModal({
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Numéro du dernier chargement de PDF : une réponse plus ancienne est ignorée (clics rapides).
+  const pdfRequestRef = useRef(0);
+  // Les PUT d'apparence partent l'un après l'autre : le dernier clic est le dernier enregistré.
+  const appearanceQueueRef = useRef<Promise<void>>(Promise.resolve());
+
   // Editable copy of CV content
   const [editableContent, setEditableContent] = useState<TailoredCVSchema | null>(null);
 
   useEffect(() => {
     if (resume) {
-      setSelectedTemplate(resume.template || "sidebar_elegance");
+      setSelectedTemplate(resolveTemplateKey(resume.template));
+      setSelectedAccent(resolveAccentKey(resume.accent));
       setWithPhoto(resume.with_photo || false);
       setEditableContent(resume.content ? JSON.parse(JSON.stringify(resume.content)) : null);
     }
     if (initialTab) {
       setActiveTab(initialTab);
     }
-  }, [resume, initialTab, isOpen]);
+    // Réinitialiser à l'ouverture ou au changement de CV seulement : la réponse tardive d'un PUT
+    // d'apparence ne doit pas écraser la couleur choisie entre-temps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resume?.id, resume?._id, isOpen, initialTab]);
 
-  // Re-fetch PDF blob URL when template, withPhoto or resume changes
   const loadPdf = async () => {
     if (!resume || !isOpen) return;
     const resumeId = resume.id || resume._id;
     if (!resumeId) return;
 
+    const requestId = ++pdfRequestRef.current;
     setLoadingPdf(true);
     setError(null);
     try {
-      const url = await resumeApi.getPdfBlobUrl(resumeId, selectedTemplate, withPhoto);
-      setPdfUrl(url);
+      const url = await resumeApi.getPdfBlobUrl(resumeId, {
+        template: selectedTemplate,
+        accent: selectedAccent,
+        withPhoto,
+      });
+      if (requestId !== pdfRequestRef.current) {
+        window.URL.revokeObjectURL(url);
+        return;
+      }
+      setPdfUrl((previous) => {
+        if (previous) window.URL.revokeObjectURL(previous);
+        return url;
+      });
     } catch (err: unknown) {
+      if (requestId !== pdfRequestRef.current) return;
       console.error("Failed to load CV PDF preview:", err);
       setError("Erreur lors de la génération de l'aperçu PDF.");
     } finally {
-      setLoadingPdf(false);
+      if (requestId === pdfRequestRef.current) setLoadingPdf(false);
     }
   };
 
+  // Pas de dépendance à updated_at : chaque PUT d'apparence déclencherait un second rendu Chromium.
   useEffect(() => {
     if (activeTab === "preview") {
       loadPdf();
     }
-  }, [resume?.id, resume?._id, resume?.updated_at, selectedTemplate, withPhoto, isOpen, activeTab]);
+  }, [resume?.id, resume?._id, selectedTemplate, selectedAccent, withPhoto, isOpen, activeTab]);
 
   if (!isOpen || !resume) return null;
 
   const resumeId = resume.id || resume._id || "";
+
+  const supportsPhoto = getTemplate(selectedTemplate).supportsPhoto;
+
+  const saveAppearance = (appearance: ResumeAppearance) => {
+    if (!onUpdateAppearance) return;
+    appearanceQueueRef.current = appearanceQueueRef.current
+      .then(() => onUpdateAppearance(resumeId, appearance))
+      .catch((err) => console.error("Failed to save CV appearance:", err));
+  };
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -96,7 +140,11 @@ export default function ResumePreviewModal({
       const filename = `CV_${resume.target_role}_${resume.target_company}.pdf`
         .replace(/\s+/g, "_")
         .replace(/[^\w.-]/g, "");
-      await resumeApi.downloadPdf(resumeId, selectedTemplate, withPhoto, filename);
+      await resumeApi.downloadPdf(
+        resumeId,
+        { template: selectedTemplate, accent: selectedAccent, withPhoto },
+        filename,
+      );
     } catch (err: unknown) {
       console.error("Download error:", err);
       alert("Erreur lors du téléchargement du PDF.");
@@ -105,19 +153,20 @@ export default function ResumePreviewModal({
     }
   };
 
-  const handleTemplateChange = async (tmpl: string) => {
-    setSelectedTemplate(tmpl);
-    if (onUpdateTemplate) {
-      await onUpdateTemplate(resumeId, tmpl, withPhoto);
-    }
+  const handleTemplateChange = (template: CvTemplateKey) => {
+    setSelectedTemplate(template);
+    saveAppearance({ template, accent: selectedAccent, withPhoto });
   };
 
-  const handlePhotoToggle = async () => {
-    const newVal = !withPhoto;
-    setWithPhoto(newVal);
-    if (onUpdateTemplate) {
-      await onUpdateTemplate(resumeId, selectedTemplate, newVal);
-    }
+  const handleAccentChange = (accent: CvAccentKey) => {
+    setSelectedAccent(accent);
+    saveAppearance({ template: selectedTemplate, accent, withPhoto });
+  };
+
+  const handlePhotoToggle = () => {
+    const next = !withPhoto;
+    setWithPhoto(next);
+    saveAppearance({ template: selectedTemplate, accent: selectedAccent, withPhoto: next });
   };
 
   const handleRegenerateClick = async () => {
@@ -145,8 +194,6 @@ export default function ResumePreviewModal({
       await onUpdateContent(resumeId, editableContent);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-      // Reload preview
-      await loadPdf();
       setActiveTab("preview");
     } catch (err: unknown) {
       console.error("Failed to save CV content:", err);
@@ -206,7 +253,7 @@ export default function ResumePreviewModal({
               </span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              CV vectoriel A4 certifié ATS • Modèle {selectedTemplate === "executive_minimalist" ? "Executive Minimalist" : "Sidebar Elegance"}
+              CV vectoriel A4 certifié ATS • Modèle {getTemplate(selectedTemplate).label}
             </p>
           </div>
 
@@ -237,50 +284,6 @@ export default function ResumePreviewModal({
                 <span>Éditer le contenu</span>
               </button>
             </div>
-
-            {/* Template Selector (in preview mode) */}
-            {activeTab === "preview" && (
-              <div className="flex bg-slate-900/60 p-1 rounded-lg border border-slate-700/60 text-xs">
-                <button
-                  onClick={() => handleTemplateChange("sidebar_elegance")}
-                  className={`px-2.5 py-1 rounded-md font-medium transition-all ${
-                    selectedTemplate === "sidebar_elegance"
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                  title="Sidebar à 2 colonnes"
-                >
-                  Sidebar
-                </button>
-                <button
-                  onClick={() => handleTemplateChange("executive_minimalist")}
-                  className={`px-2.5 py-1 rounded-md font-medium transition-all ${
-                    selectedTemplate === "executive_minimalist"
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                  title="Mono-colonne Minimalist"
-                >
-                  Minimalist
-                </button>
-              </div>
-            )}
-
-            {/* Photo Toggle */}
-            {activeTab === "preview" && (
-              <button
-                onClick={handlePhotoToggle}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                  withPhoto
-                    ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
-                    : "bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200"
-                }`}
-                title="Afficher ou masquer la photo"
-              >
-                <FiImage />
-                <span>Photo: {withPhoto ? "Oui" : "Non"}</span>
-              </button>
-            )}
 
             {/* Regenerate Button */}
             {onRegenerate && (
@@ -315,6 +318,55 @@ export default function ResumePreviewModal({
             </button>
           </div>
         </div>
+
+        {activeTab === "preview" && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-6 py-2.5 border-b border-slate-800 bg-[#131d31] text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">Modèle</span>
+              <div className="flex bg-slate-900/60 p-1 rounded-lg border border-slate-700/60">
+                {CV_TEMPLATES.map((tmpl) => (
+                  <button
+                    key={tmpl.key}
+                    type="button"
+                    onClick={() => handleTemplateChange(tmpl.key)}
+                    aria-pressed={selectedTemplate === tmpl.key}
+                    title={tmpl.hint}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                      selectedTemplate === tmpl.key
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {tmpl.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">Couleur</span>
+              <AccentSwatches value={selectedAccent} onChange={handleAccentChange} />
+            </div>
+
+            {/* Masqué pour un modèle sans photo ; le choix est conservé pour les autres modèles. */}
+            {supportsPhoto && (
+              <button
+                type="button"
+                onClick={handlePhotoToggle}
+                aria-pressed={withPhoto}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border font-medium transition-colors ${
+                  withPhoto
+                    ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
+                    : "bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200"
+                }`}
+                title="Afficher ou masquer la photo"
+              >
+                <FiImage />
+                <span>Photo : {withPhoto ? "Oui" : "Non"}</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Modal Body */}
         {activeTab === "preview" ? (

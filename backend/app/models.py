@@ -745,7 +745,8 @@ class TailoredResumeInDB(BaseModel):
     application_id: Optional[PyObjectId] = None
     target_role: str
     target_company: str
-    template: str = "sidebar_elegance"  # "sidebar_elegance" or "executive_minimalist"
+    template: str = "sidebar_elegance"
+    accent: str = "marine"
     with_photo: bool = False
     content: TailoredCVSchema
     created_at: datetime = Field(default_factory=utcnow_with_timezone)

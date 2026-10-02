@@ -15,6 +15,17 @@ import { TailoredResume, TailoredCVSchema } from "@/types/resume";
 import { resumeApi, jobOffersApi, type JobOffer } from "@/lib/api";
 import ResumeCard from "@/components/resumes/ResumeCard";
 import ResumePreviewModal from "@/components/resumes/ResumePreviewModal";
+import {
+  CV_TEMPLATES,
+  DEFAULT_ACCENT,
+  DEFAULT_TEMPLATE,
+  resolveAccentKey,
+  resolveTemplateKey,
+  type CvAccentKey,
+  type CvTemplateKey,
+  type ResumeAppearance,
+} from "@/lib/cvTemplates";
+import AccentSwatches from "@/components/resumes/AccentSwatches";
 
 function ResumesContent() {
   const searchParams = useSearchParams();
@@ -30,9 +41,10 @@ function ResumesContent() {
   // New CV Generation Modal State
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState<boolean>(false);
   const [availableOffers, setAvailableOffers] = useState<JobOffer[]>([]);
-  const [offerSearchQuery, setOfferSearchQuery] = useState<string>("" );
+  const [offerSearchQuery, setOfferSearchQuery] = useState<string>("");
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
-  const [selectedTemplate, setSelectedTemplate] = useState<string>("sidebar_elegance");
+  const [selectedTemplate, setSelectedTemplate] = useState<CvTemplateKey>(DEFAULT_TEMPLATE);
+  const [selectedAccent, setSelectedAccent] = useState<CvAccentKey>(DEFAULT_ACCENT);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
@@ -100,6 +112,7 @@ function ResumesContent() {
       const newResume = await resumeApi.generate({
         offer_id: selectedOfferId,
         template: selectedTemplate,
+        accent: selectedAccent,
         with_photo: false,
       });
       setResumes((prev) => [newResume, ...prev]);
@@ -129,15 +142,19 @@ function ResumesContent() {
     }
   };
 
-  const handleUpdateTemplate = async (id: string, template: string, withPhoto: boolean) => {
+  const handleUpdateAppearance = async (id: string, appearance: ResumeAppearance) => {
     try {
-      const updated = await resumeApi.update(id, { template, with_photo: withPhoto });
+      const updated = await resumeApi.update(id, {
+        template: appearance.template,
+        accent: appearance.accent,
+        with_photo: appearance.withPhoto,
+      });
       setResumes((prev) => prev.map((r) => ((r.id || r._id) === id ? updated : r)));
-      if ((activeResumeForPreview?.id || activeResumeForPreview?._id) === id) {
-        setActiveResumeForPreview(updated);
-      }
+      setActiveResumeForPreview((current) =>
+        current && (current.id || current._id) === id ? updated : current
+      );
     } catch (err) {
-      console.error("Failed to update template:", err);
+      console.error("Failed to update resume appearance:", err);
     }
   };
 
@@ -158,7 +175,8 @@ function ResumesContent() {
     try {
       const newResume = await resumeApi.generate({
         offer_id: resume.offer_id,
-        template: resume.template,
+        template: resolveTemplateKey(resume.template),
+        accent: resolveAccentKey(resume.accent),
         with_photo: resume.with_photo,
         application_id: resume.application_id,
       });
@@ -179,7 +197,7 @@ function ResumesContent() {
     const matchesSearch =
       r.target_role.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.target_company.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTemplate = templateFilter === "all" || r.template === templateFilter;
+    const matchesTemplate = templateFilter === "all" || resolveTemplateKey(r.template) === templateFilter;
     return matchesSearch && matchesTemplate;
   });
 
@@ -234,8 +252,9 @@ function ResumesContent() {
             className="bg-slate-900/60 border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
           >
             <option value="all">Tous les modèles ({resumes.length})</option>
-            <option value="sidebar_elegance">Sidebar Elegance</option>
-            <option value="executive_minimalist">Executive Minimalist</option>
+            {CV_TEMPLATES.map((tmpl) => (
+              <option key={tmpl.key} value={tmpl.key}>{tmpl.label}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -295,7 +314,7 @@ function ResumesContent() {
         resume={activeResumeForPreview}
         isOpen={!!activeResumeForPreview}
         onClose={() => setActiveResumeForPreview(null)}
-        onUpdateTemplate={handleUpdateTemplate}
+        onUpdateAppearance={handleUpdateAppearance}
         onUpdateContent={handleUpdateResumeContent}
         onRegenerate={handleRegenerateResume}
         initialTab={modalInitialTab}
@@ -399,34 +418,33 @@ function ResumesContent() {
 
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Modèle de départ
-                </label>
+                <div className="block text-xs font-semibold text-slate-300 mb-1.5">Modèle</div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div
-                    onClick={() => setSelectedTemplate("sidebar_elegance")}
-                    className={`cursor-pointer border rounded-xl p-3 text-xs transition-all ${
-                      selectedTemplate === "sidebar_elegance"
-                        ? "border-blue-500 bg-blue-900/30 text-white"
-                        : "border-slate-800 bg-slate-900/40 text-slate-400 hover:border-slate-700"
-                    }`}
-                  >
-                    <div className="font-semibold mb-0.5">Sidebar Elegance</div>
-                    <div className="text-[11px] text-slate-400">2 colonnes, sidebar de compétences & langues</div>
-                  </div>
-
-                  <div
-                    onClick={() => setSelectedTemplate("executive_minimalist")}
-                    className={`cursor-pointer border rounded-xl p-3 text-xs transition-all ${
-                      selectedTemplate === "executive_minimalist"
-                        ? "border-blue-500 bg-blue-900/30 text-white"
-                        : "border-slate-800 bg-slate-900/40 text-slate-400 hover:border-slate-700"
-                    }`}
-                  >
-                    <div className="font-semibold mb-0.5">Executive Minimalist</div>
-                    <div className="text-[11px] text-slate-400">1 colonne, ultra-épuré style Linear / Stripe</div>
-                  </div>
+                  {CV_TEMPLATES.map((tmpl) => {
+                    const selected = selectedTemplate === tmpl.key;
+                    return (
+                      <button
+                        key={tmpl.key}
+                        type="button"
+                        onClick={() => setSelectedTemplate(tmpl.key)}
+                        aria-pressed={selected}
+                        className={`text-left border rounded-xl p-3 text-xs transition-all ${
+                          selected
+                            ? "border-blue-500 bg-blue-900/30 text-white"
+                            : "border-slate-800 bg-slate-900/40 text-slate-400 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="font-semibold mb-0.5">{tmpl.label}</div>
+                        <div className="text-[11px] text-slate-400">{tmpl.hint}</div>
+                      </button>
+                    );
+                  })}
                 </div>
+              </div>
+
+              <div>
+                <div className="block text-xs font-semibold text-slate-300 mb-1.5">Couleur</div>
+                <AccentSwatches value={selectedAccent} onChange={setSelectedAccent} />
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
