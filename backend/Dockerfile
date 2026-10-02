@@ -40,6 +40,9 @@ RUN echo "🚀 Setup crawl4ai..." && \
 RUN playwright install --with-deps chromium
 
 
+# Créer les répertoires persistants requis au runtime
+RUN mkdir -p app/uploads
+
 # Copier le code
 COPY . .
 
