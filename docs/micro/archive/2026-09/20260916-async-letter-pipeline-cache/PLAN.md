@@ -1,6 +1,7 @@
 ---
 task: Rendre le pipeline cover_letter_crew asynchrone (acompletion, asyncio.gather) et ajouter un cache TTL pour la recherche d'entreprise
-status: planned
+description: "Rendre le pipeline cover_letter_crew asynchrone (acompletion, asyncio.gather) et ajouter un cache TTL pour la recherche d'entreprise — cover_letter_crew.py, routers/applications.py, tests/test_cover_letter_crew.py"
+status: done
 created: 2026-09-16
 ---
 

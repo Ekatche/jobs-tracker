@@ -1,6 +1,7 @@
 ---
 task: Corriger la perte silencieuse d'offres du DAG collect_job_offers_granular ("Event loop is closed")
-status: completed
+description: "Corriger la perte silencieuse d'offres du DAG collect_job_offers_granular (\"Event loop is closed\") — database.py, tasks/job_offers_collectors.py, llm/utils.py, job_crawler/crawler1.py, crew.py"
+status: done
 created: 2026-09-13
 ---
 

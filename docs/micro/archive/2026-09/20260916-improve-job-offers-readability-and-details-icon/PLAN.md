@@ -1,6 +1,7 @@
 ---
 task: Improve job offers page readability and replace star icons with appropriate UI icons
-status: completed
+description: "Improve job offers page readability and replace star icons with appropriate UI icons — app/offers/page.tsx"
+status: done
 created: 2026-09-16
 ---
 

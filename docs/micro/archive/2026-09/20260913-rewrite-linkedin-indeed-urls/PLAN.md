@@ -1,6 +1,7 @@
 ---
 task: Optimiser automatiquement les URLs LinkedIn et Indeed pour contourner les anti-bots et accélérer le scraping
-status: completed
+description: "Optimiser automatiquement les URLs LinkedIn et Indeed pour contourner les anti-bots et accélérer le scraping — services/normalization.py, job_crawler/crawler1.py, tests/test_normalization.py, tests/test_job_offers_pipeline.py"
+status: done
 created: 2026-09-13
 ---
 

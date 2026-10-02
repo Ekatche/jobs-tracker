@@ -1,5 +1,6 @@
 ---
 task: Découper le travail non commité de fix/profile-multi-sources en plusieurs commits par sujet, merger sur main, pousser sur origin, reconstruire le docker local
+description: "Découper le travail non commité de fix/profile-multi-sources en plusieurs commits par sujet, merger sur main, pousser sur origin, reconstruire le docker local"
 status: done
 created: 2026-09-16
 ---

@@ -1,5 +1,6 @@
 ---
 task: Générer les requêtes de collecte d'offres depuis le ciblage (preferences) de tous les profils candidats au lieu d'une liste figée, et normaliser les intitulés de poste pour mutualiser les recherches en multi-utilisateurs
+description: "Générer les requêtes de collecte d'offres depuis le ciblage (preferences) de tous les profils candidats au lieu d'une liste figée, et normaliser les intitulés de poste pour mutualiser les recherches en multi-utilisateurs — tasks/job_offers_collectors.py, airflow/dags/collect_job_offers.py, services/role_normalizer.py, scripts/seed_role_aliases.py, tests/test_job_offers_collectors_queries.py, tests/test_role_normalizer.py"
 status: done
 created: 2026-09-16
 ---

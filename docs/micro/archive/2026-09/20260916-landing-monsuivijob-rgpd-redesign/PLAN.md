@@ -1,6 +1,7 @@
 ---
 task: Redesign landing page with MonSuiviJob branding, GDPR transparency, and vulgarized tool showcase without aggressive CTAs
-status: complete
+description: "Redesign landing page with MonSuiviJob branding, GDPR transparency, and vulgarized tool showcase without aggressive CTAs — components/layout/Header.tsx, app/page.tsx, app/onboarding/page.tsx"
+status: done
 created: 2026-09-16
 ---
 

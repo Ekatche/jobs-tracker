@@ -1,6 +1,7 @@
 ---
 task: Fix user authentication session persistence across browser tab closures
-status: completed
+description: "Fix user authentication session persistence across browser tab closures — lib/auth.ts, lib/api.ts, components/auth/ProtectedRoute.tsx, components/auth/LoginForm.tsx, app/applications/layout.tsx, app/dashboard/layout.tsx +3"
+status: done
 created: 2026-09-08
 updated: 2026-09-12
 ---

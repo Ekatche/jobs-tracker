@@ -1,6 +1,7 @@
 ---
 task: Implement multi-step onboarding wizard page (/onboarding) with targeting, CV upload, and external sources
-status: completed
+description: "Implement multi-step onboarding wizard page (/onboarding) with targeting, CV upload, and external sources — models.py, routers/users.py, lib/api.ts, app/onboarding/page.tsx, tests/test_onboarding.py"
+status: done
 created: 2026-09-16
 ---
 

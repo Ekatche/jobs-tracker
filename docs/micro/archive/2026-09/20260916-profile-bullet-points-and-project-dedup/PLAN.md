@@ -1,6 +1,7 @@
 ---
 task: Enable experience bullet points/missions editing, smart project deduplication across sources, and manual deletion persistence
-status: completed
+description: "Enable experience bullet points/missions editing, smart project deduplication across sources, and manual deletion persistence — models.py, services/profile/merge.py, types/coverLetter.ts, components/profile/CandidateProfileSection.tsx, tests/test_profile_merge.py"
+status: done
 created: 2026-09-16
 ---
 

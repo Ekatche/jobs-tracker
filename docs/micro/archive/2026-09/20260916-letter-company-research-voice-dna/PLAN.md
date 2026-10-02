@@ -1,5 +1,6 @@
 ---
 task: Ajouter une phase de recherche entreprise live et un style d'écriture personnel (voice DNA) au pipeline de lettre de motivation
+description: "Ajouter une phase de recherche entreprise live et un style d'écriture personnel (voice DNA) au pipeline de lettre de motivation — letter_llm.py, cover_letter_crew.py, services/profile/merge.py, llm/prompts/cover_letter/02_style.md, tests/test_cover_letter_prompts.py, tests/test_cover_letter_crew.py +1"
 status: done
 created: 2026-09-16
 ---

@@ -1,6 +1,7 @@
 ---
 task: Enrichir le prompt de cover letter et ses garde-fous avec les meilleures pratiques de career-ops
-status: completed
+description: "Enrichir le prompt de cover letter et ses garde-fous avec les meilleures pratiques de career-ops — llm/prompts/cover_letter/02_style.md, services/letter_guards.py, tests/test_letter_guards.py"
+status: done
 created: 2026-09-15
 completed: 2026-09-15
 ---

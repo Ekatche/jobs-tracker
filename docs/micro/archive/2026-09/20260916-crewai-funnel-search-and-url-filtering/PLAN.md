@@ -1,5 +1,6 @@
 ---
 task: Implement CrewAI additive funnel search and direct ATS URL qualification
+description: "Implement CrewAI additive funnel search and direct ATS URL qualification — tools/custom_tool.py, config/tasks.yaml, tests/test_crew_models_and_tools.py"
 status: done
 created: 2026-09-16
 ---

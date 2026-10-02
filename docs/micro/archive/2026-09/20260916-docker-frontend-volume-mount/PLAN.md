@@ -1,6 +1,7 @@
 ---
 task: Mount frontend volume in docker-compose.yml and rebuild frontend container for live hot-reloading
-status: complete
+description: "Mount frontend volume in docker-compose.yml and rebuild frontend container for live hot-reloading — docker-compose.yml"
+status: done
 created: 2026-09-16
 ---
 

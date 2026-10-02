@@ -1,6 +1,7 @@
 ---
 task: Add scrollable viewport containers for dense profile sections and enable manual CRUD for experiences and projects
-status: completed
+description: "Add scrollable viewport containers for dense profile sections and enable manual CRUD for experiences and projects — components/profile/CandidateProfileSection.tsx"
+status: done
 created: 2026-09-16
 ---
 

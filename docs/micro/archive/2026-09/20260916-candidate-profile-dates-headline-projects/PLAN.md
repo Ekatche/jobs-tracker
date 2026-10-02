@@ -1,6 +1,7 @@
 ---
 task: Fix experience dates parsing, synthesize professional headline, preserve all project details, and align profile UI
-status: completed
+description: "Fix experience dates parsing, synthesize professional headline, preserve all project details, and align profile UI — services/profile/merge.py, types/coverLetter.ts, components/profile/CandidateProfileSection.tsx, components/profile/CvDropzone.tsx, tests/test_profile_merge.py"
+status: done
 created: 2026-09-16
 ---
 

@@ -1,6 +1,7 @@
 ---
 task: Filtrer les offres hors-domaine dans le pipeline de collecte (blocklist de slug URL en amont, allowlist de vocabulaire sur le titre en aval)
-status: completed
+description: "Filtrer les offres hors-domaine dans le pipeline de collecte (blocklist de slug URL en amont, allowlist de vocabulaire sur le titre en aval) — services/relevance.py, tasks/job_offers_collectors.py, config/tasks.yaml, tests/test_relevance.py, tests/test_job_offers_pipeline.py"
+status: done
 created: 2026-09-13
 ---
 

@@ -1,6 +1,7 @@
 ---
 task: Change frontend port to 3875
-status: complete
+description: "Change frontend port to 3875 — frontend/package.json, docker-compose.yml"
+status: done
 created: 2026-09-06
 ---
 

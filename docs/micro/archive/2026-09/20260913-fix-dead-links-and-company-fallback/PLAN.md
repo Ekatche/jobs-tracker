@@ -1,6 +1,7 @@
 ---
 task: Optimiser la détection des liens morts sans retry abusif et ajouter le fallback du nom d'entreprise depuis l'URL
-status: completed
+description: "Optimiser la détection des liens morts sans retry abusif et ajouter le fallback du nom d'entreprise depuis l'URL — services/normalization.py, job_crawler/crawler1.py, tasks/job_offers_collectors.py, tests/test_normalization.py, tests/test_job_offers_pipeline.py"
+status: done
 created: 2026-09-13
 ---
 

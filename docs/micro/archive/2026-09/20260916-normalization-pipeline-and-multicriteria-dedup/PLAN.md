@@ -1,5 +1,6 @@
 ---
 task: Implement 4-layer job offer normalization pipeline and multi-criteria deduplication
+description: "Implement 4-layer job offer normalization pipeline and multi-criteria deduplication — services/normalization.py, services/job_offers.py, tasks/job_offers_collectors.py, tasks/clean_job_offers.py, models.py, tests/test_normalization_and_dedup.py"
 status: done
 created: 2026-09-16
 ---

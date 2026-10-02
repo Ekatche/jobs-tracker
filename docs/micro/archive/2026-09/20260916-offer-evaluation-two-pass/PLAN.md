@@ -1,6 +1,7 @@
 ---
 task: Implement Two-Pass AI Offer Evaluation pipeline (Blocks A-G, score 1.0-5.0) and detailed offer view (/offers/[id])
-status: completed
+description: "Implement Two-Pass AI Offer Evaluation pipeline (Blocks A-G, score 1.0-5.0) and detailed offer view (/offers/[id]) — models.py, services/evaluation/evaluator.py, routers/job_offers.py, lib/api.ts, types/jobOffer.ts, app/offers/page.tsx +2"
+status: done
 created: 2026-09-16
 ---
 

@@ -1,6 +1,7 @@
 ---
 task: Add loading spinner, full LLM generation, and improved letter display layout
-status: complete
+description: "Add loading spinner, full LLM generation, and improved letter display layout — letter_llm.py, cover_letter_crew.py, components/applications/CoverLetterPanel.tsx"
+status: done
 created: 2026-09-14
 ---
 

@@ -1,6 +1,7 @@
 ---
 task: Implement candidate targeting preferences and overhaul profile page layout
-status: completed
+description: "Implement candidate targeting preferences and overhaul profile page layout — models.py, services/profile/merge.py, types/coverLetter.ts, components/profile/TargetingPreferencesSection.tsx, tests/test_candidate_preferences.py"
+status: done
 created: 2026-09-15
 ---
 

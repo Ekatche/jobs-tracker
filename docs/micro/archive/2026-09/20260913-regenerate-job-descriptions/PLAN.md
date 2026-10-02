@@ -1,6 +1,7 @@
 ---
 task: Implémenter le script et bouton de régénération des descriptions d'offres d'emploi avec traitement des liens morts
-status: completed
+description: "Implémenter le script et bouton de régénération des descriptions d'offres d'emploi avec traitement des liens morts — tasks/regenerate_descriptions.py, routers/job_offers.py, lib/api.ts, app/offers/page.tsx, tests/test_regenerate_descriptions.py"
+status: done
 created: 2026-09-13
 ---
 

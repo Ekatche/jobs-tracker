@@ -1,6 +1,7 @@
 ---
 task: Add automated verification cron and JS-capable agent to check if active job offers are still open
-status: completed
+description: "Add automated verification cron and JS-capable agent to check if active job offers are still open — tasks/verify_job_offers.py, airflow/dags/verify_job_offers_dag.py, tests/test_verify_job_offers.py"
+status: done
 created: 2026-09-12
 updated: 2026-09-12
 ---

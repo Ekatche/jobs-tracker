@@ -1,6 +1,7 @@
 ---
 task: Phase 4 of Career-Ops Plan - Kanban pipeline, offer linking (offer_id), and automated follow-up cadences
-status: complete
+description: "Phase 4 of Career-Ops Plan - Kanban pipeline, offer linking (offer_id), and automated follow-up cadences — models.py, routers/applications.py, types/application.ts, lib/api.ts, components/dashboard/NewApplicationModal.tsx, app/offers/[id]/page.tsx +3"
+status: done
 created: 2026-09-16
 ---
 

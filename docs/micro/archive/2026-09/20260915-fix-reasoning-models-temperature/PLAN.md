@@ -1,6 +1,7 @@
 ---
 task: Fixer l'incompatibilité de temperature et max_tokens pour les modèles reasoning dans cover_letter_crew
-status: completed
+description: "Fixer l'incompatibilité de temperature et max_tokens pour les modèles reasoning dans cover_letter_crew — letter_llm.py, cover_letter_crew.py, tests/test_cover_letter_crew.py, tests/test_letter_llm.py"
+status: done
 created: 2026-09-15
 completed: 2026-09-15
 ---

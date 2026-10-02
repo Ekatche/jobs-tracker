@@ -1,6 +1,7 @@
 ---
 task: Consolidate candidate education & github projects into profile and exploit full profile context in offer evaluator
-status: completed
+description: "Consolidate candidate education & github projects into profile and exploit full profile context in offer evaluator — models.py, services/profile/merge.py, services/profile/collectors/github.py, services/evaluation/evaluator.py, components/profile/CandidateProfileSection.tsx, tests/test_profile_merge.py +1"
+status: done
 created: 2026-09-16
 ---
 

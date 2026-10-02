@@ -1,6 +1,7 @@
 ---
 task: Unify applications page with modern Kanban, equal column heights, En étude column, and full ApplicationDetails modal
-status: complete
+description: "Unify applications page with modern Kanban, equal column heights, En étude column, and full ApplicationDetails modal — types/application.ts, components/layout/Header.tsx, app/applications/page.tsx, app/pipeline/page.tsx, routers/applications.py, tests/test_pipeline_kanban.py"
+status: done
 created: 2026-09-16
 ---
 

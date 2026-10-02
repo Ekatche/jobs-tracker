@@ -1,6 +1,7 @@
 ---
 task: Implement API usage tracking models, quota service, and usage router
-status: completed
+description: "Implement API usage tracking models, quota service, and usage router — models.py, services/usage_tracker.py, routers/usage.py, routers/__init__.py, main.py, tests/test_usage_tracker.py"
+status: done
 created: 2026-09-15
 ---
 

@@ -1,6 +1,7 @@
 ---
 task: Améliorer la qualité et la structure des descriptions d'offres d'emploi générées par le crawler
-status: completed
+description: "Améliorer la qualité et la structure des descriptions d'offres d'emploi générées par le crawler — job_crawler/crawler1.py, app/offers/page.tsx, tests/test_job_offers_pipeline.py"
+status: done
 created: 2026-09-13
 ---
 

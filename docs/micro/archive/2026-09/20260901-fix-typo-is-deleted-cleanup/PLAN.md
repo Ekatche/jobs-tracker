@@ -1,6 +1,7 @@
 ---
 task: Fix typo is_delated to is_deleted and clean up minor issues
-status: completed
+description: "Fix typo is_delated to is_deleted and clean up minor issues — models.py, routers/job_offers.py, database.py, tasks/job_offers_collectors.py, tasks/clean_job_offers.py, lib/api.ts +2"
+status: done
 created: 2026-09-01
 ---
 

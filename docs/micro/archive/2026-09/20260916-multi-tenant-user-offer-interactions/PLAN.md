@@ -1,5 +1,6 @@
 ---
 task: Multi-tenant user offer interactions isolation and filtering
+description: "Multi-tenant user offer interactions isolation and filtering — models.py, auth.py, routers/job_offers.py, lib/api.ts, types/jobOffer.ts, app/offers/page.tsx +1"
 status: done
 created: 2026-09-16
 ---

@@ -1,6 +1,7 @@
 ---
 task: Integrate global and generalist ATS into search and normalization pipeline
-status: completed
+description: "Integrate global and generalist ATS into search and normalization pipeline — tools/custom_tool.py, services/normalization.py, tests/test_normalization.py"
+status: done
 created: 2026-09-15
 ---
 

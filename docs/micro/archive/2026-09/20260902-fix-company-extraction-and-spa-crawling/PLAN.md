@@ -1,6 +1,7 @@
 ---
 task: Fix company extraction on SPA pages, reject expired offers, and enrich job description field
-status: complete
+description: "Fix company extraction on SPA pages, reject expired offers, and enrich job description field — job_crawler/crawler1.py, models.py, tasks/job_offers_collectors.py, lib/api.ts, app/offers/page.tsx, components/dashboard/NewApplicationModal.tsx +1"
+status: done
 created: 2026-09-02
 ---
 

@@ -1,6 +1,7 @@
 ---
 task: Add UX notifications on preferences saving, deep-scrape portfolio pages, and implement Mistral VLM for CV parsing
-status: completed
+description: "Add UX notifications on preferences saving, deep-scrape portfolio pages, and implement Mistral VLM for CV parsing — components/profile/TargetingPreferencesSection.tsx, services/profile/collectors/website.py, services/cv_parser.py, routers/cover_letters.py, tests/test_profile_collectors.py, tests/test_cv_vlm_parser.py"
+status: done
 created: 2026-09-15
 ---
 

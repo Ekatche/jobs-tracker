@@ -1,5 +1,6 @@
 ---
 task: Corriger le prompt réviseur qui ne reçoit aucune donnée, et ajouter un champ UI pour le voice DNA (writing_style)
+description: "Corriger le prompt réviseur qui ne reçoit aucune donnée, et ajouter un champ UI pour le voice DNA (writing_style) — llm/prompts/cover_letter/04_revision.md, cover_letter_crew.py, types/coverLetter.ts, components/profile/CandidateProfileSection.tsx, tests/test_cover_letter_crew.py"
 status: done
 created: 2026-09-16
 ---

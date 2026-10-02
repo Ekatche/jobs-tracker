@@ -1,6 +1,7 @@
 ---
 task: Modernize application details sidebar and enable in-kanban AI Two-Pass offer scoring
-status: completed
+description: "Modernize application details sidebar and enable in-kanban AI Two-Pass offer scoring — routers/applications.py, lib/api.ts, components/applications/ApplicationDetails.tsx, components/applications/StatusSelect.tsx, tests/test_pipeline_kanban.py"
+status: done
 created: 2026-09-16
 ---
 

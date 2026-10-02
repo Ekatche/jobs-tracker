@@ -1,5 +1,6 @@
 ---
 task: Connecteurs ATS Zero-Token (Greenhouse, Lever, Ashby, Workable, Remotive, JSON-LD) et alignement des scripts de vérification et nettoyage sur le modèle JobOffer
+description: "Connecteurs ATS Zero-Token (Greenhouse, Lever, Ashby, Workable, Remotive, JSON-LD) et alignement des scripts de vérification et nettoyage sur le modèle JobOffer — services/ats/__init__.py, services/ats/router.py, tasks/job_offers_collectors.py, tasks/verify_job_offers.py, tasks/clean_job_offers.py, tests/test_ats_parsers.py +1"
 status: done
 created: 2026-09-16
 ---

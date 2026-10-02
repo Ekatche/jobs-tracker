@@ -1,6 +1,7 @@
 ---
 task: Fix candidate profile lookup in offer evaluator to match ObjectId and string user_id
-status: completed
+description: "Fix candidate profile lookup in offer evaluator to match ObjectId and string user_id — services/evaluation/evaluator.py, tests/test_offer_evaluation.py"
+status: done
 created: 2026-09-16
 ---
 
