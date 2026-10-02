@@ -19,7 +19,20 @@
     }
 
     # Routes d'API directes du Backend FastAPI
-    @api_routes path /auth/* /users/* /applications/* /tasks/* /job_offers/* /cover_letters/* /candidates/* /usage/* /resumes/* /interview-prep/* /uploads/* /docs* /openapi.json
+    # POST sur /auth/login et /auth/register → backend (appels API du formulaire Next.js)
+    # GET sur /auth/login et /auth/register → frontend (pages Next.js)
+    @api_auth_write {
+        not method GET
+        path /auth/login /auth/register
+    }
+    handle @api_auth_write {
+        reverse_proxy backend:8000
+    }
+
+    @api_routes {
+        path /auth/token /auth/me /auth/refresh /auth/logout /auth/change-password
+        path /users/* /applications/* /tasks/* /job_offers/* /cover_letters/* /candidates/* /usage/* /resumes/* /interview-prep/* /uploads/* /docs* /openapi.json
+    }
     handle @api_routes {
         reverse_proxy backend:8000
     }
