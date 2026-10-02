@@ -23,21 +23,9 @@ import { UserQuotaSummary, ApiUsageRecord, TierPricingInfo, UserTier } from "@/t
 import Cookies from "js-cookie";
 // Ajoutez cet import au début du fichier
 import { getLastActivityTime } from "./activityTracker";
+import { getApiBaseUrl } from "./apiBase";
 
-export const getApiBaseUrl = (): string => {
-  if (typeof window === "undefined") {
-    return process.env.INTERNAL_API_URL || "http://backend:8000";
-  }
-  // En cas d'override explicite en variable d'environnement :
-  if (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_API_URL.trim() !== "") {
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
-  // En production navigateur (derrière reverse-proxy Caddy sur VPS/domaine) :
-  if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-    return window.location.origin;
-  }
-  return "http://localhost:8000";
-};
+export { getApiBaseUrl };
 
 const API_URL = getApiBaseUrl();
 

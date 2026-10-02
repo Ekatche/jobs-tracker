@@ -14,42 +14,31 @@
     encode gzip zstd
 
     # Route /api/* vers backend:8000 en retirant automatiquement le préfixe /api
+    # Point d'entrée standard de tous les appels API du frontend Next.js
     handle_path /api/* {
         reverse_proxy backend:8000
     }
 
-    # /auth/login : GET → page Next.js, POST → backend API
-    route /auth/login {
-        @post method POST PUT PATCH DELETE
-        handle @post {
-            reverse_proxy backend:8000
-        }
-        handle {
-            reverse_proxy frontend:3875
-        }
+    # Compatibilité POST direct pour /auth/register
+    @api_register {
+        method POST
+        path /auth/register
     }
-
-    # /auth/register : GET → page Next.js, POST → backend API
-    route /auth/register {
-        @post method POST PUT PATCH DELETE
-        handle @post {
-            reverse_proxy backend:8000
-        }
-        handle {
-            reverse_proxy frontend:3875
-        }
-    }
-
-    # Routes d'API pures du Backend FastAPI (pas de pages frontend)
-    @api_routes {
-        path /auth/token /auth/me /auth/refresh /auth/logout /auth/change-password
-        path /users/* /applications/* /tasks/* /job_offers/* /cover_letters/* /candidates/* /usage/* /resumes/* /interview-prep/* /uploads/* /docs* /openapi.json
-    }
-    handle @api_routes {
+    handle @api_register {
         reverse_proxy backend:8000
     }
 
-    # Toutes les autres requêtes vont au Frontend Next.js
+    # Routes d'API et documentation directes du Backend FastAPI
+    @api_direct {
+        path /auth/token /auth/me /auth/refresh /auth/logout /auth/change-password
+        path /docs* /openapi.json /redoc* /uploads/*
+    }
+    handle @api_direct {
+        reverse_proxy backend:8000
+    }
+
+    # Toutes les pages web et assets vont au Frontend Next.js
+    # (/auth/login, GET /auth/register, /resumes, /applications, /profile, /_next/*, etc.)
     handle {
         reverse_proxy frontend:3875
     }

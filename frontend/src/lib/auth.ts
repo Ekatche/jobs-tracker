@@ -1,6 +1,7 @@
 import { jwtDecode } from "jwt-decode"; // Importation correcte
 import Cookies from "js-cookie";
 import axios from "axios";
+import { getApiBaseUrl } from "./apiBase";
 
 export interface User {
   id: string;
@@ -21,7 +22,7 @@ export interface RegisterCredentials {
   full_name?: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = getApiBaseUrl();
 
 export async function login(credentials: LoginCredentials) {
   try {
