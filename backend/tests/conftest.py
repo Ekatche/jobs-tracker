@@ -12,6 +12,9 @@ from app.database import get_database
 dotenv_path = pathlib.Path(__file__).parent.parent.parent / ".env"
 load_dotenv(dotenv_path=dotenv_path)
 
+# En environnement de test, neutraliser INVITATION_CODE pour permettre l'exécution des tests standards
+os.environ.pop("INVITATION_CODE", None)
+
 MONGO_USER = os.getenv("MONGO_TEST_USER")
 MONGO_PASSWORD = os.getenv("MONGO_TEST_PASSWORD")
 DATABASE_NAME = os.getenv("DATABASE_NAME_TEST")

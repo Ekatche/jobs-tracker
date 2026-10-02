@@ -69,10 +69,19 @@ else:
         "http://127.0.0.1:5173",
     ]
 
+# Inclure automatiquement le domaine de déploiement si défini (ex: VPS)
+domain_env = os.getenv("DOMAIN")
+if domain_env and domain_env.strip() not in ("localhost", "127.0.0.1"):
+    cleaned_domain = domain_env.strip().replace("http://", "").replace("https://", "")
+    origins.extend([
+        f"https://{cleaned_domain}",
+        f"http://{cleaned_domain}",
+    ])
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.sslip\.io|.*\.nip\.io)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
