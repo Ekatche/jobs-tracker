@@ -8,12 +8,11 @@ Thumbs.db
 *.swo
 .worktrees/
 
-# Fichiers d'environnement
+# Fichiers d'environnement (secrets confidentiels)
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+*.env
 
 # Logs
 *.log

@@ -229,3 +229,10 @@ docker compose down
 docker compose build --no-cache backend
 docker compose up -d
 ```
+
+---
+
+## 🚀 Déploiement en Production (VPS)
+
+Pour déployer l'application sur un VPS avec reverse-proxy Caddy (HTTPS automatique) et isolation complète des secrets :
+👉 Consultez le guide détaillé : **[docs/VPS_DEPLOYMENT.md](docs/VPS_DEPLOYMENT.md)**.
