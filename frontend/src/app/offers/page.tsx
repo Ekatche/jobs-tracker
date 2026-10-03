@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   jobOffersApi,
   coverLetterApi,
@@ -32,6 +33,7 @@ import {
   FiCheckCircle,
   FiTarget,
   FiFileText,
+  FiAlertCircle,
 } from "react-icons/fi";
 import { PrefilledData } from "@/components/dashboard/NewApplicationModal";
 import { getContractBadgeStyles } from "@/lib/contractBadge";
@@ -93,7 +95,9 @@ function formatAddedDate(createdAtStr?: string): string | null {
 
 const ITEMS_PER_PAGE = 16; // 4x4 grille
 
-export default function OffersPage() {
+function OffersPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [offers, setOffers] = useState<JobOffer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,14 +117,19 @@ export default function OffersPage() {
   const [profileContracts, setProfileContracts] = useState<string[]>([]);
   const [profileEmpty, setProfileEmpty] = useState(false);
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
+  // Pagination — initialisée depuis l'URL pour survivre à un rafraîchissement/retour arrière
+  const [currentPage, setCurrentPage] = useState(() => {
+    const p = Number(searchParams.get("page"));
+    return p > 0 ? p : 1;
+  });
   const [totalOffers, setTotalOffers] = useState(0);
+  const skipNextPageReset = useRef(true);
 
   // UI
   const [showFilters, setShowFilters] = useState(false);
   const [activeTab, setActiveTab] = useState<"offers" | "stats">("offers");
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [regenerateError, setRegenerateError] = useState<string | null>(null);
 
   // Stats
   const [stats, setStats] = useState<JobOfferStats | null>(null);
@@ -252,6 +261,7 @@ export default function OffersPage() {
   const handleRegenerateDescription = async (offerId: string) => {
     try {
       setRegeneratingId(offerId);
+      setRegenerateError(null);
       const res = await jobOffersApi.regenerateDescription(offerId);
       setOffers((prevOffers) =>
         prevOffers.map((offer) => {
@@ -272,7 +282,7 @@ export default function OffersPage() {
         err && typeof err === "object" && "response" in err
           ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
           : null;
-      alert(msg || "Erreur lors de la régénération de la description");
+      setRegenerateError(msg || "Erreur lors de la régénération de la description");
     } finally {
       setRegeneratingId(null);
     }
@@ -358,8 +368,12 @@ export default function OffersPage() {
     return () => window.removeEventListener("application-created", handleApplicationCreated);
   }, [fetchOffers, fetchTotalCount]);
 
-  // Reset pagination sur modification des filtres
+  // Reset pagination sur modification des filtres (pas au montage, pour respecter ?page= de l'URL)
   useEffect(() => {
+    if (skipNextPageReset.current) {
+      skipNextPageReset.current = false;
+      return;
+    }
     setCurrentPage(1);
   }, [
     searchTerm,
@@ -372,6 +386,11 @@ export default function OffersPage() {
     interactionStatus,
     minScoreFilter,
   ]);
+
+  // Synchroniser la page courante dans l'URL (retour arrière / rafraîchissement la préservent)
+  useEffect(() => {
+    router.replace(currentPage > 1 ? `/offers?page=${currentPage}` : "/offers", { scroll: false });
+  }, [currentPage, router]);
 
   // Clamping automatique si currentPage dépasse totalPages (ex: filtre restreignant les résultats)
   useEffect(() => {
@@ -558,7 +577,7 @@ export default function OffersPage() {
               <div className="mb-3 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
                 <p
                   className={`text-slate-300 text-xs leading-relaxed whitespace-pre-line ${
-                    !isExpanded ? "line-clamp-3" : ""
+                    !isExpanded ? "line-clamp-3" : "max-h-56 overflow-y-auto"
                   }`}
                 >
                   {cleanedDescription}
@@ -749,6 +768,9 @@ export default function OffersPage() {
               {statsLoading
                 ? "..."
                 : stats?.total_offers?.toLocaleString() || 0}
+            </p>
+            <p className="text-gray-500 text-xs mt-1">
+              Toutes offres en base, sans vos filtres de l&apos;onglet Offres
             </p>
           </div>
           <FiGrid className="w-10 h-10 text-blue-400" />
@@ -1030,6 +1052,24 @@ export default function OffersPage() {
                 </button>
               </div>
 
+              {/* Filtre auto-appliqué sur les contrats ciblés du profil : visible et dissociable */}
+              {contractTypeFilter === "profile_targeted" && profileContracts.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-slate-800/80">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-indigo-600/20 text-indigo-300 border border-indigo-500/40">
+                    <FiTarget className="w-3 h-3" />
+                    Filtré sur vos contrats ciblés ({profileContracts.join(", ")})
+                    <button
+                      type="button"
+                      onClick={() => setContractTypeFilter("")}
+                      className="ml-1 hover:text-white"
+                      title="Retirer ce filtre"
+                    >
+                      ×
+                    </button>
+                  </span>
+                </div>
+              )}
+
               {/* Rôles et critères issus du profil candidat */}
               {profileRoles.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-800/80">
@@ -1172,6 +1212,21 @@ export default function OffersPage() {
               )}
             </div>
 
+            {/* Erreur de régénération */}
+            {regenerateError && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
+                <FiAlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <span className="flex-1">{regenerateError}</span>
+                <button
+                  type="button"
+                  onClick={() => setRegenerateError(null)}
+                  className="text-rose-400 hover:text-rose-200"
+                >
+                  <FiX className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* Statistiques & compteur */}
             <div className="flex items-center justify-between mb-5 px-1">
               <p className="text-xs font-medium text-slate-400">
@@ -1209,7 +1264,7 @@ export default function OffersPage() {
             </div>
 
             {/* Contenu principal */}
-            {loading ? (
+            {loading && offers.length === 0 ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
                 <span className="ml-3 text-blue-400">
@@ -1236,14 +1291,21 @@ export default function OffersPage() {
               </div>
             ) : (
               <>
-                {/* Grille des offres 4x4 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {offers.map((offer) => (
-                    <OfferCard
-                      key={offer.id}
-                      offer={offer}
-                    />
-                  ))}
+                {/* Grille des offres 4x4 — reste montée pendant le chargement de page suivante */}
+                <div className={`relative ${loading ? "opacity-50 pointer-events-none" : ""}`}>
+                  {loading && (
+                    <div className="absolute inset-0 flex items-center justify-center z-10">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
+                    {offers.map((offer) => (
+                      <OfferCard
+                        key={offer.id}
+                        offer={offer}
+                      />
+                    ))}
+                  </div>
                 </div>
 
                 {/* Pagination */}
@@ -1257,5 +1319,19 @@ export default function OffersPage() {
         {activeTab === "stats" && <StatsContent />}
       </div>
     </div>
+  );
+}
+
+export default function OffersPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-24">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+        </div>
+      }
+    >
+      <OffersPageContent />
+    </Suspense>
   );
 }

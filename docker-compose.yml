@@ -159,6 +159,7 @@ services:
       - TZ=Europe/Paris
       # Configuration Airflow
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=False
       - AIRFLOW_HOME=/opt/airflow
       - AIRFLOW__CORE__TASK_HEARTBEAT_TIMEOUT=900  # 15 minutes au lieu de 5
       - AIRFLOW__CORE__DAG_FILE_PROCESSOR_TIMEOUT=900

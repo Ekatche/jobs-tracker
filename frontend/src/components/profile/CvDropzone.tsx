@@ -41,6 +41,18 @@ export default function CvDropzone({
       return;
     }
 
+    if (
+      hasCvSource &&
+      !window.confirm(
+        "Ce nouveau CV remplacera votre profil actuel (expériences, compétences, formations). Continuer ?"
+      )
+    ) {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
     setIsUploading(true);
     setUploadError(null);
     setUploadSuccess(null);

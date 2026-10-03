@@ -633,25 +633,10 @@ async def regenerate_application_description(
         raise HTTPException(status_code=500, detail=f"Erreur lors de la régénération : {str(e)}")
 
 
-@job_router.post("/{application_id}/evaluate", response_model=OfferEvaluationResponse)
-async def evaluate_application_offer(
-    application_id: str,
-    db=Depends(get_database),
-    current_user: UserModel = Depends(get_current_user),
-):
-    """Évalue l'offre liée à une candidature via le pipeline Two-Pass (Gemini 3.7 Flash).
-    Si la candidature n'est pas encore liée à une offre scrapée, une entrée job_offers est initialisée automatiquement.
+async def _ensure_offer_for_application(application_id: str, app_doc: dict, db) -> str:
+    """Retrouve ou crée l'entrée job_offers correspondant à l'URL/poste de cette candidature,
+    et lie son offer_id à l'application. Ne déclenche aucun scoring IA.
     """
-    if not ObjectId.is_valid(application_id):
-        raise HTTPException(status_code=400, detail="ID de candidature invalide")
-
-    app_doc = await db["applications"].find_one({"_id": ObjectId(application_id)})
-    if not app_doc:
-        raise HTTPException(status_code=404, detail="Candidature non trouvée")
-
-    if str(app_doc.get("user_id")) != str(current_user.id):
-        raise HTTPException(status_code=403, detail="Accès non autorisé")
-
     offer_id = app_doc.get("offer_id")
     now = datetime.now(timezone.utc)
     existing_offer = None
@@ -720,7 +705,7 @@ async def evaluate_application_offer(
             if fallback:
                 offer_id = str(fallback["_id"])
             else:
-                logger.error(f"[evaluate_application_offer] DuplicateKeyError sans document correspondant pour app {application_id}")
+                logger.error(f"[_ensure_offer_for_application] DuplicateKeyError sans document correspondant pour app {application_id}")
                 raise HTTPException(status_code=500, detail="Conflit de clé d'offre dans la base de données")
 
         # Lier l'offer_id à l'application
@@ -728,6 +713,55 @@ async def evaluate_application_offer(
             {"_id": ObjectId(application_id)},
             {"$set": {"offer_id": offer_id, "updated_at": now}}
         )
+
+    return offer_id
+
+
+@job_router.post("/{application_id}/link-offer", response_model=JobApplicationResponse)
+async def link_application_offer(
+    application_id: str,
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Crée ou retrouve l'offre associée à cette candidature (par URL, poste ou clé d'unicité),
+    sans lancer le scoring IA — permet de consulter l'offre avant de payer une évaluation.
+    """
+    if not ObjectId.is_valid(application_id):
+        raise HTTPException(status_code=400, detail="ID de candidature invalide")
+
+    app_doc = await db["applications"].find_one({"_id": ObjectId(application_id)})
+    if not app_doc:
+        raise HTTPException(status_code=404, detail="Candidature non trouvée")
+
+    if str(app_doc.get("user_id")) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+
+    await _ensure_offer_for_application(application_id, app_doc, db)
+
+    updated = await db["applications"].find_one({"_id": ObjectId(application_id)})
+    return enrich_application_with_cadences(serialize_mongodb_doc(updated))
+
+
+@job_router.post("/{application_id}/evaluate", response_model=OfferEvaluationResponse)
+async def evaluate_application_offer(
+    application_id: str,
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Évalue l'offre liée à une candidature via le pipeline Two-Pass (Gemini 3.7 Flash).
+    Si la candidature n'est pas encore liée à une offre scrapée, une entrée job_offers est initialisée automatiquement.
+    """
+    if not ObjectId.is_valid(application_id):
+        raise HTTPException(status_code=400, detail="ID de candidature invalide")
+
+    app_doc = await db["applications"].find_one({"_id": ObjectId(application_id)})
+    if not app_doc:
+        raise HTTPException(status_code=404, detail="Candidature non trouvée")
+
+    if str(app_doc.get("user_id")) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+
+    offer_id = await _ensure_offer_for_application(application_id, app_doc, db)
 
     # Exécuter l'évaluation Two-Pass
     try:

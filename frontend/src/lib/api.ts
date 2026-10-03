@@ -565,6 +565,13 @@ export const applicationApi = {
     );
   },
 
+  linkOffer: async (applicationId: string) => {
+    return fetchApi<Application>(
+      `/applications/${applicationId}/link-offer`,
+      "POST"
+    );
+  },
+
   getPipelineSummary: async () => {
     return fetchApi<import("../types/application").PipelineSummary>(
       "/applications/pipeline/summary",

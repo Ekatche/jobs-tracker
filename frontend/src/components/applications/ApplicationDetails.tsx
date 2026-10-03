@@ -62,6 +62,7 @@ export default function ApplicationDetails({
   const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
   const [editedNoteText, setEditedNoteText] = useState<string>("");
   const [isRegeneratingDesc, setIsRegeneratingDesc] = useState<boolean>(false);
+  const [isLinkingOffer, setIsLinkingOffer] = useState<boolean>(false);
 
   // AI Evaluation state
   const [evaluation, setEvaluation] = useState<OfferEvaluation | null>(null);
@@ -167,6 +168,22 @@ export default function ApplicationDetails({
     }
   };
 
+  // Link/créer l'offre sans lancer le scoring IA
+  const handleLinkOffer = async () => {
+    if (!application?._id || isLinkingOffer) return;
+    setIsLinkingOffer(true);
+    try {
+      const updated = await applicationApi.linkOffer(application._id);
+      if (updated?.offer_id) {
+        onChange("offer_id", updated.offer_id);
+      }
+    } catch (err) {
+      console.error("Erreur lors de la liaison de l'offre:", err);
+    } finally {
+      setIsLinkingOffer(false);
+    }
+  };
+
   // Trigger Two-Pass AI Evaluation
   const handleScoreApplication = async () => {
     if (!application?._id || isScoring) return;
@@ -177,12 +194,17 @@ export default function ApplicationDetails({
     try {
       const result = await applicationApi.evaluate(application._id);
       setEvaluation(result);
-      setScoreSuccessMessage("Évaluation d'adéquation IA terminée avec succès !");
 
       // If application didn't have an offer_id linked, link it now
-      if (result.offer_id && !application.offer_id) {
+      const offerJustLinked = Boolean(result.offer_id && !application.offer_id);
+      if (offerJustLinked) {
         onChange("offer_id", result.offer_id);
       }
+      setScoreSuccessMessage(
+        offerJustLinked
+          ? "Évaluation terminée ! L'offre est désormais accessible ci-dessus (\"Offre scrapée\")."
+          : "Évaluation d'adéquation IA terminée avec succès !"
+      );
       setTimeout(() => setScoreSuccessMessage(null), 4000);
     } catch (err: unknown) {
       console.error("Erreur lors du scoring de la candidature:", err);
@@ -318,32 +340,35 @@ export default function ApplicationDetails({
               <span>{days} {days > 1 ? "jours" : "jour"}</span>
             </div>
 
-            {application.url && (
-              <a
-                href={application.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 transition-colors font-medium"
+            {!application.offer_id && !evaluation?.offer_id && application.url && (
+              <button
+                type="button"
+                onClick={handleLinkOffer}
+                disabled={isLinkingOffer}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/70 hover:bg-slate-700/70 border border-slate-700/60 text-slate-300 transition-colors font-medium disabled:opacity-60"
+                title="Créer/retrouver la fiche de l'offre sans lancer le scoring IA"
               >
-                <FiExternalLink className="w-3.5 h-3.5" />
-                <span>Voir annonce</span>
-              </a>
+                <FiLink className={`w-3.5 h-3.5 ${isLinkingOffer ? "animate-pulse" : ""}`} />
+                <span>{isLinkingOffer ? "Liaison..." : "Voir l'offre"}</span>
+              </button>
             )}
 
             {(application.offer_id || evaluation?.offer_id) && (
               <>
-                <Link
-                  href={`/offers/${application.offer_id || evaluation?.offer_id}`}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 transition-colors font-medium"
-                >
-                  <FiLink className="w-3.5 h-3.5" />
-                  <span>Offre scrapée</span>
-                </Link>
+                {!evaluation?.offer_id && (
+                  <Link
+                    href={`/offers/${application.offer_id}`}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 transition-colors font-medium"
+                  >
+                    <FiLink className="w-3.5 h-3.5" />
+                    <span>Offre scrapée</span>
+                  </Link>
+                )}
                 <Link
                   href={`/resumes?generate_offer_id=${application.offer_id || evaluation?.offer_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium shadow-sm shadow-indigo-500/20"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 transition-colors font-medium"
                   title="Générer un CV adapté sur-mesure pour cette offre (ouvre un nouvel onglet)"
                 >
                   <FiFileText className="w-3.5 h-3.5" />
@@ -461,6 +486,27 @@ export default function ApplicationDetails({
                     </div>
                   </div>
                 </div>
+
+                {/* Fiabilité du contenu scoré */}
+                {(evaluation.bloc_g?.is_scam_risk ||
+                  evaluation.bloc_g?.is_ghost_job ||
+                  (evaluation.bloc_g?.warnings && evaluation.bloc_g.warnings.length > 0)) && (
+                  <div className="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
+                    <FiAlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-semibold">
+                        {evaluation.bloc_g.is_scam_risk
+                          ? "Risque d'arnaque détecté — score peu fiable"
+                          : evaluation.bloc_g.is_ghost_job
+                          ? "Offre fantôme suspectée — score peu fiable"
+                          : "Contenu peu fiable — score à prendre avec précaution"}
+                      </p>
+                      {evaluation.bloc_g.warnings?.map((warn, idx) => (
+                        <p key={idx} className="mt-0.5">{warn}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Link to full report & interview prep */}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80 pt-3">
@@ -766,7 +812,7 @@ export default function ApplicationDetails({
               title="Supprimer la candidature"
             >
               <FiTrash2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Supprimer</span>
+              <span>Supprimer</span>
             </button>
           </div>
 

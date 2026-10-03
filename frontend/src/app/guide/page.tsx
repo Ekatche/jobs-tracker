@@ -10,18 +10,25 @@ import {
   FiSearch,
   FiCheckCircle,
   FiAlertCircle,
-  FiRefreshCw,
-  FiLayers,
-  FiEye,
   FiBriefcase,
-  FiGlobe,
-  FiGithub,
   FiChevronDown,
   FiChevronUp,
   FiSliders,
-  FiSend,
   FiArrowRight,
   FiHelpCircle,
+  FiClock,
+  FiSun,
+  FiSunset,
+  FiUploadCloud,
+  FiZap,
+  FiShield,
+  FiCheck,
+  FiLayers,
+  FiEye,
+  FiGlobe,
+  FiGithub,
+  FiAward,
+  FiSend,
 } from "react-icons/fi";
 
 interface FaqItem {
@@ -36,417 +43,474 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     id: "airflow-sources",
     category: "airflow",
-    question: "Comment fonctionne la collecte automatique des offres d'emploi (CRONs / Airflow) ?",
-    summary: "Airflow orchestre des robots de collecte chaque jour sur France Travail, Indeed, LinkedIn et le web.",
+    question: "D'où proviennent exactement les offres d'emploi collectées ?",
+    summary: "Airflow interroge chaque jour France Travail, Indeed, LinkedIn et les sites carrières via Tavily AI.",
     content: (
-      <div className="space-y-3 text-slate-300">
-        <p>
-          Un orchestrateur <strong className="text-white">Apache Airflow</strong> tourne en continu sur le serveur et déclenche des pipelines automatisés (DAGs) à intervalles réguliers (toutes les nuits et en journée).
-        </p>
-        <p>Il collecte les nouvelles annonces depuis :</p>
-        <ul className="list-disc pl-5 space-y-1 text-slate-300">
-          <li><strong className="text-blue-400">L'API France Travail</strong> (offres officielles certifiées en temps réel).</li>
-          <li><strong className="text-blue-400">Indeed & LinkedIn</strong> (collecteurs spécialisés et normalisation des URLs).</li>
-          <li><strong className="text-blue-400">Moteurs de recherche web (Tavily AI)</strong> (détection d'offres directement sur les sites carrières d'entreprises).</li>
-        </ul>
-        <p className="text-xs text-slate-400 bg-slate-900/90 p-3 rounded-lg border border-slate-800">
-          💡 <strong className="text-slate-200">Anti-bruit :</strong> Un filtre de pertinence écarte automatiquement les annonces hors-domaine, les doublons multi-plateformes et les liens morts avant de vous les présenter.
-        </p>
+      <div className="space-y-2 text-slate-300 text-sm">
+        <p>Les pipelines automatisés (DAGs) regroupent 4 sources complémentaires :</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
+          <div className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+            <span className="font-semibold text-blue-400 block mb-0.5">🏛️ API France Travail</span>
+            Flux officiel des offres certifiées en France, actualisé en temps réel.
+          </div>
+          <div className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+            <span className="font-semibold text-indigo-400 block mb-0.5">💼 Indeed & LinkedIn</span>
+            Collecte et normalisation des offres des principales plateformes pro.
+          </div>
+          <div className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+            <span className="font-semibold text-purple-400 block mb-0.5">🔍 Moteur Web (Tavily AI)</span>
+            Détection automatique des annonces sur les pages carrières d'entreprises.
+          </div>
+          <div className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+            <span className="font-semibold text-emerald-400 block mb-0.5">🛡️ Filtre Anti-Bruit</span>
+            Élimination instantanée des doublons et des offres expirées.
+          </div>
+        </div>
       </div>
     ),
   },
   {
     id: "airflow-targeting",
     category: "airflow",
-    question: "Comment la collecte sait-elle quelles offres me correspondent ?",
-    summary: "Elle lit directement vos critères de recherche configurés dans votre Profil.",
+    question: "Comment le moteur sait-il quelles offres vous envoyer ?",
+    summary: "La collecte lit directement vos critères définis dans l'onglet Profil (intitulés, villes, contrats).",
     content: (
-      <div className="space-y-3 text-slate-300">
+      <div className="space-y-2 text-slate-300 text-sm">
         <p>
-          La collecte n'est pas générique : elle est <strong className="text-white">pilotée par vos critères de ciblage</strong> renseignés dans votre onglet <Link href="/profile" className="text-blue-400 underline hover:text-blue-300">Profil & Ciblage</Link>.
+          Le système ne fait aucune recherche générique au hasard : il convertit vos critères de ciblage en requêtes de recherche spécialisées.
         </p>
-        <ul className="list-disc pl-5 space-y-1">
-          <li><strong className="text-white">Intitulés ciblés :</strong> ex. <em>Data Engineer</em>, <em>Machine Learning Engineer</em>, etc.</li>
-          <li><strong className="text-white">Localisation & Télétravail :</strong> vos villes préférées (ex. Lyon, Paris) ou votre souhait de Full Remote.</li>
-          <li><strong className="text-white">Types de contrats :</strong> CDI, CDD, Freelance, VIE, Alternance.</li>
+        <ul className="list-disc pl-5 space-y-1 text-xs text-slate-400">
+          <li>Vos <strong>intitulés ciblés</strong> (ex. <em>Data Scientist, Dev Fullstack</em>)</li>
+          <li>Vos <strong>localisations et tolérance télétravail</strong> (ex. <em>Lyon, Télétravail partiel ou 100%</em>)</li>
+          <li>Vos <strong>types de contrats</strong> retenus (CDI, CDD, Freelance, Alternance)</li>
         </ul>
-        <p>
-          Airflow normalise ces critères et génère des requêtes intelligentes qui mutualisent la collecte tout en rattachant automatiquement chaque offre trouvée à votre compte.
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: "airflow-toggle",
-    category: "airflow",
-    question: "Puis-je mettre en pause la veille automatique sans supprimer mon profil ?",
-    summary: "Oui, grâce à l'interrupteur « Veille active / En pause » dans votre profil.",
-    content: (
-      <div className="space-y-3 text-slate-300">
-        <p>
-          Dans la section <strong className="text-white">« Critères de recherche & Veille »</strong> de votre profil, vous disposez d'un interrupteur :
-        </p>
-        <div className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-xs flex items-center justify-between">
-          <span className="font-medium text-slate-200">Veille automatique des offres</span>
-          <span className="bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-full font-semibold border border-emerald-500/30">
-            Active / En pause
-          </span>
-        </div>
-        <p>
-          En basculant sur <strong className="text-amber-300">En pause</strong>, Airflow cesse d'interroger les plateformes pour votre profil. Vos offres déjà collectées et votre historique de candidatures restent intacts. Vous pouvez la réactiver d'un clic dès que vous reprenez vos recherches.
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: "profile-multisource",
-    category: "profile",
-    question: "Comment fonctionne la fusion multi-sources du profil candidat ?",
-    summary: "MonSuiviJob consolide 4 sources (CV PDF, site web, GitHub, manuel) avec une priorité stricte.",
-    content: (
-      <div className="space-y-3 text-slate-300">
-        <p>
-          Votre profil est alimenté par jusqu'à 4 canaux complémentaires :
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-          <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
-            <span className="font-bold text-blue-400 block mb-1">📄 1. CV PDF (Mistral VLM)</span>
-            Extraction visuelle fidèle des colonnes, timelines et badges.
-          </div>
-          <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
-            <span className="font-bold text-indigo-400 block mb-1">🌐 2. Site Web / Portfolio</span>
-            Scraping des réalisations et projets en ligne.
-          </div>
-          <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
-            <span className="font-bold text-purple-400 block mb-1">🐙 3. GitHub</span>
-            Analyse des dépôts publics, technologies et langages maîtrisés.
-          </div>
-          <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
-            <span className="font-bold text-emerald-400 block mb-1">✍️ 4. Saisie Manuelle</span>
-            Vos corrections directes dans l'interface MonSuiviJob.
-          </div>
-        </div>
-        <div className="bg-blue-950/40 p-3 rounded-lg border border-blue-800/40 text-xs">
-          <p className="font-semibold text-blue-300 mb-1">Ordre de priorité d'arbitrage :</p>
-          <p className="font-mono text-white">Manual (gagne toujours) &gt; CV &gt; Website &gt; GitHub</p>
-          <p className="text-slate-400 mt-1">Si vous modifiez manuellement un champ, cette valeur prime définitivement sur les données extraites automatiquement.</p>
-        </div>
       </div>
     ),
   },
   {
     id: "profile-vlm",
     category: "profile",
-    question: "Quel est le rôle du modèle VLM (Vision Language Model) ?",
-    summary: "Il « regarde » votre CV PDF comme un œil humain pour ne pas mélanger les colonnes.",
+    question: "Pourquoi l'IA de vision (VLM) est-elle supérieure à un simple lecteur de PDF ?",
+    summary: "Elle analyse visuellement votre CV pour ne pas mélanger les colonnes, dates et compétences.",
     content: (
-      <div className="space-y-3 text-slate-300">
+      <div className="space-y-2 text-slate-300 text-sm">
         <p>
-          Lors du téléversement de votre CV, le backend convertit chaque page en image et fait appel à <strong className="text-white">Mistral Pixtral (VLM)</strong>.
+          Les parseurs traditionnels lisent de gauche à droite et mélangent le texte des barres latérales avec le texte principal.
         </p>
-        <p>
-          Contrairement aux parseurs PDF textuels traditionnels qui lisent de gauche à droite et mélangent le texte des colonnes parallèles, le modèle VLM comprend la <strong className="text-white">mise en page graphique</strong> :
+        <p className="text-xs text-slate-400">
+          Notre modèle de vision (<strong>Mistral Pixtral VLM</strong>) « regarde » chaque page comme un humain : il identifie chaque bloc visuel, préserve la chronologie des postes et associe fidèlement vos compétences à leurs expériences.
         </p>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>Il sépare distinctement la barre latérale (compétences, contact) du corps principal (timeline d'expériences).</li>
-          <li>Il lit correctement les dates, durées et intitulés exacts de diplômes.</li>
-          <li>Il préserve l'association exacte entre les missions et les technologies associées.</li>
-        </ul>
       </div>
     ),
   },
   {
     id: "profile-conflicts",
     category: "profile",
-    question: "Que signifient les « Divergences détectées entre vos sources » ?",
-    summary: "Un indicateur de transparence qui vous montre ce qui a été choisi et écarté entre vos sources.",
+    question: "Que faire en cas de divergences ou doublons de diplômes ?",
+    summary: "La saisie manuelle l'emporte toujours. Les diplômes similaires sont automatiquement rapprochés.",
     content: (
-      <div className="space-y-3 text-slate-300">
+      <div className="space-y-2 text-slate-300 text-sm">
         <p>
-          Si votre CV mentionne par exemple <em>« VIE — Île Maurice »</em> et que votre saisie manuelle indique <em>« CDI — Mauritius (Remote) »</em>, le système arbitre en faveur de votre saisie manuelle.
+          En cas de conflit entre deux sources (ex: libellé de contrat ou date différente), l'arbitrage est automatique : 
+          <span className="font-mono text-xs text-emerald-400 ml-1 font-semibold">Manuel &gt; CV &gt; Site &gt; GitHub</span>.
         </p>
-        <p>
-          Pour éviter tout effet « boîte noire », l'encadré jaune des divergences vous informe précisément de :
-        </p>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>La valeur retenue et sa source d'origine.</li>
-          <li>La valeur écartée et la source qui la contenait.</li>
-        </ul>
         <p className="text-xs text-slate-400">
-          Vous pouvez cliquer sur <strong className="text-amber-300">« Masquer »</strong> à tout moment pour alléger l'affichage une fois vos informations vérifiées.
+          Les diplômes d'une même école avec des variantes d'intitulé sont fusionnés intelligemment pour retenir la version la plus complète. Vous pouvez masquer le bandeau des divergences d'un simple clic.
         </p>
-      </div>
-    ),
-  },
-  {
-    id: "profile-education-dedup",
-    category: "profile",
-    question: "Comment sont gérés les doublons de diplômes et d'écoles ?",
-    summary: "Un système de rapprochement intelligent fusionne les variations de libellés sans perte d'information.",
-    content: (
-      <div className="space-y-3 text-slate-300">
-        <p>
-          Deux sources écrivent rarement une formation exactement de la même manière (ex. <em>« Université Lyon 1 »</em> vs <em>« Université Claude Bernard Lyon 1 »</em>, ou <em>« Master Informatique »</em> vs <em>« Master en Informatique / Data Science »</em>).
-        </p>
-        <p>MonSuiviJob applique des règles intelligentes :</p>
-        <ul className="list-disc pl-5 space-y-1">
-          <li><strong className="text-white">Rapprochement par entité :</strong> il identifie qu'il s'agit de la même école et du même cursus.</li>
-          <li><strong className="text-white">Conservation de la richesse :</strong> il sélectionne le libellé le plus complet et l'intervalle d'années le plus précis.</li>
-          <li><strong className="text-white">Fusion des matières :</strong> les compétences, cours et spécialisations listés dans chaque source sont réunis sans doublon.</li>
-          <li><strong className="text-white">Respect des niveaux :</strong> une Licence et un Master obtenus dans la même université restent deux formations distinctes.</li>
-        </ul>
       </div>
     ),
   },
   {
     id: "matching-score",
     category: "matching",
-    question: "Comment est calculé le score d'adéquation d'une offre d'emploi (Matching IA) ?",
-    summary: "L'IA évalue en 2 passes la correspondance entre votre profil et les exigences du recruteur.",
+    question: "Comment interpréter votre Matching Score sur une annonce ?",
+    summary: "Une note sur 5 calculée par IA avec analyse des points forts et points de vigilance.",
     content: (
-      <div className="space-y-3 text-slate-300">
-        <p>
-          Pour chaque offre, l'intelligence artificielle compare votre profil réel aux prérequis du recruteur :
-        </p>
-        <div className="space-y-2 text-xs">
-          <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex items-start gap-2">
-            <span className="bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded border border-emerald-500/30 shrink-0">4.0 à 5.0</span>
-            <span><strong className="text-white">Forte adéquation :</strong> vous maîtrisez la stack cœur et vos expériences passées répondent directement aux missions.</span>
+      <div className="space-y-2 text-slate-300 text-sm">
+        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+          <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+            <span className="font-bold text-emerald-400 block text-sm">4.0 - 5.0</span>
+            <span className="text-slate-300">Excellente adéquation</span>
           </div>
-          <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex items-start gap-2">
-            <span className="bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded border border-amber-500/30 shrink-0">3.0 à 3.9</span>
-            <span><strong className="text-white">Adéquation partielle :</strong> bonne base de compétences, mais certains critères secondaires ou années d'expérience manquent.</span>
+          <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <span className="font-bold text-amber-400 block text-sm">3.0 - 3.9</span>
+            <span className="text-slate-300">Adéquation partielle</span>
           </div>
-          <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex items-start gap-2">
-            <span className="bg-red-500/20 text-red-300 font-bold px-2 py-0.5 rounded border border-red-500/30 shrink-0">&lt; 3.0</span>
-            <span><strong className="text-white">Écart significatif :</strong> profil trop éloigné du domaine attendu ou de la séniorité exigée.</span>
+          <div className="p-2 bg-rose-500/10 border border-rose-500/30 rounded-lg">
+            <span className="font-bold text-rose-400 block text-sm">&lt; 3.0</span>
+            <span className="text-slate-300">Profil trop éloigné</span>
           </div>
         </div>
-        <p>
-          L'analyse fournit également la liste de vos <strong className="text-emerald-400">Points forts</strong>, de vos <strong className="text-amber-400">Points de vigilance</strong>, ainsi que les compétences manquantes recommandées pour adapter votre discours.
+        <p className="text-xs text-slate-400">
+          L'analyse fournit aussi les compétences clés manquantes à mettre en avant ou à préparer pour votre entretien.
         </p>
       </div>
     ),
   },
-  {
-    id: "generation-cv",
-    category: "generation",
-    question: "Comment fonctionne la génération de CV adaptés aux offres ?",
-    summary: "Générez un CV ciblé reprenant vos vraies expériences et le vocabulaire précis de l'offre.",
-    content: (
-      <div className="space-y-3 text-slate-300">
-        <p>
-          Depuis la page <Link href="/resumes" className="text-blue-400 underline hover:text-blue-300">CV Adaptés</Link> ou directement depuis une offre d'emploi :
-        </p>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>L'IA analyse les mots-clés clés de l'annonce visée.</li>
-          <li>Elle réorganise vos missions réelles pour mettre en avant celles qui résonnent le plus avec le besoin du recruteur.</li>
-          <li>Vous choisissez votre modèle visuel (Moderne, Classique, Minimaliste) et votre couleur d'accentuation.</li>
-          <li>Vous pouvez prévisualiser et exporter le résultat final en <strong className="text-white">PDF imprimable</strong> conforme aux standards des ATS (Applicant Tracking Systems).</li>
-        </ul>
-      </div>
-    ),
-  },
-  {
-    id: "generation-letter",
-    category: "generation",
-    question: "Comment sont générées les lettres de motivation (Voice DNA) ?",
-    summary: "Une lettre sobre et percutante respectant les normes françaises et votre style d'écriture.",
-    content: (
-      <div className="space-y-3 text-slate-300">
-        <p>
-          Fini les lettres génériques qui commencent par des formules creuses ou des superlatifs artificiels. Le générateur de MonSuiviJob applique une méthodologie éprouvée :
-        </p>
-        <ul className="list-disc pl-5 space-y-1">
-          <li><strong className="text-white">Recherche entreprise :</strong> analyse de la culture et des projets publics de l'entreprise cible.</li>
-          <li><strong className="text-white">Voice DNA personnel :</strong> vous pouvez renseigner dans votre profil des extraits de vos vrais écrits pour que l'IA adopte votre ton naturel.</li>
-          <li><strong className="text-white">Normes françaises :</strong> accroche sobre et directe, argumentation concrète basée sur vos projets, et formule de politesse soignée.</li>
-        </ul>
-      </div>
-    ),
-  },
-  {
-    id: "kanban-tracking",
-    category: "kanban",
-    question: "Comment suivre ses candidatures et démarches (France Travail) ?",
-    summary: "Un tableau Kanban intuitif pour suivre vos statuts, relances et justificatifs de recherche d'emploi.",
-    content: (
-      <div className="space-y-3 text-slate-300">
-        <p>
-          Sur la page <Link href="/applications" className="text-blue-400 underline hover:text-blue-300">Mes candidatures</Link>, vous disposez d'un tableau Kanban visuel :
-        </p>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>Déplacez vos candidatures d'une colonne à l'autre (<em>À postuler &gt; En étude &gt; Entretien &gt; Offre reçue / Refusée</em>).</li>
-          <li>Consignez chaque interaction (date d'envoi, contacts RH, retours d'entretiens).</li>
-          <li>Les démarches enregistrées dans <Link href="/tasks" className="text-blue-400 underline hover:text-blue-300">Mes démarches</Link> vous fournissent un historique complet et daté pour vos bilans d'actualisation France Travail.</li>
-        </ul>
-      </div>
-    ),
-  },
-];
-
-const CATEGORIES = [
-  { id: "all", label: "Toutes les questions", icon: FiHelpCircle },
-  { id: "airflow", label: "Veille & Airflow (CRONs)", icon: FiCpu },
-  { id: "profile", label: "Profil Multi-Sources & VLM", icon: FiUserCheck },
-  { id: "matching", label: "Matching IA & Scores", icon: FiSliders },
-  { id: "generation", label: "Génération CV & Lettres", icon: FiFileText },
-  { id: "kanban", label: "Suivi & Démarches", icon: FiBriefcase },
 ];
 
 export default function GuidePage() {
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [openItems, setOpenItems] = useState<Record<string, boolean>>({
-    "airflow-sources": true,
-    "profile-multisource": true,
-  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
 
   const toggleItem = (id: string) => {
     setOpenItems((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const filteredItems = FAQ_ITEMS.filter((item) => {
-    const matchesCategory =
-      selectedCategory === "all" || item.category === selectedCategory;
-    const query = searchQuery.trim().toLowerCase();
-    const matchesSearch =
-      !query ||
-      item.question.toLowerCase().includes(query) ||
-      item.summary.toLowerCase().includes(query);
-    return matchesCategory && matchesSearch;
+  const filteredFaq = FAQ_ITEMS.filter((item) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return item.question.toLowerCase().includes(q) || item.summary.toLowerCase().includes(q);
   });
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto space-y-10">
-        {/* En-tête de la page */}
-        <div className="text-center space-y-4">
-          <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full text-blue-400 text-xs font-semibold">
+      <div className="max-w-6xl mx-auto space-y-12">
+        {/* En-tête / Hero */}
+        <div className="text-center space-y-4 max-w-3xl mx-auto">
+          <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/25 px-3 py-1 rounded-full text-blue-400 text-xs font-semibold">
             <FiBookOpen className="text-sm" />
-            <span>Guide d'utilisation & FAQ MonSuiviJob</span>
+            <span>Documentation Fonctionnelle & Guide Rapide</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-            Comment fonctionne votre assistant d'emploi ?
+          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
+            Comment fonctionne <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">MonSuiviJob</span> ?
           </h1>
-          <p className="text-slate-400 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed">
-            Retrouvez toutes les explications sur la collecte automatique d'offres (Airflow),
-            la synchronisation multi-sources avec vision IA (VLM) et la préparation de vos candidatures.
+          <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
+            Pas besoin de lire des pages entières de documentation. Découvrez visuellement en 2 minutes le cycle de collecte automatique, les clés pour un profil parfait et vos outils de candidature.
           </p>
         </div>
 
-        {/* Barre de recherche */}
-        <div className="relative max-w-xl mx-auto">
-          <FiSearch className="absolute left-4 top-3.5 text-slate-400 text-lg" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Rechercher une question, mot-clé (Airflow, VLM, veille, CV, diplômes...)..."
-            className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-inner"
-          />
-        </div>
+        {/* ========================================================================= */}
+        {/* SECTION 1 : LE RYTHME DE L'AUTOMATISATION AIRFLOW (TIMELINE VISUELLE) */}
+        {/* ========================================================================= */}
+        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Filtres par catégorie */}
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {CATEGORIES.map((cat) => {
-            const Icon = cat.icon;
-            const isSelected = selectedCategory === cat.id;
-            return (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all ${
-                  isSelected
-                    ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-                    : "bg-slate-900/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800/80"
-                }`}
-              >
-                <Icon className={isSelected ? "text-white" : "text-slate-400"} />
-                <span>{cat.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Liste des questions / réponses */}
-        <div className="space-y-4">
-          {filteredItems.length === 0 ? (
-            <div className="text-center py-12 bg-slate-900/40 rounded-2xl border border-slate-800/60 p-8">
-              <FiAlertCircle className="mx-auto text-3xl text-slate-500 mb-3" />
-              <p className="text-slate-300 font-medium">Aucun résultat ne correspond à votre recherche.</p>
-              <button
-                onClick={() => {
-                  setSelectedCategory("all");
-                  setSearchQuery("");
-                }}
-                className="mt-3 text-xs text-blue-400 hover:underline"
-              >
-                Réinitialiser les filtres
-              </button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
+            <div>
+              <div className="flex items-center gap-2.5 text-blue-400 text-xs font-bold uppercase tracking-wider mb-1">
+                <FiClock className="text-sm" />
+                <span>Orchestration Quotidienne (Apache Airflow)</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold text-white">
+                À quelle heure tournent les recherches automatiques ?
+              </h2>
             </div>
-          ) : (
-            filteredItems.map((item) => {
-              const isOpen = !!openItems[item.id];
-              return (
-                <div
-                  key={item.id}
-                  className="bg-slate-900/70 border border-slate-800 rounded-xl overflow-hidden transition-all hover:border-slate-700/80 shadow-sm"
-                >
-                  <button
-                    type="button"
-                    onClick={() => toggleItem(item.id)}
-                    className="w-full px-5 py-4 text-left flex items-start justify-between gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                  >
-                    <div className="space-y-1">
-                      <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                        <span>{item.question}</span>
-                      </h2>
-                      <p className="text-xs text-slate-400 font-normal">
-                        {item.summary}
-                      </p>
-                    </div>
-                    <div className="p-1 text-slate-400 hover:text-white transition-colors shrink-0 mt-1">
-                      {isOpen ? (
-                        <FiChevronUp className="w-5 h-5" />
-                      ) : (
-                        <FiChevronDown className="w-5 h-5" />
-                      )}
-                    </div>
-                  </button>
-
-                  {isOpen && (
-                    <div className="px-5 pb-5 pt-1 text-sm border-t border-slate-800/60 mt-1">
-                      {item.content}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {/* Accès rapides utiles en bas de page */}
-        <div className="bg-gradient-to-r from-blue-950/40 via-slate-900/60 to-indigo-950/40 p-6 rounded-2xl border border-blue-900/30 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <h3 className="text-base font-bold text-white mb-1">Prêt à configurer vos recherches ?</h3>
-            <p className="text-xs text-slate-400">
-              Définissez vos critères de ciblage ou importez votre CV pour lancer votre veille personnalisée.
-            </p>
+            <div className="flex items-center gap-2 bg-slate-950 px-3.5 py-1.5 rounded-full border border-slate-800 text-xs text-slate-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Cron automatique : <strong>Du lundi au vendredi</strong></span>
+            </div>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+
+          {/* Timeline Visuelle Horaires Clés */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            {/* 06:00 */}
+            <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-5 relative group hover:border-slate-700 transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-mono font-bold text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                  06:00 UTC
+                </span>
+                <FiShield className="text-slate-400 text-lg" />
+              </div>
+              <h3 className="text-base font-bold text-white mb-1.5 flex items-center gap-2">
+                <span>Nettoyage & Vérification</span>
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Le robot vérifie les annonces existantes. Les offres pourvues, expirées ou dont les liens sont brisés sont archivées pour ne pas polluer votre tableau.
+              </p>
+            </div>
+
+            {/* 07:00 (PRINCIPALE DU MATIN) */}
+            <div className="bg-gradient-to-b from-blue-950/50 to-slate-950/90 border-2 border-blue-500/50 rounded-xl p-5 relative group shadow-lg shadow-blue-500/5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-mono font-extrabold text-blue-300 bg-blue-900/60 px-2 py-0.5 rounded border border-blue-700/60 flex items-center gap-1.5">
+                  <FiSun className="text-amber-300 text-sm" />
+                  07:00 UTC
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
+                  Collecte du Matin
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-white mb-1.5">
+                Nouvelles Offres au Réveil
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Recherche exhaustive sur France Travail, Indeed, LinkedIn et sites carrières. Vos nouvelles opportunités sont prêtes pour votre café du matin.
+              </p>
+            </div>
+
+            {/* 16:00 (PRINCIPALE DE L'APREM) */}
+            <div className="bg-gradient-to-b from-indigo-950/50 to-slate-950/90 border-2 border-indigo-500/50 rounded-xl p-5 relative group shadow-lg shadow-indigo-500/5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-mono font-extrabold text-indigo-300 bg-indigo-900/60 px-2 py-0.5 rounded border border-indigo-700/60 flex items-center gap-1.5">
+                  <FiSunset className="text-amber-400 text-sm" />
+                  16:00 UTC
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                  Collecte de l'Après-Midi
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-white mb-1.5">
+                Annonces Publiées en Journée
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Détection de toutes les annonces postées par les recruteurs en cours de journée. Postulez avant la fin de journée pour être parmi les 5 premiers CV reçus !
+              </p>
+            </div>
+          </div>
+
+          {/* Bannière explicative "Mise en pause" */}
+          <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                <FiSliders className="text-base" />
+              </div>
+              <div>
+                <p className="font-semibold text-slate-200">
+                  Besoin de faire une pause dans vos recherches ?
+                </p>
+                <p className="text-slate-400">
+                  Désactivez simplement la veille dans votre profil. Airflow continue d'exécuter ses routines sur le serveur mais ignore automatiquement votre compte jusqu'à votre réactivation.
+                </p>
+              </div>
+            </div>
             <Link
               href="/profile"
-              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-md transition-colors flex items-center gap-1.5"
+              className="shrink-0 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 font-medium transition-colors flex items-center gap-1.5"
             >
-              <span>Mon Profil & Ciblage</span>
-              <FiArrowRight />
+              <span>Vérifier mon statut</span>
+              <FiArrowRight className="text-xs" />
+            </Link>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* SECTION 2 : COMMENT REMPLIR AU MIEUX SON PROFIL (GUIDE EN 4 ÉTAPES) */}
+        {/* ========================================================================= */}
+        <div className="space-y-6">
+          <div className="text-center sm:text-left space-y-1">
+            <div className="inline-flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider">
+              <FiUserCheck className="text-sm" />
+              <span>Optimisation Candidat</span>
+            </div>
+            <h2 className="text-2xl font-bold text-white">
+              Comment configurer votre profil pour des résultats chirurgicaux ?
+            </h2>
+            <p className="text-slate-400 text-xs sm:text-sm">
+              Quelques minutes de configuration suffisent pour alimenter les algorithmes de ciblage et de matching IA.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Étape 1 */}
+            <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 flex flex-col justify-between hover:border-slate-700 transition-all">
+              <div className="space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-base">
+                  1
+                </div>
+                <h3 className="font-bold text-white text-base">Téléversez votre CV PDF</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Notre modèle de vision <strong>Mistral Pixtral VLM</strong> lit votre CV comme un humain. Les colonnes, timelines et badges sont extraits sans mélanger le texte.
+                </p>
+              </div>
+              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2 text-[11px] text-blue-300">
+                <FiCheck className="text-blue-400" />
+                <span>Extraction 100% visuelle fidèle</span>
+              </div>
+            </div>
+
+            {/* Étape 2 */}
+            <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 flex flex-col justify-between hover:border-slate-700 transition-all">
+              <div className="space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-base">
+                  2
+                </div>
+                <h3 className="font-bold text-white text-base">Liez vos Réalisations</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Renseignez votre <strong>site / portfolio</strong> ou votre compte <strong>GitHub</strong>. L'IA extrait automatiquement vos projets concrets et langages de prédilection.
+                </p>
+              </div>
+              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2 text-[11px] text-indigo-300">
+                <FiGlobe className="text-indigo-400" />
+                <span>Multi-sources enrichi</span>
+              </div>
+            </div>
+
+            {/* Étape 3 */}
+            <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 flex flex-col justify-between hover:border-slate-700 transition-all">
+              <div className="space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-base">
+                  3
+                </div>
+                <h3 className="font-bold text-white text-base">Définissez vos Cibles</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Indiquez vos intitulés exacts (ex: <em>Data Engineer</em>), vos zones de mobilité (villes ou Full Remote) et vos contrats (CDI, Freelance).
+                </p>
+              </div>
+              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2 text-[11px] text-purple-300">
+                <FiSliders className="text-purple-400" />
+                <span>Filtre les annonces hors sujet</span>
+              </div>
+            </div>
+
+            {/* Étape 4 */}
+            <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 flex flex-col justify-between hover:border-slate-700 transition-all">
+              <div className="space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-base">
+                  4
+                </div>
+                <h3 className="font-bold text-white text-base">Arbitrage en 1 Clic</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Si un bandeau jaune de « divergence » s'affiche, vos modifications manuelles ont toujours priorité. Cliquez sur « Masquer » une fois vos diplômes vérifiés.
+                </p>
+              </div>
+              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2 text-[11px] text-emerald-300">
+                <FiShield className="text-emerald-400" />
+                <span>Saisie manuelle toujours reine</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* SECTION 3 : BENTO GRID FONCTIONNELLES (MATCHING, CV ADAPTÉ, KANBAN) */}
+        {/* ========================================================================= */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Carte 1 : Matching IA */}
+          <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 flex items-center justify-center text-lg">
+              <FiAward />
+            </div>
+            <h3 className="text-lg font-bold text-white">Score de Matching / 5</h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Pour chaque offre détectée, l'IA analyse les prérequis de l'employeur et met en relief vos atouts clés ainsi que les points de vigilance à anticiper.
+            </p>
+            <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Score ≥ 4.0</span>
+                <span className="text-emerald-400 font-bold">Postulez immédiatement</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Score 3.0 à 3.9</span>
+                <span className="text-amber-400 font-bold">À adapter avec l'IA</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Carte 2 : Génération CV & Lettre */}
+          <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/25 text-blue-400 flex items-center justify-center text-lg">
+              <FiFileText />
+            </div>
+            <h3 className="text-lg font-bold text-white">CV & Lettre sur-mesure</h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              En un clic depuis une offre, générez un CV ciblé reprenant vos vraies expériences et une lettre de motivation rédigée selon votre ton naturel (Voice DNA).
+            </p>
+            <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 text-xs text-slate-400">
+              💡 <strong>ATS Friendly :</strong> Export PDF prêt à l'emploi et lisible sans friction par les logiciels de recrutement.
+            </div>
+          </div>
+
+          {/* Carte 3 : Suivi Kanban & Preuves */}
+          <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 space-y-4">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/25 text-purple-400 flex items-center justify-center text-lg">
+              <FiBriefcase />
+            </div>
+            <h3 className="text-lg font-bold text-white">Tableau Kanban & Justificatifs</h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Suivez l'avancée de vos candidatures d'une colonne à l'autre (À postuler, En étude, Entretien, Offre).
+            </p>
+            <div className="bg-slate-950 p-3 rounded-lg border border-slate-800/80 text-xs text-slate-400">
+              📋 <strong>France Travail :</strong> Vos démarches sont horodatées et prêtes à être exportées pour vos actualisations sans stress.
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* SECTION 4 : QUESTIONS FRÉQUENTES / ACCORDÉONS COMPACTS */}
+        {/* ========================================================================= */}
+        <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 sm:p-8 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-blue-400 text-xs font-bold uppercase tracking-wider mb-1">
+                <FiHelpCircle className="text-sm" />
+                <span>Questions Précises</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold text-white">FAQ & Détails Techniques</h2>
+            </div>
+
+            {/* Barre de recherche compacte */}
+            <div className="relative w-full sm:w-72">
+              <FiSearch className="absolute left-3.5 top-3 text-slate-400 text-sm" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Filtrer une question..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {filteredFaq.length === 0 ? (
+              <p className="text-center py-6 text-xs text-slate-400">Aucune question ne correspond à votre recherche.</p>
+            ) : (
+              filteredFaq.map((item) => {
+                const isOpen = !!openItems[item.id];
+                return (
+                  <div
+                    key={item.id}
+                    className="bg-slate-950/70 border border-slate-800/90 rounded-xl overflow-hidden transition-all hover:border-slate-700/80"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleItem(item.id)}
+                      className="w-full px-4 py-3.5 text-left flex items-center justify-between gap-4 focus:outline-none"
+                    >
+                      <div>
+                        <h4 className="text-sm font-semibold text-white">{item.question}</h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{item.summary}</p>
+                      </div>
+                      <div className="text-slate-400 shrink-0">
+                        {isOpen ? <FiChevronUp className="w-4 h-4" /> : <FiChevronDown className="w-4 h-4" />}
+                      </div>
+                    </button>
+                    {isOpen && (
+                      <div className="px-4 pb-4 pt-1 border-t border-slate-800/60 mt-1">
+                        {item.content}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* BANNIÈRE FINALE / CALL TO ACTION */}
+        {/* ========================================================================= */}
+        <div className="bg-gradient-to-r from-blue-900/40 via-slate-900/80 to-indigo-900/40 p-6 sm:p-8 rounded-2xl border border-blue-800/30 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="space-y-1 text-center sm:text-left">
+            <h3 className="text-lg font-bold text-white">Prêt à activer vos recherches ?</h3>
+            <p className="text-xs sm:text-sm text-slate-400">
+              Renseignez vos critères cibles dans votre profil ou importez votre CV pour lancer la machine.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
+            <Link
+              href="/profile"
+              className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-lg shadow-blue-500/20 transition-colors flex items-center gap-2"
+            >
+              <span>Accéder à mon Profil</span>
+              <FiArrowRight className="text-xs" />
             </Link>
             <Link
               href="/offers"
-              className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-xs font-semibold transition-colors"
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors border border-slate-700"
             >
-              Voir les offres
+              Explorer les Offres
             </Link>
           </div>
         </div>

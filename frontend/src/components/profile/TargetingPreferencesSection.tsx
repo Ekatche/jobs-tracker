@@ -15,6 +15,7 @@ import {
   FiX,
   FiShield,
   FiCheck,
+  FiChevronDown,
 } from "react-icons/fi";
 import { CandidatePreferences, RemotePolicy } from "@/types/coverLetter";
 import { coverLetterApi } from "@/lib/api";
@@ -81,6 +82,18 @@ export default function TargetingPreferencesSection({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isInternalSaving, setIsInternalSaving] = useState(false);
+
+  // Divulgation progressive : seule la section la plus utile s'ouvre par défaut
+  const [openSections, setOpenSections] = useState({
+    roles: true,
+    location: false,
+    salary: false,
+    contract: false,
+    excluded: false,
+  });
+  const toggleSection = (key: keyof typeof openSections) => {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const applyPreferences = (pref: CandidatePreferences) => {
     setTargetRoles(pref.target_roles || []);
@@ -306,20 +319,28 @@ export default function TargetingPreferencesSection({
 
       {/* 1. Postes Cibles & Séniorité */}
       <div className="bg-slate-900/70 border border-slate-800 backdrop-blur-md rounded-2xl p-6 shadow-xl space-y-6">
-        <div className="flex items-center gap-3 border-b border-slate-800/80 pb-4">
-          <div className="p-2.5 bg-blue-950/60 text-blue-400 border border-blue-800/50 rounded-xl">
-            <FiTarget className="w-5 h-5" />
+        <button
+          type="button"
+          onClick={() => toggleSection("roles")}
+          className="w-full flex items-center justify-between gap-3 border-b border-slate-800/80 pb-4 text-left cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-950/60 text-blue-400 border border-blue-800/50 rounded-xl">
+              <FiTarget className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">
+                Postes Cibles & Séniorité
+              </h3>
+              <p className="text-xs text-slate-400">
+                Pilote le matching avec les offres d'emploi et les requêtes de collecte Airflow.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-base font-bold text-white">
-              Postes Cibles & Séniorité
-            </h3>
-            <p className="text-xs text-slate-400">
-              Pilote le matching avec les offres d'emploi et les requêtes de collecte Airflow.
-            </p>
-          </div>
-        </div>
+          <FiChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${openSections.roles ? "rotate-180" : ""}`} />
+        </button>
 
+        {openSections.roles && (
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
@@ -448,24 +469,33 @@ export default function TargetingPreferencesSection({
             )}
           </div>
         </div>
+        )}
       </div>
 
       {/* 2. Localisation & Télétravail */}
       <div className="bg-slate-900/70 border border-slate-800 backdrop-blur-md rounded-2xl p-6 shadow-xl space-y-6">
-        <div className="flex items-center gap-3 border-b border-slate-800/80 pb-4">
-          <div className="p-2.5 bg-emerald-950/60 text-emerald-400 border border-emerald-800/50 rounded-xl">
-            <FiMapPin className="w-5 h-5" />
+        <button
+          type="button"
+          onClick={() => toggleSection("location")}
+          className="w-full flex items-center justify-between gap-3 border-b border-slate-800/80 pb-4 text-left cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-950/60 text-emerald-400 border border-emerald-800/50 rounded-xl">
+              <FiMapPin className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">
+                Localisation & Mobilité
+              </h3>
+              <p className="text-xs text-slate-400">
+                Définissez vos villes de prédilection et votre modalité de travail.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-base font-bold text-white">
-              Localisation & Mobilité
-            </h3>
-            <p className="text-xs text-slate-400">
-              Définissez vos villes de prédilection et votre modalité de travail.
-            </p>
-          </div>
-        </div>
+          <FiChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${openSections.location ? "rotate-180" : ""}`} />
+        </button>
 
+        {openSections.location && (
         <div className="space-y-5">
           {/* Badges Remote Policy */}
           <div>
@@ -577,24 +607,33 @@ export default function TargetingPreferencesSection({
             )}
           </div>
         </div>
+        )}
       </div>
 
       {/* 3. Prétentions Salariales */}
       <div className="bg-slate-900/70 border border-slate-800 backdrop-blur-md rounded-2xl p-6 shadow-xl space-y-6">
-        <div className="flex items-center gap-3 border-b border-slate-800/80 pb-4">
-          <div className="p-2.5 bg-amber-950/60 text-amber-400 border border-amber-800/50 rounded-xl">
-            <FiDollarSign className="w-5 h-5" />
+        <button
+          type="button"
+          onClick={() => toggleSection("salary")}
+          className="w-full flex items-center justify-between gap-3 border-b border-slate-800/80 pb-4 text-left cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-950/60 text-amber-400 border border-amber-800/50 rounded-xl">
+              <FiDollarSign className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">
+                Rémunération Souhaitée
+              </h3>
+              <p className="text-xs text-slate-400">
+                Permet de filtrer et classer les offres selon vos attentes financières annuelles.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-base font-bold text-white">
-              Rémunération Souhaitée
-            </h3>
-            <p className="text-xs text-slate-400">
-              Permet de filtrer et classer les offres selon vos attentes financières annuelles.
-            </p>
-          </div>
-        </div>
+          <FiChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${openSections.salary ? "rotate-180" : ""}`} />
+        </button>
 
+        {openSections.salary && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
@@ -650,24 +689,33 @@ export default function TargetingPreferencesSection({
             </select>
           </div>
         </div>
+        )}
       </div>
 
       {/* 4. Type de Contrat & Disponibilité */}
       <div className="bg-slate-900/70 border border-slate-800 backdrop-blur-md rounded-2xl p-6 shadow-xl space-y-6">
-        <div className="flex items-center gap-3 border-b border-slate-800/80 pb-4">
-          <div className="p-2.5 bg-purple-950/60 text-purple-400 border border-purple-800/50 rounded-xl">
-            <FiBriefcase className="w-5 h-5" />
+        <button
+          type="button"
+          onClick={() => toggleSection("contract")}
+          className="w-full flex items-center justify-between gap-3 border-b border-slate-800/80 pb-4 text-left cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-purple-950/60 text-purple-400 border border-purple-800/50 rounded-xl">
+              <FiBriefcase className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">
+                Contrat & Disponibilité
+              </h3>
+              <p className="text-xs text-slate-400">
+                Types de contrats acceptés et statut d'autorisation de travail.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-base font-bold text-white">
-              Contrat & Disponibilité
-            </h3>
-            <p className="text-xs text-slate-400">
-              Types de contrats acceptés et statut d'autorisation de travail.
-            </p>
-          </div>
-        </div>
+          <FiChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${openSections.contract ? "rotate-180" : ""}`} />
+        </button>
 
+        {openSections.contract && (
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2.5">
@@ -730,24 +778,33 @@ export default function TargetingPreferencesSection({
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* 5. Mots-clés Exclus (Filtre anti-bruit) */}
       <div className="bg-slate-900/70 border border-slate-800 backdrop-blur-md rounded-2xl p-6 shadow-xl space-y-6">
-        <div className="flex items-center gap-3 border-b border-slate-800/80 pb-4">
-          <div className="p-2.5 bg-rose-950/60 text-rose-400 border border-rose-800/50 rounded-xl">
-            <FiSlash className="w-5 h-5" />
+        <button
+          type="button"
+          onClick={() => toggleSection("excluded")}
+          className="w-full flex items-center justify-between gap-3 border-b border-slate-800/80 pb-4 text-left cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-rose-950/60 text-rose-400 border border-rose-800/50 rounded-xl">
+              <FiSlash className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">
+                Filtres d'Exclusion (Blacklist)
+              </h3>
+              <p className="text-xs text-slate-400">
+                Les offres contenant ces technologies ou termes seront automatiquement rejetées lors du scraping.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-base font-bold text-white">
-              Filtres d'Exclusion (Blacklist)
-            </h3>
-            <p className="text-xs text-slate-400">
-              Les offres contenant ces technologies ou termes seront automatiquement rejetées lors du scraping.
-            </p>
-          </div>
-        </div>
+          <FiChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${openSections.excluded ? "rotate-180" : ""}`} />
+        </button>
 
+        {openSections.excluded && (
         <div>
           <div className="flex gap-2">
             <input
@@ -787,6 +844,7 @@ export default function TargetingPreferencesSection({
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Bouton de sauvegarde avec feedback d'état */}
