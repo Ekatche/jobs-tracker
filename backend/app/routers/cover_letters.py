@@ -36,6 +36,13 @@ cover_letters_router = APIRouter(tags=["cover_letters"])
 UPLOAD_DIR = str(Path(__file__).resolve().parent.parent / "uploads")
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 PDF_MAGIC = b"%PDF"
+    
+def _safe_remove(path: str):
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception as e:
+        logger.warning(f"Impossible de supprimer le fichier temporaire {path}: {e}")
 
 @cover_letters_router.get("/applications/{application_id}/cover-letter")
 async def get_cover_letter(
@@ -310,6 +317,7 @@ async def _store_source(db, user_id: str, name: str, payload: dict) -> dict:
 
 @cover_letters_router.post("/profile/candidate/sources/cv")
 async def import_cv_source(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db=Depends(get_database),
     current_user: UserModel = Depends(get_current_user),
@@ -346,8 +354,8 @@ async def import_cv_source(
         raise llm_http_exception(exc) or HTTPException(status_code=502, detail="Le CV n'a pas pu être analysé")
     finally:
         # Donnée personnelle : le PDF ne survit pas à la requête.
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        # Suppression asynchrone en tâche de fond pour économiser les I/O de la requête.
+        background_tasks.add_task(_safe_remove, file_path)
 
 
 @cover_letters_router.post("/profile/candidate/sources/github")
