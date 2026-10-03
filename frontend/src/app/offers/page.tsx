@@ -629,10 +629,10 @@ function OffersPageContent() {
           </div>
 
           {/* Action buttons (sans étoiles) */}
-          <div className="flex items-center gap-2 pt-3 border-t border-slate-800">
+          <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-800">
             <Link
               href={`/offers/${offer.id}`}
-              className="bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border border-slate-700/80 hover:border-slate-600 shadow-sm"
+              className="flex-1 min-w-[88px] bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border border-slate-700/80 hover:border-slate-600 shadow-sm"
               title="Consulter l'évaluation détaillée"
             >
               <FiEye className="w-3.5 h-3.5 text-blue-400" />
@@ -641,7 +641,7 @@ function OffersPageContent() {
 
             <Link
               href={`/resumes?generate_offer_id=${offer.id}`}
-              className="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border border-indigo-500/30 shadow-sm"
+              className="flex-1 min-w-[88px] bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border border-indigo-500/30 shadow-sm"
               title="Générer un CV adapté sur-mesure pour cette offre"
             >
               <FiFileText className="w-3.5 h-3.5 text-indigo-400" />
@@ -653,7 +653,7 @@ function OffersPageContent() {
                 href={offer.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border border-blue-500/30"
+                className="flex-1 min-w-[88px] bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border border-blue-500/30"
               >
                 <FiExternalLink className="w-3.5 h-3.5" />
                 <span>Offre</span>
@@ -662,7 +662,7 @@ function OffersPageContent() {
 
             <button
               onClick={() => handleApplyToOffer(offer)}
-              className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm shadow-emerald-500/20 flex items-center justify-center gap-1.5"
+              className="flex-1 min-w-[88px] bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm shadow-emerald-500/20 flex items-center justify-center gap-1.5"
               title="Postuler à cette offre"
             >
               <FiPlus className="w-3.5 h-3.5" />
