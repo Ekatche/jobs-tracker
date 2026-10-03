@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   FiFileText,
   FiSearch,
@@ -10,6 +10,9 @@ import {
   FiRefreshCw,
   FiFilter,
   FiCheckCircle,
+  FiBriefcase,
+  FiMapPin,
+  FiX,
 } from "react-icons/fi";
 import { TailoredResume, TailoredCVSchema } from "@/types/resume";
 import { resumeApi, jobOffersApi, type JobOffer } from "@/lib/api";
@@ -28,6 +31,7 @@ import {
 import AccentSwatches from "@/components/resumes/AccentSwatches";
 
 function ResumesContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedOfferId = searchParams.get("generate_offer_id");
 
@@ -40,9 +44,13 @@ function ResumesContent() {
 
   // New CV Generation Modal State
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState<boolean>(false);
-  const [availableOffers, setAvailableOffers] = useState<JobOffer[]>([]);
-  const [offerSearchQuery, setOfferSearchQuery] = useState<string>("");
+  const [selectedOffer, setSelectedOffer] = useState<JobOffer | null>(null);
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
+  const [isSearchingOffer, setIsSearchingOffer] = useState<boolean>(false);
+  const [offerSearchQuery, setOfferSearchQuery] = useState<string>("");
+  const [searchResults, setSearchResults] = useState<JobOffer[]>([]);
+  const [isSearchingOffers, setIsSearchingOffers] = useState<boolean>(false);
+  const [isLoadingSelectedOffer, setIsLoadingSelectedOffer] = useState<boolean>(false);
   const [selectedTemplate, setSelectedTemplate] = useState<CvTemplateKey>(DEFAULT_TEMPLATE);
   const [selectedAccent, setSelectedAccent] = useState<CvAccentKey>(DEFAULT_ACCENT);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -64,43 +72,83 @@ function ResumesContent() {
     fetchResumes();
   }, []);
 
-  const openGenerateModal = async (initialOfferId?: string) => {
+  const loadDefaultSuggestions = useCallback(async () => {
+    setIsSearchingOffers(true);
+    try {
+      const suggestions = await jobOffersApi.getAll({ limit: 10 });
+      setSearchResults(suggestions);
+    } catch (err) {
+      console.error("Failed to fetch suggestions:", err);
+    } finally {
+      setIsSearchingOffers(false);
+    }
+  }, []);
+
+  const openGenerateModal = useCallback(async (initialOfferId?: string) => {
     setIsGenerateModalOpen(true);
     setGenerateError(null);
-    try {
-      const offers = await jobOffersApi.getAll({ limit: 100 });
-      setAvailableOffers(offers);
-      if (initialOfferId) {
-        setSelectedOfferId(initialOfferId);
-        const preselected = offers.find((o) => o.id === initialOfferId);
-        setOfferSearchQuery(preselected?.poste || "");
-      } else {
-        setOfferSearchQuery("");
-        if (offers.length > 0) {
-          setSelectedOfferId(offers[0].id || "");
-        }
+    setOfferSearchQuery("");
+
+    if (initialOfferId) {
+      setSelectedOfferId(initialOfferId);
+      setIsSearchingOffer(false);
+      setIsLoadingSelectedOffer(true);
+      try {
+        const offer = await jobOffersApi.getById(initialOfferId);
+        setSelectedOffer(offer);
+      } catch (err) {
+        console.error("Failed to fetch preselected offer:", err);
+        setSelectedOffer(null);
+        setIsSearchingOffer(true);
+        loadDefaultSuggestions();
+      } finally {
+        setIsLoadingSelectedOffer(false);
       }
-    } catch (err) {
-      console.error("Failed to fetch job offers:", err);
+    } else {
+      setSelectedOffer(null);
+      setSelectedOfferId("");
+      setIsSearchingOffer(true);
+      loadDefaultSuggestions();
+    }
+  }, [loadDefaultSuggestions]);
+
+  const closeGenerateModal = () => {
+    setIsGenerateModalOpen(false);
+    setGenerateError(null);
+    if (searchParams.get("generate_offer_id")) {
+      router.replace("/resumes", { scroll: false });
     }
   };
-
-  const filteredOffersForModal = availableOffers.filter((o) => {
-    if (!offerSearchQuery.trim()) return true;
-    const q = offerSearchQuery.toLowerCase();
-    return (
-      (o.poste && o.poste.toLowerCase().includes(q)) ||
-      (o.entreprise && o.entreprise.toLowerCase().includes(q)) ||
-      (o.localisation && o.localisation.toLowerCase().includes(q))
-    );
-  });
-
 
   useEffect(() => {
     if (preselectedOfferId) {
       openGenerateModal(preselectedOfferId);
     }
-  }, [preselectedOfferId]);
+  }, [preselectedOfferId, openGenerateModal]);
+
+  useEffect(() => {
+    if (!isGenerateModalOpen || !isSearchingOffer) return;
+
+    const query = offerSearchQuery.trim();
+    if (!query) {
+      loadDefaultSuggestions();
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingOffers(true);
+      try {
+        const results = await jobOffersApi.getAll({ keywords: query, limit: 15 });
+        setSearchResults(results);
+      } catch (err) {
+        console.error("Error searching job offers:", err);
+      } finally {
+        setIsSearchingOffers(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [offerSearchQuery, isGenerateModalOpen, isSearchingOffer, loadDefaultSuggestions]);
 
   const handleGenerateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,7 +164,7 @@ function ResumesContent() {
         with_photo: false,
       });
       setResumes((prev) => [newResume, ...prev]);
-      setIsGenerateModalOpen(false);
+      closeGenerateModal();
       setActiveResumeForPreview(newResume);
     } catch (err: unknown) {
       console.error("CV generation failed:", err);
@@ -324,12 +372,22 @@ function ResumesContent() {
       {isGenerateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
           <div className="bg-[#152238] border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg p-6 text-slate-100 animate-in fade-in zoom-in-95 duration-200">
-            <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
-              <FiFileText className="text-blue-400" />
-              <span>Générer un CV sur-mesure</span>
-            </h2>
+            <div className="flex items-start justify-between mb-1">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <FiFileText className="text-blue-400" />
+                <span>Générer un CV sur-mesure</span>
+              </h2>
+              <button
+                type="button"
+                onClick={closeGenerateModal}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                title="Fermer"
+              >
+                <FiX className="text-base" />
+              </button>
+            </div>
             <p className="text-xs text-slate-400 mb-5">
-              Sélectionnez l'offre cible pour laquelle adapter vos expériences et vos compétences.
+              Sélectionnez l&apos;offre cible pour laquelle adapter vos expériences et vos compétences.
             </p>
 
             {generateError && (
@@ -342,22 +400,72 @@ function ResumesContent() {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-semibold text-slate-300">
-                    Offre d'emploi cible
+                    Offre d&apos;emploi cible
                   </label>
-                  {availableOffers.length > 0 && (
-                    <span className="text-[11px] text-slate-400">
-                      {filteredOffersForModal.length} / {availableOffers.length} offres
-                    </span>
+                  {selectedOffer && !isSearchingOffer && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSearchingOffer(true);
+                        loadDefaultSuggestions();
+                      }}
+                      className="text-[11px] text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                    >
+                      Changer d&apos;offre
+                    </button>
                   )}
                 </div>
 
-                {availableOffers.length === 0 ? (
-                  <div className="text-xs text-slate-400 p-3 bg-slate-900/60 rounded-lg border border-slate-800">
-                    Aucune offre trouvée.{" "}
-                    <Link href="/offers" className="text-blue-400 underline">
-                      Explorez d'abord les offres
-                    </Link>
-                    .
+                {isLoadingSelectedOffer ? (
+                  <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 flex items-center justify-center gap-2 text-xs text-slate-400">
+                    <FiRefreshCw className="animate-spin text-blue-400 text-sm" />
+                    <span>Chargement de l&apos;offre cible...</span>
+                  </div>
+                ) : selectedOffer && !isSearchingOffer ? (
+                  <div className="rounded-xl border border-blue-500/40 bg-gradient-to-br from-blue-950/30 to-slate-900/80 p-3.5 relative shadow-md">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                            <FiCheckCircle className="text-xs" />
+                            Offre sélectionnée
+                          </span>
+                          {selectedOffer.type_contrat && (
+                            <span className="text-[10px] text-slate-400 font-medium px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60">
+                              {selectedOffer.type_contrat}
+                            </span>
+                          )}
+                          {selectedOffer.mode_travail && (
+                            <span className="text-[10px] text-slate-400 font-medium px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60">
+                              {selectedOffer.mode_travail}
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="font-semibold text-xs text-white truncate">
+                          {selectedOffer.poste || "Poste sans titre"}
+                        </h3>
+                        <div className="text-[11px] text-slate-400 truncate mt-1 flex items-center gap-2">
+                          <span className="text-slate-300 font-medium">{selectedOffer.entreprise || "Entreprise"}</span>
+                          {selectedOffer.localisation && (
+                            <>
+                              <span>•</span>
+                              <span>{selectedOffer.localisation}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsSearchingOffer(true);
+                          loadDefaultSuggestions();
+                        }}
+                        className="text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors shrink-0"
+                        title="Rechercher une autre offre"
+                      >
+                        Modifier
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -365,25 +473,33 @@ function ResumesContent() {
                       <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
                       <input
                         type="text"
-                        placeholder="Rechercher par poste, entreprise, ville..."
+                        placeholder="Rechercher par métier, mots-clés, entreprise..."
                         value={offerSearchQuery}
                         onChange={(e) => setOfferSearchQuery(e.target.value)}
-                        className="w-full pl-8 pr-3 py-1.5 bg-slate-900/90 border border-slate-700/80 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                        className="w-full pl-8 pr-8 py-1.5 bg-slate-900/90 border border-slate-700/80 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                        autoFocus
                       />
+                      {isSearchingOffers && (
+                        <FiRefreshCw className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-400 text-xs animate-spin" />
+                      )}
                     </div>
 
                     <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 border border-slate-800/80 bg-slate-900/50 rounded-xl p-1.5">
-                      {filteredOffersForModal.length === 0 ? (
-                        <div className="text-center py-5 text-xs text-slate-500">
-                          Aucune offre trouvée pour &quot;{offerSearchQuery}&quot;
+                      {searchResults.length === 0 ? (
+                        <div className="text-center py-6 text-xs text-slate-500">
+                          {isSearchingOffers ? "Recherche en cours..." : "Aucune offre trouvée"}
                         </div>
                       ) : (
-                        filteredOffersForModal.map((o) => {
+                        searchResults.map((o) => {
                           const isSelected = selectedOfferId === o.id;
                           return (
                             <div
                               key={o.id}
-                              onClick={() => setSelectedOfferId(o.id)}
+                              onClick={() => {
+                                setSelectedOffer(o);
+                                setSelectedOfferId(o.id);
+                                setIsSearchingOffer(false);
+                              }}
                               className={`cursor-pointer p-2.5 rounded-lg border transition-all flex items-start justify-between gap-2 ${
                                 isSelected
                                   ? "bg-blue-600/20 border-blue-500 text-white shadow-sm"
@@ -398,15 +514,17 @@ function ResumesContent() {
                                 </div>
                                 <div className="text-[11px] text-slate-400 truncate mt-0.5 flex items-center gap-2">
                                   <span className="text-slate-300 font-medium">{o.entreprise || "Entreprise"}</span>
-                                  <span>•</span>
-                                  <span>{o.localisation || "France"}</span>
+                                  {o.localisation && (
+                                    <>
+                                      <span>•</span>
+                                      <span>{o.localisation}</span>
+                                    </>
+                                  )}
                                 </div>
                               </div>
-                              {isSelected && (
-                                <div className="p-1 rounded-full bg-blue-500/20 text-blue-400 mt-0.5 shrink-0">
-                                  <FiCheckCircle className="text-xs" />
-                                </div>
-                              )}
+                              <span className="text-[11px] text-blue-400 font-medium shrink-0 pt-0.5">
+                                Choisir
+                              </span>
                             </div>
                           );
                         })
@@ -415,7 +533,6 @@ function ResumesContent() {
                   </div>
                 )}
               </div>
-
 
               <div>
                 <div className="block text-xs font-semibold text-slate-300 mb-1.5">Modèle</div>
@@ -450,14 +567,14 @@ function ResumesContent() {
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setIsGenerateModalOpen(false)}
+                  onClick={closeGenerateModal}
                   className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  disabled={isGenerating || availableOffers.length === 0}
+                  disabled={isGenerating || !selectedOfferId}
                   className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-md transition-colors"
                 >
                   {isGenerating ? <FiRefreshCw className="animate-spin" /> : <FiCheckCircle />}
