@@ -354,6 +354,7 @@ class JobOfferResponse(BaseModel):
     seniority_level: Optional[str] = None
     alternative_urls: Optional[List[str]] = None
     user_interaction: Optional[str] = None  # Interaction: "saved", "hidden", "applied", "dismissed"
+    seen: Optional[bool] = False  # Tag "vu" neutre, indépendant de user_interaction
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -368,9 +369,14 @@ class UserOfferInteractionResponse(BaseModel):
     user_id: str
     offer_id: str
     status: str
+    seen: Optional[bool] = False
     notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
+
+class SeenStatusRequest(BaseModel):
+    seen: bool = True
 
 
 class JobOfferFilter(BaseModel):

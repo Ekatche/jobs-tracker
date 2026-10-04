@@ -51,7 +51,7 @@ async def test_apply_filters_anonymous_regular():
     match_filter = {"is_deleted": False}
     db = MagicMock()
 
-    filter_res, inter_map, should_empty = await apply_user_interaction_filters(
+    filter_res, inter_map, seen_map, should_empty = await apply_user_interaction_filters(
         match_filter=match_filter,
         db=db,
         current_user=None,
@@ -68,7 +68,7 @@ async def test_apply_filters_anonymous_only_saved_returns_empty():
     match_filter = {"is_deleted": False}
     db = MagicMock()
 
-    _, _, should_empty = await apply_user_interaction_filters(
+    _, _, _, should_empty = await apply_user_interaction_filters(
         match_filter=match_filter,
         db=db,
         current_user=None,
@@ -89,7 +89,7 @@ async def test_apply_filters_user_hidden_offers_excluded(mock_user_a):
     ))
     db.__getitem__.side_effect = lambda name: interactions_col if name == "user_offer_interactions" else MagicMock()
 
-    filter_res, inter_map, should_empty = await apply_user_interaction_filters(
+    filter_res, inter_map, seen_map, should_empty = await apply_user_interaction_filters(
         match_filter=match_filter,
         db=db,
         current_user=mock_user_a,
@@ -112,7 +112,7 @@ async def test_apply_filters_user_only_saved(mock_user_a):
     ))
     db.__getitem__.side_effect = lambda name: interactions_col if name == "user_offer_interactions" else MagicMock()
 
-    filter_res, _, should_empty = await apply_user_interaction_filters(
+    filter_res, _, _, should_empty = await apply_user_interaction_filters(
         match_filter=match_filter,
         db=db,
         current_user=mock_user_a,
@@ -142,7 +142,7 @@ async def test_apply_filters_user_min_score_matching(mock_user_a):
         return MagicMock()
     db.__getitem__.side_effect = mock_db_getitem
 
-    filter_res, _, should_empty = await apply_user_interaction_filters(
+    filter_res, _, _, should_empty = await apply_user_interaction_filters(
         match_filter=match_filter,
         db=db,
         current_user=mock_user_a,
@@ -199,6 +199,7 @@ def test_clear_user_offer_interaction_none(mock_user_a):
     offers_col = MagicMock()
     offers_col.find_one = AsyncMock(return_value={"_id": ObjectId(OFFER_1_ID), "poste": "Dev"})
     interactions_col = MagicMock()
+    interactions_col.find_one = AsyncMock(return_value=None)
     interactions_col.delete_many = AsyncMock(return_value=MagicMock(deleted_count=1))
 
     def mock_db_getitem(name):
@@ -218,6 +219,48 @@ def test_clear_user_offer_interaction_none(mock_user_a):
         data = res.json()
         assert data["status"] == "none"
         interactions_col.delete_many.assert_called_once()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_clear_user_offer_interaction_none_preserves_seen(mock_user_a):
+    mock_db = MagicMock()
+    offers_col = MagicMock()
+    offers_col.find_one = AsyncMock(return_value={"_id": ObjectId(OFFER_1_ID), "poste": "Dev"})
+    interactions_col = MagicMock()
+    existing_doc = {
+        "_id": ObjectId(OFFER_1_ID),
+        "user_id": USER_A_ID,
+        "offer_id": OFFER_1_ID,
+        "status": "saved",
+        "seen": True,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    }
+    updated_doc = {**existing_doc, "status": "none"}
+    interactions_col.find_one = AsyncMock(side_effect=[existing_doc, updated_doc])
+    interactions_col.update_one = AsyncMock(return_value=MagicMock())
+    interactions_col.delete_many = AsyncMock(return_value=MagicMock(deleted_count=1))
+
+    def mock_db_getitem(name):
+        if name == "job_offers":
+            return offers_col
+        if name == "user_offer_interactions":
+            return interactions_col
+        return MagicMock()
+    mock_db.__getitem__.side_effect = mock_db_getitem
+
+    app.dependency_overrides[get_database] = lambda: mock_db
+    app.dependency_overrides[get_current_user] = lambda: mock_user_a
+    try:
+        client = TestClient(app)
+        res = client.post(f"/job-offers/{OFFER_1_ID}/interaction", json={"status": "none"})
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "none"
+        assert data["seen"] is True
+        interactions_col.delete_many.assert_not_called()
+        interactions_col.update_one.assert_called_once()
     finally:
         app.dependency_overrides.clear()
 

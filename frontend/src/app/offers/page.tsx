@@ -111,6 +111,7 @@ function OffersPageContent() {
   const [daysRecentFilter, setDaysRecentFilter] = useState<number | undefined>(undefined);
   const [onlySaved, setOnlySaved] = useState(false);
   const [interactionStatus, setInteractionStatus] = useState<"saved" | "applied" | "hidden" | undefined>(undefined);
+  const [unseenOnly, setUnseenOnly] = useState(false);
   const [minScoreFilter, setMinScoreFilter] = useState<number | undefined>(undefined);
   const [profileRoles, setProfileRoles] = useState<string[]>([]);
   const [profileLocations, setProfileLocations] = useState<string[]>([]);
@@ -154,6 +155,7 @@ function OffersPageContent() {
     if (daysRecentFilter !== undefined) f.days_recent = daysRecentFilter;
     if (onlySaved) f.only_saved = true;
     if (interactionStatus) f.interaction_status = interactionStatus;
+    if (unseenOnly) f.unseen_only = true;
     if (minScoreFilter !== undefined) f.min_score = minScoreFilter;
     return f;
   }, [
@@ -166,6 +168,7 @@ function OffersPageContent() {
     daysRecentFilter,
     onlySaved,
     interactionStatus,
+    unseenOnly,
     minScoreFilter,
   ]);
 
@@ -254,6 +257,25 @@ function OffersPageContent() {
       }
     } catch (err) {
       console.error("💥 Erreur lors de la mise à jour des favoris:", err);
+    }
+  };
+
+  // ✅ Tag "vu" neutre : coexiste avec saved/hidden/applied, ne retire pas l'offre de la liste
+  const handleToggleSeen = async (offerId: string, currentlySeen?: boolean) => {
+    const nextSeen = !currentlySeen;
+    try {
+      await jobOffersApi.setSeen(offerId, nextSeen);
+      setOffers((prevOffers) =>
+        prevOffers.map((offer) =>
+          offer.id === offerId ? { ...offer, seen: nextSeen } : offer
+        )
+      );
+      if (unseenOnly && nextSeen) {
+        setOffers((prevOffers) => prevOffers.filter((offer) => offer.id !== offerId));
+        await fetchTotalCount();
+      }
+    } catch (err) {
+      console.error("💥 Erreur lors du marquage vu/non vu:", err);
     }
   };
 
@@ -384,6 +406,7 @@ function OffersPageContent() {
     daysRecentFilter,
     onlySaved,
     interactionStatus,
+    unseenOnly,
     minScoreFilter,
   ]);
 
@@ -433,9 +456,24 @@ function OffersPageContent() {
     const addedDateText = formatAddedDate(offer.created_at);
 
     return (
-      <div className="bg-slate-900/80 hover:bg-slate-900/95 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all duration-200 border border-slate-800 hover:border-blue-500/40 relative group flex flex-col justify-between backdrop-blur-sm">
+      <div
+        className={`bg-slate-900/80 hover:bg-slate-900/95 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all duration-200 border border-slate-800 hover:border-blue-500/40 relative group flex flex-col justify-between backdrop-blur-sm ${
+          offer.seen ? "opacity-60" : ""
+        }`}
+      >
         {/* Quick action buttons */}
         <div className="absolute top-3 right-3 flex items-center gap-1 z-10">
+          <button
+            onClick={() => handleToggleSeen(offer.id, offer.seen)}
+            className={`p-1.5 rounded-lg border transition-all ${
+              offer.seen
+                ? "bg-slate-700/60 text-slate-300 border-slate-600 opacity-100"
+                : "bg-slate-800 hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-300 border-slate-700 opacity-0 group-hover:opacity-100"
+            }`}
+            title={offer.seen ? "Marquer comme non vue" : "Marquer comme vue"}
+          >
+            {offer.seen ? <FiCheckCircle className="w-3.5 h-3.5" /> : <FiEye className="w-3.5 h-3.5" />}
+          </button>
           <button
             onClick={() => handleToggleSaveOffer(offer.id, offer.user_interaction)}
             className={`p-1.5 rounded-lg border transition-all ${
@@ -973,9 +1011,10 @@ function OffersPageContent() {
                     setInteractionStatus(undefined);
                     setDaysRecentFilter(undefined);
                     setMinScoreFilter(undefined);
+                    setUnseenOnly(false);
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
-                    !onlySaved && !interactionStatus && !daysRecentFilter && minScoreFilter === undefined
+                    !onlySaved && !interactionStatus && !daysRecentFilter && minScoreFilter === undefined && !unseenOnly
                       ? "bg-blue-600 text-white border-blue-500 shadow-sm shadow-blue-500/20"
                       : "bg-slate-800/70 text-slate-400 hover:text-white border-slate-700/60 hover:bg-slate-800"
                   }`}
@@ -1049,6 +1088,21 @@ function OffersPageContent() {
                 >
                   <FiCheckCircle className="w-3.5 h-3.5 text-teal-400" />
                   <span>Postulées</span>
+                </button>
+
+                {/* Non vues */}
+                <button
+                  type="button"
+                  onClick={() => setUnseenOnly(!unseenOnly)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
+                    unseenOnly
+                      ? "bg-sky-500/20 text-sky-300 border-sky-500/40 shadow-sm shadow-sky-500/10"
+                      : "bg-slate-800/70 text-slate-400 hover:text-white border-slate-700/60 hover:bg-slate-800"
+                  }`}
+                  title="N'afficher que les offres pas encore marquées comme vues"
+                >
+                  <FiEye className="w-3.5 h-3.5 text-sky-400" />
+                  <span>Non vues</span>
                 </button>
               </div>
 

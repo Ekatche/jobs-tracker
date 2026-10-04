@@ -9,6 +9,7 @@ from ..models import (
     UserModel,
     UserOfferInteractionRequest,
     UserOfferInteractionResponse,
+    SeenStatusRequest,
 )
 from ..database import get_database
 from ..auth import get_current_user
@@ -243,22 +244,25 @@ async def apply_user_interaction_filters(
     include_hidden: bool = False,
     min_score: Optional[float] = None,
     interaction_status: Optional[str] = None,
-) -> tuple[dict, dict, bool]:
+    unseen_only: bool = False,
+) -> tuple[dict, dict, dict, bool]:
     """
-    Applique les filtres multi-tenant (masquées, sauvegardées, statut d'interaction, score IA minimum) au filtre MongoDB.
-    Renvoie (match_filter_mis_à_jour, interaction_map, should_return_empty).
+    Applique les filtres multi-tenant (masquées, sauvegardées, statut d'interaction, score IA minimum, non vues) au filtre MongoDB.
+    Renvoie (match_filter_mis_à_jour, interaction_map, seen_map, should_return_empty).
     """
     target_status = "saved" if only_saved else interaction_status
 
     interaction_map = {}
+    seen_map = {}
     if not current_user:
         if target_status or min_score is not None:
-            return match_filter, interaction_map, True
-        return match_filter, interaction_map, False
+            return match_filter, interaction_map, seen_map, True
+        return match_filter, interaction_map, seen_map, False
 
     user_id_str = str(current_user.id)
     user_interactions = await db["user_offer_interactions"].find({"user_id": user_id_str}).to_list(length=None)
     interaction_map = {doc["offer_id"]: doc.get("status") for doc in user_interactions}
+    seen_map = {doc["offer_id"]: doc.get("seen", False) for doc in user_interactions}
 
     allowed_oids = None
 
@@ -270,7 +274,7 @@ async def apply_user_interaction_filters(
             if st == target_status and ObjectId.is_valid(oid)
         ]
         if not matching_oids:
-            return match_filter, interaction_map, True
+            return match_filter, interaction_map, seen_map, True
         allowed_oids = set(matching_oids)
 
     # 2. Filtre par score IA minimum (Two-Pass)
@@ -285,13 +289,13 @@ async def apply_user_interaction_filters(
             if doc.get("offer_id") and ObjectId.is_valid(doc["offer_id"])
         ]
         if not score_oids:
-            return match_filter, interaction_map, True
+            return match_filter, interaction_map, seen_map, True
         if allowed_oids is None:
             allowed_oids = set(score_oids)
         else:
             allowed_oids = allowed_oids.intersection(set(score_oids))
             if not allowed_oids:
-                return match_filter, interaction_map, True
+                return match_filter, interaction_map, seen_map, True
 
     # 3. Exclusion des offres masquées par l'utilisateur
     excluded_oids = set()
@@ -300,15 +304,21 @@ async def apply_user_interaction_filters(
             if st == "hidden" and ObjectId.is_valid(oid):
                 excluded_oids.add(ObjectId(oid))
 
+    # 4. Exclusion des offres déjà vues (filtre "non vues")
+    if unseen_only:
+        for oid, seen_val in seen_map.items():
+            if seen_val and ObjectId.is_valid(oid):
+                excluded_oids.add(ObjectId(oid))
+
     if allowed_oids is not None:
         allowed_oids = allowed_oids - excluded_oids
         if not allowed_oids:
-            return match_filter, interaction_map, True
+            return match_filter, interaction_map, seen_map, True
         match_filter["_id"] = {"$in": list(allowed_oids)}
     elif excluded_oids:
         match_filter["_id"] = {"$nin": list(excluded_oids)}
 
-    return match_filter, interaction_map, False
+    return match_filter, interaction_map, seen_map, False
 
 
 @job_offers_router.get("/", response_model=List[JobOfferResponse])
@@ -322,6 +332,7 @@ async def get_job_offers(
     interaction_status: Optional[str] = Query(None),
     only_saved: bool = Query(False),
     include_hidden: bool = Query(False),
+    unseen_only: bool = Query(False),
     min_score: Optional[float] = Query(None),
     limit: int = Query(16, ge=1, le=100),
     skip: int = Query(0, ge=0),
@@ -338,7 +349,7 @@ async def get_job_offers(
         }
 
         # Multi-tenant user filters
-        match_filter, interaction_map, should_return_empty = await apply_user_interaction_filters(
+        match_filter, interaction_map, seen_map, should_return_empty = await apply_user_interaction_filters(
             match_filter=match_filter,
             db=db,
             current_user=current_user,
@@ -346,6 +357,7 @@ async def get_job_offers(
             include_hidden=include_hidden,
             min_score=min_score,
             interaction_status=interaction_status,
+            unseen_only=unseen_only,
         )
         if should_return_empty:
             return []
@@ -447,10 +459,12 @@ async def get_job_offers(
             offer.pop("evaluation_score", None)
             if current_user:
                 offer["user_interaction"] = interaction_map.get(oid_str)
+                offer["seen"] = seen_map.get(oid_str, False)
                 if oid_str in eval_score_map:
                     offer["evaluation_score"] = eval_score_map[oid_str]
             else:
                 offer["user_interaction"] = None
+                offer["seen"] = False
             formatted_offers.append(offer)
 
         return formatted_offers
@@ -506,6 +520,7 @@ async def get_job_offer(
             "offer_id": str(offer_id),
         })
         offer["user_interaction"] = interaction.get("status") if interaction else None
+        offer["seen"] = interaction.get("seen", False) if interaction else False
 
         evaluation = await db["offer_evaluations"].find_one({
             "user_id": str(current_user.id),
@@ -515,6 +530,7 @@ async def get_job_offer(
             offer["evaluation_score"] = evaluation.get("score")
     else:
         offer["user_interaction"] = None
+        offer["seen"] = False
 
     return offer
 
@@ -539,6 +555,19 @@ async def set_user_offer_interaction(
     filter_query = {"user_id": user_id_str, "offer_id": str(offer_id)}
 
     if payload.status == "none":
+        # Le tag "seen" est orthogonal à status : le préserver si présent plutôt
+        # que de supprimer tout le document d'interaction.
+        existing = await db["user_offer_interactions"].find_one(filter_query)
+        if existing and existing.get("seen"):
+            await db["user_offer_interactions"].update_one(
+                filter_query,
+                {"$set": {"status": "none", "notes": payload.notes, "updated_at": now}},
+            )
+            updated_doc = await db["user_offer_interactions"].find_one(filter_query)
+            updated_doc["id"] = str(updated_doc["_id"])
+            del updated_doc["_id"]
+            return UserOfferInteractionResponse(**updated_doc)
+
         await db["user_offer_interactions"].delete_many(filter_query)
         return UserOfferInteractionResponse(
             user_id=user_id_str,
@@ -575,6 +604,43 @@ async def set_user_offer_interaction(
         created_at=now,
         updated_at=now,
     )
+
+
+@job_offers_router.post("/{offer_id}/seen", response_model=UserOfferInteractionResponse)
+async def set_offer_seen(
+    offer_id: str,
+    payload: SeenStatusRequest,
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Marque une offre comme vue/non vue. Orthogonal à status (saved/hidden/applied/dismissed)."""
+    if not ObjectId.is_valid(offer_id):
+        raise HTTPException(status_code=400, detail="ID d'offre invalide")
+
+    offer = await db["job_offers"].find_one({"_id": ObjectId(offer_id)})
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offre non trouvée")
+
+    now = datetime.now(timezone.utc)
+    user_id_str = str(current_user.id)
+    filter_query = {"user_id": user_id_str, "offer_id": str(offer_id)}
+
+    update_doc = {
+        "$set": {
+            "seen": payload.seen,
+            "updated_at": now,
+        },
+        "$setOnInsert": {
+            "status": "none",
+            "created_at": now,
+        },
+    }
+    await db["user_offer_interactions"].update_one(filter_query, update_doc, upsert=True)
+
+    interaction_doc = await db["user_offer_interactions"].find_one(filter_query)
+    interaction_doc["id"] = str(interaction_doc["_id"])
+    del interaction_doc["_id"]
+    return UserOfferInteractionResponse(**interaction_doc)
 
 
 @job_offers_router.get("/{offer_id}/interaction", response_model=UserOfferInteractionResponse)
@@ -859,6 +925,7 @@ async def get_job_offers_count(
     interaction_status: Optional[str] = Query(None),
     only_saved: bool = Query(False),
     include_hidden: bool = Query(False),
+    unseen_only: bool = Query(False),
     min_score: Optional[float] = Query(None),
     db=Depends(get_database),
     current_user: UserModel = Depends(get_current_user),
@@ -873,7 +940,7 @@ async def get_job_offers_count(
         }
 
         # Multi-tenant user filters
-        match_filter, _, should_return_empty = await apply_user_interaction_filters(
+        match_filter, _, _, should_return_empty = await apply_user_interaction_filters(
             match_filter=match_filter,
             db=db,
             current_user=current_user,
@@ -881,6 +948,7 @@ async def get_job_offers_count(
             include_hidden=include_hidden,
             min_score=min_score,
             interaction_status=interaction_status,
+            unseen_only=unseen_only,
         )
         if should_return_empty:
             return {"total": 0}

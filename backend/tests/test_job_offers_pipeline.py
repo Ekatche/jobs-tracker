@@ -370,7 +370,7 @@ async def test_apply_user_interaction_filters_saved_and_status():
     mock_db.__getitem__.return_value.find.return_value = mock_cursor
 
     # 1. Test only_saved = True
-    match_f, inter_map, empty = await apply_user_interaction_filters(
+    match_f, inter_map, _, empty = await apply_user_interaction_filters(
         match_filter={},
         db=mock_db,
         current_user=user,
@@ -382,7 +382,7 @@ async def test_apply_user_interaction_filters_saved_and_status():
     assert ObjectId("650000000000000000000020") not in match_f["_id"]["$in"]
 
     # 2. Test interaction_status = "applied"
-    match_f_app, _, empty_app = await apply_user_interaction_filters(
+    match_f_app, _, _, empty_app = await apply_user_interaction_filters(
         match_filter={},
         db=mock_db,
         current_user=user,
@@ -392,7 +392,7 @@ async def test_apply_user_interaction_filters_saved_and_status():
     assert ObjectId("650000000000000000000020") in match_f_app["_id"]["$in"]
 
     # 3. Test hidden exclusion when not requested
-    match_f_all, _, _ = await apply_user_interaction_filters(
+    match_f_all, _, _, _ = await apply_user_interaction_filters(
         match_filter={},
         db=mock_db,
         current_user=user,

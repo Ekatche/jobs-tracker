@@ -355,6 +355,7 @@ export interface JobOffer {
   pipeline_stage?: string;
   evaluation_score?: number;
   user_interaction?: "saved" | "hidden" | "applied" | "dismissed" | null;
+  seen?: boolean;
 }
 
 export type {
@@ -380,6 +381,7 @@ export interface JobOfferFilter {
   skip?: number;
   only_saved?: boolean;
   include_hidden?: boolean;
+  unseen_only?: boolean;
   min_score?: number;
 }
 
@@ -611,6 +613,7 @@ export const jobOffersApi = {
     if (filters.interaction_status) params.append("interaction_status", filters.interaction_status);
     if (filters.only_saved) params.append("only_saved", "true");
     if (filters.include_hidden) params.append("include_hidden", "true");
+    if (filters.unseen_only) params.append("unseen_only", "true");
     if (filters.min_score !== undefined && filters.min_score !== null) {
       params.append("min_score", filters.min_score.toString());
     }
@@ -636,6 +639,15 @@ export const jobOffersApi = {
       `/job-offers/${offerId}/interaction`,
       "POST",
       { status, notes }
+    );
+  },
+
+  // Marque une offre comme vue/non vue, indépendamment de l'interaction (saved/hidden/applied)
+  setSeen: async (offerId: string, seen: boolean = true) => {
+    return fetchApi<{ id?: string; user_id: string; offer_id: string; status: string; seen: boolean }>(
+      `/job-offers/${offerId}/seen`,
+      "POST",
+      { seen }
     );
   },
 
@@ -709,6 +721,7 @@ export const jobOffersApi = {
     if (filters.interaction_status) params.append("interaction_status", filters.interaction_status);
     if (filters.only_saved) params.append("only_saved", "true");
     if (filters.include_hidden) params.append("include_hidden", "true");
+    if (filters.unseen_only) params.append("unseen_only", "true");
     if (filters.min_score !== undefined && filters.min_score !== null) {
       params.append("min_score", filters.min_score.toString());
     }
