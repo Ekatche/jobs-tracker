@@ -31,6 +31,12 @@ class PyObjectId(str):
         )
 
     @classmethod
+    def __get_pydantic_json_schema__(
+        cls, _core_schema: core_schema.CoreSchema, _handler: Any
+    ) -> Dict[str, Any]:
+        return {"type": "string", "title": "ObjectId", "description": "MongoDB ObjectId"}
+
+    @classmethod
     def validate(cls, v):
         if not ObjectId.is_valid(v):
             raise ValueError("Invalid ObjectId")
