@@ -156,10 +156,14 @@ async def _canonicalize_roles(raw_roles: list[str], db) -> list[str]:
     seen: set[str] = set()
     suggestions: list[str] = []
     canonicals: list[str] = []
+    fallback_titles: list[str] = []
     for raw in raw_roles:
         cleaned = clean_job_title_syntax(raw)
         if not cleaned or cleaned == "Non spécifié":
             cleaned = raw
+        fallback_key = cleaned.lower()
+        if cleaned and fallback_key not in {t.lower() for t in fallback_titles}:
+            fallback_titles.append(cleaned)
         canonical = await match_taxonomy_role(cleaned, db=db)
         if not canonical:
             continue
@@ -170,6 +174,11 @@ async def _canonicalize_roles(raw_roles: list[str], db) -> list[str]:
             canonicals.append(canonical)
         if len(suggestions) >= MAX_SUGGESTED_ROLES:
             break
+
+    # Taxonomie trop pauvre pour le domaine (ex: aucun rôle data/IA connu) :
+    # mieux vaut montrer les intitulés bruts nettoyés que rien du tout.
+    if not suggestions:
+        return fallback_titles[:MAX_SUGGESTED_ROLES]
 
     if canonicals and len(suggestions) < MAX_SUGGESTED_ROLES:
         aliases = await db["role_aliases"].find(
