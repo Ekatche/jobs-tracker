@@ -14,6 +14,7 @@ load_dotenv(dotenv_path=dotenv_path)
 
 # En environnement de test, neutraliser INVITATION_CODE pour permettre l'exécution des tests standards
 os.environ["INVITATION_CODE"] = ""
+os.environ.setdefault("TAVILY_API_KEY", "tvly-test-dummy-key")
 
 MONGO_USER = os.getenv("MONGO_TEST_USER")
 MONGO_PASSWORD = os.getenv("MONGO_TEST_PASSWORD")

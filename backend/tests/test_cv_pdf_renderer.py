@@ -82,7 +82,10 @@ import asyncio
 import re
 from functools import lru_cache
 
-import pymupdf
+try:
+    import fitz as pymupdf
+except ImportError:
+    import pymupdf
 
 from app.models import TailoredProjectItem
 from app.services.cv_templates import CV_TEMPLATES, SECTION_TITLES

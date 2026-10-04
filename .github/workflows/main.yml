@@ -45,6 +45,8 @@ jobs:
           MONGO_PASSWORD=${{ secrets.MONGO_TEST_PASSWORD }}
           DATABASE_NAME=jobtracker_test
           MONGO_HOST=localhost
+          TAVILY_API_KEY=tvly-test-dummy-key
+          INVITATION_CODE=
           EOF
       
       - name: Wait for MongoDB
