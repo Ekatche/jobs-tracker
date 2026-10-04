@@ -163,9 +163,13 @@ function ResumesContent() {
         accent: selectedAccent,
         with_photo: false,
       });
-      setResumes((prev) => [newResume, ...prev]);
+      // Réinitialiser les filtres pour garantir que le nouveau CV apparaisse au premier plan
+      setSearchQuery("");
+      setTemplateFilter("all");
       closeGenerateModal();
       setActiveResumeForPreview(newResume);
+      // Recharger la liste fraîche depuis le serveur pour synchroniser la page
+      await fetchResumes();
     } catch (err: unknown) {
       console.error("CV generation failed:", err);
       const errorDetail =
@@ -228,10 +232,10 @@ function ResumesContent() {
         with_photo: resume.with_photo,
         application_id: resume.application_id,
       });
-      setResumes((prev) => [newResume, ...prev]);
       if ((activeResumeForPreview?.id || activeResumeForPreview?._id) === (resume.id || resume._id)) {
         setActiveResumeForPreview(newResume);
       }
+      await fetchResumes();
     } catch (err: unknown) {
       console.error("Failed to regenerate resume:", err);
       const msg = err instanceof Error ? err.message : "Erreur lors de la régénération du CV.";
@@ -242,9 +246,10 @@ function ResumesContent() {
 
   // Filtering
   const filteredResumes = resumes.filter((r) => {
-    const matchesSearch =
-      r.target_role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.target_company.toLowerCase().includes(searchQuery.toLowerCase());
+    const role = (r.target_role || "").toLowerCase();
+    const company = (r.target_company || "").toLowerCase();
+    const query = searchQuery.trim().toLowerCase();
+    const matchesSearch = !query || role.includes(query) || company.includes(query);
     const matchesTemplate = templateFilter === "all" || resolveTemplateKey(r.template) === templateFilter;
     return matchesSearch && matchesTemplate;
   });
