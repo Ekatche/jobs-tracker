@@ -43,3 +43,35 @@ gives you structural context (callers, dependents, test coverage) that file sear
 3. Use `get_affected_flows_tool` to understand impact.
 4. Use `query_graph_tool` pattern="tests_for" to check coverage.
 <!-- /code-review-graph MCP tools -->
+
+## Directives pour la gestion, l'audit et la suppression des tests
+
+### Objectif : Ne conserver que des tests pertinents et à forte valeur ajoutée
+
+Pour maintenir une suite de tests rapide, fiable et pertinente, appliquez systématiquement ces règles :
+
+#### 1. Critères de pertinence (Tests à conserver et prioriser)
+Un test est jugé **pertinent** et indispensable lorsqu'il couvre au moins l'un des aspects suivants :
+- **Logique métier & invariants** : Algorithmes de matching/scoring d'offres, détection d'offres closes (404, dates d'expiration JSON-LD, mentions textuelles), calculs de périodes et d'expériences, fusion des profils multi-sources.
+- **Gardes-fous et résilience IA** : Gardes anti-hallucination (`letter_guards`), intégrité des templates de CV (`test_cv_guards`), quotas et consommation de tokens (`usage_tracker`).
+- **Contrats d'API & Sécurité** : Codes de statut HTTP, schémas de validation Pydantic, ségrégation des accès utilisateurs, intégrité des données partagées (ex: éditer une candidature ne doit jamais écraser l'offre source partagée).
+- **Rendu et parité graphique** : Rendu PDF sans régression visuelle, parité du registre des templates de CV.
+
+#### 2. Critères de suppression (Quand et comment élaguer des tests)
+Supprimez ou consolidez sans hésiter les tests correspondant aux cas suivants :
+- **Obsolescence** : Le code, l'endpoint, le modèle ou le comportement cible a été déprécié ou supprimé. Ne jamais maintenir des tests obsolètes sous perfusion de mocks artificiels.
+- **Redondance pure (Doublons)** : Plusieurs tests vérifient la même branche de code avec les mêmes assertions sous des noms différents (ex: tests de normalisation de chaînes basiques dupliqués entre plusieurs fichiers).
+- **Test tautologique / Sur-mocking** : Un test qui ne vérifie que la configuration d'un mock sans exécuter la moindre logique réelle du projet n'apporte aucune garantie et doit être supprimé.
+- **Flakiness structurelle** : Tests dépendant d'un timing non maîtrisé (`sleep`), d'accès réseau non mockés vers des API tierces, ou de collisions sur la base de données de test partagée.
+
+#### 3. Procédure pour supprimer ou actualiser des tests
+Avant toute suppression ou refonte de tests :
+1. **Cartographier l'impact avec code-review-graph** :
+   - Exécutez `query_graph_tool` avec `pattern="tests_for"` sur la fonction ou classe ciblée pour identifier l'ensemble des tests associés.
+2. **Évaluer la couverture résiduelle** :
+   - Assurez-vous que les cas limites nominaux restent couverts par un test unitaire ou d'intégration plus concis et robuste.
+3. **Supprimer le code mort** :
+   - Retirez la fonction de test dans `backend/tests/test_*.py` ainsi que les fixtures/données de mock associées devenues orphelines.
+4. **Vérifier l'exécution** :
+   - Lancez `pytest backend/tests/test_<nom>.py -v` pour valider que la suite restante passe intégralement au vert.
+

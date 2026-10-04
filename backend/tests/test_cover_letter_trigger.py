@@ -16,12 +16,16 @@ async def test_trigger_cover_letter_on_etude_transition():
     mock_db = MagicMock()
     app_id = str(ObjectId())
     user_id = str(ObjectId())
+    app_applied = {"_id": ObjectId(app_id), "user_id": ObjectId(user_id), "status": ApplicationStatus.APPLIED, "description": "Desc"}
+    app_etude = {"_id": ObjectId(app_id), "user_id": ObjectId(user_id), "status": ApplicationStatus.ETUDE, "description": "Desc"}
+    
+    call_count = 0
+    async def find_one_side_effect(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return app_applied if call_count == 1 else app_etude
 
-    # Candidature existante avec statut APPLIED
-    mock_db["applications"].find_one = AsyncMock(side_effect=[
-        {"_id": ObjectId(app_id), "user_id": ObjectId(user_id), "status": ApplicationStatus.APPLIED, "description": "Desc"},
-        {"_id": ObjectId(app_id), "user_id": ObjectId(user_id), "status": ApplicationStatus.ETUDE, "description": "Desc"}
-    ])
+    mock_db["applications"].find_one = AsyncMock(side_effect=find_one_side_effect)
     mock_db["applications"].update_one = AsyncMock()
 
     bg_tasks = MagicMock()

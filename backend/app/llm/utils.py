@@ -9,7 +9,6 @@ import asyncio
 import logging
 import os
 from typing import List, Optional
-from urllib.parse import urlparse
 
 # Configuration du logging
 logger = logging.getLogger(__name__)

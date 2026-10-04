@@ -3,9 +3,7 @@ import asyncio
 from datetime import datetime, timezone
 import json
 import logging
-import os
-import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from bson import ObjectId
 
 # Configuration logging

@@ -15,8 +15,6 @@ from app.models import (
 )
 from main import app
 
-client = TestClient(app)
-
 mock_user_id = str(ObjectId())
 mock_user = UserModel(
     id=mock_user_id,
@@ -33,13 +31,13 @@ def override_auth():
     app.dependency_overrides.pop(get_current_user, None)
 
 
-def test_get_interview_prep_unauthorized():
+def test_get_interview_prep_unauthorized(client):
     res = client.get(f"/offers/{ObjectId()}/interview-prep")
     assert res.status_code in [401, 403]
 
 
 @pytest.mark.asyncio
-async def test_get_interview_prep_empty(override_auth):
+async def test_get_interview_prep_empty(client, override_auth):
     offer_id = str(ObjectId())
     res = client.get(f"/offers/{offer_id}/interview-prep")
     assert res.status_code == 200
@@ -50,7 +48,7 @@ async def test_get_interview_prep_empty(override_auth):
 
 
 @pytest.mark.asyncio
-async def test_generate_stories_endpoint(override_auth, test_db):
+async def test_generate_stories_endpoint(client, override_auth, test_db):
     offer_id = ObjectId()
     db = test_db
 
@@ -90,7 +88,7 @@ async def test_generate_stories_endpoint(override_auth, test_db):
 
 
 @pytest.mark.asyncio
-async def test_update_and_export_interview_prep(override_auth, test_db):
+async def test_update_and_export_interview_prep(client, override_auth, test_db):
     offer_id = ObjectId()
     db = test_db
 
@@ -136,7 +134,7 @@ async def test_update_and_export_interview_prep(override_auth, test_db):
 
 
 @pytest.mark.asyncio
-async def test_generate_stories_uses_only_current_user_evaluation(override_auth, test_db):
+async def test_generate_stories_uses_only_current_user_evaluation(client, override_auth, test_db):
     """Une évaluation d'un autre compte sur la même offre ne doit jamais être utilisée."""
     offer_id = ObjectId()
     db = test_db

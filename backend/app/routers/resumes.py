@@ -3,7 +3,7 @@ import re
 from typing import Any, Dict, List, Literal, Optional
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.auth import get_current_user
 from app.database import get_database

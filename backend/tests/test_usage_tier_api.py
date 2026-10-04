@@ -8,8 +8,6 @@ from app.database import get_database
 from app.models import UserModel, UserTier
 from main import app
 
-client = TestClient(app)
-
 unique_suffix = str(uuid.uuid4())[:8]
 mock_user_id = str(ObjectId())
 mock_user = UserModel(
@@ -28,9 +26,8 @@ def override_auth():
 
 
 @pytest.mark.asyncio
-async def test_update_user_tier(override_auth):
-    db = await get_database()
-    await db.users.update_one(
+async def test_update_user_tier(client, test_db, override_auth):
+    await test_db.users.update_one(
         {"_id": ObjectId(mock_user_id)},
         {"$set": {"_id": ObjectId(mock_user_id), "username": mock_user.username, "email": mock_user.email, "tier": "free"}},
         upsert=True,
