@@ -7,178 +7,282 @@
   <style>
     {{ base_css }}
 
-    .cr-card {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: var(--accent-tint);
-      border-radius: 10px;
-      padding: 13px 14px;
-      margin-bottom: 10px;
+    /* Le bandeau touche le haut et les bords de la page 1 : les marges latérales passent sur body. */
+    @page { margin: 10mm 0; }
+    @page :first { margin-top: 0; }
+    body { padding: 0 12mm; }
+
+    .cr-band {
+      margin: 0 -12mm;
+      padding: 10mm calc(12mm + 80px) 13mm 12mm;
+      /* Biais dessiné en fond : un clip-path ou un positionnement ferait peindre le nom après le
+         reste de la page, et l'extraction ATS (ordre de peinture) ne le lirait plus en premier. */
+      background:
+        linear-gradient(var(--accent-tint), var(--accent-tint)) top / 100% calc(100% - 14mm) no-repeat,
+        linear-gradient(to bottom right, var(--accent-tint) 50%, #ffffff calc(50% + 0.5px)) bottom / 100% 14mm no-repeat;
     }
 
-    .cr-photo { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: none; }
-
     .cr-name {
-      font-size: 21pt;
+      font-size: 26pt;
       font-weight: 800;
       letter-spacing: -0.03em;
       line-height: 1.05;
-      color: var(--color-slate-900);
+      color: var(--accent);
     }
 
-    .cr-role { font-size: 10.5pt; font-weight: 600; color: var(--color-slate-900); margin-top: 3px; }
+    .cr-role { font-size: 11pt; font-weight: 600; color: var(--color-slate-900); margin-top: 5px; }
 
     .cr-contact {
       display: flex;
       flex-wrap: wrap;
-      column-gap: 12px;
+      column-gap: 14px;
       row-gap: 2px;
       font-size: 8pt;
       color: var(--color-slate-600);
-      margin-top: 6px;
+      margin-top: 8px;
     }
 
-    .cr-body { padding: 0 2px; }
-    .cr-summary { font-size: 8.8pt; color: var(--color-slate-700); line-height: 1.5; }
+    /* Photo ou monogramme à cheval sur le biais du bandeau. */
+    .cr-visual-anchor { position: relative; height: 0; }
+    .cr-visual { position: absolute; right: 4mm; top: -78px; }
+    .cr-visual .monogram,
+    .cr-visual .avatar-img { width: 70px; height: 70px; border: 3px solid #ffffff; border-radius: 50%; }
+
+    /* Titres dans une marge gauche, contenu à droite. Le titre précède son contenu dans le DOM.
+       Seule l'expérience peut se couper entre deux pages ; les autres sections restent entières. */
+    .cr-sec {
+      display: grid;
+      grid-template-columns: 31mm 1fr;
+      column-gap: 5mm;
+      margin-top: 13px;
+    }
+
+    .cr-sec > * { min-width: 0; }
 
     .cr-title {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 10pt;
+      font-size: 7.8pt;
       font-weight: 700;
-      color: var(--color-slate-900);
-      margin: 13px 0 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      line-height: 1.3;
+      color: var(--accent);
+      padding-top: 2px;
+      /* Le titre partage la rangée de son contenu : un break-after: avoid repousserait toute la rangée. */
+      break-after: auto;
+      page-break-after: auto;
+      break-inside: avoid;
     }
 
-    .cr-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; }
-    .cr-rule { flex: 1; height: 1px; background: var(--accent-line); }
-    .cr-item { margin-bottom: 9px; }
-
-    .cr-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 10px;
+    .cr-title::before {
+      content: "";
+      display: block;
+      width: 20px;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--accent);
+      margin-bottom: 6px;
     }
 
-    .cr-dates { font-size: 8pt; color: var(--color-slate-500); white-space: nowrap; }
-    .cr-item ul { padding-left: 14px; margin-top: 2px; }
-    .cr-item li { font-size: 8.5pt; color: var(--color-slate-700); margin-bottom: 2px; line-height: 1.35; }
-    .cr-skill-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; }
-    .cr-skill-cat { width: 20%; flex: none; font-size: 8pt; font-weight: 600; color: var(--color-slate-600); }
-    .cr-cert { font-size: 8.5pt; color: var(--color-slate-700); margin-bottom: 3px; }
+    .cr-summary { font-size: 9pt; color: var(--color-slate-700); line-height: 1.55; }
 
-    .cr-footer { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
+    /* Frise : un trait continu et un point par poste, purement décoratifs. Ni position ni
+       z-index : le texte des postes doit rester dans l'ordre de peinture du flux. */
+    .cr-timeline {
+      padding-left: 18px;
+      background: linear-gradient(var(--accent-line), var(--accent-line)) 4px 6px / 2px calc(100% - 12px) no-repeat;
+    }
 
-    .cr-lbl {
+    .cr-job { margin-bottom: 10px; }
+
+    .cr-job::before {
+      content: "";
+      float: left;
+      margin: 3px 0 0 -18px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 2.5px #ffffff;
+    }
+
+    .cr-date {
+      display: inline-block;
       font-size: 7.5pt;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-tint);
+      border-radius: 999px;
+      padding: 1px 8px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cr-job-title { font-size: 9.6pt; font-weight: 700; color: var(--color-slate-900); margin-top: 3px; }
+    .cr-company { font-size: 8.6pt; font-weight: 600; color: var(--accent); }
+    .cr-job ul { padding-left: 14px; margin-top: 2px; }
+    .cr-job li { font-size: 8.5pt; color: var(--color-slate-700); margin-bottom: 2px; line-height: 1.35; }
+
+    .cr-project {
+      border-left: 2px solid var(--accent-line);
+      padding-left: 8px;
+      margin-bottom: 8px;
+      font-size: 8.6pt;
+      color: var(--color-slate-700);
+    }
+
+    .cr-project strong { color: var(--color-slate-900); }
+
+    .cr-cards { display: grid; grid-template-columns: repeat(var(--cols), 1fr); gap: 6px; }
+    .cr-card { background: var(--accent-tint); border-radius: 10px; padding: 7px 10px 8px; }
+
+    .cr-card-title {
+      font-size: 7.3pt;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--accent);
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
 
-    .cr-footer-line { font-size: 8pt; color: var(--color-slate-700); margin-bottom: 3px; }
+    .cr-card-list { font-size: 8.3pt; color: var(--color-slate-700); line-height: 1.5; }
+
+    .cr-text { font-size: 8.6pt; color: var(--color-slate-700); }
+    .cr-cert { margin-bottom: 3px; }
+    .cr-edu { margin-bottom: 5px; }
+    .cr-edu strong { font-weight: 600; color: var(--color-slate-900); }
+    .cr-year { color: var(--accent); font-weight: 700; margin-right: 6px; font-variant-numeric: tabular-nums; }
     .cr-muted { color: var(--color-slate-500); }
+
+    .cr-langs { display: grid; grid-template-columns: auto auto 1fr; align-items: center; column-gap: 10px; row-gap: 4px; }
+    .cr-lang { font-size: 8.6pt; font-weight: 600; color: var(--color-slate-900); }
+    .cr-level { font-size: 8pt; color: var(--color-slate-500); }
+    .cr-bar { display: flex; gap: 3px; }
+    .cr-bar i { width: 13px; height: 5px; border-radius: 3px; background: var(--accent-line); opacity: 0.45; }
+    .cr-bar i.on { background: var(--accent); opacity: 1; }
   </style>
 </head>
 <body>
-  <header class="cr-card">
-    {% if with_photo and photo_url %}
-    <img class="cr-photo" src="{{ photo_url }}" alt="" />
-    {% endif %}
-    <div>
-      <h1 class="cr-name">{{ candidate.full_name }}</h1>
-      <div class="cr-role">{{ cv.target_role_title }}</div>
-      <div class="cr-contact">{{ m.contacts(candidate) }}</div>
-      {{ m.mobility_line(candidate) }}
-    </div>
+  <header class="cr-band">
+    <h1 class="cr-name">{{ candidate.full_name }}</h1>
+    <div class="cr-role">{{ cv.target_role_title }}</div>
+    <div class="cr-contact">{{ m.contacts(candidate) }}</div>
+    {{ m.mobility_line(candidate) }}
   </header>
-
-  <div class="cr-body">
-    {% if cv.professional_summary %}
-    <p class="cr-summary">{{ cv.professional_summary }}</p>
-    {% endif %}
-
-    {% if cv.experiences %}
-    <h2 class="cr-title"><span class="cr-dot"></span><span>{{ SECTION_TITLES.experience }}</span><span class="cr-rule"></span></h2>
-    {% for exp in cv.experiences %}
-    <article class="cr-item page-break-avoid">
-      <div class="cr-row">
-        <span><strong>{{ exp.title }}</strong> · {{ exp.company }}{% if exp.location %}, {{ exp.location }}{% endif %}</span>
-        <span class="cr-dates">{{ exp.start_date }} – {{ exp.end_date or 'Présent' }}</span>
-      </div>
-      {% if exp.bullet_points %}
-      <ul>
-        {% for bp in exp.bullet_points %}
-        <li>{{ bp }}</li>
-        {% endfor %}
-      </ul>
-      {% endif %}
-      {% if exp.relevant_technologies %}{{ m.tools_line(exp.relevant_technologies) }}{% endif %}
-    </article>
-    {% endfor %}
-    {% endif %}
-
-    {% if cv.prioritized_skills %}
-    <h2 class="cr-title"><span class="cr-dot"></span><span>{{ SECTION_TITLES.skills }}</span><span class="cr-rule"></span></h2>
-    {% for group in cv.prioritized_skills %}
-    <div class="cr-skill-row">
-      <div class="cr-skill-cat">{{ group.category }}</div>
-      <div>{{ m.chips(group.skills) }}</div>
-    </div>
-    {% endfor %}
-    {% endif %}
-
-    {% if cv.certifications %}
-    <h2 class="cr-title"><span class="cr-dot"></span><span>{{ SECTION_TITLES.certifications }}</span><span class="cr-rule"></span></h2>
-    {% for cert in cv.certifications %}
-    <div class="cr-cert">{{ cert }}</div>
-    {% endfor %}
-    {% endif %}
-
-    {% if cv.featured_projects %}
-    <h2 class="cr-title"><span class="cr-dot"></span><span>{{ SECTION_TITLES.projects }}</span><span class="cr-rule"></span></h2>
-    {% for proj in cv.featured_projects %}
-    <div class="cr-item page-break-avoid">
-      <strong>{{ proj.name }}</strong>{% if proj.url %} <span class="cr-muted">({{ proj.url }})</span>{% endif %} — {{ proj.description }}
-      {% if proj.technologies %}{{ m.tools_line(proj.technologies) }}{% endif %}
-    </div>
-    {% endfor %}
-    {% endif %}
-
-    {% if cv.education or cv.languages or candidate.interests %}
-    <div class="cr-footer">
-      {% if cv.education %}
-      <div>
-        <h2 class="cr-lbl">{{ SECTION_TITLES.education }}</h2>
-        {% for edu in cv.education %}
-        <div class="cr-footer-line">
-          {{ edu.degree }}<br><span class="cr-muted">{{ edu.institution }} · {{ edu.year }}</span>
-          {% if edu.details %}<br><span class="cr-muted">{{ edu.details }}</span>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-      {% if cv.languages %}
-      <div>
-        <h2 class="cr-lbl">{{ SECTION_TITLES.languages }}</h2>
-        {% for lang in cv.languages %}
-        <div class="cr-footer-line">{{ lang.language }} {{ lang.level }}</div>
-        {% endfor %}
-      </div>
-      {% endif %}
-      {% if candidate.interests %}
-      <div>
-        <h2 class="cr-lbl">{{ SECTION_TITLES.interests }}</h2>
-        <div class="cr-footer-line">{{ candidate.interests | join(" · ") }}</div>
-      </div>
+  <div class="cr-visual-anchor">
+    <div class="cr-visual">
+      {% if with_photo and photo_url %}
+      <img class="avatar-img" src="{{ photo_url }}" alt="" />
+      {% else %}
+      {{ m.monogram(monogram) }}
       {% endif %}
     </div>
-    {% endif %}
   </div>
+
+  {% if cv.professional_summary %}
+  <div class="cr-sec">
+    <div></div>
+    <p class="cr-summary">{{ cv.professional_summary }}</p>
+  </div>
+  {% endif %}
+
+  {% if cv.experiences %}
+  <section class="cr-sec">
+    <h2 class="cr-title">{{ SECTION_TITLES.experience }}</h2>
+    <div class="cr-timeline">
+      {% for exp in cv.experiences %}
+      <article class="cr-job page-break-avoid">
+        <span class="cr-date">{{ exp.start_date }} – {{ exp.end_date or 'Présent' }}</span>
+        <div class="cr-job-title">{{ exp.title }}</div>
+        <div class="cr-company">{{ exp.company }}{% if exp.location %}, {{ exp.location }}{% endif %}</div>
+        {% if exp.bullet_points %}
+        <ul>
+          {% for bp in exp.bullet_points %}
+          <li>{{ bp }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% if exp.relevant_technologies %}{{ m.tools_line(exp.relevant_technologies) }}{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if cv.featured_projects %}
+  <section class="cr-sec">
+    <h2 class="cr-title">{{ SECTION_TITLES.projects }}</h2>
+    <div>
+      {% for proj in cv.featured_projects %}
+      <div class="cr-project page-break-avoid">
+        <strong>{{ proj.name }}</strong>{% if proj.url %} <span class="cr-muted">({{ proj.url }})</span>{% endif %} — {{ proj.description }}
+        {% if proj.technologies %}{{ m.tools_line(proj.technologies) }}{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if cv.prioritized_skills %}
+  {# Deux colonnes pour 2 ou 4 catégories, trois sinon : aucune carte seule sur sa rangée quand c'est évitable. #}
+  {% set n_groups = cv.prioritized_skills | length %}
+  <section class="cr-sec page-break-avoid">
+    <h2 class="cr-title">{{ SECTION_TITLES.skills }}</h2>
+    <div class="cr-cards" style="--cols: {{ n_groups if n_groups < 3 else (2 if n_groups == 4 else 3) }}">
+      {% for group in cv.prioritized_skills %}
+      <div class="cr-card">
+        <div class="cr-card-title">{{ group.category }}</div>
+        <div class="cr-card-list">{{ m.inline_list(group.skills) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if cv.certifications %}
+  <section class="cr-sec page-break-avoid">
+    <h2 class="cr-title">{{ SECTION_TITLES.certifications }}</h2>
+    <div class="cr-text">
+      {% for cert in cv.certifications %}
+      <div class="cr-cert">{{ cert }}</div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if cv.education %}
+  <section class="cr-sec page-break-avoid">
+    <h2 class="cr-title">{{ SECTION_TITLES.education }}</h2>
+    <div class="cr-text">
+      {% for edu in cv.education %}
+      <div class="cr-edu page-break-avoid">
+        {% if edu.year %}<span class="cr-year">{{ edu.year }}</span>{% endif %}<strong>{{ edu.degree }}</strong> <span class="cr-muted">· {{ edu.institution }}</span>
+        {% if edu.details %}<div class="cr-muted">{{ edu.details }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if cv.languages %}
+  <section class="cr-sec page-break-avoid">
+    <h2 class="cr-title">{{ SECTION_TITLES.languages }}</h2>
+    <div class="cr-langs">
+      {% for lang in cv.languages %}
+      {# Barre décorative déduite du niveau écrit (CECRL ou natif) ; le niveau reste en texte. #}
+      {% set lvl = lang.level | upper %}
+      {% set filled = 6 if ("NATI" in lvl or "MATERN" in lvl or "BILINGUE" in lvl or "C2" in lvl) else 5 if "C1" in lvl else 4 if "B2" in lvl else 3 if "B1" in lvl else 2 if "A2" in lvl else 1 if "A1" in lvl else 0 %}
+      <span class="cr-lang">{{ lang.language }}</span>
+      <span class="cr-bar" aria-hidden="true">{% if filled %}{% for k in range(6) %}<i{% if k < filled %} class="on"{% endif %}></i>{% endfor %}{% endif %}</span>
+      <span class="cr-level">{{ lang.level }}</span>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if candidate.interests %}
+  <section class="cr-sec page-break-avoid">
+    <h2 class="cr-title">{{ SECTION_TITLES.interests }}</h2>
+    <div class="cr-text">{{ m.inline_list(candidate.interests) }}</div>
+  </section>
+  {% endif %}
 </body>
 </html>

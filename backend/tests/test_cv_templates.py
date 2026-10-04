@@ -257,14 +257,12 @@ def _macro(call, **context):
     return _jinja_env.from_string('{% import "_macros.html" as m %}' + call).render(**context)
 
 
-def test_chips_separated_by_visible_dot():
-    assert _macro('{{ m.chips(["Python", "FastAPI"]) }}') == (
-        '<span class="chip">Python</span><span class="dot"> · </span><span class="chip">FastAPI</span>'
-    )
+def test_inline_list_separated_by_visible_dot():
+    assert _macro('{{ m.inline_list(["Python", "FastAPI"]) }}') == 'Python<span class="dot"> · </span>FastAPI'
 
 
-def test_chips_escape_content():
-    assert "&lt;b&gt;" in _macro('{{ m.chips(["<b>"]) }}')
+def test_inline_list_escapes_content():
+    assert "&lt;b&gt;" in _macro('{{ m.inline_list(["<b>"]) }}')
 
 
 def test_tools_line_is_plain_text():
@@ -324,9 +322,10 @@ def test_sidebar_main_precedes_aside():
     assert html.index("<main") < html.index("<aside")
 
 
-def test_sidebar_skills_render_as_chips():
+def test_sidebar_skills_render_as_plain_text():
     html = _render("sidebar_elegance")
-    assert '<span class="chip">Python</span><span class="dot"> · </span><span class="chip">FastAPI</span>' in html
+    assert '<div class="skill-list">Python<span class="dot"> · </span>FastAPI' in html
+    assert 'class="chip' not in html
     assert 'class="badge' not in html
 
 
@@ -393,20 +392,22 @@ def test_registry_lists_four_templates_in_display_order():
     assert CV_TEMPLATES == ("sidebar_elegance", "executive_minimalist", "classique", "creatif")
 
 
-def test_creatif_photo_is_optional_and_never_a_monogram():
+def test_creatif_shows_photo_or_monogram():
     with_photo = render_cv_html(
         cv=SAMPLE_CV, candidate=SAMPLE_CANDIDATE, template_name="creatif",
         with_photo=True, photo_url="https://example.com/avatar.jpg",
     )
-    assert 'class="cr-photo"' in with_photo
+    assert 'class="avatar-img"' in with_photo
+    assert "<canvas" not in with_photo
     without = _render("creatif")
     assert "<img" not in without
-    assert "<canvas" not in without
+    assert '<canvas class="monogram"' in without
 
 
-def test_creatif_titles_have_dot_and_rule():
+def test_creatif_titles_sit_in_left_gutter():
     html = _render("creatif")
-    assert '<span class="cr-dot"></span><span>Expérience professionnelle</span><span class="cr-rule"></span>' in html
+    assert '<h2 class="cr-title">Expérience professionnelle</h2>' in html
+    assert "grid-template-columns: 31mm 1fr" in html
 
 
 def test_creatif_footer_titles_followed_by_their_content():

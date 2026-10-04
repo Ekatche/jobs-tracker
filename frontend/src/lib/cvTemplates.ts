@@ -16,7 +16,7 @@ export const CV_TEMPLATES = [
   },
   {
     key: "creatif", label: "Créatif",
-    hint: "En-tête en carte, photo possible · marketing, communication", supportsPhoto: true,
+    hint: "Bandeau biseauté, frise · marketing, communication", supportsPhoto: true,
   },
 ] as const;
 

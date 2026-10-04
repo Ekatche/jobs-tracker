@@ -43,7 +43,8 @@
     }
 
     .skill-category { margin-bottom: 7px; }
-    .skill-category-name { font-size: 7.5pt; font-weight: 600; color: var(--color-slate-500); margin-bottom: 3px; }
+    .skill-category-name { font-size: 7.5pt; font-weight: 600; color: var(--color-slate-500); margin-bottom: 1px; }
+    .skill-list { font-size: 8pt; color: var(--color-slate-700); line-height: 1.5; }
     .lang-item { font-size: 8pt; margin-bottom: 3px; }
     .lang-level { color: var(--color-slate-500); }
     .edu-item { margin-bottom: 6px; font-size: 8pt; }
@@ -159,7 +160,7 @@
         {% for group in cv.prioritized_skills %}
         <div class="skill-category">
           <div class="skill-category-name">{{ group.category }}</div>
-          <div>{{ m.chips(group.skills) }}</div>
+          <div class="skill-list">{{ m.inline_list(group.skills) }}</div>
         </div>
         {% endfor %}
       </div>

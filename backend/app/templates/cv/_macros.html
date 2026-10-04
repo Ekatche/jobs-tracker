@@ -26,11 +26,11 @@
 {%- endif -%}
 {%- endmacro %}
 
-{# Le « · » visible est le seul séparateur restitué à l'extraction (règle ATS 4). #}
-{% macro chips(items) -%}
+{# Texte continu : le « · » visible est le seul séparateur restitué à l'extraction (règle ATS 4). #}
+{% macro inline_list(items) -%}
 {%- for item in items -%}
 {%- if not loop.first %}<span class="dot"> · </span>{% endif -%}
-<span class="chip">{{ item }}</span>
+{{ item }}
 {%- endfor -%}
 {%- endmacro %}
 

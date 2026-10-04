@@ -87,20 +87,9 @@ a {
   margin-bottom: 6px;
 }
 
-.chip {
-  display: inline-block;
-  padding: 1px 7px;
-  font-size: 8pt;
-  color: var(--color-slate-800);
-  background: #ffffff;
-  border: 1px solid var(--accent-line);
-  border-radius: 999px;
-  margin-bottom: 3px;
-}
-
 .dot {
-  color: var(--accent-line);
-  font-size: 7pt;
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .icon {

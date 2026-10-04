@@ -178,7 +178,7 @@ export const CV_TEMPLATES = [
   { key: "classique", label: "Classique",
     hint: "Sobre, sans photo · logistique, industrie, RH", supportsPhoto: false },
   { key: "creatif", label: "Créatif",
-    hint: "En-tête en carte, photo possible · marketing, communication", supportsPhoto: true },
+    hint: "Bandeau biseauté, frise · marketing, communication", supportsPhoto: true },
 ] as const;
 export const CV_ACCENTS = [
   { key: "marine", label: "Marine", primary: "#1e3a8a" },
@@ -233,7 +233,8 @@ export type CvAccentKey = (typeof CV_ACCENTS)[number]["key"];
   - `contacts(candidate)` : chaque contact affiche une icône SVG au trait
     (e-mail, téléphone, lieu, LinkedIn, GitHub, site, mobilité,
     disponibilité), suivie du texte réel ;
-  - `chips(skills)` : les pastilles, séparées par le « · » de la règle ATS 4 ;
+  - `inline_list(items)` : compétences et intérêts en texte continu, séparés
+    par le « · » de la règle ATS 4 (en couleur d'accent) ;
   - `tools_line(techs)` : les outils sous chaque poste, sous la forme
     « A · B » ;
   - `monogram(initials)` : le `<canvas>` et son script de dessin.
@@ -241,14 +242,16 @@ export type CvAccentKey = (typeof CV_ACCENTS)[number]["key"];
   - `--color-primary` et `--color-primary-light` deviennent des alias de
     `--accent` et `--accent-tint` ;
   - ajout de `font-variant-ligatures: none` sur `body` ;
-  - `.chip`, `.dot` et `.icon` remplacent `.badge` et `.badge-primary` ;
+  - `.dot` et `.icon` remplacent `.badge` et `.badge-primary` ;
   - `.monogram` passe d'un dégradé à un fond uni `--accent`.
 - Chaque modèle garde dans son fichier le CSS de sa propre mise en page.
 
 **Modernisation commune aux deux modèles existants** :
 
 - icônes SVG à la place des emojis ;
-- pastilles fines à la place des badges gris ;
+- compétences en texte continu « A · B » à la place des badges gris (les
+  pastilles fines du 2026-10-02 ont été retirées le 2026-10-04 : contours
+  irréguliers, « · » orphelins en fin de ligne) ;
 - outils en texte « A · B » sous chaque poste ;
 - suppression du trait noir de 2 px et du cadre gris de l'accroche ;
 - nom plus grand, avec un interlettrage resserré ;
@@ -266,9 +269,9 @@ export type CvAccentKey = (typeof CV_ACCENTS)[number]["key"];
 | Modèle | Ordre dans le HTML | Mise en page |
 |---|---|---|
 | `sidebar_elegance` | `<main>` (en-tête, accroche, expériences, projets), puis `<aside>` | `grid-template-areas` place `aside` à gauche. Colonne en teinte `--accent-tint`. Photo ou monogramme canvas sur fond `--accent`. La colonne latérale contient les contacts, les compétences, la formation, les langues, les certifications et les intérêts. |
-| `executive_minimalist` | une colonne | En-tête, accroche, expériences, compétences, certifications, projets. Le pied de page sur trois colonnes regroupe formation, langues et intérêts. |
+| `executive_minimalist` | une colonne | En-tête centré, filet fin sous l'en-tête. Titres soulignés d'un filet `--color-border`. Colonne de dates à gauche (`24mm`) pour les expériences et la formation ; dans le HTML, le contenu précède la date. Compétences en lignes « Catégorie : A · B ». Ordre : expériences, compétences, certifications, projets, formation, langues (une ligne), intérêts, en sections empilées. |
 | `classique` | une colonne | En-tête aligné à gauche, police sans empattement. Titres sur bandeau gris (`--color-slate-100`), dates alignées à droite. L'accent ne colore que le nom et le titre visé. Jamais de photo. |
-| `creatif` | une colonne | Carte d'en-tête arrondie, teinte `--accent-tint`, avec photo ronde en option, nom, titre et contacts. Corps en une colonne. Titres marqués d'un point `--accent` et d'un filet `--accent-line`. Pastilles fines. Le bas de page sur trois colonnes regroupe formation, langues et intérêts. |
+| `creatif` | titre puis contenu, section par section | Bandeau pleine largeur en `--accent-tint`, bord inférieur biseauté, photo ou monogramme canvas à cheval sur le biais. Titres dans une gouttière gauche (grille `31mm 1fr`) avec une barre d'accent. Expériences en frise verticale, dates en badge. Compétences en cartes teintées par catégorie. Langues avec une barre de niveau décorative (`aria-hidden`), le niveau reste en texte. Ordre : accroche, expériences, projets, compétences, certifications, formation, langues, intérêts. |
 
 Les maquettes validées (fichiers éphémères, hors dépôt) sont dans
 `.superpowers/brainstorm/78029-1790960830/content/` :
@@ -277,15 +280,29 @@ Les maquettes validées (fichiers éphémères, hors dépôt) sont dans
 - `creatif-layout-v2.html` (choix B) ;
 - `modernisation-existants.html`.
 
-**Bas de page sur trois colonnes** (Minimalist et Créatif) : un ATS qui lit
-par position peut mêler les lignes des trois colonnes. Le risque est accepté,
-car chaque colonne ne contient que deux ou trois lignes courtes sous un titre
-standard. Le test vérifie que, dans l'ordre du HTML, chaque titre est suivi de
-son contenu.
+Refonte du 2026-10-04 (Exécutif, Créatif, compétences de Sidebar) : maquette
+https://claude.ai/artifact/2iP8kh93oGkWgFfG9SSNAq.
+
+**Cartes de compétences côte à côte** (Créatif) : un ATS qui lit par position
+peut mêler les lignes de deux cartes voisines. Le risque est accepté, comme
+l'était l'ancien pied de page sur trois colonnes, car chaque carte ne contient
+que quelques lignes courtes sous un nom de catégorie. Le test vérifie que, dans
+l'ordre du HTML, chaque titre est suivi de son contenu.
+
+**Ordre de peinture** (Créatif) : `pymupdf` extrait le texte dans l'ordre où
+Chromium le peint. Un `clip-path`, un `position` ou un `z-index` sur un bloc
+de texte le fait peindre après le flux normal : le nom passait alors après les
+titres de section. Le biais du bandeau et la frise sont donc dessinés en fonds
+(`linear-gradient`) et en `float`, jamais en éléments positionnés. Le dégradé
+du biais finit sur `#ffffff`, pas sur `transparent`, sinon un filet sombre
+apparaît le long du bord.
 
 **Pagination** : chaque poste garde la classe `.page-break-avoid`. Les
 sections entières (Expérience, Projets) ne l'ont pas, pour pouvoir se couper
-entre deux pages.
+entre deux pages. Dans le Créatif, le titre partage la rangée de grille de son
+contenu : il porte `break-after: auto`, car le `break-after: avoid` hérité des
+`h2` repoussait toute la rangée de l'expérience en page 2. Les sections courtes
+(compétences, certifications, formation, langues, intérêts) restent entières.
 
 ### 5. Gestion des erreurs
 
