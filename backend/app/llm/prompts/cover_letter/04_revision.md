@@ -77,7 +77,9 @@ Ne remplace pas systématiquement les mots simples par des synonymes plus sophis
 
 Ne rajoute pas de vocabulaire marketing.
 
-Si le critique signale un conditionnel répété, passe au présent ou au futur tout ce que le candidat fera dans le poste. Seule la demande d'entretien garde le conditionnel.
+Si le critique signale un conditionnel répété, garde au plus une phrase de projection au conditionnel, formulée comme une proposition, et passe le reste au présent. La demande d'entretien garde aussi le conditionnel.
+
+Si le critique signale un plan d'action dicté, remplace-le par une seule phrase qui relie une mission de l'offre à ce que le candidat veut y apporter, sans étapes.
 
 Si le critique signale une antithèse symétrique, dis ce que le candidat fait sans l'opposer à ce qu'il ne fait pas.
 
@@ -141,7 +143,7 @@ Avant de retourner la lettre, vérifie silencieusement :
 5. Le premier paragraphe est-il simple, à la première personne et spécifique au poste ?
 6. La lettre reste-t-elle naturelle lorsqu'elle est lue à voix haute ?
 7. Ai-je ajouté des formulations génériques pour remplir la longueur ?
-8. Le dernier paragraphe dit-il ce que le candidat apporterait au poste et demande-t-il un entretien, sans adjectif accordé au candidat ?
+8. Le dernier paragraphe relie-t-il une mission de l'offre à ce que le candidat veut y apporter, formulé comme une proposition sans plan d'action en étapes, et demande-t-il un entretien, sans adjectif accordé au candidat ?
 9. La lettre se termine-t-elle par « Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées. » puis le nom ?
 10. Une phrase sur le parcours pourrait-elle figurer telle quelle dans le CV ? Reste-t-il une énumération de plus de deux éléments ?
 

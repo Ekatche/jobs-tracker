@@ -27,6 +27,7 @@ Note : Il est autorisé de mentionner plusieurs expériences (entreprises) dans 
 Vérifie aussi :
 * plus de trois outils, logiciels ou technologies nommés dans toute la lettre ;
 * un dernier paragraphe générique, qui pourrait conclure n'importe quelle lettre, ou qui ne demande pas d'entretien ;
+* un dernier paragraphe qui dicte un plan d'action en étapes (« je commencerai par... puis... ») ou présume de l'organisation interne de l'entreprise ;
 * un adjectif ou participe accordé au candidat dans la conclusion (« ravi », « heureux », « convaincu ») ;
 * l'absence d'idée directrice : si l'on ne peut pas résumer en une phrase ce que la lettre soutient, signale-le.
 

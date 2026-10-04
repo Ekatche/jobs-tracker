@@ -47,7 +47,7 @@ Utilise principalement la voix active avec des verbes d'action variés et préci
 
 Évite les formulations passives lorsque la formulation active est naturelle.
 
-Le conditionnel « je voudrais », « j'aimerais », « je souhaiterais » est réservé à la demande d'entretien. Pour ce que le candidat fera dans le poste, écris au présent ou au futur : « Je commencerai par... », « Je pourrai... ». Répété, le conditionnel donne l'image d'un candidat qui hésite.
+Ce que le candidat veut faire dans le poste tient en une seule phrase de projection, formulée comme une proposition et non comme une décision : « Je pourrais... », « C'est sur ce chantier que je veux m'investir ». Le candidat ne connaît pas encore l'organisation interne : il ne dicte pas de plan d'action en étapes (« Je commencerai par... puis... », « d'abord... ensuite... ») et ne présume pas de la façon dont l'équipe travaille. En dehors de cette projection, le conditionnel « je voudrais », « j'aimerais », « je souhaiterais » est réservé à la demande d'entretien. Répété, il donne l'image d'un candidat qui hésite.
 
 N'enchaîne pas systématiquement des phrases construites de la même manière. Alterne les longueurs de phrases et les constructions syntaxiques.
 
@@ -251,7 +251,7 @@ Entre {min_words} et {max_words} mots.
 
 Le dernier paragraphe est court : 2 à 3 phrases.
 
-* Une phrase dit concrètement ce que le candidat apportera au poste, au présent ou au futur, en s'appuyant sur ce qui précède. Elle ne résume pas toutes ses compétences et ne pourrait pas figurer dans une autre lettre.
+* Une phrase relie une mission précise de l'offre, prise dans les missions visées, à ce que le candidat veut y apporter, en s'appuyant sur ce qui précède. Elle est formulée comme une proposition, sans plan d'action en étapes. Elle ne reprend pas mot pour mot l'idée directrice, ne résume pas toutes ses compétences et ne pourrait pas figurer dans une autre lettre.
 * La dernière phrase demande un entretien, simplement et directement.
 
 Formulations neutres en genre uniquement : aucun adjectif ni participe accordé au candidat (« ravi », « heureux », « convaincu », « motivé », « disponible »). Par exemple : « J'aimerais vous en parler lors d'un entretien. »

@@ -1,5 +1,7 @@
-from job_crawler.crawler1 import get_filtered_markdown
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+try:
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+except ImportError:
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain_core.documents import Document
@@ -37,32 +39,41 @@ async def fetch_documents(url: str):
         return []
 
     try:
-        if "indeed." in urlparse(url).netloc.lower():
-            import httpx
-            from app.services.ats.router import extract_indeed_job
-
-            async with httpx.AsyncClient(follow_redirects=True) as client:
-                offer = await extract_indeed_job(url, client)
-            if offer:
-                logger.info(f"Contenu Indeed chargé via l'API GraphQL: {offer['poste']}")
+        # 1. Extraction Zero-Token prioritaire (Greenhouse, Lever, Workable, SmartRecruiters, Indeed, JSON-LD)
+        try:
+            from app.services.ats.router import extract_ats_or_jsonld_offer, ExpiredOfferError
+            ats_offer = await extract_ats_or_jsonld_offer(url)
+            if ats_offer and ats_offer.get("description") and ats_offer["description"] != "Non spécifié":
+                logger.info(f"⚡ Contenu chargé via ATS direct ({ats_offer.get('ats_platform', 'direct')}): {ats_offer.get('poste')}")
                 content = (
-                    f"{offer['poste']}\n{offer['entreprise']} - {offer['localisation']}"
-                    f" - {offer['type_contrat']}\n\n{offer['description']}"
+                    f"{ats_offer.get('poste', '')}\n{ats_offer.get('entreprise', '')} - {ats_offer.get('localisation', '')}"
+                    f" - {ats_offer.get('type_contrat', '')}\n\n{ats_offer.get('description', '')}"
                 )
                 return [
                     Document(
                         page_content=content,
                         metadata={
                             "source": url,
-                            "title": offer["poste"],
+                            "title": ats_offer.get("poste", ""),
+                            "company": ats_offer.get("entreprise", ""),
+                            "location": ats_offer.get("localisation", ""),
                             "word_count": len(content.split()),
-                            "content_type": "indeed_graphql",
+                            "content_type": f"ats_{ats_offer.get('ats_platform', 'direct')}",
                         },
                     )
                 ]
+        except ExpiredOfferError as e:
+            logger.warning(f"Offre expirée ou retirée confirmée par l'ATS pour {url}: {e}")
+            return []
+        except Exception as e:
+            logger.debug(f"Extraction ATS non concluante pour {url}: {e}")
 
-        logger.info(f"Chargement du contenu depuis: {url}")
-        result = await get_filtered_markdown(url)
+        # 2. Optimisation URL (LinkedIn guest API, Indeed mobile) et crawl Crawl4AI
+        from app.services.normalization import optimize_crawl_url
+        from job_crawler.crawler1 import get_filtered_markdown
+        crawl_url = optimize_crawl_url(url)
+        logger.info(f"Chargement du contenu depuis: {crawl_url}")
+        result = await get_filtered_markdown(crawl_url)
 
         if result.get("status") == "success":
             filtered_markdown = result.get("filtered_markdown")

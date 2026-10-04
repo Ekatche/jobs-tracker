@@ -7,6 +7,7 @@ from app.services.ats.router import (
     extract_greenhouse_job,
     extract_indeed_job,
     extract_lever_job,
+    extract_smartrecruiters_job,
     extract_workable_job,
     normalize_employment_type,
     parse_jsonld_job_posting,
@@ -328,3 +329,79 @@ async def test_extract_ats_or_jsonld_offer_routes_indeed():
     res = await extract_ats_or_jsonld_offer("https://fr.indeed.com/viewjob?jk=abc123", client=client)
     assert res["poste"] == "Data Engineer"
     client.get.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_extract_smartrecruiters_job_success():
+    client = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "name": "Ingénieur IA (H/F)",
+        "company": {"name": "ASI"},
+        "location": {
+            "city": "Lyon",
+            "fullLocation": "Lyon, Auvergne-Rhône-Alpes, France",
+            "hybrid": True,
+        },
+        "typeOfEmployment": {"label": "Permanent"},
+        "jobAd": {
+            "sections": {
+                "companyDescription": {"title": "Description entreprise", "text": "<p>ASI est une ESN.</p>"},
+                "jobDescription": {"title": "Missions", "text": "<p>Développement de modèles GenAI.</p>"},
+                "qualifications": {"title": "Profil", "text": "<ul><li>Python</li><li>LangChain</li></ul>"},
+            }
+        },
+    }
+    client.get = AsyncMock(return_value=mock_resp)
+
+    url = "https://jobs.smartrecruiters.com/ASIFR/744000138664100-ingenieur-ia-h-f-?trid=abc"
+    res = await extract_smartrecruiters_job(url, client)
+
+    assert res is not None
+    assert res["poste"] == "Ingénieur IA (H/F)"
+    assert res["entreprise"] == "ASI"
+    assert res["localisation"] == "Lyon, Auvergne-Rhône-Alpes, France (Hybride)"
+    assert res["type_contrat"] == "CDI"
+    assert res["ats_platform"] == "smartrecruiters"
+    assert "### Description entreprise" in res["description"]
+    assert "ASI est une ESN." in res["description"]
+    assert "### Missions" in res["description"]
+    assert "• Python" in res["description"]
+    assert "• LangChain" in res["description"]
+    client.get.assert_called_once()
+    assert "api.smartrecruiters.com/v1/companies/ASIFR/postings/744000138664100" in client.get.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_extract_smartrecruiters_job_expired_404():
+    client = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.status_code = 404
+    client.get = AsyncMock(return_value=mock_resp)
+
+    url = "https://jobs.smartrecruiters.com/ASIFR/999999999999999"
+    with pytest.raises(ExpiredOfferError):
+        await extract_smartrecruiters_job(url, client)
+
+
+@pytest.mark.asyncio
+async def test_extract_ats_or_jsonld_offer_routes_smartrecruiters():
+    client = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "name": "Lead IA",
+        "company": {"name": "Tech Corp"},
+        "location": {"city": "Paris"},
+        "jobAd": {"sections": {"jobDescription": {"title": "Poste", "text": "<p>Super poste.</p>"}}},
+    }
+    client.get = AsyncMock(return_value=mock_resp)
+
+    url = "https://jobs.smartrecruiters.com/TechCorp/123456789"
+    res = await extract_ats_or_jsonld_offer(url, client=client)
+
+    assert res is not None
+    assert res["poste"] == "Lead IA"
+    assert res["entreprise"] == "Tech Corp"
+    assert res["ats_platform"] == "smartrecruiters"

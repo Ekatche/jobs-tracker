@@ -97,3 +97,37 @@ def test_create_and_get_application_with_offer_id(client, auth_headers):
     # Suppression
     del_resp = client.delete(f"/applications/{app_id}", headers=auth_headers)
     assert del_resp.status_code == 204
+
+
+def test_update_description_never_overwrites_shared_offer(client, auth_headers):
+    """job_offers est partagée entre utilisateurs : éditer sa candidature ne réécrit pas l'offre."""
+    import uuid
+
+    import pymongo
+    from conftest import DATABASE_NAME, MONGO_URI
+
+    key = uuid.uuid4().hex
+    mongo = pymongo.MongoClient(MONGO_URI)
+    offers = mongo[DATABASE_NAME]["job_offers"]
+    offer_id = offers.insert_one({
+        "poste": "Data Engineer",
+        "entreprise": "Shared Corp",
+        "url": f"https://example.com/offre/{key}",
+        "unique_key": key,
+        "description": "Description publiée par l'entreprise",
+    }).inserted_id
+    try:
+        created = client.post("/applications/", json={
+            "company": "Shared Corp",
+            "position": "Data Engineer",
+            "status": ApplicationStatus.APPLIED.value,
+            "offer_id": str(offer_id),
+        }, headers=auth_headers).json()
+
+        resp = client.put(f"/applications/{created['_id']}", json={"description": "Mes notes personnelles"}, headers=auth_headers)
+
+        assert resp.status_code == 200
+        assert offers.find_one({"_id": offer_id})["description"] == "Description publiée par l'entreprise"
+    finally:
+        offers.delete_one({"_id": offer_id})
+        mongo.close()

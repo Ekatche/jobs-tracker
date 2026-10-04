@@ -67,6 +67,10 @@ async def _generate_description_bg(application_id: ObjectId, user_id: ObjectId, 
                     }
                 },
             )
+            # Auto-lier l'offre pour débloquer le CV adapté et l'évaluation
+            app_doc = await db["applications"].find_one({"_id": ObjectId(application_id)})
+            if app_doc:
+                await _ensure_offer_for_application(str(application_id), app_doc, db)
         else:
             logger.warning("[description_bg] Échec de génération de description")
     except Exception as e:
@@ -287,6 +291,14 @@ async def create_application(
     result = await db["applications"].insert_one(app_data)
     created = await db["applications"].find_one({"_id": result.inserted_id})
 
+    # Auto-lier une offre seulement si l'appelant n'en a pas fourni : un offer_id donné est conservé tel quel
+    if not created.get("offer_id"):
+        try:
+            await _ensure_offer_for_application(str(result.inserted_id), created, db)
+            created = await db["applications"].find_one({"_id": result.inserted_id})
+        except Exception as e_link:
+            logger.warning(f"[create_application] Erreur auto-liaison offre: {e_link}")
+
     url_exists = "url" in app_data and app_data["url"] and app_data["url"].strip() != ""
     description_missing = "description" not in app_data or not app_data["description"]
     if url_exists and description_missing:
@@ -479,6 +491,16 @@ async def update_application(
         {"_id": ObjectId(application_id)}, {"$set": update_data}
     )
 
+    # Auto-lier l'offre. job_offers est partagée entre utilisateurs : la description de la
+    # candidature ne fait que remplir une offre vide (_ensure_offer_for_application), jamais l'écraser.
+    updated_doc = await db["applications"].find_one({"_id": ObjectId(application_id)})
+    if updated_doc and (updated_doc.get("url") or updated_doc.get("description")):
+        if not updated_doc.get("offer_id") or "description" in update_data:
+            try:
+                await _ensure_offer_for_application(str(application_id), updated_doc, db)
+            except Exception as e_link:
+                logger.warning(f"[update_application] Erreur auto-liaison offre: {e_link}")
+
     if url_changed or (url_provided and not description_provided):
         await require_user_quota(db, application["user_id"], ApiUsageAction.OFFER_SUMMARY)
         try:
@@ -625,6 +647,9 @@ async def regenerate_application_description(
             },
         )
         updated = await db["applications"].find_one({"_id": ObjectId(application_id)})
+        if updated:
+            await _ensure_offer_for_application(str(application_id), updated, db)
+            updated = await db["applications"].find_one({"_id": ObjectId(application_id)})
         return enrich_application_with_cadences(serialize_mongodb_doc(updated))
     except HTTPException:
         raise
@@ -675,6 +700,15 @@ async def _ensure_offer_for_application(application_id: str, app_doc: dict, db) 
             await db["applications"].update_one(
                 {"_id": ObjectId(application_id)},
                 {"$set": {"offer_id": offer_id, "updated_at": now}}
+            )
+
+    if existing_offer:
+        current_desc = existing_offer.get("description") or ""
+        app_desc = app_doc.get("description") or ""
+        if app_desc and (not current_desc or current_desc in ("Description non disponible", "Non spécifié")):
+            await db["job_offers"].update_one(
+                {"_id": existing_offer["_id"]},
+                {"$set": {"description": app_desc, "updated_at": now}}
             )
 
     # 4. Si vraiment aucune offre n'existe, insérer avec gestion des collisions d'index

@@ -203,6 +203,73 @@ async def extract_workable_job(
     return None
 
 
+async def extract_smartrecruiters_job(
+    url: str, client: httpx.AsyncClient
+) -> Optional[Dict[str, Any]]:
+    """Extrait une offre SmartRecruiters via son API publique api.smartrecruiters.com/v1/companies/{company}/postings/{id}."""
+    # Pattern: jobs.smartrecruiters.com/{company}/{posting_id} ou careers.smartrecruiters.com/{company}/{posting_id}
+    # Exemple: https://jobs.smartrecruiters.com/ASIFR/744000138664100-ingenieur-ia-h-f-?trid=...
+    match = re.search(r"smartrecruiters\.com/([^/]+)/([0-9a-zA-Z]+)", url)
+    if not match:
+        return None
+
+    company_slug = match.group(1)
+    posting_id = match.group(2)
+    api_url = f"https://api.smartrecruiters.com/v1/companies/{company_slug}/postings/{posting_id}"
+
+    try:
+        resp = await client.get(api_url, headers=DEFAULT_HEADERS, timeout=DEFAULT_TIMEOUT)
+        if resp.status_code in (404, 410):
+            raise ExpiredOfferError(f"SmartRecruiters: Offre {posting_id} retirée (HTTP {resp.status_code})")
+        if resp.status_code != 200:
+            return None
+
+        data = resp.json()
+        title = data.get("name")
+        if not title:
+            return None
+
+        company = data.get("company", {}).get("name") or company_slug.replace("-", " ").title()
+
+        loc_obj = data.get("location") or {}
+        location = loc_obj.get("fullLocation") or loc_obj.get("city") or "Non spécifié"
+        if loc_obj.get("hybrid"):
+            location = f"{location} (Hybride)"
+        elif loc_obj.get("remote"):
+            location = f"{location} (Télétravail total)"
+
+        contract_raw = (data.get("typeOfEmployment") or {}).get("label") or (data.get("typeOfEmployment") or {}).get("id")
+        contract = normalize_employment_type(contract_raw)
+
+        # Assemblage des sections de description
+        sections = (data.get("jobAd") or {}).get("sections") or {}
+        desc_parts = []
+        for sec_key in ["companyDescription", "jobDescription", "qualifications", "additionalInformation"]:
+            sec = sections.get(sec_key)
+            if sec and sec.get("text"):
+                sec_title = sec.get("title", sec_key)
+                cleaned = clean_html_to_text(sec.get("text"))
+                if cleaned and cleaned != "Non spécifié":
+                    desc_parts.append(f"### {sec_title}\n{cleaned}")
+
+        full_description = "\n\n".join(desc_parts) if desc_parts else "Non spécifié"
+
+        return {
+            "poste": title.strip(),
+            "entreprise": company.strip(),
+            "description": full_description,
+            "localisation": location.strip(),
+            "type_contrat": contract,
+            "url": url,
+            "ats_platform": "smartrecruiters",
+        }
+    except ExpiredOfferError:
+        raise
+    except Exception as e:
+        logger.debug(f"Échec SmartRecruiters API pour {url}: {e}")
+        return None
+
+
 INDEED_GRAPHQL_URL = "https://apis.indeed.com/graphql"
 INDEED_JOB_QUERY = """query {{ jobData(jobKeys: ["{key}"]) {{ results {{ job {{
   key title description {{ html }}
@@ -390,6 +457,13 @@ async def extract_ats_or_jsonld_offer(
             if workable_result:
                 logger.info(f"⚡ Extraction Zero-Token réussie (Workable): {workable_result['poste']} - {workable_result['entreprise']}")
                 return workable_result
+
+        # 4. SmartRecruiters direct API
+        if "smartrecruiters.com" in domain:
+            sr_result = await extract_smartrecruiters_job(url, client)
+            if sr_result:
+                logger.info(f"⚡ Extraction Zero-Token réussie (SmartRecruiters): {sr_result['poste']} - {sr_result['entreprise']}")
+                return sr_result
 
         # 4. Indeed : API GraphQL mobile, la page web bloque les navigateurs headless
         if "indeed." in domain:

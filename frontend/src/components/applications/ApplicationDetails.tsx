@@ -63,6 +63,7 @@ export default function ApplicationDetails({
   const [editedNoteText, setEditedNoteText] = useState<string>("");
   const [isRegeneratingDesc, setIsRegeneratingDesc] = useState<boolean>(false);
   const [isLinkingOffer, setIsLinkingOffer] = useState<boolean>(false);
+  const [descError, setDescError] = useState<string | null>(null);
 
   // AI Evaluation state
   const [evaluation, setEvaluation] = useState<OfferEvaluation | null>(null);
@@ -157,30 +158,53 @@ export default function ApplicationDetails({
     if (!application?._id || !application.url) return;
     try {
       setIsRegeneratingDesc(true);
+      setDescError(null);
       const updated = await applicationApi.regenerateDescription(application._id);
       if (updated?.description) {
         onChange("description", updated.description);
       }
-    } catch (err) {
+      if (updated?.offer_id && !application.offer_id) {
+        onChange("offer_id", updated.offer_id);
+      }
+    } catch (err: unknown) {
       console.error("Erreur régénération description:", err);
+      const msg = err instanceof Error ? err.message : "Impossible d'extraire une description exploitable depuis cette offre.";
+      setDescError(msg);
     } finally {
       setIsRegeneratingDesc(false);
     }
   };
 
   // Link/créer l'offre sans lancer le scoring IA
-  const handleLinkOffer = async () => {
-    if (!application?._id || isLinkingOffer) return;
+  const handleLinkOffer = async (): Promise<string | null> => {
+    if (!application?._id || isLinkingOffer) return null;
     setIsLinkingOffer(true);
     try {
       const updated = await applicationApi.linkOffer(application._id);
       if (updated?.offer_id) {
         onChange("offer_id", updated.offer_id);
+        return updated.offer_id;
       }
+      return null;
     } catch (err) {
       console.error("Erreur lors de la liaison de l'offre:", err);
+      return null;
     } finally {
       setIsLinkingOffer(false);
+    }
+  };
+
+  // Ouverture CV adapté avec auto-liaison si nécessaire
+  const handleOpenTailoredResumeWithAutoLink = async () => {
+    // Onglet ouvert pendant le clic : après un await, Safari bloque window.open.
+    const tab = window.open("", "_blank");
+    const targetOfferId = application?.offer_id || evaluation?.offer_id || (await handleLinkOffer());
+    if (!tab) return;
+    if (targetOfferId) {
+      tab.opener = null;
+      tab.location.href = `/resumes?generate_offer_id=${targetOfferId}`;
+    } else {
+      tab.close();
     }
   };
 
@@ -353,7 +377,7 @@ export default function ApplicationDetails({
               </button>
             )}
 
-            {(application.offer_id || evaluation?.offer_id) && (
+            {(application.offer_id || evaluation?.offer_id) ? (
               <>
                 {!evaluation?.offer_id && (
                   <Link
@@ -375,6 +399,27 @@ export default function ApplicationDetails({
                   <span>CV Adapté</span>
                 </Link>
               </>
+            ) : (
+              application.description && application.description.trim().length > 20 ? (
+                <button
+                  type="button"
+                  onClick={handleOpenTailoredResumeWithAutoLink}
+                  disabled={isLinkingOffer}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 transition-colors font-medium disabled:opacity-60"
+                  title="Lier l'offre et générer un CV adapté sur-mesure"
+                >
+                  <FiFileText className="w-3.5 h-3.5" />
+                  <span>{isLinkingOffer ? "Liaison..." : "CV Adapté"}</span>
+                </button>
+              ) : (
+                <span
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/40 border border-slate-700/40 text-slate-500 cursor-not-allowed font-medium text-xs"
+                  title="Renseignez ou collez la description du poste ci-dessous pour pouvoir générer un CV adapté"
+                >
+                  <FiFileText className="w-3.5 h-3.5 opacity-50" />
+                  <span>CV Adapté (Description requise)</span>
+                </span>
+              )
             )}
           </div>
         </div>
@@ -623,6 +668,18 @@ export default function ApplicationDetails({
                 </button>
               )}
             </div>
+
+            {descError && (
+              <div className="mb-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-start gap-2">
+                <FiAlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <span>{descError}</span>
+                  <p className="mt-1 text-slate-400 text-[11px]">
+                    💡 <strong>Contournement :</strong> Vous pouvez coller le texte de l&apos;annonce directement ci-dessous pour débloquer automatiquement le bouton <strong>CV Adapté</strong>.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <textarea
               value={application.description || ""}
