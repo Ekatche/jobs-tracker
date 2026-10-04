@@ -64,13 +64,18 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      line-height: 1.3;
+      line-height: 1.2;
       color: var(--accent);
       padding-top: 2px;
       /* Le titre partage la rangée de son contenu : un break-after: avoid repousserait toute la rangée. */
       break-after: auto;
       page-break-after: auto;
       break-inside: avoid;
+    }
+
+    .cr-sec:has(.cr-timeline) .cr-title {
+      grid-column: 1;
+      grid-row: 1;
     }
 
     .cr-title::before {
@@ -85,19 +90,24 @@
 
     .cr-summary { font-size: 9pt; color: var(--color-slate-700); line-height: 1.55; }
 
-    /* Frise : un trait continu et un point par poste, purement décoratifs. Ni position ni
-       z-index : le texte des postes doit rester dans l'ordre de peinture du flux. */
+    /* Frise : display: contents permet à chaque poste d'être une cellule de grille
+       et de se fragmenter naturellement entre les pages sans forcer de saut de page. */
     .cr-timeline {
-      padding-left: 18px;
-      background: linear-gradient(var(--accent-line), var(--accent-line)) 4px 6px / 2px calc(100% - 12px) no-repeat;
+      display: contents;
     }
 
-    .cr-job { margin-bottom: 10px; }
+    .cr-job {
+      grid-column: 2;
+      margin-bottom: 10px;
+      padding-left: 18px;
+      border-left: 2px solid var(--accent-line);
+      margin-left: 4px;
+    }
 
     .cr-job::before {
       content: "";
       float: left;
-      margin: 3px 0 0 -18px;
+      margin: 3px 0 0 -24px;
       width: 10px;
       height: 10px;
       border-radius: 50%;
