@@ -85,7 +85,7 @@ backend/app/uploads/
 
 # ---------- DONNÉES PERSONNELLES ----------
 # CV et profil candidat : jamais committé
-data/profile/
+data/
 
 # Fixture locale de bake-off (comparaison de modèles) : contient des données
 # de profil candidat, jamais consommée par la suite pytest (voir
