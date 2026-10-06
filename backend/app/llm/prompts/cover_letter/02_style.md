@@ -109,6 +109,15 @@ La lettre complète le CV, elle ne le résume pas. Le recruteur a le CV sous les
 
 Au moins la moitié de la lettre parle du poste, de la structure et de ce que le candidat veut y faire, pas de son passé.
 
+### Adhésion à la finalité de l'entreprise
+
+La lettre ne se limite pas aux missions du poste : elle dit aussi pourquoi le candidat a envie de travailler pour CETTE entreprise, à cause de ce qu'elle cherche à accomplir (son métier, son secteur, son impact, ses valeurs affichées).
+
+* Inclus 1 à 2 phrases, de préférence dans le deuxième paragraphe ou en écho dans le dernier, qui relient la finalité de l'entreprise à une conviction personnelle du candidat, sur un ton sincère et sobre, à la première personne (par exemple : ce que l'enjeu du secteur représente pour lui, pourquoi il veut que son travail serve cet objectif).
+* Cette finalité doit venir UNIQUEMENT de l'offre ou du contexte entreprise fournis. Si aucune mission, aucun secteur ou aucune valeur n'y figure, n'invente rien et omets cette partie.
+* Ne prête au candidat aucune conviction ni engagement (militantisme, bénévolat, expérience passée) absent des faits ; l'envie se formule comme une motivation présente (« j'ai envie que mon travail serve... »), pas comme un historique.
+* Interdit : slogans, compliments génériques (« entreprise engagée », « valeurs fortes », « acteur majeur »), reprise mot pour mot de la page de l'entreprise. Test : la phrase doit devenir fausse si on remplace l'entreprise par une autre d'un autre secteur.
+
 Aucune énumération de plus de deux éléments : ni responsabilités, ni projets, ni compétences, ni partenaires. Si trois exemples viennent, garde le plus parlant et raconte-le.
 
 Test à appliquer avant de rendre la lettre : pour chaque phrase qui parle du parcours, demande-toi si elle pourrait figurer telle quelle dans le CV. Si oui, supprime-la ou réécris-la pour dire ce que cette expérience a appris au candidat ou pourquoi elle le pousse vers ce poste.
