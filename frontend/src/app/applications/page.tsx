@@ -855,6 +855,8 @@ export default function ApplicationsPage() {
           setPrefilledData(undefined);
         }}
         onSuccess={() => {
+          setIsNewAppModalOpen(false);
+          setPrefilledData(undefined);
           fetchData(false);
           addNotification("success", "Candidature ajoutée avec succès");
         }}

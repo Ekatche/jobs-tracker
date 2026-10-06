@@ -413,3 +413,37 @@ class TestContractTypeFilter:
         f = _build_contract_type_filter("Alternance")
         assert f == {"type_contrat": {"$regex": "Alternance", "$options": "i"}}
 
+
+@pytest.mark.asyncio
+async def test_apply_filters_applied_status_includes_applications(mock_user_a):
+    match_filter = {"is_deleted": False}
+    db = MagicMock()
+    interactions_col = MagicMock()
+    interactions_col.find = MagicMock(return_value=MagicMock(to_list=AsyncMock(return_value=[])))
+
+    apps_col = MagicMock()
+    apps_col.find = MagicMock(return_value=MagicMock(to_list=AsyncMock(return_value=[
+        {"offer_id": OFFER_2_ID, "user_id": USER_A_ID}
+    ])))
+
+    def mock_db_getitem(name):
+        if name == "user_offer_interactions":
+            return interactions_col
+        if name == "applications":
+            return apps_col
+        return MagicMock()
+
+    db.__getitem__.side_effect = mock_db_getitem
+
+    filter_res, inter_map, seen_map, should_empty = await apply_user_interaction_filters(
+        match_filter=match_filter,
+        db=db,
+        current_user=mock_user_a,
+        interaction_status="applied",
+    )
+    assert should_empty is False
+    assert inter_map[OFFER_2_ID] == "applied"
+    assert seen_map[OFFER_2_ID] is True
+    assert filter_res["_id"] == {"$in": [ObjectId(OFFER_2_ID)]}
+
+

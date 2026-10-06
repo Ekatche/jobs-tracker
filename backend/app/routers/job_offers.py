@@ -1,3 +1,5 @@
+import inspect
+import logging
 import re
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
@@ -15,6 +17,8 @@ from ..database import get_database
 from ..auth import get_current_user
 from ..services.normalization import normalize_city, normalize_company
 from ..services.evaluation.evaluator import evaluate_offer_two_pass
+
+logger = logging.getLogger(__name__)
 
 job_offers_router = APIRouter(prefix="/job-offers", tags=["job-offers"])
 
@@ -263,6 +267,33 @@ async def apply_user_interaction_filters(
     user_interactions = await db["user_offer_interactions"].find({"user_id": user_id_str}).to_list(length=None)
     interaction_map = {doc["offer_id"]: doc.get("status") for doc in user_interactions}
     seen_map = {doc["offer_id"]: doc.get("seen", False) for doc in user_interactions}
+
+    # Si filtrage par statut "applied", inclure également les offres issues de la collection applications
+    if target_status == "applied":
+        user_match = [user_id_str]
+        if ObjectId.is_valid(user_id_str):
+            user_match.append(ObjectId(user_id_str))
+
+        try:
+            apps_cursor = db["applications"].find(
+                {"user_id": {"$in": user_match}, "offer_id": {"$exists": True, "$ne": None}},
+                {"offer_id": 1}
+            )
+            if hasattr(apps_cursor, "to_list"):
+                maybe_coro = apps_cursor.to_list(length=None)
+                applied_apps = await maybe_coro if inspect.isawaitable(maybe_coro) else (maybe_coro or [])
+            else:
+                applied_apps = []
+
+            for app in applied_apps:
+                if isinstance(app, dict):
+                    app_oid = str(app.get("offer_id", ""))
+                    if app_oid and ObjectId.is_valid(app_oid):
+                        if interaction_map.get(app_oid) != "hidden":
+                            interaction_map[app_oid] = "applied"
+                            seen_map[app_oid] = True
+        except Exception as e_app:
+            logger.warning(f"Error retrieving applied applications: {e_app}")
 
     allowed_oids = None
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, useCallback } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   jobOffersApi,
@@ -34,10 +34,23 @@ import NewApplicationModal, {
 import InterviewPrepTab from "@/components/interview/InterviewPrepTab";
 import { getContractBadgeStyles } from "@/lib/contractBadge";
 
-export default function OfferDetailPage() {
+function OfferDetailPageContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const offerId = params?.id as string;
+
+  const returnPage = searchParams.get("page");
+  const returnUrl = returnPage ? `/offers?page=${returnPage}` : "/offers";
+
+  const handleBackToOffers = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push(returnUrl);
+    }
+  };
 
   const [offer, setOffer] = useState<JobOffer | null>(null);
   const [evaluation, setEvaluation] = useState<OfferEvaluation | null>(null);
@@ -164,7 +177,8 @@ export default function OfferDetailPage() {
     return (
       <div className="min-h-screen bg-blue-night text-white p-8 max-w-4xl mx-auto">
         <Link
-          href="/offers"
+          href={returnUrl}
+          onClick={handleBackToOffers}
           className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 mb-6 transition-colors"
         >
           <FiArrowLeft className="w-4 h-4" />
@@ -222,7 +236,8 @@ export default function OfferDetailPage() {
       <div className="border-b border-gray-800 bg-blue-night-lighter/50 backdrop-blur sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link
-            href="/offers"
+            href={returnUrl}
+            onClick={handleBackToOffers}
             className="inline-flex items-center gap-2 text-gray-300 hover:text-white transition-colors text-sm font-medium"
           >
             <FiArrowLeft className="w-4 h-4" />
@@ -818,5 +833,22 @@ export default function OfferDetailPage() {
         prefilledData={prefilledData}
       />
     </div>
+  );
+}
+
+export default function OfferDetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-blue-night text-white p-8 flex flex-col items-center justify-center">
+          <div className="flex items-center gap-3 text-blue-400">
+            <FiRefreshCw className="w-6 h-6 animate-spin" />
+            <span className="text-lg font-medium">Chargement de l'offre...</span>
+          </div>
+        </div>
+      }
+    >
+      <OfferDetailPageContent />
+    </Suspense>
   );
 }

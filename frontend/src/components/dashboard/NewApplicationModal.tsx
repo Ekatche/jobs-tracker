@@ -110,6 +110,7 @@ export default function NewApplicationModal({
       setIsAddingNote(false);
       setError(null);
       setShowSuccessMessage(false);
+      setIsSubmitting(false);
     }
   }, [isOpen, reset]);
 
@@ -167,6 +168,7 @@ export default function NewApplicationModal({
           "Une erreur est survenue lors de la création de la candidature",
         );
       }
+    } finally {
       setIsSubmitting(false);
     }
   };

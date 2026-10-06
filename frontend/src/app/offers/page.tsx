@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense, memo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -94,6 +94,427 @@ function formatAddedDate(createdAtStr?: string): string | null {
 }
 
 const ITEMS_PER_PAGE = 16; // 4x4 grille
+
+// Fonction pour formater la date
+function formatDate(dateString: string) {
+  if (!dateString || dateString === "Non spécifié") {
+    return "Date non spécifiée";
+  }
+
+  // Si c'est une date relative (ex: "il y a 2 jours")
+  if (dateString.includes("il y a") || dateString.includes("ago")) {
+    return dateString;
+  }
+  try {
+    const date = new Date(dateString);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString("fr-FR");
+    }
+    return dateString;
+  } catch {
+    return dateString;
+  }
+}
+
+interface OfferCardProps {
+  offer: JobOffer;
+  currentPage: number;
+  regeneratingId: string | null;
+  onToggleSeen: (offerId: string, currentlySeen?: boolean) => void;
+  onToggleSaveOffer: (offerId: string, currentInteraction?: string | null) => void;
+  onRegenerateDescription: (offerId: string) => void;
+  onHideOffer: (offerId: string) => void;
+  onApplyToOffer: (offer: JobOffer) => void;
+}
+
+const OfferCard = memo(function OfferCard({
+  offer,
+  currentPage,
+  regeneratingId,
+  onToggleSeen,
+  onToggleSaveOffer,
+  onRegenerateDescription,
+  onHideOffer,
+  onApplyToOffer,
+}: OfferCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const cleanedDescription = cleanDescriptionPreview(offer.description);
+
+  const isSaved = offer.user_interaction === "saved";
+  const recentBadge = getRecentBadgeInfo(offer.created_at);
+  const addedDateText = formatAddedDate(offer.created_at);
+
+  return (
+    <div
+      className={`bg-slate-900/80 hover:bg-slate-900/95 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all duration-200 border border-slate-800 hover:border-blue-500/40 relative group flex flex-col justify-between backdrop-blur-sm ${
+        offer.seen ? "opacity-60" : ""
+      }`}
+    >
+      {/* Quick action buttons */}
+      <div className="absolute top-3 right-3 flex items-center gap-1 z-10">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleSeen(offer.id, offer.seen);
+          }}
+          className={`p-1.5 rounded-lg border transition-all ${
+            offer.seen
+              ? "bg-slate-700/60 text-slate-300 border-slate-600 opacity-100"
+              : "bg-slate-800 hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-300 border-slate-700 opacity-0 group-hover:opacity-100"
+          }`}
+          title={offer.seen ? "Marquer comme non vue" : "Marquer comme vue"}
+        >
+          {offer.seen ? <FiCheckCircle className="w-3.5 h-3.5" /> : <FiEye className="w-3.5 h-3.5" />}
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleSaveOffer(offer.id, offer.user_interaction);
+          }}
+          className={`p-1.5 rounded-lg border transition-all ${
+            isSaved
+              ? "bg-amber-500/20 text-amber-300 border-amber-500/40 opacity-100"
+              : "bg-slate-800 hover:bg-amber-500/20 text-slate-400 hover:text-amber-300 border-slate-700 opacity-0 group-hover:opacity-100"
+          }`}
+          title={isSaved ? "Retirer des favoris" : "Sauvegarder cette offre"}
+        >
+          <FiBookmark className={`w-3.5 h-3.5 ${isSaved ? "fill-amber-400 text-amber-400" : ""}`} />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onRegenerateDescription(offer.id);
+          }}
+          disabled={regeneratingId === offer.id}
+          className="opacity-0 group-hover:opacity-100 bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white p-1.5 rounded-lg border border-slate-700 transition-all disabled:opacity-50"
+          title="Régénérer la description par IA"
+        >
+          <FiRefreshCw className={`w-3.5 h-3.5 ${regeneratingId === offer.id ? "animate-spin" : ""}`} />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onHideOffer(offer.id);
+          }}
+          className="opacity-0 group-hover:opacity-100 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white p-1.5 rounded-lg border border-slate-700 transition-all"
+          title="Masquer cette offre pour mon compte"
+        >
+          <FiEyeOff className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      <div className="flex flex-col h-full">
+        <div className="flex-1">
+          {/* Header: Company Avatar + Company Name + Location */}
+          <div className="flex items-center gap-3 pr-12">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600/80 to-indigo-600/80 border border-white/10 flex items-center justify-center font-bold text-white text-sm shrink-0 shadow-sm shadow-blue-500/10">
+              {offer.entreprise ? offer.entreprise.charAt(0).toUpperCase() : "?"}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h4 className="text-xs font-semibold text-slate-300 truncate">
+                {offer.entreprise}
+              </h4>
+              {offer.localisation && offer.localisation !== "Non spécifié" && (
+                <div className="flex items-center gap-1 text-slate-400 text-[11px] truncate mt-0.5">
+                  <FiMapPin className="w-3 h-3 text-blue-400 shrink-0" />
+                  <span className="truncate">{offer.localisation}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Title */}
+          <Link href={`/offers/${offer.id}?page=${currentPage}`} className="group/title block">
+            <h3 className="text-base font-bold text-white group-hover/title:text-blue-400 transition-colors line-clamp-2 mt-3 mb-2.5 leading-snug">
+              {offer.poste}
+            </h3>
+          </Link>
+
+          {/* Badges: Nouveau (<24h / <48h), Match Score, Contrat, Mode de travail, Salaire */}
+          <div className="flex flex-wrap gap-1.5 mb-3 items-center">
+            {recentBadge && (
+              <span
+                className={`px-2 py-0.5 text-xs font-bold rounded-lg border flex items-center gap-1 shadow-sm ${
+                  recentBadge.isFresh
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-emerald-500/10"
+                    : "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-cyan-500/10"
+                }`}
+                title={`Offre ajoutée en base récemment (${recentBadge.label})`}
+              >
+                <FiZap className="w-3 h-3 fill-current text-emerald-400" />
+                <span>{recentBadge.label}</span>
+              </span>
+            )}
+
+            {offer.evaluation_score !== undefined && offer.evaluation_score !== null ? (
+              <span
+                className={`px-2.5 py-0.5 text-xs font-bold rounded-lg border flex items-center gap-1.5 shadow-sm ${
+                  offer.evaluation_score >= 4.0
+                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/35"
+                    : offer.evaluation_score >= 3.0
+                    ? "bg-amber-500/15 text-amber-300 border-amber-500/35"
+                    : "bg-rose-500/15 text-rose-300 border-rose-500/35"
+                }`}
+                title="Score d'adéquation calculé par IA"
+              >
+                <FiZap className="w-3 h-3 fill-current" />
+                <span>Match {offer.evaluation_score.toFixed(1)}/5</span>
+              </span>
+            ) : offer.pipeline_stage === "evaluated" ? (
+              <span className="px-2.5 py-0.5 bg-blue-500/15 text-blue-300 text-xs font-semibold rounded-lg border border-blue-500/30 flex items-center gap-1">
+                <FiZap className="w-3 h-3" />
+                <span>Évaluée</span>
+              </span>
+            ) : null}
+
+            {(() => {
+              const badge = getContractBadgeStyles(offer.type_contrat);
+              if (!badge) return null;
+              return (
+                <span
+                  className={`px-2 py-0.5 text-[11px] rounded-md border shadow-sm ${badge.className}`}
+                >
+                  {badge.label}
+                </span>
+              );
+            })()}
+
+            {offer.mode_travail && offer.mode_travail !== "Non spécifié" && (
+              <span className="px-2 py-0.5 bg-purple-500/10 text-purple-300 text-[11px] font-medium rounded-md border border-purple-500/20">
+                {offer.mode_travail}
+              </span>
+            )}
+
+            {offer.salaire && offer.salaire !== "Non spécifié" && (
+              <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-300 text-[11px] font-medium rounded-md border border-emerald-500/20">
+                {offer.salaire}
+              </span>
+            )}
+
+            {offer.is_active === false && (
+              <span className="px-2 py-0.5 bg-rose-500/15 text-rose-300 text-[11px] font-medium rounded-md border border-rose-500/30">
+                Expirée
+              </span>
+            )}
+          </div>
+
+          {/* Description nettoyée */}
+          {!cleanedDescription ? (
+            <div className="mb-3 bg-slate-950/40 p-2.5 rounded-xl border border-dashed border-slate-800 flex items-center justify-between">
+              <span className="text-slate-500 text-xs italic">Description non générée</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onRegenerateDescription(offer.id);
+                }}
+                disabled={regeneratingId === offer.id}
+                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium disabled:opacity-50"
+              >
+                <FiRefreshCw className={`w-3 h-3 ${regeneratingId === offer.id ? "animate-spin" : ""}`} />
+                <span>{regeneratingId === offer.id ? "Génération..." : "Régénérer"}</span>
+              </button>
+            </div>
+          ) : (
+            <div className="mb-3 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
+              <p
+                className={`text-slate-300 text-xs leading-relaxed whitespace-pre-line ${
+                  !isExpanded ? "line-clamp-3" : "max-h-56 overflow-y-auto"
+                }`}
+              >
+                {cleanedDescription}
+              </p>
+              {cleanedDescription.length > 150 && (
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="mt-2 text-[11px] text-blue-400 hover:text-blue-300 font-semibold focus:outline-none flex items-center gap-1 transition-colors"
+                >
+                  {isExpanded ? "Voir moins ▲" : "Voir plus ▼"}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Compétences clés */}
+          {offer.competences_cles && offer.competences_cles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {offer.competences_cles.slice(0, 3).map((comp, idx) => (
+                <span
+                  key={idx}
+                  className="px-2 py-0.5 bg-slate-800/80 text-slate-300 text-[11px] rounded border border-slate-700/50"
+                >
+                  {comp}
+                </span>
+              ))}
+              {offer.competences_cles.length > 3 && (
+                <span className="text-[11px] text-slate-400 self-center">
+                  +{offer.competences_cles.length - 3}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Dates: Ajout en base + Date publication */}
+          <div className="flex flex-col gap-1 mb-4 text-xs text-slate-400">
+            {addedDateText && (
+              <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                <FiClock className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                <span>{addedDateText}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <FiCalendar className="w-3.5 h-3.5 shrink-0" />
+              <span>Publication : {formatDate(offer.date || "")}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Action buttons (sans étoiles) */}
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-800">
+          <Link
+            href={`/offers/${offer.id}?page=${currentPage}`}
+            className="flex-1 min-w-[88px] bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border border-slate-700/80 hover:border-slate-600 shadow-sm"
+            title="Consulter l'évaluation détaillée"
+          >
+            <FiEye className="w-3.5 h-3.5 text-blue-400" />
+            <span>Détails</span>
+          </Link>
+
+          <Link
+            href={`/resumes?generate_offer_id=${offer.id}`}
+            className="flex-1 min-w-[88px] bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border border-indigo-500/30 shadow-sm"
+            title="Générer un CV adapté sur-mesure pour cette offre"
+          >
+            <FiFileText className="w-3.5 h-3.5 text-indigo-400" />
+            <span>CV Adapté</span>
+          </Link>
+
+          {offer.url && (
+            <a
+              href={offer.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 min-w-[88px] bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border border-blue-500/30"
+            >
+              <FiExternalLink className="w-3.5 h-3.5" />
+              <span>Offre</span>
+            </a>
+          )}
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onApplyToOffer(offer);
+            }}
+            className="flex-1 min-w-[88px] bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm shadow-emerald-500/20 flex items-center justify-center gap-1.5"
+            title="Postuler à cette offre"
+          >
+            <FiPlus className="w-3.5 h-3.5" />
+            <span>Postuler</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+interface OffersPaginationProps {
+  currentPage: number;
+  totalOffers: number;
+  itemsPerPage: number;
+  onPageChange: (page: number) => void;
+}
+
+const OffersPagination = memo(function OffersPagination({
+  currentPage,
+  totalOffers,
+  itemsPerPage,
+  onPageChange,
+}: OffersPaginationProps) {
+  const totalPages = Math.ceil(totalOffers / itemsPerPage);
+
+  if (totalPages <= 1) return null;
+
+  const getPageNumbers = () => {
+    const delta = 1;
+    const range: number[] = [];
+    for (
+      let i = Math.max(2, currentPage - delta);
+      i <= Math.min(totalPages - 1, currentPage + delta);
+      i++
+    ) {
+      range.push(i);
+    }
+
+    const pages: (number | string)[] = [1];
+    if (currentPage - delta > 2) {
+      pages.push("...");
+    }
+    pages.push(...range);
+    if (currentPage + delta < totalPages - 1) {
+      pages.push("...");
+    }
+    if (totalPages > 1 && !pages.includes(totalPages)) {
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  return (
+    <div className="flex flex-wrap justify-center items-center gap-1.5 mt-8 pb-10">
+      <button
+        type="button"
+        onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+        disabled={currentPage === 1}
+        className="px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/70 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 hover:text-white transition-all text-xs font-semibold shadow-sm"
+      >
+        Précédent
+      </button>
+
+      {getPageNumbers().map((p, idx) =>
+        typeof p === "string" ? (
+          <span key={idx} className="px-2 py-1 text-slate-500 text-xs select-none">
+            •••
+          </span>
+        ) : (
+          <button
+            key={idx}
+            type="button"
+            onClick={() => onPageChange(p)}
+            className={`min-w-[34px] h-[34px] px-2 rounded-xl text-xs font-semibold transition-all border shadow-sm ${
+              currentPage === p
+                ? "bg-blue-600 text-white border-blue-500 shadow-blue-500/20"
+                : "bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-700 hover:text-white"
+            }`}
+          >
+            {p}
+          </button>
+        )
+      )}
+
+      <button
+        type="button"
+        onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+        disabled={currentPage === totalPages}
+        className="px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/70 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 hover:text-white transition-all text-xs font-semibold shadow-sm"
+      >
+        Suivant
+      </button>
+    </div>
+  );
+});
 
 function OffersPageContent() {
   const router = useRouter();
@@ -220,7 +641,7 @@ function OffersPageContent() {
   }, []);
 
   // ✅ Multi-tenant hide: masque l'offre pour le compte candidat sans impacter la plateforme
-  const handleHideOffer = async (offerId: string) => {
+  const handleHideOffer = useCallback(async (offerId: string) => {
     try {
       await jobOffersApi.setInteraction(offerId, "hidden");
 
@@ -235,10 +656,10 @@ function OffersPageContent() {
       console.error("💥 Erreur lors du masquage de l'offre:", err);
       alert("Erreur lors du masquage de l'offre");
     }
-  };
+  }, [fetchTotalCount]);
 
   // ✅ Multi-tenant save / bookmark toggle
-  const handleToggleSaveOffer = async (offerId: string, currentInteraction?: string | null) => {
+  const handleToggleSaveOffer = useCallback(async (offerId: string, currentInteraction?: string | null) => {
     const isCurrentlySaved = currentInteraction === "saved";
     const nextStatus = isCurrentlySaved ? "none" : "saved";
 
@@ -258,10 +679,10 @@ function OffersPageContent() {
     } catch (err) {
       console.error("💥 Erreur lors de la mise à jour des favoris:", err);
     }
-  };
+  }, [onlySaved, fetchTotalCount]);
 
   // ✅ Tag "vu" neutre : coexiste avec saved/hidden/applied, ne retire pas l'offre de la liste
-  const handleToggleSeen = async (offerId: string, currentlySeen?: boolean) => {
+  const handleToggleSeen = useCallback(async (offerId: string, currentlySeen?: boolean) => {
     const nextSeen = !currentlySeen;
     try {
       await jobOffersApi.setSeen(offerId, nextSeen);
@@ -277,10 +698,10 @@ function OffersPageContent() {
     } catch (err) {
       console.error("💥 Erreur lors du marquage vu/non vu:", err);
     }
-  };
+  }, [unseenOnly, fetchTotalCount]);
 
   // 🔄 Régénération de description sur demande
-  const handleRegenerateDescription = async (offerId: string) => {
+  const handleRegenerateDescription = useCallback(async (offerId: string) => {
     try {
       setRegeneratingId(offerId);
       setRegenerateError(null);
@@ -308,15 +729,16 @@ function OffersPageContent() {
     } finally {
       setRegeneratingId(null);
     }
-  };
+  }, []);
 
   // Fonction pour ouvrir la modal de candidature avec des données pré-remplies
-  const handleApplyToOffer = (offer: JobOffer) => {
+  const handleApplyToOffer = useCallback((offer: JobOffer) => {
     const prefilledData: PrefilledData = {
       company: offer.entreprise,
       position: offer.poste,
       location: offer.localisation,
       url: offer.url,
+      offer_id: offer.id,
       description: offer.description && offer.description !== "Non spécifié" ? offer.description : undefined,
     };
 
@@ -325,7 +747,12 @@ function OffersPageContent() {
       detail: prefilledData,
     });
     window.dispatchEvent(event);
-  };
+  }, []);
+
+  const handlePageClick = useCallback((page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
 
   // Le backend ne renvoie que les offres rattachées au profil
   // (matched_user_ids) ; ce hook récupère seulement rôles/localisations pour
@@ -422,378 +849,6 @@ function OffersPageContent() {
       setCurrentPage(totalPages);
     }
   }, [totalOffers, currentPage]);
-
-  // Fonction pour formater la date
-  const formatDate = (dateString: string) => {
-    if (!dateString || dateString === "Non spécifié") {
-      return "Date non spécifiée";
-    }
-
-    // Si c'est une date relative (ex: "il y a 2 jours")
-    if (dateString.includes("il y a") || dateString.includes("ago")) {
-      return dateString;
-    }
-    try {
-      // Essayer de parser comme date ISO
-      const date = new Date(dateString);
-      if (!isNaN(date.getTime())) {
-        return date.toLocaleDateString("fr-FR");
-      }
-      // Sinon retourner tel quel
-      return dateString;
-    } catch {
-      return dateString;
-    }
-  };
-
-  // Composant carte d'offre enrichie avec description lisible, tags et actions
-  const OfferCard = ({ offer }: { offer: JobOffer }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
-    const cleanedDescription = cleanDescriptionPreview(offer.description);
-
-    const isSaved = offer.user_interaction === "saved";
-    const recentBadge = getRecentBadgeInfo(offer.created_at);
-    const addedDateText = formatAddedDate(offer.created_at);
-
-    return (
-      <div
-        className={`bg-slate-900/80 hover:bg-slate-900/95 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-all duration-200 border border-slate-800 hover:border-blue-500/40 relative group flex flex-col justify-between backdrop-blur-sm ${
-          offer.seen ? "opacity-60" : ""
-        }`}
-      >
-        {/* Quick action buttons */}
-        <div className="absolute top-3 right-3 flex items-center gap-1 z-10">
-          <button
-            onClick={() => handleToggleSeen(offer.id, offer.seen)}
-            className={`p-1.5 rounded-lg border transition-all ${
-              offer.seen
-                ? "bg-slate-700/60 text-slate-300 border-slate-600 opacity-100"
-                : "bg-slate-800 hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-300 border-slate-700 opacity-0 group-hover:opacity-100"
-            }`}
-            title={offer.seen ? "Marquer comme non vue" : "Marquer comme vue"}
-          >
-            {offer.seen ? <FiCheckCircle className="w-3.5 h-3.5" /> : <FiEye className="w-3.5 h-3.5" />}
-          </button>
-          <button
-            onClick={() => handleToggleSaveOffer(offer.id, offer.user_interaction)}
-            className={`p-1.5 rounded-lg border transition-all ${
-              isSaved
-                ? "bg-amber-500/20 text-amber-300 border-amber-500/40 opacity-100"
-                : "bg-slate-800 hover:bg-amber-500/20 text-slate-400 hover:text-amber-300 border-slate-700 opacity-0 group-hover:opacity-100"
-            }`}
-            title={isSaved ? "Retirer des favoris" : "Sauvegarder cette offre"}
-          >
-            <FiBookmark className={`w-3.5 h-3.5 ${isSaved ? "fill-amber-400 text-amber-400" : ""}`} />
-          </button>
-          <button
-            onClick={() => handleRegenerateDescription(offer.id)}
-            disabled={regeneratingId === offer.id}
-            className="opacity-0 group-hover:opacity-100 bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white p-1.5 rounded-lg border border-slate-700 transition-all disabled:opacity-50"
-            title="Régénérer la description par IA"
-          >
-            <FiRefreshCw className={`w-3.5 h-3.5 ${regeneratingId === offer.id ? "animate-spin" : ""}`} />
-          </button>
-          <button
-            onClick={() => handleHideOffer(offer.id)}
-            className="opacity-0 group-hover:opacity-100 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white p-1.5 rounded-lg border border-slate-700 transition-all"
-            title="Masquer cette offre pour mon compte"
-          >
-            <FiEyeOff className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="flex flex-col h-full">
-          <div className="flex-1">
-            {/* Header: Company Avatar + Company Name + Location */}
-            <div className="flex items-center gap-3 pr-12">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600/80 to-indigo-600/80 border border-white/10 flex items-center justify-center font-bold text-white text-sm shrink-0 shadow-sm shadow-blue-500/10">
-                {offer.entreprise ? offer.entreprise.charAt(0).toUpperCase() : "?"}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h4 className="text-xs font-semibold text-slate-300 truncate">
-                  {offer.entreprise}
-                </h4>
-                {offer.localisation && offer.localisation !== "Non spécifié" && (
-                  <div className="flex items-center gap-1 text-slate-400 text-[11px] truncate mt-0.5">
-                    <FiMapPin className="w-3 h-3 text-blue-400 shrink-0" />
-                    <span className="truncate">{offer.localisation}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Title */}
-            <Link href={`/offers/${offer.id}`} className="group/title block">
-              <h3 className="text-base font-bold text-white group-hover/title:text-blue-400 transition-colors line-clamp-2 mt-3 mb-2.5 leading-snug">
-                {offer.poste}
-              </h3>
-            </Link>
-
-            {/* Badges: Nouveau (<24h / <48h), Match Score, Contrat, Mode de travail, Salaire */}
-            <div className="flex flex-wrap gap-1.5 mb-3 items-center">
-              {recentBadge && (
-                <span
-                  className={`px-2 py-0.5 text-xs font-bold rounded-lg border flex items-center gap-1 shadow-sm ${
-                    recentBadge.isFresh
-                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-emerald-500/10"
-                      : "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-cyan-500/10"
-                  }`}
-                  title={`Offre ajoutée en base récemment (${recentBadge.label})`}
-                >
-                  <FiZap className="w-3 h-3 fill-current text-emerald-400" />
-                  <span>{recentBadge.label}</span>
-                </span>
-              )}
-
-              {offer.evaluation_score !== undefined && offer.evaluation_score !== null ? (
-                <span
-                  className={`px-2.5 py-0.5 text-xs font-bold rounded-lg border flex items-center gap-1.5 shadow-sm ${
-                    offer.evaluation_score >= 4.0
-                      ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/35"
-                      : offer.evaluation_score >= 3.0
-                      ? "bg-amber-500/15 text-amber-300 border-amber-500/35"
-                      : "bg-rose-500/15 text-rose-300 border-rose-500/35"
-                  }`}
-                  title="Score d'adéquation calculé par IA"
-                >
-                  <FiZap className="w-3 h-3 fill-current" />
-                  <span>Match {offer.evaluation_score.toFixed(1)}/5</span>
-                </span>
-              ) : offer.pipeline_stage === "evaluated" ? (
-                <span className="px-2.5 py-0.5 bg-blue-500/15 text-blue-300 text-xs font-semibold rounded-lg border border-blue-500/30 flex items-center gap-1">
-                  <FiZap className="w-3 h-3" />
-                  <span>Évaluée</span>
-                </span>
-              ) : null}
-
-              {(() => {
-                const badge = getContractBadgeStyles(offer.type_contrat);
-                if (!badge) return null;
-                return (
-                  <span
-                    className={`px-2 py-0.5 text-[11px] rounded-md border shadow-sm ${badge.className}`}
-                  >
-                    {badge.label}
-                  </span>
-                );
-              })()}
-
-              {offer.mode_travail && offer.mode_travail !== "Non spécifié" && (
-                <span className="px-2 py-0.5 bg-purple-500/10 text-purple-300 text-[11px] font-medium rounded-md border border-purple-500/20">
-                  {offer.mode_travail}
-                </span>
-              )}
-
-              {offer.salaire && offer.salaire !== "Non spécifié" && (
-                <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-300 text-[11px] font-medium rounded-md border border-emerald-500/20">
-                  {offer.salaire}
-                </span>
-              )}
-
-              {offer.is_active === false && (
-                <span className="px-2 py-0.5 bg-rose-500/15 text-rose-300 text-[11px] font-medium rounded-md border border-rose-500/30">
-                  Expirée
-                </span>
-              )}
-            </div>
-
-            {/* Description nettoyée */}
-            {!cleanedDescription ? (
-              <div className="mb-3 bg-slate-950/40 p-2.5 rounded-xl border border-dashed border-slate-800 flex items-center justify-between">
-                <span className="text-slate-500 text-xs italic">Description non générée</span>
-                <button
-                  type="button"
-                  onClick={() => handleRegenerateDescription(offer.id)}
-                  disabled={regeneratingId === offer.id}
-                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium disabled:opacity-50"
-                >
-                  <FiRefreshCw className={`w-3 h-3 ${regeneratingId === offer.id ? "animate-spin" : ""}`} />
-                  <span>{regeneratingId === offer.id ? "Génération..." : "Régénérer"}</span>
-                </button>
-              </div>
-            ) : (
-              <div className="mb-3 bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
-                <p
-                  className={`text-slate-300 text-xs leading-relaxed whitespace-pre-line ${
-                    !isExpanded ? "line-clamp-3" : "max-h-56 overflow-y-auto"
-                  }`}
-                >
-                  {cleanedDescription}
-                </p>
-                {cleanedDescription.length > 150 && (
-                  <button
-                    type="button"
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="mt-2 text-[11px] text-blue-400 hover:text-blue-300 font-semibold focus:outline-none flex items-center gap-1 transition-colors"
-                  >
-                    {isExpanded ? "Voir moins ▲" : "Voir plus ▼"}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Compétences clés */}
-            {offer.competences_cles && offer.competences_cles.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {offer.competences_cles.slice(0, 3).map((comp, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2 py-0.5 bg-slate-800/80 text-slate-300 text-[11px] rounded border border-slate-700/50"
-                  >
-                    {comp}
-                  </span>
-                ))}
-                {offer.competences_cles.length > 3 && (
-                  <span className="text-[11px] text-slate-400 self-center">
-                    +{offer.competences_cles.length - 3}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Dates: Ajout en base + Date publication */}
-            <div className="flex flex-col gap-1 mb-4 text-xs text-slate-400">
-              {addedDateText && (
-                <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
-                  <FiClock className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
-                  <span>{addedDateText}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-1.5 text-slate-400">
-                <FiCalendar className="w-3.5 h-3.5 shrink-0" />
-                <span>Publication : {formatDate(offer.date || "")}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Action buttons (sans étoiles) */}
-          <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-800">
-            <Link
-              href={`/offers/${offer.id}`}
-              className="flex-1 min-w-[88px] bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border border-slate-700/80 hover:border-slate-600 shadow-sm"
-              title="Consulter l'évaluation détaillée"
-            >
-              <FiEye className="w-3.5 h-3.5 text-blue-400" />
-              <span>Détails</span>
-            </Link>
-
-            <Link
-              href={`/resumes?generate_offer_id=${offer.id}`}
-              className="flex-1 min-w-[88px] bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border border-indigo-500/30 shadow-sm"
-              title="Générer un CV adapté sur-mesure pour cette offre"
-            >
-              <FiFileText className="w-3.5 h-3.5 text-indigo-400" />
-              <span>CV Adapté</span>
-            </Link>
-
-            {offer.url && (
-              <a
-                href={offer.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 min-w-[88px] bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 hover:text-white px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 border border-blue-500/30"
-              >
-                <FiExternalLink className="w-3.5 h-3.5" />
-                <span>Offre</span>
-              </a>
-            )}
-
-            <button
-              onClick={() => handleApplyToOffer(offer)}
-              className="flex-1 min-w-[88px] bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm shadow-emerald-500/20 flex items-center justify-center gap-1.5"
-              title="Postuler à cette offre"
-            >
-              <FiPlus className="w-3.5 h-3.5" />
-              <span>Postuler</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Composant pagination enrichi et déterministe
-  const Pagination = () => {
-    const totalPages = Math.ceil(totalOffers / ITEMS_PER_PAGE);
-
-    if (totalPages <= 1) return null;
-
-    const handlePageClick = (page: number) => {
-      setCurrentPage(page);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    };
-
-    // Générer les numéros de page avec ellipses
-    const getPageNumbers = () => {
-      const delta = 1;
-      const range: number[] = [];
-      for (
-        let i = Math.max(2, currentPage - delta);
-        i <= Math.min(totalPages - 1, currentPage + delta);
-        i++
-      ) {
-        range.push(i);
-      }
-
-      const pages: (number | string)[] = [1];
-      if (currentPage - delta > 2) {
-        pages.push("...");
-      }
-      pages.push(...range);
-      if (currentPage + delta < totalPages - 1) {
-        pages.push("...");
-      }
-      if (totalPages > 1 && !pages.includes(totalPages)) {
-        pages.push(totalPages);
-      }
-      return pages;
-    };
-
-    return (
-      <div className="flex flex-wrap justify-center items-center gap-1.5 mt-8 pb-10">
-        <button
-          onClick={() => handlePageClick(Math.max(1, currentPage - 1))}
-          disabled={currentPage === 1}
-          className="px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/70 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 hover:text-white transition-all text-xs font-semibold shadow-sm"
-        >
-          Précédent
-        </button>
-
-        {getPageNumbers().map((p, idx) =>
-          typeof p === "string" ? (
-            <span key={idx} className="px-2 py-1 text-slate-500 text-xs select-none">
-              •••
-            </span>
-          ) : (
-            <button
-              key={idx}
-              onClick={() => handlePageClick(p)}
-              className={`min-w-[34px] h-[34px] px-2 rounded-xl text-xs font-semibold transition-all border shadow-sm ${
-                currentPage === p
-                  ? "bg-blue-600 text-white border-blue-500 shadow-blue-500/20"
-                  : "bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-700 hover:text-white"
-              }`}
-            >
-              {p}
-            </button>
-          )
-        )}
-
-        <button
-          onClick={() => handlePageClick(Math.min(totalPages, currentPage + 1))}
-          disabled={currentPage === totalPages}
-          className="px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700/70 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 hover:text-white transition-all text-xs font-semibold shadow-sm"
-        >
-          Suivant
-        </button>
-
-        <span className="ml-2 text-xs text-slate-400">
-          Page {currentPage} sur {totalPages}
-        </span>
-      </div>
-    );
-  };
-
   // Composant statistiques (inchangé)
   const StatsContent = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -1357,13 +1412,25 @@ function OffersPageContent() {
                       <OfferCard
                         key={offer.id}
                         offer={offer}
+                        currentPage={currentPage}
+                        regeneratingId={regeneratingId}
+                        onToggleSeen={handleToggleSeen}
+                        onToggleSaveOffer={handleToggleSaveOffer}
+                        onRegenerateDescription={handleRegenerateDescription}
+                        onHideOffer={handleHideOffer}
+                        onApplyToOffer={handleApplyToOffer}
                       />
                     ))}
                   </div>
                 </div>
 
                 {/* Pagination */}
-                <Pagination />
+                <OffersPagination
+                  currentPage={currentPage}
+                  totalOffers={totalOffers}
+                  itemsPerPage={ITEMS_PER_PAGE}
+                  onPageChange={handlePageClick}
+                />
               </>
             )}
           </>

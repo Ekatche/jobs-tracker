@@ -70,7 +70,27 @@ async def _generate_description_bg(application_id: ObjectId, user_id: ObjectId, 
             # Auto-lier l'offre pour débloquer le CV adapté et l'évaluation
             app_doc = await db["applications"].find_one({"_id": ObjectId(application_id)})
             if app_doc:
-                await _ensure_offer_for_application(str(application_id), app_doc, db)
+                linked_oid = await _ensure_offer_for_application(str(application_id), app_doc, db)
+                if linked_oid:
+                    now_utc = datetime.now(timezone.utc)
+                    await db["user_offer_interactions"].update_one(
+                        {
+                            "user_id": str(user_id),
+                            "offer_id": str(linked_oid),
+                        },
+                        {
+                            "$set": {
+                                "status": "applied",
+                                "seen": True,
+                                "updated_at": now_utc,
+                            },
+                            "$setOnInsert": {
+                                "created_at": now_utc,
+                                "notes": None,
+                            },
+                        },
+                        upsert=True,
+                    )
         else:
             logger.warning("[description_bg] Échec de génération de description")
     except Exception as e:
@@ -298,6 +318,31 @@ async def create_application(
             created = await db["applications"].find_one({"_id": result.inserted_id})
         except Exception as e_link:
             logger.warning(f"[create_application] Erreur auto-liaison offre: {e_link}")
+
+    # Synchroniser l'interaction de l'utilisateur avec l'offre (status: "applied", seen: True)
+    if created.get("offer_id"):
+        try:
+            now_utc = datetime.now(timezone.utc)
+            await db["user_offer_interactions"].update_one(
+                {
+                    "user_id": str(current_user.id),
+                    "offer_id": str(created["offer_id"]),
+                },
+                {
+                    "$set": {
+                        "status": "applied",
+                        "seen": True,
+                        "updated_at": now_utc,
+                    },
+                    "$setOnInsert": {
+                        "created_at": now_utc,
+                        "notes": None,
+                    },
+                },
+                upsert=True,
+            )
+        except Exception as e_interact:
+            logger.warning(f"[create_application] Erreur mise à jour interaction 'applied': {e_interact}")
 
     url_exists = "url" in app_data and app_data["url"] and app_data["url"].strip() != ""
     description_missing = "description" not in app_data or not app_data["description"]
@@ -773,6 +818,30 @@ async def link_application_offer(
     await _ensure_offer_for_application(application_id, app_doc, db)
 
     updated = await db["applications"].find_one({"_id": ObjectId(application_id)})
+    if updated and updated.get("offer_id"):
+        try:
+            now_utc = datetime.now(timezone.utc)
+            await db["user_offer_interactions"].update_one(
+                {
+                    "user_id": str(current_user.id),
+                    "offer_id": str(updated["offer_id"]),
+                },
+                {
+                    "$set": {
+                        "status": "applied",
+                        "seen": True,
+                        "updated_at": now_utc,
+                    },
+                    "$setOnInsert": {
+                        "created_at": now_utc,
+                        "notes": None,
+                    },
+                },
+                upsert=True,
+            )
+        except Exception as e_interact:
+            logger.warning(f"[link_application_offer] Erreur mise à jour interaction 'applied': {e_interact}")
+
     return enrich_application_with_cadences(serialize_mongodb_doc(updated))
 
 

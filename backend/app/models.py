@@ -174,6 +174,7 @@ class JobApplicationCreate(BaseModel):
     location: Optional[str] = None
     status: ApplicationStatus = ApplicationStatus.APPLIED
     description: Optional[str] = None
+    notes: Optional[List[str]] = None
     archived: Optional[bool] = False
 
     model_config = {
