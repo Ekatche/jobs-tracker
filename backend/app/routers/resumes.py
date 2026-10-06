@@ -15,7 +15,7 @@ from app.models import (
     utcnow_with_timezone,
 )
 from app.services.cv_pdf_renderer import generate_cv_pdf
-from app.services.cv_tailor import DEFAULT_CV_MODEL, generate_tailored_cv_content
+from app.services.cv_tailor import DEFAULT_CV_MODEL, CVHonestyError, generate_tailored_cv_content
 from app.services.cv_templates import (
     CV_ACCENTS,
     CV_TEMPLATES,
@@ -141,6 +141,16 @@ async def generate_resume(
             profile=profile_doc,
             offer=offer_doc,
             evaluation=evaluation_doc,
+        )
+    except CVHonestyError as he:
+        items = ", ".join(he.violations)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Le CV généré contenait des éléments absents de ton profil et a été bloqué par sécurité : "
+                f"{items} Si ces éléments sont réels, ajoute-les à ton profil (compétences ou formation) "
+                "puis relance la génération ; sinon, relance simplement la génération."
+            ),
         )
     except ValueError as ve:
         raise llm_http_exception(ve) or HTTPException(status_code=422, detail=f"Erreur de validation du CV: {ve}")

@@ -240,3 +240,27 @@ def test_load_tailor_prompt_without_evaluation_judges_relevance_from_offer():
 
     assert "Aucune analyse Bloc B préalable disponible." in prompt
     assert "En l'absence d'analyse Bloc B, juge la pertinence de chaque expérience d'après l'offre" in prompt
+
+
+@pytest.mark.asyncio
+async def test_generate_tailored_cv_content_retries_with_violation_feedback():
+    bad_output = json.loads(json.dumps(VALID_LLM_OUTPUT))
+    bad_output["prioritized_skills"] = [
+        {"category": "Divers", "skills": ["UnknownImaginaryFramework"]}
+    ]
+    bad_resp = MagicMock()
+    bad_resp.choices = [MagicMock(message=MagicMock(content=json.dumps(bad_output)))]
+    good_resp = MagicMock()
+    good_resp.choices = [MagicMock(message=MagicMock(content=json.dumps(VALID_LLM_OUTPUT)))]
+
+    with patch("app.services.cv_tailor.acompletion", new_callable=AsyncMock) as mock_acompletion:
+        mock_acompletion.side_effect = [bad_resp, good_resp]
+
+        result = await generate_tailored_cv_content(
+            profile=SAMPLE_PROFILE, offer=SAMPLE_OFFER, evaluation=SAMPLE_EVALUATION
+        )
+
+    assert isinstance(result, TailoredCVSchema)
+    assert mock_acompletion.call_count == 2
+    second_prompt = mock_acompletion.call_args_list[1].kwargs["messages"][0]["content"]
+    assert "UnknownImaginaryFramework" in second_prompt

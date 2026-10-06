@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from litellm import acompletion
 
@@ -14,6 +14,14 @@ logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).resolve().parents[1] / "llm" / "prompts"
 DEFAULT_CV_MODEL = os.getenv("CV_TAILOR_MODEL", os.getenv("EVALUATION_MODEL", "gemini/gemini-3.8-flash"))
+
+
+class CVHonestyError(ValueError):
+    """Raised when the generated CV still contains unsupported claims after the retry."""
+
+    def __init__(self, violations: List[str]) -> None:
+        self.violations = violations
+        super().__init__(f"CV honesty verification failed: {'; '.join(violations)}")
 
 
 
@@ -102,28 +110,41 @@ async def generate_tailored_cv_content(
     log_company = offer.get("entreprise") or offer.get("company") or "Entreprise"
     logger.info(f"Generating tailored CV for {log_role} at {log_company} with model {chosen_model}")
 
-    try:
-        response = await acompletion(
-            model=chosen_model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
-            response_format={"type": "json_object"},
-            drop_params=True,
-        )
+    max_attempts = 2
+    violations: List[str] = []
+    for attempt in range(max_attempts):
+        attempt_prompt = prompt
+        if violations:
+            attempt_prompt += (
+                "\n\n## CORRECTION REQUISE\n"
+                "Ta réponse précédente a été rejetée car elle contenait des éléments absents du profil candidat :\n"
+                + "\n".join(f"- {v}" for v in violations)
+                + "\nRetire ces éléments (ou remplace-les par des compétences présentes mot pour mot dans le profil) "
+                "et renvoie le JSON complet corrigé."
+            )
 
-        content_text = response.choices[0].message.content
-    except Exception as e:
-        logger.error(f"Error calling LLM for CV tailoring: {e}", exc_info=True)
-        raise
+        try:
+            response = await acompletion(
+                model=chosen_model,
+                messages=[{"role": "user", "content": attempt_prompt}],
+                temperature=0.2,
+                response_format={"type": "json_object"},
+                drop_params=True,
+            )
 
-    raw_json = _clean_json_output(content_text)
-    tailored_cv = TailoredCVSchema(**raw_json)
+            content_text = response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"Error calling LLM for CV tailoring: {e}", exc_info=True)
+            raise
 
-    # Anti-hallucination guardrail validation
-    is_valid, violations = verify_cv_honesty(tailored_cv, profile)
-    if not is_valid:
-        error_msg = f"CV honesty verification failed: {'; '.join(violations)}"
-        logger.error(error_msg)
-        raise ValueError(error_msg)
+        raw_json = _clean_json_output(content_text)
+        tailored_cv = TailoredCVSchema(**raw_json)
 
-    return tailored_cv
+        # Anti-hallucination guardrail validation
+        is_valid, violations = verify_cv_honesty(tailored_cv, profile)
+        if is_valid:
+            return tailored_cv
+
+        logger.warning(f"CV honesty verification failed (attempt {attempt + 1}/{max_attempts}): {'; '.join(violations)}")
+
+    raise CVHonestyError(violations)

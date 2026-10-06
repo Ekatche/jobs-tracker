@@ -204,8 +204,15 @@ def verify_cv_honesty(
     for cert in source_profile.get("certifications", []) or []:
         if isinstance(cert, dict) and cert.get("name"):
             _extract_text_fragments(cert.get("name"))
+            _extract_text_fragments(cert.get("topics"))
         elif isinstance(cert, str):
             _extract_text_fragments(cert)
+
+    # Ingest education (degree and topics are verified facts that can ground a skill)
+    for edu in source_profile.get("education", []) or []:
+        if isinstance(edu, dict):
+            _extract_text_fragments(edu.get("degree") or edu.get("diplome"))
+            _extract_text_fragments(edu.get("topics"))
 
     for field in ["headline", "summary"]:
         val = source_profile.get(field)

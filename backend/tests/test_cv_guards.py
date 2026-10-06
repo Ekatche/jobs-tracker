@@ -204,3 +204,30 @@ def test_verify_cv_honesty_accepts_licence_declared_in_contact_mobility():
     )
     is_valid, violations = verify_cv_honesty(tailored, source_profile)
     assert is_valid, violations
+
+
+def test_verify_cv_honesty_accepts_skill_grounded_in_education_topics():
+    source_profile = {
+        "experiences": [{"company": "Deloitte", "title": "Data Scientist"}],
+        "education": [
+            {
+                "degree": "Master IA",
+                "school": "Centrale Lyon",
+                "topics": ["Statistiques", "Algèbre linéaire", "Machine Learning"],
+            }
+        ],
+        "skills": ["Python"],
+    }
+    tailored = TailoredCVSchema(
+        target_role_title="Data Scientist",
+        professional_summary="...",
+        prioritized_skills=[
+            TailoredSkillGroup(category="Data Science", skills=["Statistiques & Algèbre linéaire"]),
+        ],
+        experiences=[],
+        featured_projects=[],
+        education=[],
+        languages=[],
+    )
+    is_valid, violations = verify_cv_honesty(tailored, source_profile)
+    assert is_valid is True, violations
