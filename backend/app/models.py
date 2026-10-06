@@ -49,6 +49,11 @@ class UserTier(str, Enum):
     PRO = "pro"
 
 
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    USER = "user"
+
+
 # Modèle utilisateur
 class UserModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
@@ -57,6 +62,7 @@ class UserModel(BaseModel):
     hashed_password: str = Field(...)
     full_name: Optional[str] = None
     disabled: Optional[bool] = False
+    role: UserRole = UserRole.USER
     tier: UserTier = UserTier.FREE
     onboarding_completed: Optional[bool] = False
     created_at: datetime = Field(default_factory=utcnow_with_timezone)
@@ -108,6 +114,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: Optional[str] = None
     disabled: Optional[bool] = False
+    role: UserRole = UserRole.USER
     tier: UserTier = UserTier.FREE
     onboarding_completed: Optional[bool] = False
     created_at: datetime
@@ -846,5 +853,60 @@ class InterviewPrep(BaseModel):
     updated_at: datetime = Field(default_factory=utcnow_with_timezone)
 
     model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+# ==============================================================================
+# Modèles d'Administration & Métriques RGPD
+# ==============================================================================
+
+class AdminUserSummaryResponse(BaseModel):
+    id: str
+    pseudonym_email: str
+    pseudonym_name: str
+    tier: UserTier
+    role: UserRole
+    disabled: bool
+    created_at: datetime
+    last_active_at: Optional[datetime] = None
+    total_cost_usd: float = 0.0
+    total_tokens: int = 0
+    total_requests: int = 0
+
+
+class AdminUserUpdateTierRequest(BaseModel):
+    tier: UserTier
+
+
+class AdminUserToggleStatusRequest(BaseModel):
+    disabled: bool
+
+
+class ModelCostItem(BaseModel):
+    model: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    cost_usd: float = 0.0
+    requests_count: int = 0
+
+
+class ActionCostItem(BaseModel):
+    action: str
+    label: str
+    total_tokens: int = 0
+    cost_usd: float = 0.0
+    requests_count: int = 0
+
+
+class AdminCostSummaryResponse(BaseModel):
+    period: str
+    total_cost_usd: float = 0.0
+    total_tokens: int = 0
+    total_requests: int = 0
+    avg_cost_per_user: float = 0.0
+    active_users_count: int = 0
+    model_breakdown: List[ModelCostItem] = Field(default_factory=list)
+    action_breakdown: List[ActionCostItem] = Field(default_factory=list)
+
 
 

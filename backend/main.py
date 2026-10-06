@@ -22,6 +22,7 @@ from app.routers import (
     usage_router,
     resumes_router,
     interview_prep_router,
+    admin_router,
 )
 
 
@@ -97,6 +98,7 @@ app.include_router(cover_letters_router)
 app.include_router(usage_router)
 app.include_router(resumes_router)
 app.include_router(interview_prep_router)
+app.include_router(admin_router)
 
 
 @app.exception_handler(openai.APIError)

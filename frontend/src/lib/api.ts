@@ -20,6 +20,7 @@ import { CoverLetter, CandidateProfile, CandidatePreferences } from "@/types/cov
 import { TailoredResume, GenerateResumeRequest, UpdateResumeRequest, PdfOptions } from "@/types/resume";
 import { InterviewPrep, UpdateInterviewPrepPayload } from "@/types/interview";
 import { UserQuotaSummary, ApiUsageRecord, TierPricingInfo, UserTier } from "@/types/usage";
+import { AdminPeriod, AdminCostSummary, AdminUserSummary } from "@/types/admin";
 import Cookies from "js-cookie";
 // Ajoutez cet import au début du fichier
 import { getLastActivityTime } from "./activityTracker";
@@ -310,6 +311,8 @@ export interface User {
   username: string;
   email: string;
   full_name?: string;
+  role?: "admin" | "user";
+  tier?: "free" | "advanced" | "pro";
   is_admin?: boolean;
   onboarding_completed?: boolean;
 }
@@ -936,6 +939,28 @@ export const usageApi = {
   },
 };
 
+export const adminApi = {
+  getCosts: async (period: AdminPeriod = "30d") => {
+    return fetchApi<AdminCostSummary>(`/admin/stats/costs?period=${period}`, "GET");
+  },
+
+  getUsers: async () => {
+    return fetchApi<AdminUserSummary[]>("/admin/users", "GET");
+  },
+
+  updateTier: async (userId: string, tier: "free" | "advanced" | "pro") => {
+    return fetchApi<AdminUserSummary>(`/admin/users/${userId}/tier`, "PUT", { tier });
+  },
+
+  toggleStatus: async (userId: string, disabled: boolean) => {
+    return fetchApi<AdminUserSummary>(`/admin/users/${userId}/status`, "PUT", { disabled });
+  },
+
+  deleteUserGdpr: async (userId: string) => {
+    return fetchApi<{ message: string }>(`/admin/users/${userId}/gdpr`, "DELETE");
+  },
+};
+
 // Exportations par défaut
 const api = {
   auth: authApi,
@@ -947,6 +972,7 @@ const api = {
   resumes: resumeApi,
   interviewPrep: interviewPrepApi,
   usage: usageApi,
+  admin: adminApi,
 };
 
 export default api;

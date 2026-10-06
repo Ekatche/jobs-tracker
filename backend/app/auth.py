@@ -147,3 +147,16 @@ async def get_current_user_optional(
         return UserModel(**user)
     except Exception:
         return None
+
+
+async def get_current_admin_user(
+    current_user: UserModel = Depends(get_current_user),
+) -> UserModel:
+    """Vérifie que l'utilisateur actuel possède les privilèges administrateur."""
+    if current_user.role != "admin" and getattr(current_user.role, "value", None) != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé aux administrateurs",
+        )
+    return current_user
+

@@ -11,6 +11,7 @@ import {
   FiLogOut,
   FiPlusCircle,
   FiUserPlus,
+  FiShield,
 } from "react-icons/fi";
 import { useRouter } from "next/navigation";
 import { logout, getToken } from "@/lib/auth";
@@ -195,6 +196,19 @@ export default function Header() {
                 >
                   Guide & FAQ
                 </Link>
+                {user?.role === "admin" && (
+                  <Link
+                    href="/admin"
+                    className={`text-sm font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors ${
+                      isActive("/admin")
+                        ? "text-amber-300 bg-amber-500/20 border border-amber-500/40"
+                        : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                    }`}
+                  >
+                    <FiShield className="w-3.5 h-3.5" />
+                    Admin
+                  </Link>
+                )}
               </>
             ) : (
               <Link
@@ -265,6 +279,16 @@ export default function Header() {
                       >
                         Guide & FAQ
                       </Link>
+                      {user?.role === "admin" && (
+                        <Link
+                          href="/admin"
+                          className="block px-4 py-2 text-sm text-amber-400 font-semibold hover:bg-blue-800/40 flex items-center gap-1.5"
+                          onClick={closeMenu}
+                        >
+                          <FiShield className="w-3.5 h-3.5" />
+                          Espace Administration
+                        </Link>
+                      )}
                       <button
                         onClick={handleLogout}
                         className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-blue-800/40 flex items-center gap-2"
@@ -391,6 +415,16 @@ export default function Header() {
                 >
                   Guide & FAQ
                 </Link>
+                {user?.role === "admin" && (
+                  <Link
+                    href="/admin"
+                    className="block py-2 text-base font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-2"
+                    onClick={closeMenu}
+                  >
+                    <FiShield className="w-4 h-4" />
+                    Espace Administration
+                  </Link>
+                )}
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-2 w-full py-2 text-base font-medium text-red-400"
