@@ -443,17 +443,19 @@ def test_experiences_rendered_most_recent_first(template):
 
 
 @pytest.mark.parametrize("template", TEMPLATES)
-def test_experience_dates_show_years_only(template):
+def test_experience_dates_show_month_and_year(template):
     cv = SAMPLE_CV.model_copy(update={"experiences": [
         _dated_job("Poste actuel", "08/2025", "Présent"),
         _dated_job("Poste passé", "2023-02", "2024-06"),
         _dated_job("Poste ancien", "sept. 2019", "mars 2021"),
+        _dated_job("Poste sans mois", "2019", "2020"),
     ]})
     html = _render(template, cv=cv)
-    assert "2025 – Présent" in html
-    assert "2023 – 2024" in html
-    assert "2019 – 2021" in html
-    assert "08/2025" not in html and "2023-02" not in html and "sept." not in html
+    assert "08/2025 – Présent" in html
+    assert "02/2023 – 06/2024" in html
+    assert "09/2019 – 03/2021" in html
+    assert "2019 – 2020" in html
+    assert "2023-02" not in html and "sept." not in html
 
 
 def test_same_start_puts_current_job_first():

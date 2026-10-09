@@ -91,14 +91,16 @@ def _end_key(value: Optional[str]) -> Tuple[int, int]:
     return _date_key(value)
 
 
-def _year_only(value: Optional[str]) -> Optional[str]:
-    """« 08/2025 » → « 2025 » ; « Présent », vide ou sans année : inchangé."""
-    year = re.search(r"(?:19|20)\d{2}", value or "")
-    return year.group() if year else value
+def _month_year(value: Optional[str]) -> Optional[str]:
+    """« 2023-02 », « sept. 2023 » → « 02/2023 » ; mois inconnu → « 2023 » ; « Présent », vide ou sans année : inchangé."""
+    year, month = _date_key(value)
+    if not year:
+        return value
+    return f"{month:02d}/{year}" if month else str(year)
 
 
-def _with_years_only(exp: Dict[str, Any]) -> Dict[str, Any]:
-    return {**exp, "start_date": _year_only(exp.get("start_date")), "end_date": _year_only(exp.get("end_date"))}
+def _with_month_year(exp: Dict[str, Any]) -> Dict[str, Any]:
+    return {**exp, "start_date": _month_year(exp.get("start_date")), "end_date": _month_year(exp.get("end_date"))}
 
 
 def _most_recent_first(experiences: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -132,7 +134,7 @@ def render_cv_html(
     cv_dict = cv.model_dump() if isinstance(cv, TailoredCVSchema) else cv
     # Copie : le dict de l'appelant (document stocké) garde son ordre et ses dates complètes.
     experiences = _most_recent_first(cv_dict.get("experiences") or [])
-    cv_dict = {**cv_dict, "experiences": [_with_years_only(exp) for exp in experiences]}
+    cv_dict = {**cv_dict, "experiences": [_with_month_year(exp) for exp in experiences]}
 
     base_css_file = TEMPLATES_DIR / "base_cv.css"
     base_css = base_css_file.read_text(encoding="utf-8") if base_css_file.exists() else ""
