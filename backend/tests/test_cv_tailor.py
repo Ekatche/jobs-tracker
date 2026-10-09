@@ -233,6 +233,20 @@ def test_load_tailor_prompt_covers_non_tech_trades_and_relevance_quotas():
     assert "Une page A4" in prompt
 
 
+def test_load_tailor_prompt_asks_for_short_sober_summary():
+    from app.services.cv_tailor import load_tailor_prompt
+
+    prompt = load_tailor_prompt(SAMPLE_PROFILE, SAMPLE_OFFER, SAMPLE_EVALUATION)
+
+    assert "expert mondial" not in prompt
+    assert "percutante" not in prompt
+    assert "proposition de valeur" not in prompt
+    assert prompt.count("45 mots") >= 2
+    assert "expérience éprouvée" in prompt
+    assert "habitué à" in prompt
+    assert "Ne cite aucun nom d'employeur" in prompt
+
+
 def test_load_tailor_prompt_without_evaluation_judges_relevance_from_offer():
     from app.services.cv_tailor import load_tailor_prompt
 
