@@ -67,6 +67,9 @@ LETTER_RULES = {
     "max_semicolons": 1,
     # Mots consécutifs de l'intitulé du poste repris tels quels, au plus.
     "max_verbatim_title_words": 6,
+    # Formules « m'a appris / m'a montré » : au-delà d'une, le rédacteur tire
+    # des morales générales à la place des faits du projet.
+    "max_lesson_formulas": 1,
     "capped_repetitions": CAPPED_REPETITIONS,
     "banned_lexicon": BANNED_LEXICON,
     "banned_openings": BANNED_OPENINGS,
@@ -88,6 +91,16 @@ _SENTENCE_START_STOPWORDS = {
 def _project_text(project: Dict[str, Any]) -> str:
     """Faits d'un projet transmis à l'analyste : nom, description, points forts."""
     parts = [project.get("name", ""), project.get("description", ""), *(project.get("highlights") or [])]
+    return " ".join(part for part in parts if part)
+
+
+def _education_text(education: Dict[str, Any]) -> str:
+    """Faits d'une formation ou certification : école, diplôme, organisme, sujets."""
+    parts = [
+        education.get("school", ""), education.get("degree", ""),
+        education.get("name", ""), education.get("issuer", ""),
+        *(education.get("topics") or []),
+    ]
     return " ".join(part for part in parts if part)
 
 
@@ -120,6 +133,11 @@ def _check_entities(letter_text: str, offer_description: str, analyst_data: Dict
     allowed |= {
         _normalize_entity(re.sub(r"[(),|]", " ", _project_text(project)))
         for project in analyst_data.get("selected_projects") or []
+    }
+    # Même logique pour les formations : école, diplôme, organisme, sujets.
+    allowed |= {
+        _normalize_entity(re.sub(r"[(),|]", " ", _education_text(education)))
+        for education in analyst_data.get("selected_education") or []
     }
     # Une entité citée dans l'offre brute (partenaire, client, concurrent du
     # recruteur) n'est PAS légitime pour autant dans la lettre : seuls les
@@ -268,6 +286,14 @@ def evaluate_letter_guards(
         occurrences = len(re.findall(r"\b" + re.escape(term) + r"\b", straight_text))
         if occurrences > max_allowed:
             violations.append(f"Répétition excessive de '{term}' ({occurrences} trouvés, max {max_allowed})")
+
+    # 8b. Leçons tirées : « m'a appris / m'a montré / m'ont enseigné » plafonnées
+    lesson_count = len(re.findall(r"\bm'(?:a|ont) (?:appris|montré|enseigné)\b", straight_text))
+    max_lesson_formulas = LETTER_RULES["max_lesson_formulas"]
+    if lesson_count > max_lesson_formulas:
+        violations.append(
+            f"Leçons tirées en excès ({lesson_count} formules « m'a appris / m'a montré », maximum {max_lesson_formulas} autorisé)"
+        )
 
     # 9. Ouverture de paragraphe : pas tous commençant par "Je" ou "J'"
     if len(paragraphs) > 1 and all(re.match(r"^(je|j')", p.lower().strip()) for p in paragraphs):

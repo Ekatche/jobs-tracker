@@ -39,7 +39,7 @@ Si des lettres du candidat sont fournies plus haut, leur rythme et leur vocabula
 
 Utilise principalement la voix active avec des verbes d'action variés et précis, en variant l'entrée de phrase :
 « Pendant deux ans, j'ai organisé... »
-« Ce projet m'a appris à... »
+« Sur ce projet, le modèle... »
 « Je m'occupe aujourd'hui de... »
 « Cette approche a permis de... »
 
@@ -109,6 +109,8 @@ La lettre complète le CV, elle ne le résume pas. Le recruteur a le CV sous les
 * ce que le candidat aime dans son métier et ce qu'il veut faire dans ce poste ;
 * une ou deux expériences choisies, racontées comme un moment précis : ce qui s'est passé, ce que le candidat en a retenu, pourquoi cela lui donne envie de ce poste.
 
+« Ce que le candidat en a retenu » est un fait du projet présent dans les faits fournis : un résultat obtenu, une difficulté rencontrée, un choix fait. Jamais un principe général, jamais un mot de l'offre. Une seule formule « m'a appris » ou « m'a montré » dans toute la lettre. Le lien avec le poste est le sujet lui-même (mêmes données, même question), dit simplement.
+
 Au moins la moitié de la lettre parle du poste, de la structure et de ce que le candidat veut y faire, pas de son passé.
 
 ### Adhésion à la finalité de l'entreprise
@@ -150,7 +152,7 @@ Trois outils, logiciels ou technologies nommés au maximum dans toute la lettre.
 
 ## Développement
 
-Lorsqu'une expérience est mentionnée, explique ce que le candidat a réellement fait et ce qu'il en a retenu, sans énoncer en quoi cela correspond au poste.
+Lorsqu'une expérience est mentionnée, explique ce que le candidat a réellement fait et ce qu'il en a retenu — un fait du projet (résultat, difficulté, choix), pas une leçon générale — sans énoncer en quoi cela correspond au poste.
 
 Privilégie les réalisations concrètes aux déclarations de compétence.
 
@@ -215,7 +217,7 @@ Privilégie :
 * la description d'un problème réellement rencontré ;
 * ce que le candidat a construit ou développé ;
 * la manière dont il a travaillé ;
-* ce qu'il a appris de cette expérience ;
+* ce qu'il a appris de cette expérience, tiré des faits fournis (résultat, difficulté, choix), jamais un principe général ;
 * le lien naturel avec le sujet suivant.
 
 Ne transforme pas chaque paragraphe en démonstration de compatibilité avec l'offre.
@@ -290,5 +292,8 @@ Outils et compétences :
 
 Projets :
 {projects}
+
+Formations :
+{education}
 
 Rédige uniquement la lettre finale.

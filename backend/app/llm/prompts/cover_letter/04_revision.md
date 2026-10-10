@@ -83,6 +83,8 @@ Si le critique signale un plan d'action dicté, remplace-le par une seule phrase
 
 Si le critique signale une antithèse symétrique, dis ce que le candidat fait sans l'opposer à ce qu'il ne fait pas.
 
+Si le critique signale une Leçon inventée, remplace-la par le fait du projet ou supprime la phrase.
+
 ## Faits
 
 Le JSON d'analyse constitue la seule source de vérité factuelle.
@@ -94,7 +96,8 @@ N'ajoute :
 * aucun chiffre ;
 * aucun résultat ;
 * aucune responsabilité ;
-* aucune information sur l'entreprise
+* aucune information sur l'entreprise ;
+* aucune leçon ou conclusion qui ne soit un fait du JSON
 
 qui n'apparaisse dans les données fournies.
 

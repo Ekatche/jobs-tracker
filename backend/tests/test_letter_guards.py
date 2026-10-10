@@ -371,3 +371,30 @@ def test_project_facts_are_allowed_entities_and_numbers():
     report = evaluate_letter_guards(letter, "", analyst_data)
     assert not any("Foundation" in v for v in report.violations)
     assert not any("'12'" in v for v in report.violations)
+
+
+def test_repeated_lesson_formulas_are_flagged():
+    letter = (
+        "Madame, Monsieur,\n\nCe projet m’a appris à lire un modèle.\n\n"
+        "Le pipeline m'a montré que le code compte.\n\nCordialement"
+    )
+    report = evaluate_letter_guards(letter, "", {"stacks": [], "companies": []})
+    assert report.is_blocking is True
+    assert any("Leçons tirées en excès" in v for v in report.violations)
+
+
+def test_single_lesson_formula_is_allowed():
+    letter = "Madame, Monsieur,\n\nCe projet m'a appris à lire un modèle.\n\nCordialement"
+    report = evaluate_letter_guards(letter, "", {"stacks": [], "companies": []})
+    assert not any("Leçons tirées en excès" in v for v in report.violations)
+
+
+def test_education_facts_are_allowed_entities():
+    letter = "Madame, Monsieur,\n\nMon master à l'Université de Lyon portait sur les données multi-omiques.\n\nCordialement"
+    analyst_data = {
+        "stacks": [],
+        "companies": [],
+        "selected_education": [{"school": "Université de Lyon", "degree": "Master bio-informatique"}],
+    }
+    report = evaluate_letter_guards(letter, "", analyst_data)
+    assert not any("Université" in v or "Lyon" in v for v in report.violations)

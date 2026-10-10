@@ -29,7 +29,9 @@ Vérifie aussi :
 * un dernier paragraphe générique, qui pourrait conclure n'importe quelle lettre, ou qui ne demande pas d'entretien ;
 * un dernier paragraphe qui dicte un plan d'action en étapes (« je commencerai par... puis... ») ou présume de l'organisation interne de l'entreprise ;
 * un adjectif ou participe accordé au candidat dans la conclusion (« ravi », « heureux », « convaincu ») ;
-* l'absence d'idée directrice : si l'on ne peut pas résumer en une phrase ce que la lettre soutient, signale-le.
+* l'absence d'idée directrice : si l'on ne peut pas résumer en une phrase ce que la lettre soutient, signale-le ;
+* Leçon inventée : une phrase « m'a appris / m'a montré / m'ont appris » dont le contenu est un principe général ou reprend le vocabulaire de l'offre au lieu d'un fait du projet raconté ;
+* Fil rouge forcé : les projets racontés sont pliés à un thème abstrait au lieu de partager le sujet du poste.
 
 
 ### 1. Impression humaine

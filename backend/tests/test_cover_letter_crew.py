@@ -621,3 +621,70 @@ async def test_writer_prompt_includes_project_details():
 
     sent_prompt = mock_comp.call_args[1]["messages"][0]["content"]
     assert "OCR et NER sur rapports oncologiques" in sent_prompt
+
+
+@pytest.mark.asyncio
+async def test_call_analyst_sees_education():
+    from cover_letter_crew import _call_analyst
+
+    profile = {
+        "experiences": [],
+        "projects": [],
+        "education": [{
+            "school": "Université de Lyon",
+            "degree": "Master bio-informatique",
+            "years": "",
+            "topics": ["analyse multi-omique"],
+        }],
+        "certifications": [{"name": "Deep Learning Specialization", "issuer": "", "year": "2023", "topics": []}],
+    }
+
+    with patch("cover_letter_crew.acompletion", return_value=_fake_response('{"missions": ["M1"]}')) as mock_comp:
+        result = await _call_analyst("Description", profile)
+
+    sent_prompt = mock_comp.call_args[1]["messages"][0]["content"]
+    assert "analyse multi-omique" in sent_prompt
+    assert result["selected_education"] == [
+        {"school": "Université de Lyon", "degree": "Master bio-informatique", "topics": ["analyse multi-omique"]},
+        {"name": "Deep Learning Specialization", "year": "2023"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_analyst_prompt_requires_grounded_thesis():
+    from cover_letter_crew import _call_analyst
+
+    with patch("cover_letter_crew.acompletion", return_value=_fake_response('{"missions": ["M1"]}')) as mock_comp:
+        await _call_analyst("Description", {"experiences": [], "projects": []})
+
+    sent_prompt = mock_comp.call_args[1]["messages"][0]["content"]
+    assert "recouvrement" in sent_prompt
+    assert "nomme" in sent_prompt
+    assert "Synthèse thématique liant le parcours" not in sent_prompt
+
+
+@pytest.mark.asyncio
+async def test_writer_prompt_includes_education():
+    mock_choice = MagicMock()
+    mock_choice.message.content = "Lettre générée"
+    mock_resp = MagicMock(choices=[mock_choice], usage=None)
+
+    with patch("cover_letter_crew.acompletion", return_value=mock_resp) as mock_comp, \
+         patch("cover_letter_crew.get_letter_llm") as mock_llm:
+        mock_llm.return_value.model = "openai/gpt-5.6-terra"
+        mock_llm.return_value.api_key = "fake_key"
+
+        await cover_letter_crew._call_writer(
+            analyst_json={
+                "missions": [],
+                "selected_experiences": [],
+                "stacks": [],
+                "projects": [],
+                "selected_projects": [],
+                "selected_education": [{"degree": "Master bio-informatique", "topics": ["analyse multi-omique"]}],
+            },
+            company_name="Acme",
+        )
+
+    sent_prompt = mock_comp.call_args[1]["messages"][0]["content"]
+    assert "Master bio-informatique" in sent_prompt

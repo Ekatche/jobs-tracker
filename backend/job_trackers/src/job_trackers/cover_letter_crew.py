@@ -45,7 +45,7 @@ PROMPTS_DIR = Path(__file__).resolve().parents[3] / "app" / "llm" / "prompts" / 
 # fenêtre d'acceptation plus large des garde-fous côté letter_guards.py).
 MIN_WORDS = 230
 MAX_WORDS = 320
-PROMPT_VERSION = "01_fond+02_style+03_critique+04_revision-v8"
+PROMPT_VERSION = "01_fond+02_style+03_critique+04_revision-v9"
 
 
 _NAME_PARTICLES = {"de", "du", "des", "la", "le", "van", "von", "der", "den", "da", "di"}
@@ -119,6 +119,18 @@ async def _call_analyst(
         for p in raw_projects
     ]
 
+    # Les formations sont souvent le vrai point de départ du fil rouge (« je me
+    # suis formé à l'analyse multi-omique… ») : sans elles, l'analyste invente
+    # un thème abstrait pour relier les projets à l'offre.
+    education_facts = [
+        {k: e[k] for k in ("school", "degree", "years", "topics") if e.get(k)}
+        for e in candidate_profile.get("education", [])
+    ] + [
+        {k: c[k] for k in ("name", "issuer", "year", "topics") if c.get(k)}
+        for c in candidate_profile.get("certifications", [])
+    ]
+    education_facts = [e for e in education_facts if e]
+
     candidate_stacks = set()
     for e in exps + project_facts:
         for s in e.get("stack", []):
@@ -129,12 +141,15 @@ async def _call_analyst(
                 candidate_stacks.add(s)
 
     prompt = f"""Tu es un analyste et stratège de recrutement.
-À partir de l'offre d'emploi ci-dessous et des expériences et projets du candidat :
+À partir de l'offre d'emploi ci-dessous et des formations, expériences et projets du candidat :
 1. Identifie le défi n°1 du poste (le problème central) recherché par l'employeur.
-2. Formule une idée directrice unique (thèse) : une idée concrète, tirée du métier du candidat, montrant comment le candidat répond à ce défi.
-3. Dégage une synthèse thématique (fil rouge) qui relie l'ensemble du parcours du candidat (ou ses expériences et projets les plus pertinents pour l'offre) à cette thèse, SANS lister les expériences chronologiquement. Un projet compte autant qu'une expérience lorsqu'il est plus proche de l'offre.
+2. Formule une idée directrice unique (thèse) : le recouvrement concret entre le sujet de l'offre et des faits nommés du candidat — même domaine, mêmes données, même question scientifique ou métier, mêmes méthodes. Interdit : un thème abstrait tiré de l'offre qu'aucun fait du candidat ne démontre.
+3. Dégage le fil rouge : nomme les 2 ou 3 faits (une formation, un projet, une expérience) que la lettre racontera, dans l'ordre où elle les racontera, et dis pour chacun le lien factuel avec le sujet de l'offre. Un projet compte autant qu'une expérience lorsqu'il est plus proche de l'offre. Pas de chronologie du parcours.
 4. Extrais 2 à 3 missions clés de l'offre.
 5. Relève 3 à 5 termes métier employés tels quels dans l'offre (outils, systèmes, procédés, données), recopiés à l'identique.
+
+Formations du candidat :
+{json.dumps(education_facts, ensure_ascii=False)}
 
 Expériences candidates disponibles :
 {json.dumps(raw_exps, ensure_ascii=False)}
@@ -150,7 +165,7 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
     "missions": ["Mission 1", "Mission 2", "Mission 3"],
     "target_challenge": "Défi central du poste",
     "guiding_thesis": "Idée directrice du candidat face à ce défi",
-    "career_thread": "Synthèse thématique liant le parcours du candidat à cette idée (pas de chronologie)",
+    "career_thread": "Les 2 ou 3 faits nommés (formation, projet, expérience) dans l'ordre du récit, et le lien factuel de chacun avec le sujet de l'offre",
     "offer_terms": ["Terme 1", "Terme 2", "Terme 3"]
 }}"""
 
@@ -191,6 +206,7 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
         "companies": selected_companies,
         "projects": projects,
         "selected_projects": project_facts,
+        "selected_education": education_facts,
         # Jamais l'email en repli : il finirait en signature de la lettre.
         "candidate_name": candidate_name,
         "candidate_headline": candidate_profile.get("headline", ""),
@@ -367,6 +383,7 @@ async def _call_writer(
         experiences=json.dumps(analyst_json.get("selected_experiences", []), ensure_ascii=False),
         stacks=", ".join(analyst_json.get("stacks", [])[:15]),
         projects=json.dumps(analyst_json.get("selected_projects", []), ensure_ascii=False),
+        education=json.dumps(analyst_json.get("selected_education", []), ensure_ascii=False),
         capped_repetitions=capped_repetitions,
         company_context_block=company_context_block,
         voice_style_block=voice_style_block,
