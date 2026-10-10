@@ -16,7 +16,7 @@ Job Tracker est une application web moderne et automatisée pour centraliser vos
   - **Déduplication Cross-Source Sémantique** : Clé d'unicité normalisée indépendante des URLs (`{company}|{sorted_tokens}|{city}`), fusion automatique multi-diffusions (WTTJ, LinkedIn, Indeed, ATS) préservant l'URL prioritaire, les liens alternatifs, les évaluations Career-Ops et les statuts d'interaction candidat.
   - **Découplage Multi-Tenant** : Isolation des statuts personnels (Sauvegardée, Masquée, Postulée, Score de matching) dans `user_offer_interactions` pour préserver l'intégrité du pool partagé `job_offers`.
 - **Évaluation d'Offre Two-Pass (Career-Ops IA)** :
-  - Sas d'évaluation en 2 passages avec Gemini 3.7 Flash : extraction d'exigences pondérées suivie du matching contre le profil candidat complet (CV, stack, formations, projets GitHub).
+  - Sas d'évaluation en 2 passages avec Gemini 3.8 Flash : extraction d'exigences pondérées suivie du matching contre le profil candidat complet (CV, stack, formations, projets GitHub).
   - Score 1.0 à 5.0, citations *verbatim* obligatoires et drapeaux rouges consultables sur `/offers/[id]` et directement dans la sidebar du Kanban.
 - **Génération de Lettres de Motivation (Multi-Agents CrewAI)** :
   - Pipeline à 4 rôles : Analyste de cadrage (GPT-5.6 Luna), Rédacteur de premier jet (GPT-5.6 Sol), Critique de style multi-fournisseur obligatoire (Gemini 3.8 Flash, cross-provider) et Réviseur conditionnel (GPT-5.6 Sol).

@@ -436,7 +436,7 @@ export default function ApplicationDetails({
                 <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
                   <FiZap className="w-4 h-4" />
                 </span>
-                <span>Scoring IA Two-Pass (Gemini 3.7 Flash)</span>
+                <span>Scoring IA Two-Pass (Gemini 3.8 Flash)</span>
               </div>
 
               {evaluation && (

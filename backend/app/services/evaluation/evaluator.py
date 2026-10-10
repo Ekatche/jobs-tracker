@@ -33,7 +33,7 @@ from app.services.usage_tracker import record_api_usage, require_user_quota
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_EVALUATION_MODEL = os.getenv("EVALUATION_MODEL", "gemini/gemini-3.7-flash")
+DEFAULT_EVALUATION_MODEL = os.getenv("EVALUATION_MODEL", "gemini/gemini-3.8-flash")
 # Modèle de secours quand le principal reste indisponible après tous les essais
 # (surcharge propre à un modèle) ; vide = pas de secours.
 EVALUATION_FALLBACK_MODEL = os.getenv("EVALUATION_FALLBACK_MODEL", "gemini/gemini-3.8-flash")

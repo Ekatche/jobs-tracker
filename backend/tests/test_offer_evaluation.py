@@ -988,7 +988,7 @@ def _gemini_503():
     return litellm.ServiceUnavailableError(
         message="This model is currently experiencing high demand.",
         llm_provider="vertex_ai",
-        model="gemini-3.7-flash",
+        model="gemini-3.8-flash",
     )
 
 
@@ -999,7 +999,7 @@ async def test_scoring_llm_call_retries_transient_503():
     ok = MagicMock()
     with patch.object(evaluator, "acompletion", AsyncMock(side_effect=[_gemini_503(), _gemini_503(), ok])) as mock_llm, \
          patch.object(evaluator.asyncio, "sleep", AsyncMock()) as mock_sleep:
-        result = await evaluator._acompletion_retry(model="gemini/gemini-3.7-flash", messages=[])
+        result = await evaluator._acompletion_retry(model="gemini/gemini-3.8-flash", messages=[])
 
     assert result is ok
     assert mock_llm.await_count == 3
@@ -1014,7 +1014,7 @@ async def test_scoring_llm_call_gives_up_after_last_attempt():
     with patch.object(evaluator, "acompletion", AsyncMock(side_effect=_gemini_503())) as mock_llm, \
          patch.object(evaluator.asyncio, "sleep", AsyncMock()):
         with pytest.raises(litellm.ServiceUnavailableError):
-            await evaluator._acompletion_retry(model="gemini/gemini-3.7-flash", messages=[])
+            await evaluator._acompletion_retry(model="gemini/gemini-3.8-flash", messages=[])
 
     assert mock_llm.await_count == len(evaluator.LLM_RETRY_DELAYS) + 1
 
@@ -1026,14 +1026,14 @@ async def test_scoring_llm_call_does_not_retry_non_transient_error():
     with patch.object(evaluator, "acompletion", AsyncMock(side_effect=ValueError("bad request"))) as mock_llm, \
          patch.object(evaluator.asyncio, "sleep", AsyncMock()) as mock_sleep:
         with pytest.raises(ValueError):
-            await evaluator._acompletion_retry(model="gemini/gemini-3.7-flash", messages=[])
+            await evaluator._acompletion_retry(model="gemini/gemini-3.8-flash", messages=[])
 
     assert mock_llm.await_count == 1
     mock_sleep.assert_not_awaited()
 
 
-PRIMARY_MODEL = "gemini/gemini-3.7-flash"
-FALLBACK_MODEL = "gemini/gemini-3.8-flash"
+PRIMARY_MODEL = "gemini/gemini-3.8-flash"
+FALLBACK_MODEL = "gemini/gemini-2.5-flash"
 
 
 @pytest.mark.asyncio

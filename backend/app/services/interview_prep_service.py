@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).resolve().parents[1] / "llm" / "prompts" / "interview"
 DEFAULT_INTERVIEW_MODEL = os.getenv(
-    "INTERVIEW_PREP_MODEL", os.getenv("EVALUATION_MODEL", "gemini/gemini-3.7-flash")
+    "INTERVIEW_PREP_MODEL", os.getenv("EVALUATION_MODEL", "gemini/gemini-3.8-flash")
 )
 
 
