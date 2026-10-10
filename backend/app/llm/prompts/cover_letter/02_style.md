@@ -30,7 +30,7 @@ Défi prioritaire de l'offre :
 Idée directrice (à montrer par les faits, jamais à énoncer comme une maxime) :
 {guiding_thesis}
 
-Angle spécifique sur l'expérience pivot :
+Angle spécifique sur l'expérience ou le projet pivot :
 {career_thread}
 
 ## Voix et style
@@ -59,7 +59,7 @@ N'essaie pas de rendre chaque phrase dense en informations. Une lettre humaine c
 
 Ne cherche pas à mentionner toutes les expériences, technologies ou compétences du candidat.
 
-Choisis les expériences qui répondent le plus directement aux missions du poste.
+Choisis les expériences ou les projets qui répondent le plus directement aux missions du poste. Un projet compte autant qu'une expérience : lorsqu'il est plus proche de l'offre, c'est lui qu'il faut raconter.
 
 Une technologie ne doit apparaître que si elle sert à expliquer une réalisation ou une compétence pertinente pour le poste.
 
@@ -80,7 +80,9 @@ Le premier paragraphe est court : 2 à 3 phrases, à la première personne, sur 
 Il dit simplement :
 * qui est le candidat : son métier, et son employeur actuel ou sa durée d'expérience lorsqu'ils figurent dans les faits. « Je travaille sur... » sans métier ne présente personne ;
 * un point précis de ce travail qui rejoint le poste ;
-* pourquoi ce poste l'intéresse, en une phrase qui nomme le poste par son intitulé s'il est fourni et cite un élément concret de l'offre ou du contexte entreprise fourni.
+* pourquoi ce poste l'intéresse, en une phrase qui désigne le poste comme le candidat le ferait à l'oral et cite un élément concret de l'offre ou du contexte entreprise fourni.
+
+L'intitulé fourni sert de repère, pas de citation. Un intitulé court se reprend en minuscules : « votre offre de data engineer ». Un intitulé de plus de six mots, ou qui décrit le sujet du poste, se ramène à son métier : « ce poste d'ingénieur de recherche », et le sujet se dit avec les mots du candidat dans la suite de la phrase. Ne recopie jamais un intitulé long, ni ses majuscules.
 
 Ce lien doit être précis. Si la phrase de motivation reste vraie en remplaçant le nom de l'entreprise par celui d'un concurrent, elle ne dit rien et doit être réécrite.
 

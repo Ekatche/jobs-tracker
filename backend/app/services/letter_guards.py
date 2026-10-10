@@ -65,6 +65,8 @@ LETTER_RULES = {
     "max_paragraphs": 5,
     "max_head_connectors": 1,
     "max_semicolons": 1,
+    # Mots consécutifs de l'intitulé du poste repris tels quels, au plus.
+    "max_verbatim_title_words": 6,
     "capped_repetitions": CAPPED_REPETITIONS,
     "banned_lexicon": BANNED_LEXICON,
     "banned_openings": BANNED_OPENINGS,
@@ -81,6 +83,12 @@ _SENTENCE_START_STOPWORDS = {
     "Ainsi", "Aussi", "Enfin", "En", "De", "Du", "Des",
     "Tout", "Toute", "Tous", "Toutes", "Notre", "Nos",
 }
+
+
+def _project_text(project: Dict[str, Any]) -> str:
+    """Faits d'un projet transmis à l'analyste : nom, description, points forts."""
+    parts = [project.get("name", ""), project.get("description", ""), *(project.get("highlights") or [])]
+    return " ".join(part for part in parts if part)
 
 
 def _check_entities(letter_text: str, offer_description: str, analyst_data: Dict[str, Any]) -> List[str]:
@@ -105,6 +113,13 @@ def _check_entities(letter_text: str, offer_description: str, analyst_data: Dict
             + [analyst_data.get("candidate_headline") or ""]
         )
         if value
+    }
+    # Un projet raconté cite ses propres faits (client, méthode, source de
+    # données) : son texte blanchit les entités qu'il contient. Parenthèses et
+    # virgules sont neutralisées, `company_slug` coupant au premier séparateur.
+    allowed |= {
+        _normalize_entity(re.sub(r"[(),|]", " ", _project_text(project)))
+        for project in analyst_data.get("selected_projects") or []
     }
     # Une entité citée dans l'offre brute (partenaire, client, concurrent du
     # recruteur) n'est PAS légitime pour autant dans la lettre : seuls les
@@ -279,6 +294,20 @@ def evaluate_letter_guards(
                     violations.append(f"Recouvrement textuel de 8 mots avec l'offre détecté : '{' '.join(ngram)}'")
                     break
 
+    # 11b. Intitulé recopié : un long intitulé d'annonce repris mot pour mot
+    # (« Research Engineer For Ai-driven Molecular And Spatial Analysis... »)
+    # ne sonne pas comme une phrase écrite par le candidat.
+    title_words = [w.lower() for w in re.findall(r"\b\w+\b", analyst_data.get("job_title") or "")]
+    span = LETTER_RULES["max_verbatim_title_words"] + 1
+    if len(title_words) >= span:
+        title_grams = {tuple(title_words[i:i + span]) for i in range(len(title_words) - span + 1)}
+        letter_words = [w.lower() for w in words]
+        if any(tuple(letter_words[i:i + span]) in title_grams for i in range(len(letter_words) - span + 1)):
+            violations.append(
+                "Intitulé du poste recopié mot pour mot : désigne le poste par son métier, "
+                "« ce poste d'ingénieur de recherche »"
+            )
+
     # 12. Entités : toute entité nommée (majuscule interne) doit venir des faits
     # fournis à l'analyste (entreprises, stacks, projets, entreprise destinataire).
     violations.extend(_check_entities(letter_text, offer_description, analyst_data))
@@ -290,7 +319,9 @@ def evaluate_letter_guards(
     # exemptée : elle n'a pas besoin d'être présente ailleurs pour être
     # légitime dans une lettre.
     experiences_json = json.dumps(
-        analyst_data.get("selected_experiences", []), ensure_ascii=False
+        list(analyst_data.get("selected_experiences", []))
+        + list(analyst_data.get("selected_projects", [])),
+        ensure_ascii=False,
     )
     for number in re.findall(r"\b\d+(?:[.,]\d+)?\b", letter_text):
         if re.fullmatch(r"(?:19|20)\d{2}", number) and 1900 <= int(number) <= 2099:

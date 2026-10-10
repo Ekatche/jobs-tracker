@@ -45,7 +45,7 @@ PROMPTS_DIR = Path(__file__).resolve().parents[3] / "app" / "llm" / "prompts" / 
 # fenêtre d'acceptation plus large des garde-fous côté letter_guards.py).
 MIN_WORDS = 230
 MAX_WORDS = 320
-PROMPT_VERSION = "01_fond+02_style+03_critique+04_revision-v7"
+PROMPT_VERSION = "01_fond+02_style+03_critique+04_revision-v8"
 
 
 _NAME_PARTICLES = {"de", "du", "des", "la", "le", "van", "von", "der", "den", "da", "di"}
@@ -108,10 +108,19 @@ async def _call_analyst(
     exps = candidate_profile.get("experiences", [])
     raw_exps = exps  # On prend toutes les expériences pour la synthèse thématique
     companies = [e.get("company", "") for e in raw_exps if e.get("company")]
-    projects = [p.get("name", "") for p in candidate_profile.get("projects", []) if p.get("name")]
+    raw_projects = [p for p in candidate_profile.get("projects", []) if p.get("name")]
+    projects = [p["name"] for p in raw_projects]
+    # Les projets entrent dans l'analyse au même titre que les expériences :
+    # avec leurs seuls noms, l'analyste bâtissait le fil rouge sans eux et le
+    # rédacteur n'avait rien à raconter. url, repo et sources ne servent pas
+    # le récit.
+    project_facts = [
+        {k: p[k] for k in ("name", "context", "year", "description", "stack", "highlights") if p.get(k)}
+        for p in raw_projects
+    ]
 
     candidate_stacks = set()
-    for e in exps:
+    for e in exps + project_facts:
         for s in e.get("stack", []):
             candidate_stacks.add(s)
     if candidate_profile.get("skills"):
@@ -120,15 +129,18 @@ async def _call_analyst(
                 candidate_stacks.add(s)
 
     prompt = f"""Tu es un analyste et stratège de recrutement.
-À partir de l'offre d'emploi ci-dessous et des expériences du candidat :
+À partir de l'offre d'emploi ci-dessous et des expériences et projets du candidat :
 1. Identifie le défi n°1 du poste (le problème central) recherché par l'employeur.
 2. Formule une idée directrice unique (thèse) : une idée concrète, tirée du métier du candidat, montrant comment le candidat répond à ce défi.
-3. Dégage une synthèse thématique (fil rouge) qui relie l'ensemble du parcours du candidat (ou ses expériences les plus pertinentes) à cette thèse, SANS lister les expériences chronologiquement.
+3. Dégage une synthèse thématique (fil rouge) qui relie l'ensemble du parcours du candidat (ou ses expériences et projets les plus pertinents pour l'offre) à cette thèse, SANS lister les expériences chronologiquement. Un projet compte autant qu'une expérience lorsqu'il est plus proche de l'offre.
 4. Extrais 2 à 3 missions clés de l'offre.
 5. Relève 3 à 5 termes métier employés tels quels dans l'offre (outils, systèmes, procédés, données), recopiés à l'identique.
 
 Expériences candidates disponibles :
 {json.dumps(raw_exps, ensure_ascii=False)}
+
+Projets du candidat :
+{json.dumps(project_facts, ensure_ascii=False)}
 
 Offre d'emploi :
 {offer_description[:3000]}
@@ -178,6 +190,7 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
         "stacks": list(candidate_stacks),
         "companies": selected_companies,
         "projects": projects,
+        "selected_projects": project_facts,
         # Jamais l'email en repli : il finirait en signature de la lettre.
         "candidate_name": candidate_name,
         "candidate_headline": candidate_profile.get("headline", ""),
@@ -353,7 +366,7 @@ async def _call_writer(
         missions=json.dumps(analyst_json.get("missions", []), ensure_ascii=False),
         experiences=json.dumps(analyst_json.get("selected_experiences", []), ensure_ascii=False),
         stacks=", ".join(analyst_json.get("stacks", [])[:15]),
-        projects=", ".join(analyst_json.get("projects", [])),
+        projects=json.dumps(analyst_json.get("selected_projects", []), ensure_ascii=False),
         capped_repetitions=capped_repetitions,
         company_context_block=company_context_block,
         voice_style_block=voice_style_block,

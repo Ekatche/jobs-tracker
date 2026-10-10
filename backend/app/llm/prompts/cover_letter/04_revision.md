@@ -30,7 +30,7 @@ EXCEPTION DE RESTRUCTURATION : Si le critique signale un « CV déguisé (Catalo
 
 Si le critique signale le premier paragraphe, réécris uniquement ce paragraphe.
 
-Il doit faire 2 à 3 phrases, à la première personne, sur un ton factuel : le métier du candidat et, s'ils figurent dans le JSON, son employeur actuel ou sa durée d'expérience, un point concret de son travail présent dans le JSON qui rejoint le poste, et pourquoi ce poste l'intéresse en le nommant par son intitulé (champ job_title du JSON, s'il est renseigné) et en citant un élément concret de l'offre.
+Il doit faire 2 à 3 phrases, à la première personne, sur un ton factuel : le métier du candidat et, s'ils figurent dans le JSON, son employeur actuel ou sa durée d'expérience, un point concret de son travail présent dans le JSON qui rejoint le poste, et pourquoi ce poste l'intéresse en le désignant comme le candidat le ferait à l'oral et en citant un élément concret de l'offre. Le champ job_title du JSON sert de repère : un intitulé court se reprend en minuscules, un intitulé de plus de six mots se ramène à son métier, « ce poste d'ingénieur de recherche ». Ne recopie jamais un intitulé long, ni ses majuscules.
 
 Supprime toute phrase générale sans « je », toute maxime et tout vocabulaire solennel : « conviction », « enjeu », « au cœur de », « exige avant tout », « véritable », « crucial », « passionné », « défi ».
 

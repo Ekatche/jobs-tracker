@@ -560,3 +560,64 @@ async def test_company_researcher_discards_truncated_summary():
         context = await cover_letter_crew._call_company_researcher("Acme", ["extrait"])
 
     assert context == ""
+
+
+@pytest.mark.asyncio
+async def test_call_analyst_sees_project_details():
+    from cover_letter_crew import _call_analyst
+
+    profile = {
+        "experiences": [{"company": "Initech", "stack": ["Docker"]}],
+        "projects": [{
+            "name": "Survie multi-omique",
+            "description": "Autoencodeur et perte de Cox sur profils génomiques",
+            "stack": ["PyTorch"],
+            "context": "recherche",
+            "repo": "https://example.com/repo",
+            "sources": ["github"],
+        }],
+    }
+
+    with patch("cover_letter_crew.acompletion", return_value=_fake_response('{"missions": ["M1"]}')) as mock_comp:
+        result = await _call_analyst("Description", profile)
+
+    sent_prompt = mock_comp.call_args[1]["messages"][0]["content"]
+    assert "perte de Cox" in sent_prompt
+    assert "PyTorch" in result["stacks"]
+    assert result["projects"] == ["Survie multi-omique"]
+    assert result["selected_projects"] == [{
+        "name": "Survie multi-omique",
+        "context": "recherche",
+        "description": "Autoencodeur et perte de Cox sur profils génomiques",
+        "stack": ["PyTorch"],
+    }]
+
+
+@pytest.mark.asyncio
+async def test_writer_prompt_includes_project_details():
+    mock_choice = MagicMock()
+    mock_choice.message.content = "Lettre générée"
+    mock_resp = MagicMock(choices=[mock_choice], usage=None)
+
+    with patch("cover_letter_crew.acompletion", return_value=mock_resp) as mock_comp, \
+         patch("cover_letter_crew.get_letter_llm") as mock_llm:
+        mock_llm.return_value.model = "openai/gpt-5.6-terra"
+        mock_llm.return_value.api_key = "fake_key"
+
+        await cover_letter_crew._call_writer(
+            analyst_json={
+                "missions": [],
+                "selected_experiences": [],
+                "stacks": [],
+                "projects": ["Lecteur PDF"],
+                "selected_projects": [{
+                    "name": "Lecteur PDF",
+                    "description": "OCR et NER sur rapports oncologiques",
+                    "context": "client",
+                }],
+            },
+            company_name="Acme",
+        )
+
+    sent_prompt = mock_comp.call_args[1]["messages"][0]["content"]
+    assert "OCR et NER sur rapports oncologiques" in sent_prompt

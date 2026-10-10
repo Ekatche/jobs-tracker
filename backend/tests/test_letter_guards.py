@@ -338,3 +338,36 @@ def test_offer_terms_and_job_title_are_allowed_entities():
     analyst_data = {"stacks": [], "companies": [], "offer_terms": ["LIMS"], "job_title": "Responsable Data"}
     report = evaluate_letter_guards(letter, "", analyst_data)
     assert not any("LIMS" in v or "Responsable" in v for v in report.violations)
+
+
+def test_long_job_title_copied_verbatim_is_flagged():
+    title = "Research Engineer For Ai-driven Molecular And Spatial Analysis Of Tumor Cell Plasticity"
+    letter = f"Madame, Monsieur,\n\nLe poste de {title.lower()} m'intéresse.\n\nCordialement"
+    report = evaluate_letter_guards(letter, "", {"job_title": title})
+    assert report.is_blocking is True
+    assert any("Intitulé du poste recopié" in v for v in report.violations)
+
+
+def test_short_job_title_can_be_quoted():
+    letter = "Madame, Monsieur,\n\nVotre offre de responsable data m'intéresse.\n\nCordialement"
+    report = evaluate_letter_guards(letter, "", {"job_title": "Responsable Data"})
+    assert not any("Intitulé du poste recopié" in v for v in report.violations)
+
+
+def test_project_facts_are_allowed_entities_and_numbers():
+    letter = (
+        "Madame, Monsieur,\n\nMon lecteur de rapports Foundation Medicine isolait 12 pages clés.\n\n"
+        "Cordialement"
+    )
+    analyst_data = {
+        "stacks": [],
+        "companies": [],
+        "projects": ["Lecteur PDF"],
+        "selected_projects": [{
+            "name": "Lecteur PDF",
+            "description": "Classification d'images (OCR), rapports Foundation Medicine, 12 pages clés isolées",
+        }],
+    }
+    report = evaluate_letter_guards(letter, "", analyst_data)
+    assert not any("Foundation" in v for v in report.violations)
+    assert not any("'12'" in v for v in report.violations)
