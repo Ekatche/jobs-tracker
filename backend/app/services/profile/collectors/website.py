@@ -24,7 +24,6 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from litellm import acompletion
 
-from app.models import normalize_project_context
 from app.services.profile.urls import validate_public_url_async
 
 # `letter_llm` vit dans job_trackers/src/job_trackers, hors du package `app` :
@@ -45,20 +44,6 @@ MAX_REDIRECTS = 5
 FETCH_TIMEOUT = 10.0
 FALLBACK_PATHS = ("", "/experience", "/work", "/projects", "/formation", "/competences", "/about")
 SKIP_PATTERNS = ("/contact", "/mentions", "/legal", "/privacy", "/blog/tag")
-
-def _coerce_project_contexts(payload: Dict[str, Any]) -> None:
-    """Ramène le `context` de chaque projet à une valeur admise par
-    `CandidateProject.context` (synonymes compris, repli sur "perso").
-
-    Le prompt énumère les valeurs admises, mais un prompt n'est pas une
-    garantie. Sans cette coercition défensive, une valeur hors énumération
-    (ex. "personnel", "freelance") fait échouer
-    `CandidateProfile.model_validate` dans `_store_source` et retourne 502 sur
-    l'import du site — la source la plus riche du profil. Modifie `payload`
-    en place.
-    """
-    for project in payload.get("projects", []) or []:
-        project["context"] = normalize_project_context(project.get("context"))
 
 
 async def _default_fetch(url: str, total_timeout: float = FETCH_TIMEOUT) -> Optional[str]:
@@ -212,7 +197,7 @@ Extrais TOUS les faits et TOUTES les expériences professionnelles de manière e
 Réponds uniquement par un objet JSON avec ces clés :
 - "identity": {{"headline": titre professionnel, "summary": résumé factuel}}
 - "experiences": [{{"company", "role", "location", "contract", "start", "end", "missions": [], "stack": [], "achievements": []}}]
-- "projects": [{{"name", "description", "context" (une valeur EXACTE parmi: "perso", "client", "recherche", "consortium", "associatif", "evenement"), "stack": [], "url"}}]
+- "projects": [{{"name", "description", "context" (cadre du projet en texte libre : libellé court fidèle au site, ex : Perso, Client, Stage, Associatif), "stack": [], "url"}}]
 - "education": [{{"school", "degree", "years"}}]
 - "certifications": [{{"name", "issuer", "year"}}]
 - "skills": {{"catégorie": ["compétence"]}}
@@ -314,7 +299,6 @@ async def collect_website(
         raise ValueError("Aucune page exploitable sur ce site")
 
     payload = await extract(markdown_by_url)
-    _coerce_project_contexts(payload)
 
     # Le prompt LLM niche "headline"/"summary" sous "identity" (forme
     # d'extraction raisonnable), mais `build_profile_from_sources` (merge.py)

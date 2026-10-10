@@ -40,14 +40,21 @@ import {
 } from "@/types/coverLetter";
 import CvDropzone from "./CvDropzone";
 
-const PROJECT_CONTEXT_OPTIONS = [
-  { value: "perso", label: "Perso" },
-  { value: "client", label: "Client" },
-  { value: "recherche", label: "Recherche" },
-  { value: "consortium", label: "Consortium" },
-  { value: "associatif", label: "Associatif" },
-  { value: "evenement", label: "Événement" },
-];
+// Le contexte d'un projet est un texte libre. Les profils enregistrés quand
+// c'était une liste fermée gardent ces codes : on les affiche avec leur libellé.
+const LEGACY_PROJECT_CONTEXT_LABELS: Record<string, string> = {
+  perso: "Perso",
+  client: "Client",
+  recherche: "Recherche",
+  consortium: "Consortium",
+  associatif: "Associatif",
+  evenement: "Événement",
+};
+
+function projectContextLabel(context?: string | null): string {
+  if (!context) return "";
+  return LEGACY_PROJECT_CONTEXT_LABELS[context] ?? context;
+}
 
 function formatMonthYear(val?: string | null): string {
   if (!val) return "";
@@ -276,7 +283,7 @@ export default function CandidateProfileSection() {
         name: "",
         description: "",
         stack: [],
-        context: "perso",
+        context: "",
         url: "",
         repo: "",
       },
@@ -822,7 +829,7 @@ export default function CandidateProfileSection() {
                             <span>{proj.name}</span>
                             {proj.context && (
                               <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                                {PROJECT_CONTEXT_OPTIONS.find((option) => option.value === proj.context)?.label ?? proj.context}
+                                {projectContextLabel(proj.context)}
                               </span>
                             )}
                           </div>
@@ -1434,17 +1441,13 @@ export default function CandidateProfileSection() {
                     </div>
                     <div>
                       <label className="text-[10px] text-slate-400 font-medium block mb-0.5">Contexte</label>
-                      <select
-                        value={proj.context || "perso"}
+                      <input
+                        type="text"
+                        value={projectContextLabel(proj.context)}
                         onChange={(e) => handleUpdateProject(idx, "context", e.target.value)}
+                        placeholder="ex: Client, Perso, Stage, Associatif"
                         className="w-full text-xs rounded bg-slate-950 border border-gray-700 py-1.5 px-2.5 text-white"
-                      >
-                        {PROJECT_CONTEXT_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                   </div>
                   <div>

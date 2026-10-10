@@ -16,7 +16,6 @@ import pytest
 import app.services.profile.collectors.website as website
 from app.services.profile.collectors.github import collect_github, parse_github_username
 from app.services.profile.collectors.website import (
-    _coerce_project_contexts,
     _default_fetch,
     collect_website,
     discover_pages,
@@ -236,12 +235,10 @@ async def test_collect_website_raises_when_no_page_has_markdown(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_collect_website_projects_context_outside_enum_is_coerced_to_perso(monkeypatch):
-    """`CandidateProject.context` est un Literal fermé (voir
-    `PROJECT_CONTEXTS`). Un LLM peut renvoyer une valeur hors énumération
-    malgré le prompt qui les énumère explicitement : `collect_website` doit la
-    corriger en "perso" plutôt que de laisser passer une valeur invalide vers
-    la validation Pydantic en aval (502 sur l'import du site)."""
+async def test_collect_website_keeps_free_text_project_context(monkeypatch):
+    """`CandidateProject.context` est un texte libre : `collect_website` doit
+    transmettre le libellé renvoyé par le LLM tel quel, sans le ramener à une
+    liste fermée."""
 
     async def fake_fetch(url):
         return None
@@ -254,7 +251,7 @@ async def test_collect_website_projects_context_outside_enum_is_coerced_to_perso
     async def fake_extract(markdown_by_url):
         return {
             "projects": [
-                {"name": "Refonte vitrine", "description": "Mission ponctuelle", "context": "freelance"}
+                {"name": "Refonte vitrine", "description": "Mission ponctuelle", "context": "Freelance"}
             ],
             "experiences": [],
         }
@@ -263,33 +260,7 @@ async def test_collect_website_projects_context_outside_enum_is_coerced_to_perso
         "https://example.com", crawler=crawler, extract=fake_extract
     )
 
-    assert payload["projects"][0]["context"] == "perso"
-
-
-@pytest.mark.asyncio
-async def test_collect_website_keeps_valid_project_context_untouched(monkeypatch):
-    """Contrôle négatif de la coercition : une valeur déjà valide ne doit pas
-    être réécrite."""
-
-    async def fake_fetch(url):
-        return None
-
-    monkeypatch.setattr(website, "_default_fetch", fake_fetch)
-
-    results = [SimpleNamespace(url="https://example.com", markdown="# Accueil")]
-    crawler = FakeCrawler(results)
-
-    async def fake_extract(markdown_by_url):
-        return {
-            "projects": [{"name": "Projet client", "description": "Mission", "context": "client"}],
-            "experiences": [],
-        }
-
-    payload = await collect_website(
-        "https://example.com", crawler=crawler, extract=fake_extract
-    )
-
-    assert payload["projects"][0]["context"] == "client"
+    assert payload["projects"][0]["context"] == "Freelance"
 
 
 @pytest.mark.asyncio
@@ -628,16 +599,3 @@ async def test_extract_with_llm_preserves_large_markdown(monkeypatch):
 
     assert len(captured_prompt) == 1
     assert "FIN_EXPERIENCE" in captured_prompt[0]
-
-
-
-
-def test_coerce_project_contexts_maps_synonyms_before_fallback():
-    payload = {"projects": [
-        {"name": "A", "context": "association"},
-        {"name": "B", "context": "Événement"},
-        {"name": "C", "context": "stage"},
-        {"name": "D"},
-    ]}
-    _coerce_project_contexts(payload)
-    assert [p["context"] for p in payload["projects"]] == ["associatif", "evenement", "perso", "perso"]

@@ -101,15 +101,6 @@ async def test_parse_cv_with_llm_falls_back_to_text_on_vlm_error(tmp_path, monke
             assert result["headline"] == "Fallback Data Engineer"
 
 
-def test_clean_parsed_cv_maps_new_project_contexts():
-    data = _clean_parsed_cv({"projects": [
-        {"name": "Restos du cœur", "context": "Bénévolat"},
-        {"name": "Salon de l'emploi", "context": "salon"},
-        {"name": "Stage", "context": "stage"},
-    ]})
-    assert [p["context"] for p in data["projects"]] == ["associatif", "evenement", "perso"]
-
-
 def test_clean_parsed_cv_keeps_non_empty_mobility_and_availability():
     data = _clean_parsed_cv({"contact": {"mobility": " Permis B, véhiculé ", "availability": "", "phone": None}})
     assert data["contact"] == {"mobility": "Permis B, véhiculé"}
@@ -130,4 +121,4 @@ async def test_parse_cv_with_llm_prompt_routes_habilitations_and_mobility():
     prompt = mock_llm.call_args.kwargs["messages"][0]["content"]
     assert "CACES" in prompt
     assert "mobility" in prompt and "availability" in prompt
-    assert "associatif" in prompt
+    assert "texte libre" in prompt

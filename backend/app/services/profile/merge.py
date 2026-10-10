@@ -321,7 +321,7 @@ def _merge_projects(
 
             current["url"] = current.get("url") or project.get("url")
             current["repo"] = current.get("repo") or project.get("repo")
-            current["context"] = current.get("context") or project.get("context") or "perso"
+            current["context"] = current.get("context") or project.get("context")
             current["stack"] = _dedup_preserving_order(
                 (current.get("stack") or []) + stack
             )

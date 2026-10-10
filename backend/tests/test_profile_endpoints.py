@@ -182,34 +182,21 @@ def test_saving_profile_does_not_wipe_preferences(client, profile_db):
     assert res.json()["preferences"]["locations"] == ["Paris"]
 
 
-def test_website_import_with_invalid_project_context_is_coerced_to_perso(
+def test_website_import_keeps_free_text_project_context(
     client, profile_db, monkeypatch
 ):
-    """`CandidateProject.context` est un Literal fermé ("perso"/"client"/"recherche"/
-    "consortium"). `collect_website` applique désormais une coercition défensive
-    (`_coerce_project_contexts`) : une sortie LLM hors énumération (ex: "stage")
-    est remplacée par "perso" avant même d'atteindre `_store_source`, plutôt que
-    de faire échouer la validation Pydantic et remonter 502 sur l'import de la
-    source la plus riche du profil.
-
-    Ce test mocke `collect_website` au niveau du routeur (comme les autres tests
-    de ce fichier) mais applique la vraie fonction de coercition du module
-    `website` pour refléter fidèlement ce que fait la fonction réelle — la
-    couverture de la coercition elle-même (via un `extract` factice sur le
-    vrai `collect_website`) vit dans `test_profile_collectors.py`.
-    """
+    """`CandidateProject.context` est un texte libre : un libellé hors des
+    anciennes valeurs (ex: "stage") passe la validation de `_store_source` et
+    reste tel quel dans le profil, au lieu de remonter 502 sur l'import."""
     import app.routers.cover_letters as router
-    from app.services.profile.collectors.website import _coerce_project_contexts
 
     async def fake_collect(url):
-        payload = {
+        return {
             "projects": [
                 {"name": "Stage RH", "description": "Mission de stage", "context": "stage"}
             ],
             "experiences": [],
         }
-        _coerce_project_contexts(payload)
-        return payload
 
     monkeypatch.setattr(router, "collect_website", fake_collect)
     # IP littérale : `validate_public_url` ne fait alors aucune résolution DNS
@@ -218,7 +205,7 @@ def test_website_import_with_invalid_project_context_is_coerced_to_perso(
         "/profile/candidate/sources/website", json={"url": "https://93.184.216.34"}
     )
     assert res.status_code == 200
-    assert res.json()["projects"][0]["context"] == "perso"
+    assert res.json()["projects"][0]["context"] == "stage"
 
 
 def test_store_source_non_validation_failure_returns_502_not_500(

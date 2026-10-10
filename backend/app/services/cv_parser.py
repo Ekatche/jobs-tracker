@@ -8,8 +8,6 @@ from typing import Any, Dict, List, Optional
 
 from litellm import acompletion
 
-from app.models import normalize_project_context
-
 logger = logging.getLogger(__name__)
 
 # Définition du schéma attendu pour la validation et l'extraction
@@ -48,7 +46,7 @@ PROFILE_JSON_SCHEMA = {
                 "properties": {
                     "name": {"type": "string"},
                     "description": {"type": "string"},
-                    "context": {"type": "string", "description": "perso, client, recherche, consortium, associatif ou evenement"},
+                    "context": {"type": "string", "description": "cadre du projet en texte libre, libellé court fidèle au CV (ex : Perso, Client, Stage, Associatif)"},
                     "stack": {
                         "type": "array",
                         "items": {"type": "string"}
@@ -136,11 +134,6 @@ def render_pdf_pages_to_base64_images(pdf_path: str, max_pages: int = 3, dpi: in
 def _clean_parsed_cv(data: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(data, dict):
         return data
-    projects = data.get("projects")
-    if isinstance(projects, list):
-        for p in projects:
-            if isinstance(p, dict):
-                p["context"] = normalize_project_context(p.get("context"))
 
     raw_contact = data.get("contact")
     if isinstance(raw_contact, dict):
@@ -220,7 +213,7 @@ Extrais fidèlement les informations réelles sans rien inventer sous format JSO
     {
       "name": "Nom du projet",
       "description": "Description succincte",
-      "context": "perso | client | recherche | consortium | associatif | evenement",
+      "context": "Cadre du projet en texte libre, libellé court (ex : Perso, Client, Stage, Associatif)",
       "stack": ["Techno ou outil"],
       "url": "Lien si présent"
     }
@@ -328,7 +321,7 @@ Schéma JSON attendu :
 - 'headline': titre professionnel principal (ex: Développeur Fullstack, Chef de Projet, Directeur Financier, etc.).
 - 'summary': accroche factuelle et sobre de 3-4 phrases, dans le vocabulaire du métier réel du candidat (déduit du CV). Pas de superlatifs génériques ('passionné', 'dynamique', 'expert'). Ne cite pas comme atout distinctif une compétence qui fait partie du socle normal du métier (ex: 'sécurité des enfants' pour une animatrice, 'rigueur' pour un comptable) — ne retiens que ce qui différencie réellement ce candidat : spécialisations, résultats concrets, trajectoire. Mets en valeur la personne et son parcours propre, pas une fiche de poste générique.
 - 'experiences': liste d'objets avec company, role, location, contract, start, end, missions (liste de réalisations), stack (outils/logiciels/technologies).
-- 'projects': liste d'objets avec name, description, context (une valeur parmi "perso", "client", "recherche", "consortium", "associatif", "evenement"), stack, url.
+- 'projects': liste d'objets avec name, description, context (cadre du projet en texte libre : libellé court fidèle au CV, ex : Perso, Client, Stage, Associatif), stack, url.
 - 'education': liste d'objets avec school, degree, years.
 - 'certifications': liste d'objets avec name, issuer, year. Les titres réglementaires et habilitations — CACES (avec les catégories, ex: 'CACES R489 cat. 1, 3, 5'), permis de conduire (B, C, CE…), SST, habilitations électriques, FIMO/FCO — vont ici, jamais dans 'skills'.
 - 'languages': liste des langues parlées avec niveau si mentionné.
