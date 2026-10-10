@@ -34,15 +34,19 @@ Description :
    - Chaque entreprise présente dans la section `experiences` doit provenir rigoureusement de la liste des entreprises du profil candidat.
 
 3. **ACCROCHE PROFESSIONNELLE (Summary)** :
-   - Rédige 2 à 3 phrases courtes, 45 mots maximum au total (en français, ou dans la langue de l'offre si l'offre est en anglais).
-   - Ton : celui d'une personne qui décrit simplement son travail à un recruteur, concret, sans chercher à impressionner. Style impersonnel des CV, sans « je ».
-   - Contenu : le métier et le domaine, puis les actions et outils concrets du profil qui répondent à l'offre.
+   - Rédige 3 phrases, 70 mots maximum au total (en français, ou dans la langue de l'offre si l'offre est en anglais).
+   - Reste général : présente ce que l'ensemble du parcours apporte, sans détailler une mission, un projet ou une entreprise (la section expériences s'en charge).
+   - Phrase 1 : le métier du candidat tel que son profil le décrit (titre du profil ou postes occupés), suivi de « avec une expérience dans » les domaines et les grands types de travaux de son parcours.
+   - Phrase 2 : l'étendue de son intervention, de la donnée ou de la matière de départ jusqu'à son usage final, telle que ses expériences la montrent, puis ses outils principaux en fin de phrase (« principalement en … »).
+   - Phrase 3 : ce que son travail apporte aux équipes qui en bénéficient, sans chiffre ni superlatif.
+   - Exemple de forme pour un profil data, à ne pas recopier : « Data Scientist avec une expérience dans la conception de modèles de machine learning, de pipelines de données et de solutions analytiques sur le cloud. J'interviens de l'intégration des données jusqu'à leur exploitation dans des modèles, des tableaux de bord et des applications d'IA, principalement en Python, SQL et PySpark. Mon objectif est de transformer les données en aide à la décision pour les métiers. »
+   - La première phrase est sans sujet ; la première personne est admise ensuite (« j'interviens », « mon objectif »).
+   - Rédige l'accroche à partir du seul profil candidat : chaque domaine, type de travaux, outil et public cité doit se retrouver dans le profil. Avant de répondre, relis l'accroche et retire tout terme absent du profil, même s'il figure dans l'offre ou dans l'analyse Bloc B.
+   - L'offre et l'analyse Bloc B servent seulement à choisir, parmi les compétences et types de travaux réels du profil, ceux à placer en premier. N'emprunte à l'offre aucun terme (méthode, domaine, technologie, livrable ou public visé) que le profil ne montre pas ; ne reprends pas l'intitulé d'une exigence couverte partiellement ou manquante, même si l'analyse cite une preuve.
    - Si le champ `writing_style` du profil candidat est renseigné, imite ce style et ce niveau de formalité (vocabulaire, rythme de phrase) plutôt qu'un ton générique de CV.
-   - Positionne le candidat avec exactitude par rapport au poste ciblé chez {target_company}.
-   - Les exigences de poids `critical` de l'analyse Bloc B guident la première phrase de l'accroche, dans la limite de ce que le profil prouve.
    - N'emploie aucun qualificatif que le candidat s'attribuerait : "expérience éprouvée", "expérience avérée", "solide expérience", "fort de", "doté de", "maîtrise de", "spécialisé dans", "compétent", "habitué à", "rigoureux", "expert", "passionné".
    - N'ajoute pas d'adjectif qui gonfle une tâche ("complexes", "strict", "volumétrique", "stratégique") : le nom seul suffit.
-   - Ne cite aucun nom d'employeur : la section expériences les donne déjà.
+   - Ne cite aucun nom d'employeur.
 
 4. **EXPÉRIENCES PROFESSIONNELLES** :
    - Déduis le métier réel du candidat à partir de son profil et de l'offre, et écris dans le vocabulaire métier correspondant.
@@ -86,7 +90,7 @@ Description :
 Tu dois répondre UNIQUEMENT par un objet JSON valide, sans balises superflues ni texte d'introduction/conclusion, conforme au schéma suivant :
 {{
   "target_role_title": "Titre exact du poste visé",
-  "professional_summary": "Accroche sobre de 2-3 phrases, 45 mots maximum",
+  "professional_summary": "Accroche générale de 3 phrases, 70 mots maximum",
   "prioritized_skills": [
     {{
       "category": "Nom de la catégorie",

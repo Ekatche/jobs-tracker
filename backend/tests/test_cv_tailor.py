@@ -241,10 +241,28 @@ def test_load_tailor_prompt_asks_for_short_sober_summary():
     assert "expert mondial" not in prompt
     assert "percutante" not in prompt
     assert "proposition de valeur" not in prompt
-    assert prompt.count("45 mots") >= 2
+    assert "45 mots" not in prompt
+    assert prompt.count("70 mots") >= 2
     assert "expérience éprouvée" in prompt
     assert "habitué à" in prompt
     assert "Ne cite aucun nom d'employeur" in prompt
+
+
+def test_load_tailor_prompt_grounds_summary_in_profile_experiences():
+    from app.services.cv_tailor import load_tailor_prompt
+
+    prompt = load_tailor_prompt(SAMPLE_PROFILE, SAMPLE_OFFER, SAMPLE_EVALUATION)
+
+    assert "guident la première phrase" not in prompt
+    assert "Positionne le candidat" not in prompt
+    assert "N'emprunte à l'offre aucun terme" in prompt
+    assert "doit se retrouver dans le profil" in prompt
+    assert "livrable ou public" in prompt
+    assert "Reste général" in prompt
+    assert "Scientist spécialisé" not in prompt
+    assert prompt.count("avec une expérience dans") >= 2
+    assert "Avec Python" not in prompt
+    assert prompt.count("principalement en") >= 2
 
 
 def test_load_tailor_prompt_without_evaluation_judges_relevance_from_offer():
