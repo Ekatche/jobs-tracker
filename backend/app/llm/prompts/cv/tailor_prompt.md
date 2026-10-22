@@ -49,11 +49,16 @@ Description :
    - Ne cite aucun nom d'employeur.
 
 4. **EXPÉRIENCES PROFESSIONNELLES** :
+   - Classe les expériences dans l'ordre antichronologique (la plus récente d'abord).
    - Déduis le métier réel du candidat à partir de son profil et de l'offre, et écris dans le vocabulaire métier correspondant.
-   - Nombre de bullet points proportionné à la pertinence pour l'offre :
-     - expérience qui couvre des exigences `critical` ou `high` de l'analyse Bloc B : 4 à 5 bullet points, en commençant par ceux qui prouvent ces exigences ;
-     - expérience annexe : 1 à 2 bullet points. Conserve-la pour ne pas créer de trou dans le parcours ; ne la supprime jamais.
+   - Budget total : {bullet_budget} puces pour l'ensemble des expériences, réparties selon la pertinence pour l'offre et l'analyse Bloc B, pas selon l'ancienneté.
+   - Indique pour chaque expérience `relevance` : « principale » si elle prouve des exigences de l'offre (en priorité de poids critical ou high), sinon « secondaire ».
      - En l'absence d'analyse Bloc B, juge la pertinence de chaque expérience d'après l'offre.
+   - Expérience principale : 5 puces au maximum, en commençant par celles qui prouvent les exigences de l'offre. Une expérience ancienne mais centrale pour l'offre peut recevoir plus de puces qu'une expérience récente.
+   - Expérience secondaire : 0 à 2 puces ; sans lien avec l'offre, garde-la en entrée compacte (bullet_points: [] et relevant_technologies: []) avec titre, entreprise, lieu et dates.
+   - Ne supprime aucune expérience : un trou dans le parcours pèse plus qu'une ligne de plus.
+   - Fusionne les postes consécutifs chez le même employeur en une seule entrée consolidée (retenant la date de début la plus ancienne, l'intitulé, le lieu et la date de fin les plus récents).
+   - Une puce = une ligne, environ 20 mots maximum.
    - Formule les bullet points avec des verbes d'action et, quand le profil les fournit, des résultats quantifiés propres au métier. Exemples par famille :
      - tech : latence, volume de données, disponibilité ;
      - RH : délai de recrutement, nombre de recrutements, turnover ;
@@ -62,14 +67,14 @@ Description :
      Ne retiens que les métriques du métier réel du candidat. N'invente JAMAIS un chiffre absent du profil.
    - Réaligne le vocabulaire métier sur celui de l'offre si le candidat a effectivement exercé ces missions.
    - Pour un métier opérationnel ou manuel (logistique, production, bâtiment, conduite…), écris des phrases simples et concrètes, sans jargon de bureau.
-   - Isole dans `relevant_technologies` les outils, logiciels, engins ou méthodes réellement utilisés à chaque poste d'après le profil (ex : SAP, chariot élévateur, scanner RF, Canva, Python).
+   - Isole dans `relevant_technologies` les outils, logiciels, engins ou méthodes réellement utilisés à chaque poste d'après le profil (6 outils au maximum par expérience, ex : SAP, chariot élévateur, scanner RF, Canva, Python).
 
 5. **COMPÉTENCES GROUPÉES (prioritized_skills)** :
-   - Structure les compétences en 2 à 4 catégories cohérentes et pertinentes pour le métier réel du candidat (déduis les catégories du profil et de l'offre — ne force AUCUNE catégorie type "Data & IA" si le candidat exerce un autre métier).
+   - Structure les compétences en 2 à 4 catégories cohérentes et pertinentes pour le métier réel du candidat (8 compétences au maximum par catégorie — ne force AUCUNE catégorie type "Data & IA" si le candidat exerce un autre métier).
    - Mets en tête de liste les compétences requises par l'offre que le candidat possède réellement, en commençant par celles liées aux exigences de poids `critical`.
 
 6. **PROJETS CLÉS (featured_projects)** :
-   - Sélectionne 0 à 3 projets concrets du candidat démontrant sa capacité à délivrer sur les enjeux de l'offre. Les projets associatifs ou événementiels comptent au même titre que les projets professionnels.
+   - Sélectionne 0 à {max_projects} projets concrets du candidat démontrant sa capacité à délivrer sur les enjeux de l'offre. Les projets associatifs ou événementiels comptent au même titre que les projets professionnels.
    - Renvoie une liste vide si aucun projet n'est pertinent pour l'offre.
 
 7. **FORMATION & LANGUES** :
@@ -81,8 +86,8 @@ Description :
    - Si l'offre exige une habilitation (CACES, permis de conduire, SST, habilitation électrique, FIMO/FCO…) que le candidat possède, cite-la dans l'accroche et place-la en tête de `certifications`.
 
 9. **LONGUEUR** :
-   - Une page A4 pour un profil de moins de 5 ans d'expérience ou un métier opérationnel ; deux pages maximum sinon.
-   - Pour tenir ce budget, réduis d'abord les expériences annexes, jamais les expériences pertinentes.
+   - {page_limit} au maximum.
+   - Pour tenir ce budget, raccourcis d'abord les expériences secondaires les plus anciennes, puis les projets ; garde les puces qui prouvent les exigences de poids critical ou high.
 
 ---
 
@@ -104,6 +109,7 @@ Tu dois répondre UNIQUEMENT par un objet JSON valide, sans balises superflues n
       "location": "Ville",
       "start_date": "Date début",
       "end_date": "Date fin ou Présent",
+      "relevance": "principale ou secondaire",
       "bullet_points": [
         "Verbe d'action + mission + métrique d'impact...",
         "..."

@@ -1,4 +1,5 @@
 import json
+import logging
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
@@ -8,8 +9,18 @@ from app.models import (
     TailoredSkillGroup,
     TailoredLanguage,
     TailoredEducationItem,
+    TailoredProjectItem,
 )
-from app.services.cv_tailor import generate_tailored_cv_content
+from app.services.cv_tailor import (
+    PAGE_BUDGETS,
+    PageBudget,
+    compute_page_budget,
+    generate_tailored_cv_content,
+    enforce_page_budget,
+    MAX_TECHNOLOGIES,
+    MAX_SKILL_GROUPS,
+    MAX_SKILLS_PER_GROUP,
+)
 
 
 SAMPLE_PROFILE = {
@@ -226,11 +237,32 @@ def test_load_tailor_prompt_covers_non_tech_trades_and_relevance_quotas():
     assert "vocabulaire métier" in prompt
     assert "colis ou lignes par heure" in prompt
     assert "délai de recrutement" in prompt
-    assert "4 à 5 bullet points" in prompt
-    assert "1 à 2 bullet points" in prompt
-    assert "0 à 3 projets" in prompt
+    assert "antichronologique" in prompt
     assert "CACES" in prompt
+    budget = compute_page_budget(SAMPLE_PROFILE)
+    assert f"Budget total : {budget.bullets} puces" in prompt
+    assert f"0 à {budget.projects} projets" in prompt
+    assert ("Deux pages A4" if budget.pages == 2 else "Une page A4") in prompt
+    assert "{page_limit}" not in prompt
+    assert '"relevance": "principale ou secondaire"' in prompt
+
+
+def test_load_tailor_prompt_renders_one_and_two_page_budgets():
+    from app.services.cv_tailor import load_tailor_prompt
+
+    junior = {**SAMPLE_PROFILE, "experiences": [{"title": "Dev", "company": "A", "start_date": "2019-01", "end_date": "2022-01"}]}
+    prompt = load_tailor_prompt(junior, SAMPLE_OFFER)
+
     assert "Une page A4" in prompt
+    assert "0 à 2 projets" in prompt
+    assert f"Budget total : {PAGE_BUDGETS[1].bullets} puces" in prompt
+
+    experienced = {**SAMPLE_PROFILE, "experiences": [{"title": "Dev", "company": "A", "start_date": "2016-01", "end_date": "2021-01"}]}
+    prompt = load_tailor_prompt(experienced, SAMPLE_OFFER)
+
+    assert "Deux pages A4" in prompt
+    assert "0 à 3 projets" in prompt
+    assert f"Budget total : {PAGE_BUDGETS[2].bullets} puces" in prompt
 
 
 def test_load_tailor_prompt_asks_for_short_sober_summary():
@@ -296,3 +328,297 @@ async def test_generate_tailored_cv_content_retries_with_violation_feedback():
     assert mock_acompletion.call_count == 2
     second_prompt = mock_acompletion.call_args_list[1].kwargs["messages"][0]["content"]
     assert "UnknownImaginaryFramework" in second_prompt
+
+
+# Dates de fin explicites : le budget ne doit pas dépendre de la date du jour.
+@pytest.mark.parametrize(
+    "experiences, pages",
+    [
+        ([{"start": "2018-01", "end": "2022-01"}], 1),
+        ([{"start": "2017-02", "end": "2022-01"}], 1),
+        ([{"start": "2017-01", "end": "2022-01"}], 2),
+        ([{"start": "2010-01", "end": "2015-06"}, {"start_date": "2015-07", "end_date": "2021-01"}], 2),
+        ([{"start": None, "end": None}], 1),
+    ],
+)
+def test_page_budget_by_career_years(experiences, pages):
+    budget = compute_page_budget({"experiences": experiences})
+
+    assert budget == PAGE_BUDGETS[pages]
+
+
+def _make_sample_cv(
+    experiences=None,
+    featured_projects=None,
+    prioritized_skills=None,
+) -> TailoredCVSchema:
+    return TailoredCVSchema(
+        target_role_title="Lead Developer",
+        professional_summary="Résumé professionnel court et ciblé.",
+        experiences=experiences or [],
+        featured_projects=featured_projects or [],
+        prioritized_skills=prioritized_skills or [],
+        education=[TailoredEducationItem(degree="Master", institution="INSA", year="2020")],
+        languages=[TailoredLanguage(language="Français", level="Natif")],
+        certifications=[],
+    )
+
+
+def test_enforce_sorts_like_renderer():
+    exp_old = TailoredExperienceItem(
+        title="Junior Dev",
+        company="Old Corp",
+        location="Paris",
+        start_date="2018",
+        end_date="2020",
+        bullet_points=["Worked on legacy apps."],
+        relevant_technologies=["PHP"],
+    )
+    exp_current = TailoredExperienceItem(
+        title="Staff Engineer",
+        company="Current Corp",
+        location="Lyon",
+        start_date="2022",
+        end_date="Présent",
+        bullet_points=["Architecting systems."],
+        relevant_technologies=["Python"],
+    )
+    exp_mid = TailoredExperienceItem(
+        title="Senior Dev",
+        company="Mid Corp",
+        location="Lyon",
+        start_date="2020",
+        end_date="2022",
+        bullet_points=["Scaling microservices."],
+        relevant_technologies=["FastAPI"],
+    )
+
+    cv = _make_sample_cv(experiences=[exp_old, exp_current, exp_mid])
+    result = enforce_page_budget(cv, PAGE_BUDGETS[1])
+
+    assert [e.company for e in result.experiences] == ["Current Corp", "Mid Corp", "Old Corp"]
+
+
+def test_enforce_merges_consecutive_same_employer():
+    stint_recent = TailoredExperienceItem(
+        title="Engineering Lead",
+        company="Tech Corp",
+        location="Lyon",
+        start_date="2022",
+        end_date="Présent",
+        bullet_points=["Led team of 8.", "Designed cloud architecture."],
+        relevant_technologies=["Python", "FastAPI"],
+    )
+    stint_previous = TailoredExperienceItem(
+        title="Senior Developer",
+        company="tech corp  ",
+        location="Paris",
+        start_date="2020",
+        end_date="2022",
+        bullet_points=["Built microservices."],
+        relevant_technologies=["python", "Docker", "PostgreSQL"],
+        relevance="principale",
+    )
+    cv = _make_sample_cv(experiences=[stint_recent, stint_previous])
+    result = enforce_page_budget(cv, PAGE_BUDGETS[1])
+
+    assert len(result.experiences) == 1
+    merged = result.experiences[0]
+    assert merged.company == "Tech Corp"
+    assert merged.title == "Engineering Lead"
+    assert merged.location == "Lyon"
+    assert merged.end_date == "Présent"
+    assert merged.start_date == "2020"
+    assert merged.bullet_points == [
+        "Led team of 8.",
+        "Designed cloud architecture.",
+        "Built microservices.",
+    ]
+    assert merged.relevant_technologies == ["Python", "FastAPI", "Docker", "PostgreSQL"]
+    assert merged.relevance == "principale"
+
+
+def test_enforce_keeps_non_consecutive_same_employer():
+    stint_1 = TailoredExperienceItem(
+        title="Lead Dev",
+        company="Acme Corp",
+        start_date="2024",
+        end_date="Présent",
+        bullet_points=["Leadership."],
+    )
+    stint_2 = TailoredExperienceItem(
+        title="Consultant",
+        company="Other Agency",
+        start_date="2022",
+        end_date="2024",
+        bullet_points=["Consulting."],
+    )
+    stint_3 = TailoredExperienceItem(
+        title="Junior Dev",
+        company="Acme Corp",
+        start_date="2020",
+        end_date="2022",
+        bullet_points=["Junior tasks."],
+    )
+    cv = _make_sample_cv(experiences=[stint_1, stint_2, stint_3])
+    result = enforce_page_budget(cv, PAGE_BUDGETS[1])
+
+    assert len(result.experiences) == 3
+    assert [e.company for e in result.experiences] == ["Acme Corp", "Other Agency", "Acme Corp"]
+
+
+def test_enforce_caps_projects_skills_technologies():
+    projects = [
+        TailoredProjectItem(name=f"Project {i}", description=f"Desc {i}", technologies=["Tech"])
+        for i in range(4)
+    ]
+    skill_groups = [
+        TailoredSkillGroup(category=f"Category {i}", skills=[f"Skill {k}" for k in range(12)])
+        for i in range(6)
+    ]
+    exp = TailoredExperienceItem(
+        title="Developer",
+        company="Solo Corp",
+        start_date="2022",
+        end_date="Présent",
+        bullet_points=["B1", "B2"],
+        relevant_technologies=[f"Tech {k}" for k in range(10)],
+    )
+
+    cv = _make_sample_cv(
+        experiences=[exp],
+        featured_projects=projects,
+        prioritized_skills=skill_groups,
+    )
+    result = enforce_page_budget(cv, PAGE_BUDGETS[1])
+
+    assert len(result.featured_projects) == PAGE_BUDGETS[1].projects
+    assert [p.name for p in result.featured_projects] == ["Project 0", "Project 1"]
+
+    assert len(result.prioritized_skills) == MAX_SKILL_GROUPS
+    for group in result.prioritized_skills:
+        assert len(group.skills) == MAX_SKILLS_PER_GROUP
+
+    assert len(result.experiences[0].relevant_technologies) == MAX_TECHNOLOGIES
+
+
+def test_enforce_leaves_short_cv_unchanged():
+    exp1 = TailoredExperienceItem(
+        title="Lead",
+        company="Firm A",
+        start_date="2022",
+        end_date="Présent",
+        bullet_points=["Point 1", "Point 2"],
+        relevant_technologies=["Python", "FastAPI"],
+    )
+    exp2 = TailoredExperienceItem(
+        title="Dev",
+        company="Firm B",
+        start_date="2020",
+        end_date="2022",
+        bullet_points=["Point 3"],
+        relevant_technologies=["Docker"],
+    )
+    project = TailoredProjectItem(name="App", description="Desc", technologies=["Python"])
+    skill_group = TailoredSkillGroup(category="Backend", skills=["Python", "FastAPI"])
+
+    cv = _make_sample_cv(
+        experiences=[exp1, exp2],
+        featured_projects=[project],
+        prioritized_skills=[skill_group],
+    )
+    result = enforce_page_budget(cv, PAGE_BUDGETS[1])
+
+    assert result.model_dump() == cv.model_dump()
+
+
+def _exp(company, start, end, n_bullets, relevance=None, bullets=None):
+    return TailoredExperienceItem(
+        title="Role",
+        company=company,
+        start_date=start,
+        end_date=end,
+        bullet_points=bullets if bullets is not None else [f"{company} bullet {k}" for k in range(n_bullets)],
+        relevant_technologies=["Tech"],
+        relevance=relevance,
+    )
+
+
+def test_enforce_never_drops_experiences():
+    exps = [_exp(f"Company {i}", f"{2010 + i * 2}", f"{2012 + i * 2}", 3) for i in range(8)]
+    cv = _make_sample_cv(experiences=exps)
+
+    result = enforce_page_budget(cv, PAGE_BUDGETS[1])
+
+    assert [e.company for e in result.experiences] == [f"Company {i}" for i in range(7, -1, -1)]
+    assert sum(len(e.bullet_points) for e in result.experiences) == PAGE_BUDGETS[1].bullets
+    for exp in result.experiences:
+        if not exp.bullet_points:
+            assert exp.relevant_technologies == []
+
+
+def test_enforce_trims_secondary_before_principal():
+    cv = _make_sample_cv(
+        experiences=[
+            _exp("Recent Secondary", "2024", "Présent", 2, "secondaire"),
+            _exp("Mid Principal", "2021", "2024", 5, "principale"),
+            _exp("Old Secondary", "2018", "2021", 2, "secondaire"),
+            _exp("Oldest Principal", "2015", "2018", 4, "Principale "),
+        ]
+    )
+
+    result = enforce_page_budget(cv, PAGE_BUDGETS[1])
+    # Secondaires coupées de la plus ancienne à la plus récente ; une principale ancienne garde ses puces.
+    assert [len(e.bullet_points) for e in result.experiences] == [1, 5, 0, 4]
+
+    tight = enforce_page_budget(cv, PageBudget(1, 3, 2))
+    # Les principales ne descendent jamais sous 2 puces, même au-delà du budget.
+    assert [len(e.bullet_points) for e in tight.experiences] == [0, 2, 0, 2]
+
+
+def test_enforce_keeps_bullets_citing_critical_requirements():
+    old_bullets = [
+        "Migration des bases vers PostgreSQL.",
+        "Animation d'ateliers Docker.",
+        "Scripts d'automatisation en Python.",
+    ]
+    cv = _make_sample_cv(
+        experiences=[
+            _exp("Recent Corp", "2022", "Présent", 2),
+            _exp("Old Corp", "2018", "2022", 0, bullets=old_bullets),
+        ]
+    )
+    tight = PageBudget(1, 2, 2)
+
+    result = enforce_page_budget(cv, tight, SAMPLE_EVALUATION)
+    # PostgreSQL (high) et Python (critical) restent ; Docker (meaningful) peut partir.
+    assert result.experiences[1].bullet_points == [old_bullets[0], old_bullets[2]]
+
+    without_evaluation = enforce_page_budget(cv, tight)
+    assert without_evaluation.experiences[1].bullet_points == []
+
+
+def test_enforce_defaults_most_recent_to_principal():
+    cv = _make_sample_cv(
+        experiences=[
+            _exp("Old Corp", "2018", "2022", 5),
+            _exp("Recent Corp", "2022", "Présent", 5),
+        ]
+    )
+
+    result = enforce_page_budget(cv, PAGE_BUDGETS[1])
+
+    assert [e.company for e in result.experiences] == ["Recent Corp", "Old Corp"]
+    assert [len(e.bullet_points) for e in result.experiences] == [5, 2]
+    assert all(e.relevance is None for e in result.experiences)
+
+
+def test_enforce_logs_each_cut(caplog):
+    cv = _make_sample_cv(experiences=[_exp("Solo Corp", "2022", "Présent", 7, "principale")])
+
+    with caplog.at_level(logging.INFO, logger="app.services.cv_tailor"):
+        result = enforce_page_budget(cv, PAGE_BUDGETS[1])
+
+    assert len(result.experiences[0].bullet_points) == 5
+    cuts = [r for r in caplog.records if "Page budget: bullet removed from Solo Corp" in r.getMessage()]
+    assert len(cuts) == 2
