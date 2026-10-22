@@ -145,6 +145,8 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
     setProposal(null);
     setSelection(null);
     setStaleError(null);
+    setCustomInstruction("");
+    setRewriteError(null);
     try {
       const updated = await coverLetterApi.edit(applicationId, textBody);
       setLetterData(updated);
@@ -238,6 +240,8 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
     setProposal(null);
     setSelection(null);
     setStaleError(null);
+    setCustomInstruction("");
+    setRewriteError(null);
   };
 
   const handleRejectProposal = () => {
