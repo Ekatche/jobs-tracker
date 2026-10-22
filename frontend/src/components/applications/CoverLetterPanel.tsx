@@ -52,7 +52,11 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
   const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
 
   // Partial rewrite states
-  const [selection, setSelection] = useState<{ start: number; end: number } | null>(null);
+  const [selection, setSelection] = useState<{
+    start: number;
+    end: number;
+    letter: string;
+  } | null>(null);
   const [customInstruction, setCustomInstruction] = useState<string>("");
   const [proposal, setProposal] = useState<RewriteProposal | null>(null);
   const [rewriting, setRewriting] = useState<boolean>(false);
@@ -139,6 +143,7 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
   const handleSaveEdit = async () => {
     setSaving(true);
     setProposal(null);
+    setSelection(null);
     setStaleError(null);
     try {
       const updated = await coverLetterApi.edit(applicationId, textBody);
@@ -167,17 +172,25 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
     }
   };
 
+  // Les positions ne valent que pour le texte sur lequel la sélection a été faite
+  const selectedPassage =
+    selection && selection.letter === textBody
+      ? textBody.slice(selection.start, selection.end)
+      : "";
+
   const handleTextareaSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-    const target = e.currentTarget;
-    if (target.selectionStart !== target.selectionEnd) {
-      setSelection({ start: target.selectionStart, end: target.selectionEnd });
-    }
+    const { selectionStart, selectionEnd, value } = e.currentTarget;
+    // Un clic ailleurs ou une frappe laisse une sélection vide : on oublie l'ancienne
+    setSelection(
+      selectionStart !== selectionEnd
+        ? { start: selectionStart, end: selectionEnd, letter: value }
+        : null
+    );
   };
 
   const handleRewrite = async (instructionToUse: string) => {
-    if (!selection || selection.start >= selection.end) return;
-    const passage = textBody.slice(selection.start, selection.end);
-    if (!passage.trim()) return;
+    if (!selection || !selectedPassage.trim()) return;
+    const passage = selectedPassage;
 
     setRewriting(true);
     setRewriteError(null);
@@ -231,11 +244,6 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
     setProposal(null);
     setStaleError(null);
   };
-
-  const selectedPassage =
-    selection && selection.start < selection.end
-      ? textBody.slice(selection.start, selection.end)
-      : "";
 
   const isPending = generating || letterData?.status === "pending";
 
@@ -381,6 +389,7 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
                 onClick={() => {
                   setViewMode("preview");
                   setProposal(null);
+                  setSelection(null);
                   setStaleError(null);
                 }}
                 className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
