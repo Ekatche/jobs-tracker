@@ -655,6 +655,7 @@ class ApiUsageAction(str, Enum):
     INTERVIEW_PREP = "interview_prep"
     OFFER_SUMMARY = "offer_summary"
     ROLE_SUGGESTION = "role_suggestion"
+    LETTER_REWRITE = "letter_rewrite"
 
 
 class ApiUsageRecord(BaseModel):
@@ -707,6 +708,7 @@ class TailoredExperienceItem(BaseModel):
     end_date: Optional[str] = "Présent"
     bullet_points: List[str] = Field(default_factory=list, description="Puces d'impact réordonnées et alignées sur l'offre")
     relevant_technologies: List[str] = Field(default_factory=list)
+    relevance: Optional[str] = Field(default=None, description="« principale » si l'expérience prouve des exigences de l'offre, sinon « secondaire »")
 
 
 class TailoredProjectItem(BaseModel):

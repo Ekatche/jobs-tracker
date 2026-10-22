@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import logging
 from pathlib import Path
@@ -614,3 +615,147 @@ async def run_letter_pipeline_async(
             "models_used": sorted(set(models.values())),
         },
     }
+
+
+class RewriteFailedError(RuntimeError):
+    """Raised when cover letter passage rewriting fails or produces empty/truncated output."""
+    pass
+
+
+_QUOTE_PAIRS = (
+    ('"', '"'),
+    ("'", "'"),
+    ("«", "»"),
+    ("“", "”"),
+    ("„", "“"),
+    ("”", "”"),
+)
+
+
+def _is_wrapped_in_quotes(text: str) -> bool:
+    s = text.strip()
+    if len(s) < 2:
+        return False
+    for start_q, end_q in _QUOTE_PAIRS:
+        if s.startswith(start_q) and s.endswith(end_q):
+            return True
+    return False
+
+
+def _strip_wrapping_quotes(text: str) -> str:
+    s = text.strip()
+    if len(s) < 2:
+        return s
+    for start_q, end_q in _QUOTE_PAIRS:
+        if s.startswith(start_q) and s.endswith(end_q):
+            return s[len(start_q):-len(end_q)].strip()
+    return s
+
+
+def _preserve_outer_whitespace(original: str, rewritten: str) -> str:
+    """Restore leading and trailing whitespace from original passage to rewritten text."""
+    leading_match = re.match(r"^\s*", original)
+    trailing_match = re.search(r"\s*$", original)
+    leading = leading_match.group(0) if leading_match else ""
+    trailing = trailing_match.group(0) if trailing_match else ""
+    cleaned = rewritten.strip()
+    if not cleaned:
+        return leading + trailing
+    return f"{leading}{cleaned}{trailing}"
+
+
+def _extract_numbers(text: str) -> List[Tuple[str, str]]:
+    """Extract (raw_string, normalized_string) for each number in text."""
+    pattern = r"\b\d{1,3}(?:[\s\u00a0\u202f]\d{3})+(?:[.,]\d+)?(?:\s*%)?|\b\d+(?:[.,]\d+)?(?:\s*%)?"
+    results: List[Tuple[str, str]] = []
+    for match in re.finditer(pattern, text):
+        raw = match.group(0).strip()
+        norm = re.sub(r"[\s\u00a0\u202f]+", "", raw).replace(",", ".")
+        results.append((raw, norm))
+    return results
+
+
+def detect_new_numbers(original: str, rewritten: str) -> List[str]:
+    """Detect numbers in rewritten text that were not present in original letter.
+
+    Numbers are normalized before comparison (ignoring spaces between digits,
+    decimal comma vs dot, and space before percentage).
+    """
+    orig_numbers = {norm for _, norm in _extract_numbers(original)}
+    new_numbers: List[str] = []
+    seen_norms = set()
+    for raw, norm in _extract_numbers(rewritten):
+        if norm not in orig_numbers and norm not in seen_norms:
+            new_numbers.append(raw)
+            seen_norms.add(norm)
+    return new_numbers
+
+
+async def rewrite_letter_passage_async(
+    letter: str,
+    passage: str,
+    instruction: str = "",
+) -> Dict[str, Any]:
+    """Rewrite a specific passage of a cover letter according to instructions.
+
+    Uses the reviser LLM with 05_rewrite_passage prompt.
+    Does NOT swallow provider errors: network/quota exceptions bubble up.
+    Raises RewriteFailedError if output is empty or truncated.
+    """
+    clean_instruction = instruction.strip() or "Améliore la clarté sans changer le sens."
+    prompt = load_prompt(
+        "05_rewrite_passage",
+        letter_text=letter,
+        passage=passage,
+        instruction=clean_instruction,
+    )
+
+    llm = get_letter_llm("reviser")
+    resp = await _acompletion_retry(
+        model=llm.model,
+        api_key=llm.api_key,
+        messages=[{"role": "user", "content": prompt}],
+        max_completion_tokens=4000,
+        drop_params=True,
+        **build_completion_kwargs(llm.model, ROLE_TEMPERATURES["reviser"]),
+    )
+
+    choice = resp.choices[0] if getattr(resp, "choices", None) else None
+    content = (choice.message.content or "").strip() if choice and getattr(choice, "message", None) else ""
+    finish_reason = getattr(choice, "finish_reason", None) if choice else None
+
+    if not content or finish_reason == "length":
+        raise RewriteFailedError("La réécriture a produit une sortie vide ou tronquée.")
+
+    # 1. Strip markdown fences
+    if content.startswith("```"):
+        lines = content.split("\n")
+        stripped = "\n".join([line for line in lines if not line.startswith("```")]).strip()
+        content = stripped if stripped else content
+    elif "```" in content:
+        content = re.sub(r"^```[a-zA-Z]*\n?|```$", "", content).strip()
+
+    # 2. Strip wrapping quotes only if the original passage was not wrapped in quotes
+    if not _is_wrapped_in_quotes(passage):
+        content = _strip_wrapping_quotes(content)
+
+    # 3. Restore outer whitespace from original passage
+    final_text = _preserve_outer_whitespace(passage, content)
+
+    # 4. Anti-hallucination check on numbers
+    new_numbers = detect_new_numbers(letter, final_text)
+    warnings = [f"Chiffre absent de la lettre d'origine : {num}" for num in new_numbers]
+
+    # Usage tracking
+    usage_info = getattr(resp, "usage", None)
+    input_tokens = getattr(usage_info, "prompt_tokens", 0) or 0
+    output_tokens = getattr(usage_info, "completion_tokens", 0) or 0
+
+    return {
+        "text": final_text,
+        "warnings": warnings,
+        "model": llm.model,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+    }
+

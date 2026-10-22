@@ -782,6 +782,48 @@ export const coverLetterApi = {
     fetchApi<CandidateProfile>("/profile/candidate/sources/github", "POST", { url }),
   importWebsite: async (url: string): Promise<CandidateProfile> =>
     fetchApi<CandidateProfile>("/profile/candidate/sources/website", "POST", { url }),
+  downloadPdf: async (applicationId: string, filename?: string): Promise<void> => {
+    const token = getToken();
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/applications/${applicationId}/cover-letter/pdf`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erreur lors du téléchargement de la lettre en PDF (${response.status})`);
+    }
+
+    let resolvedFilename = filename;
+    if (!resolvedFilename) {
+      const disposition = response.headers.get("content-disposition");
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          resolvedFilename = match[1];
+        }
+      }
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = resolvedFilename || `Lettre_motivation_${applicationId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+  rewritePassage: async (
+    applicationId: string,
+    payload: { letter: string; passage: string; instruction?: string }
+  ): Promise<{ rewritten: string; warnings: string[] }> => {
+    return fetchApi<{ rewritten: string; warnings: string[] }>(
+      `/applications/${applicationId}/cover-letter/rewrite`,
+      "POST",
+      payload
+    );
+  },
 };
 
 // API Tailored Resumes (CV Adaptés)

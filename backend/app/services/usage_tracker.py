@@ -28,6 +28,7 @@ TIER_MONTHLY_LIMITS: Dict[UserTier, Dict[ApiUsageAction, Optional[int]]] = {
         ApiUsageAction.INTERVIEW_PREP: 1,
         ApiUsageAction.OFFER_SUMMARY: 30,
         ApiUsageAction.ROLE_SUGGESTION: 10,
+        ApiUsageAction.LETTER_REWRITE: 20,
     },
     UserTier.ADVANCED: {
         ApiUsageAction.COVER_LETTER: 30,
@@ -37,6 +38,7 @@ TIER_MONTHLY_LIMITS: Dict[UserTier, Dict[ApiUsageAction, Optional[int]]] = {
         ApiUsageAction.INTERVIEW_PREP: 10,
         ApiUsageAction.OFFER_SUMMARY: 150,
         ApiUsageAction.ROLE_SUGGESTION: 50,
+        ApiUsageAction.LETTER_REWRITE: 100,
     },
     UserTier.PRO: {
         ApiUsageAction.COVER_LETTER: None,  # Unlimited
@@ -46,6 +48,7 @@ TIER_MONTHLY_LIMITS: Dict[UserTier, Dict[ApiUsageAction, Optional[int]]] = {
         ApiUsageAction.INTERVIEW_PREP: None,
         ApiUsageAction.OFFER_SUMMARY: None,
         ApiUsageAction.ROLE_SUGGESTION: None,
+        ApiUsageAction.LETTER_REWRITE: None,
     },
 }
 

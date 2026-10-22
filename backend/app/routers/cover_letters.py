@@ -3,13 +3,14 @@ import hashlib
 import json
 import logging
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Body, UploadFile, File
-from pydantic import ValidationError
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Body, UploadFile, File, Response
+from pydantic import BaseModel, Field, ValidationError
 
 from app.database import get_database
 from app.auth import get_current_user
@@ -18,6 +19,8 @@ from app.models import ApiUsageAction, CandidateProfile, UserModel
 from app.utils import serialize_mongodb_doc
 from app.routers.applications import _generate_cover_letter_bg
 from app.services.cv_parser import extract_text_from_pdf, parse_cv_with_llm
+from app.services.cv_pdf_renderer import generate_cv_pdf
+from app.services.letter_pdf import render_letter_html, build_candidate_info, slugify
 from app.services.profile.collectors.github import collect_github
 from app.services.profile.collectors.website import collect_website
 from app.services.normalization import clean_job_title_syntax
@@ -117,6 +120,147 @@ async def edit_cover_letter(
     )
     updated = await db["cover_letters"].find_one({"_id": letter["_id"]})
     return serialize_mongodb_doc(updated)
+
+
+@cover_letters_router.get("/applications/{application_id}/cover-letter/pdf")
+async def get_cover_letter_pdf(
+    application_id: str,
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Génère et télécharge la lettre de motivation mise en page en PDF vectoriel A4."""
+    if not ObjectId.is_valid(application_id):
+        raise HTTPException(status_code=400, detail="ID de candidature invalide")
+
+    app_doc = await db["applications"].find_one({"_id": ObjectId(application_id)})
+    if not app_doc:
+        raise HTTPException(status_code=404, detail="Candidature non trouvée")
+    if str(app_doc.get("user_id")) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé à cette candidature")
+
+    letter = await db["cover_letters"].find_one({"application_id": ObjectId(application_id)})
+    if not letter or letter.get("status") != "ready":
+        raise HTTPException(status_code=404, detail="Lettre de motivation non disponible ou non prête")
+
+    # Résolution de la version courante
+    versions = letter.get("versions") or []
+    current_v = letter.get("current_version", 1)
+    version_doc = next((v for v in versions if v.get("n") == current_v), None)
+    if not version_doc and versions:
+        version_doc = versions[-1]
+    if not version_doc or not version_doc.get("body"):
+        raise HTTPException(status_code=404, detail="Contenu de la lettre introuvable")
+
+    # Résolution des coordonnées candidat
+    profile_query = [{"user_id": str(current_user.id)}]
+    if ObjectId.is_valid(str(current_user.id)):
+        profile_query.append({"user_id": ObjectId(current_user.id)})
+    profile_doc = await db["candidate_profile"].find_one({"$or": profile_query}) or {}
+
+    candidate = build_candidate_info(profile_doc, current_user)
+
+    html_content = render_letter_html(
+        body=version_doc["body"],
+        candidate=candidate,
+        company=app_doc.get("company", "Entreprise"),
+        position=app_doc.get("position", ""),
+        location=app_doc.get("location"),
+    )
+
+    try:
+        pdf_bytes = await generate_cv_pdf(html_content)
+    except Exception as e:
+        logger.error(f"Erreur rendu PDF lettre pour application {application_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Échec du rendu PDF de la lettre de motivation.")
+
+    name_slug = slugify(candidate.get("full_name") or "candidat")
+    company_slug = slugify(app_doc.get("company") or "entreprise")
+    raw_pos = (app_doc.get("position") or "").strip()
+    if raw_pos:
+        position_slug = slugify(raw_pos)
+        filename = f"Lettre_{name_slug}_{position_slug}_{company_slug}.pdf"
+    else:
+        filename = f"Lettre_{name_slug}_{company_slug}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Type": "application/pdf"
+        }
+    )
+
+
+class RewritePassageRequest(BaseModel):
+    letter: str = Field(..., min_length=1, max_length=8000)
+    passage: str = Field(..., min_length=1, max_length=2000)
+    instruction: str = Field(default="", max_length=500)
+
+
+@cover_letters_router.post("/applications/{application_id}/cover-letter/rewrite")
+async def rewrite_cover_letter_passage(
+    application_id: str,
+    payload: RewritePassageRequest,
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Réécrit un passage spécifique d'une lettre de motivation avec consigne utilisateur."""
+    if not ObjectId.is_valid(application_id):
+        raise HTTPException(status_code=400, detail="ID de candidature invalide")
+
+    app_doc = await db["applications"].find_one({"_id": ObjectId(application_id)})
+    if not app_doc:
+        raise HTTPException(status_code=404, detail="Candidature non trouvée")
+    if str(app_doc.get("user_id")) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Accès non autorisé à cette candidature")
+
+    if not payload.passage.strip() or payload.passage not in payload.letter:
+        raise HTTPException(
+            status_code=422,
+            detail="Le passage sélectionné est vide ou absent de la lettre",
+        )
+
+    await require_user_quota(db, current_user.id, ApiUsageAction.LETTER_REWRITE)
+
+    job_trackers_path = Path(__file__).resolve().parent.parent.parent / "job_trackers" / "src" / "job_trackers"
+    if str(job_trackers_path) not in sys.path:
+        sys.path.insert(0, str(job_trackers_path))
+    from cover_letter_crew import rewrite_letter_passage_async, RewriteFailedError
+
+    try:
+        result = await rewrite_letter_passage_async(
+            letter=payload.letter,
+            passage=payload.passage,
+            instruction=payload.instruction,
+        )
+    except RewriteFailedError:
+        raise HTTPException(status_code=502, detail="La réécriture n'a pas abouti, réessayez.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        mapped_err = llm_http_exception(e)
+        if mapped_err:
+            raise mapped_err
+        logger.exception("Échec inattendu de la réécriture de passage pour %s", application_id)
+        raise HTTPException(status_code=502, detail="La réécriture n'a pas abouti, réessayez.")
+
+    await record_api_usage(
+        db,
+        current_user.id,
+        ApiUsageAction.LETTER_REWRITE,
+        model=result.get("model"),
+        input_tokens=result.get("input_tokens", 0),
+        output_tokens=result.get("output_tokens", 0),
+        metadata={"application_id": application_id},
+    )
+
+    return {
+        "rewritten": result["text"],
+        "warnings": result["warnings"],
+    }
+
+
 
 @cover_letters_router.get("/profile/candidate")
 async def get_candidate_profile(

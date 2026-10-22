@@ -33,6 +33,7 @@ ACTION_LABELS = {
     "cv_parsing": "Parsing de CV (Mistral VLM)",
     "offer_summary": "Résumés d'Offres & Découverte",
     "role_suggestion": "Suggestions de Rôles",
+    "letter_rewrite": "Réécritures de passage (lettres)",
 }
 
 
