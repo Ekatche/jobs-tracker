@@ -120,6 +120,7 @@ Lorsqu'une offre est validée par l'utilisateur (Score >= 4.0).
 
 *   **Génération de CV (Tailored ATS PDF)** :
     *   Un Agent réordonne et adapte les termes du profil candidat pour refléter la nomenclature de l'offre (ex: "Cloud" devient "AWS" si pertinent), sans jamais mentir.
+    *   Budget de pages selon le parcours (1 page sous 5 ans, 2 pages au-delà) ; puces réparties selon la pertinence pour l'offre et le Bloc B, sans retirer aucune expérience.
     *   Export en PDF ultra-sobre et optimisé pour le parsing des robots ATS.
 *   **Lettre de Motivation (Pipeline Multi-Agents LiteLLM)** :
     *   Pipeline séquentiel de 4 agents : `offer_analyst` (gpt-5.6-luna) → `writer` (gpt-5.6-sol) → `critic` (gemini-3.8-flash, cross-provider) → `reviser` (gpt-5.6-sol, conditionnel).
@@ -137,12 +138,15 @@ Lorsqu'une offre est validée par l'utilisateur (Score >= 4.0).
 | Pipeline 4 agents LiteLLM | `job_trackers/cover_letter_crew.py` | analyst → writer → critic → reviser |
 | Configuration modèles par rôle | `job_trackers/letter_llm.py` | Modèles épinglés, cross-provider obligatoire |
 | Letter Guards (code pur) | `app/services/letter_guards.py` | Ponctuation, mots bannis, longueur |
-| API cover letter (CRUD + regen) | `app/routers/cover_letters.py` | GET, POST regen, PATCH edit |
+| API cover letter (CRUD + regen) | `app/routers/cover_letters.py` | GET, POST regen, PATCH edit, POST rewrite (passage ciblé), GET pdf |
+| Réécriture ciblée d'un passage | `job_trackers/cover_letter_crew.py`, `app/llm/prompts/cover_letter/05_rewrite_passage.md` | `rewrite_letter_passage_async` (modèle du réviseur), alerte sur chiffre nouveau, quota `LETTER_REWRITE` |
+| Export PDF de la lettre | `app/services/letter_pdf.py`, `app/templates/letter/letter.html` | A4 via Playwright (réutilise `generate_cv_pdf`), nom de fichier candidat + poste + entreprise |
 | Background generation | `app/routers/applications.py` | `_generate_cover_letter_bg()` via BackgroundTasks |
 | Versioning cover letters | `app/models.py` (CoverLetter/CoverLetterVersion) | guard_report, critic_verdict, models used |
 | CV Tailoring IA (Bloc B fusion) | `app/services/cv_tailor.py` | Alignement offre + Bloc B, verbes d'action, métriques |
+| Budget de pages du CV | `app/services/cv_tailor.py` | `compute_page_budget` (1 page / 10 puces / 2 projets sous 5 ans de parcours, 2 pages / 22 / 3 au-delà), `enforce_page_budget` (pertinence principale / secondaire, puces citant une exigence critical ou high protégées, aucune expérience retirée) |
 | Garde-fous anti-hallucination CV | `app/services/cv_guards.py` | Vérification stricte des entreprises et compétences réelles |
-| Modèles A4 Européens (Jinja2 + CSS) | `app/templates/cv/` | `sidebar_elegance` & `executive_minimalist` (CECRL, typographie Inter) |
+| Modèles A4 Européens (Jinja2 + CSS) | `app/templates/cv/` | `sidebar_elegance`, `executive_minimalist`, `classique`, `creatif` (CECRL, typographie Inter, 6 couleurs d'accent) |
 | Rendu PDF vectoriel A4 | `app/services/cv_pdf_renderer.py` | Playwright headless Chromium, texte vectoriel sélectionnable |
 | API REST CV & Quotas | `app/routers/resumes.py` | CRUD, `/generate`, streaming `/pdf`, tracking `cv_tailoring` |
 | Hub Frontend `/resumes` | `frontend/src/app/resumes/` | Galerie de cartes, modal d'aperçu PDF, switcher de template, téléchargement 1-clic |

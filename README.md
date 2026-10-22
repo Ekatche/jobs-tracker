@@ -22,11 +22,15 @@ Job Tracker est une application web moderne et automatisée pour centraliser vos
   - Pipeline à 4 rôles : Analyste de cadrage (GPT-5.6 Luna), Rédacteur de premier jet (GPT-5.6 Sol), Critique de style multi-fournisseur obligatoire (Gemini 3.8 Flash, cross-provider) et Réviseur conditionnel (GPT-5.6 Sol).
   - Recherche en direct sur l'entreprise via Tavily et intégration du style rédactionnel personnel du candidat (Voice DNA).
   - Garde-fous déterministes stricts (longueur, connecteurs, ponctuation, entités autorisées, anti-hallucination).
+  - Réécriture ciblée d'un passage sélectionné selon une consigne libre (`POST /applications/{id}/cover-letter/rewrite`), avec alerte si un chiffre absent de la lettre apparaît.
+  - Export PDF A4 direct (`GET /applications/{id}/cover-letter/pdf`) : bloc expéditeur, destinataire, date et objet, fichier nommé d'après le candidat, le poste et l'entreprise.
 - **Génération de CV Adaptés A4 Vectoriels (Career-Ops Tailored CV)** :
   - Adaptation IA fine par rapport à l'offre cible et fusion du contexte Bloc B (mise en avant des compétences validées, priorisation des bullet points par impact et verbes d'action, accroche professionnelle sur-mesure).
+  - Budget de pages selon le parcours : 1 page sous 5 ans d'expérience (10 puces, 2 projets), 2 pages à partir de 5 ans (22 puces, 3 projets).
+  - Puces réparties selon la pertinence pour l'offre, pas selon l'ancienneté : expérience principale jusqu'à 5 puces, secondaire 0 à 2 ou entrée compacte. Aucune expérience n'est retirée, et une puce qui prouve une exigence `critical` ou `high` du Bloc B n'est jamais coupée (`enforce_page_budget`).
   - Garde-fous stricts anti-hallucination (`verify_cv_honesty`) garantissant qu'aucune entreprise ni technologie non vérifiée n'est inventée.
   - Rendu PDF vectoriel A4 ultra-haute fidélité certifié ATS via moteur Playwright headless (Chromium) garantissant 100% de texte sélectionnable et une typographie print soignée (Inter).
-  - 2 modèles aux standards européens : `Sidebar Elegance` (2 colonnes, sidebar de compétences, langues CECRL, option photo) et `Executive Minimalist` (1 colonne épurée, style Linear / Stripe).
+  - 4 modèles aux standards européens : `Sidebar Elegance` (2 colonnes, sidebar de compétences, langues CECRL, option photo), `Executive Minimalist` (1 colonne épurée, style Linear / Stripe), `Classique` (sans photo) et `Créatif`, avec 6 couleurs d'accent.
   - Hub dédié `/resumes` avec galerie de CVs, filtres, modal d'aperçu dynamique du PDF, switcher de modèle en temps réel et téléchargement 1-clic.
 - **Base de données** : MongoDB avec index composites uniques, soft-delete (`pipeline_stage: "expired"`), et protection contre la suppression physique des offres liées à des candidatures.
 
