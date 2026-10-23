@@ -1,22 +1,40 @@
 "use client";
 
 import React, { useState } from "react";
-import { AnticipatedQuestion } from "@/types/interview";
+import { AnticipatedQuestion, InterviewPrep, PracticeAttempt } from "@/types/interview";
+import PracticePanel from "./PracticePanel";
 import {
   FiHelpCircle,
   FiCheckCircle,
   FiBookOpen,
   FiFilter,
+  FiMic,
 } from "react-icons/fi";
 
 interface AnticipatedQuestionsViewerProps {
+  offerId: string;
   questions: AnticipatedQuestion[];
+  attempts: PracticeAttempt[];
+  onPrepUpdated: (prep: InterviewPrep) => void;
 }
 
 export default function AnticipatedQuestionsViewer({
+  offerId,
   questions,
+  attempts,
+  onPrepUpdated,
 }: AnticipatedQuestionsViewerProps) {
   const [filter, setFilter] = useState<"all" | "behavioral" | "technical">("all");
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+
+  const togglePractice = (id: string) => {
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const filteredQuestions = questions.filter((q) => {
     if (filter === "all") return true;
@@ -70,6 +88,9 @@ export default function AnticipatedQuestionsViewer({
       <div className="space-y-3">
         {filteredQuestions.map((q, idx) => {
           const isBehavioral = q.category?.toLowerCase() === "behavioral";
+          const questionAttempts = attempts.filter((a) => a.question_id === q.id);
+          const lastAttempt = questionAttempts[questionAttempts.length - 1];
+          const isOpen = openIds.has(q.id);
           return (
             <div
               key={q.id || idx}
@@ -92,6 +113,26 @@ export default function AnticipatedQuestionsViewer({
                     Histoire STAR+R liée
                   </span>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => togglePractice(q.id)}
+                  aria-expanded={isOpen}
+                  className={`ml-auto flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-lg border transition-colors ${
+                    isOpen
+                      ? "bg-indigo-600 text-white border-indigo-500"
+                      : "text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/10"
+                  }`}
+                >
+                  <FiMic className="w-3 h-3" />
+                  S&apos;entraîner
+                  {lastAttempt && (
+                    <span className="opacity-80">
+                      · {questionAttempts.length} essai{questionAttempts.length > 1 ? "s" : ""} ·{" "}
+                      {lastAttempt.overall_score.toLocaleString("fr-FR", { maximumFractionDigits: 1 })}/5
+                    </span>
+                  )}
+                </button>
               </div>
 
               <h4 className="text-base font-semibold text-white mb-2 flex items-start gap-2">
@@ -120,6 +161,16 @@ export default function AnticipatedQuestionsViewer({
                   </ul>
                 </div>
               )}
+
+              {/* Toujours monté : fermer le panneau ne perd pas le brouillon */}
+              <div className={isOpen ? "" : "hidden"}>
+                <PracticePanel
+                  offerId={offerId}
+                  question={q}
+                  attempts={questionAttempts}
+                  onPrepUpdated={onPrepUpdated}
+                />
+              </div>
             </div>
           );
         })}

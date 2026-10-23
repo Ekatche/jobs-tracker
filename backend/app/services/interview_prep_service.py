@@ -17,6 +17,8 @@ from app.models import (
     AudiencePackRecruiter,
     AudiencePackTechPanel,
     InterviewPrep,
+    PracticeAttempt,
+    PracticeCriterion,
     ReverseQuestion,
     StarRStory,
 )
@@ -399,6 +401,108 @@ async def generate_reverse_questions(
             )
         )
     return rev_questions
+
+
+PRACTICE_CRITERIA = ("structure", "quantified_result", "offer_fit", "coverage")
+_NUMBER_RE = re.compile(r"\b\d+(?:[.,]\d+)?\b")
+
+
+def _mask_invented_numbers(text: str, sources: str) -> str:
+    """Remplace par `[à chiffrer]` tout nombre absent des sources (réponse du candidat, histoire liée)."""
+    known = {n.replace(",", ".") for n in _NUMBER_RE.findall(sources)}
+    return _NUMBER_RE.sub(
+        lambda m: m.group(0) if m.group(0).replace(",", ".") in known else "[à chiffrer]",
+        text,
+    )
+
+
+async def evaluate_practice_answer(
+    db,
+    user_id: Union[str, ObjectId],
+    offer: Dict[str, Any],
+    evaluation: Optional[Dict[str, Any]],
+    question: AnticipatedQuestion,
+    answer: str,
+    story: Optional[StarRStory] = None,
+) -> PracticeAttempt:
+    """Note la réponse d'entraînement du candidat et propose une version retravaillée."""
+    prompt_file = PROMPTS_DIR / "answer_feedback.md"
+    template = prompt_file.read_text(encoding="utf-8")
+
+    if story:
+        story_context = "\n".join([
+            f"Titre : {story.title}",
+            f"Situation : {story.situation}",
+            f"Tâche : {story.task}",
+            f"Action : {story.action}",
+            f"Résultat : {story.result}",
+            f"Enseignement : {story.reflection}",
+        ])
+    else:
+        story_context = "Aucune histoire liée à cette question."
+    key_points = "\n".join(f"- {p}" for p in question.key_points_to_cover) or "Aucun point clé fourni."
+
+    prompt = template.format(
+        target_company=_offer_role_and_company(offer)[1],
+        target_role=_offer_role_and_company(offer)[0],
+        offer_description=offer.get("description", "")[:4000],
+        evaluation_context=format_evaluation_context(evaluation),
+        question_category=question.category,
+        question=question.question,
+        key_points=key_points,
+        story_context=story_context,
+        answer=answer,
+    )
+
+    t0 = time.time()
+    response = await acompletion(
+        model=DEFAULT_INTERVIEW_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        drop_params=True,
+        **build_completion_kwargs(DEFAULT_INTERVIEW_MODEL, 0.2),
+    )
+    latency_ms = int((time.time() - t0) * 1000)
+
+    usage = getattr(response, "usage", None)
+    input_tokens = getattr(usage, "prompt_tokens", 0) or 0
+    output_tokens = getattr(usage, "completion_tokens", 0) or 0
+
+    await record_api_usage(
+        db=db,
+        user_id=user_id,
+        action=ApiUsageAction.INTERVIEW_PREP,
+        models_used=[DEFAULT_INTERVIEW_MODEL],
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        latency_ms=latency_ms,
+        success=True,
+        metadata={"sub_action": "practice", "offer_id": str(offer.get("_id", ""))},
+    )
+
+    raw_content = response.choices[0].message.content
+    parsed = _clean_json_output(raw_content)
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("criteria"), dict):
+        raise ValueError("Expected a JSON object with practice criteria")
+
+    criteria = []
+    for key in PRACTICE_CRITERIA:
+        item = parsed["criteria"].get(key)
+        if not isinstance(item, dict):
+            raise ValueError(f"Missing practice criterion: {key}")
+        score = max(1, min(5, int(round(float(item.get("score", 1))))))
+        criteria.append(PracticeCriterion(key=key, score=score, comment=str(item.get("comment", ""))))
+
+    return PracticeAttempt(
+        question_id=question.id,
+        question=question.question,
+        answer=answer,
+        criteria=criteria,
+        overall_score=round(sum(c.score for c in criteria) / len(criteria), 1),
+        missing=parsed.get("missing") or [],
+        improved_answer=_mask_invented_numbers(
+            str(parsed.get("improved_answer", "")), sources=f"{answer}\n{story_context}"
+        ),
+    )
 
 
 def export_interview_prep_markdown(prep: InterviewPrep, offer: Dict[str, Any]) -> str:

@@ -824,6 +824,26 @@ class ReverseQuestion(BaseModel):
     model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
 
 
+class PracticeCriterion(BaseModel):
+    key: str  # "structure" | "quantified_result" | "offer_fit" | "coverage"
+    score: int = Field(ge=1, le=5)
+    comment: str
+
+
+class PracticeAttempt(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    question_id: str
+    question: str  # Copie du texte : l'essai reste lisible tel qu'il a été posé
+    answer: str
+    criteria: List[PracticeCriterion] = Field(default_factory=list)
+    overall_score: float  # Moyenne des critères, calculée côté serveur
+    missing: List[str] = Field(default_factory=list)
+    improved_answer: str
+    created_at: datetime = Field(default_factory=utcnow_with_timezone)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
 class InterviewPrep(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     offer_id: PyObjectId
@@ -834,6 +854,7 @@ class InterviewPrep(BaseModel):
     tech_pack: Optional[AudiencePackTechPanel] = None
     anticipated_questions: List[AnticipatedQuestion] = Field(default_factory=list)
     reverse_questions: List[ReverseQuestion] = Field(default_factory=list)
+    practice_attempts: List[PracticeAttempt] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utcnow_with_timezone)
     updated_at: datetime = Field(default_factory=utcnow_with_timezone)
 

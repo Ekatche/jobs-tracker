@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { interviewPrepApi } from "@/lib/api";
-import { InterviewPrep } from "@/types/interview";
+import { InterviewPrep, StarRStory } from "@/types/interview";
 import StarStoryCard from "./StarStoryCard";
 import AudiencePacksViewer from "./AudiencePacksViewer";
 import AnticipatedQuestionsViewer from "./AnticipatedQuestionsViewer";
@@ -18,6 +18,7 @@ import {
   FiHelpCircle,
   FiShield,
   FiAlertCircle,
+  FiX,
 } from "react-icons/fi";
 
 interface InterviewPrepTabProps {
@@ -37,6 +38,7 @@ export default function InterviewPrepTab({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [activeSection, setActiveSection] = useState<"stories" | "audience" | "questions" | "reverse">("stories");
+  const abortRef = useRef<AbortController | null>(null);
 
   const loadPrep = useCallback(async () => {
     try {
@@ -57,30 +59,88 @@ export default function InterviewPrepTab({
     loadPrep();
   }, [loadPrep]);
 
+  const storiesCount = prep?.stories?.length || 0;
+  const hasAudience = !!(prep?.recruiter_pack || prep?.hm_pack || prep?.tech_pack);
+  const questionsCount = prep?.anticipated_questions?.length || 0;
+  const reverseCount = prep?.reverse_questions?.length || 0;
+  const practiceCount = prep?.practice_attempts?.length || 0;
+  const totalCompleted = (storiesCount > 0 ? 1 : 0) + (hasAudience ? 1 : 0) + (questionsCount > 0 ? 1 : 0) + (reverseCount > 0 ? 1 : 0);
+
   const handleGenerateModule = async (moduleType: "stories" | "audience-packs" | "questions" | "reverse-questions" | "all") => {
+    const hasContent = {
+      stories: storiesCount > 0,
+      "audience-packs": hasAudience,
+      questions: questionsCount > 0,
+      "reverse-questions": reverseCount > 0,
+      all: totalCompleted > 0,
+    }[moduleType];
+    if (hasContent) {
+      let message = moduleType === "all"
+        ? "Tout régénérer ? Le contenu actuel des 4 sections, y compris vos corrections, sera remplacé."
+        : "Régénérer cette section ? Son contenu actuel, y compris vos corrections, sera remplacé.";
+      if ((moduleType === "questions" || moduleType === "all") && practiceCount > 0) {
+        message += ` Votre historique d'entraînement (${practiceCount} essai${practiceCount > 1 ? "s" : ""}) sera effacé.`;
+      }
+      if (!confirm(message)) {
+        return;
+      }
+    }
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       setGeneratingModule(moduleType);
       setError(null);
       let updated: InterviewPrep;
       if (moduleType === "stories") {
-        updated = await interviewPrepApi.generateStories(offerId);
+        updated = await interviewPrepApi.generateStories(offerId, controller.signal);
       } else if (moduleType === "audience-packs") {
-        updated = await interviewPrepApi.generateAudiencePacks(offerId);
+        updated = await interviewPrepApi.generateAudiencePacks(offerId, controller.signal);
       } else if (moduleType === "questions") {
-        updated = await interviewPrepApi.generateQuestions(offerId);
+        updated = await interviewPrepApi.generateQuestions(offerId, controller.signal);
       } else if (moduleType === "reverse-questions") {
-        updated = await interviewPrepApi.generateReverseQuestions(offerId);
+        updated = await interviewPrepApi.generateReverseQuestions(offerId, controller.signal);
       } else {
-        updated = await interviewPrepApi.generateAll(offerId);
+        updated = await interviewPrepApi.generateAll(offerId, controller.signal);
       }
       setPrep(updated);
     } catch (err: unknown) {
+      // Cancelled by the user: the server discards the result and the current content stays.
+      if (controller.signal.aborted) return;
       console.error(`Error generating ${moduleType}:`, err);
       const msg = err instanceof Error ? err.message : `Erreur lors de la génération du module ${moduleType}`;
       setError(msg);
     } finally {
-      setGeneratingModule(null);
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setGeneratingModule(null);
+      }
     }
+  };
+
+  const handleCancelGeneration = () => {
+    abortRef.current?.abort();
+  };
+
+  function renderCancelButton(moduleType: string) {
+    if (generatingModule !== moduleType) return null;
+    return (
+      <button
+        type="button"
+        onClick={handleCancelGeneration}
+        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shrink-0 flex items-center gap-1.5 transition-colors"
+      >
+        <FiX className="w-3.5 h-3.5" />
+        <span>Annuler</span>
+      </button>
+    );
+  }
+
+  // Errors propagate to the card, which stays in edit mode and shows them.
+  const handleSaveStory = async (story: StarRStory) => {
+    if (!prep) return;
+    const stories = prep.stories.map((s) => (s.id === story.id ? story : s));
+    const updated = await interviewPrepApi.update(offerId, { stories });
+    setPrep(updated);
   };
 
   const handleCopyMarkdown = async () => {
@@ -111,12 +171,6 @@ export default function InterviewPrepTab({
       </div>
     );
   }
-
-  const storiesCount = prep?.stories?.length || 0;
-  const hasAudience = !!(prep?.recruiter_pack || prep?.hm_pack || prep?.tech_pack);
-  const questionsCount = prep?.anticipated_questions?.length || 0;
-  const reverseCount = prep?.reverse_questions?.length || 0;
-  const totalCompleted = (storiesCount > 0 ? 1 : 0) + (hasAudience ? 1 : 0) + (questionsCount > 0 ? 1 : 0) + (reverseCount > 0 ? 1 : 0);
 
   return (
     <div className="space-y-6">
@@ -152,6 +206,7 @@ export default function InterviewPrepTab({
               <FiZap className={`w-4 h-4 ${generatingModule === "all" ? "animate-spin" : ""}`} />
               <span>{generatingModule === "all" ? "Génération en cours..." : "Tout générer (1-Clic)"}</span>
             </button>
+            {renderCancelButton("all")}
 
             <button
               type="button"
@@ -278,15 +333,18 @@ export default function InterviewPrepTab({
               <span className="text-xs text-slate-400">
                 Génération de 3 à 5 histoires structurées basées sur vos expériences déclarées et les exigences clés du poste.
               </span>
-              <button
-                type="button"
-                disabled={generatingModule !== null}
-                onClick={() => handleGenerateModule("stories")}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/90 hover:bg-indigo-600 text-white shrink-0 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-              >
-                <FiRefreshCw className={`w-3.5 h-3.5 ${generatingModule === "stories" ? "animate-spin" : ""}`} />
-                <span>{generatingModule === "stories" ? "Génération..." : storiesCount > 0 ? "Régénérer" : "Générer les histoires"}</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={generatingModule !== null}
+                  onClick={() => handleGenerateModule("stories")}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/90 hover:bg-indigo-600 text-white shrink-0 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                >
+                  <FiRefreshCw className={`w-3.5 h-3.5 ${generatingModule === "stories" ? "animate-spin" : ""}`} />
+                  <span>{generatingModule === "stories" ? "Génération..." : storiesCount > 0 ? "Régénérer" : "Générer les histoires"}</span>
+                </button>
+                {renderCancelButton("stories")}
+              </div>
             </div>
 
             {storiesCount === 0 ? (
@@ -300,7 +358,7 @@ export default function InterviewPrepTab({
             ) : (
               <div className="space-y-3">
                 {prep!.stories.map((story, idx) => (
-                  <StarStoryCard key={story.id || idx} story={story} index={idx} />
+                  <StarStoryCard key={story.id || idx} story={story} index={idx} onSave={handleSaveStory} />
                 ))}
               </div>
             )}
@@ -313,15 +371,18 @@ export default function InterviewPrepTab({
               <span className="text-xs text-slate-400">
                 Adaptez votre discours selon l'interlocuteur : RH (cadrage & salaire), Manager (stratégie), ou Pairs (architecture).
               </span>
-              <button
-                type="button"
-                disabled={generatingModule !== null}
-                onClick={() => handleGenerateModule("audience-packs")}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/90 hover:bg-indigo-600 text-white shrink-0 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-              >
-                <FiRefreshCw className={`w-3.5 h-3.5 ${generatingModule === "audience-packs" ? "animate-spin" : ""}`} />
-                <span>{generatingModule === "audience-packs" ? "Génération..." : hasAudience ? "Régénérer" : "Générer les packs"}</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={generatingModule !== null}
+                  onClick={() => handleGenerateModule("audience-packs")}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/90 hover:bg-indigo-600 text-white shrink-0 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                >
+                  <FiRefreshCw className={`w-3.5 h-3.5 ${generatingModule === "audience-packs" ? "animate-spin" : ""}`} />
+                  <span>{generatingModule === "audience-packs" ? "Génération..." : hasAudience ? "Régénérer" : "Générer les packs"}</span>
+                </button>
+                {renderCancelButton("audience-packs")}
+              </div>
             </div>
 
             {!hasAudience ? (
@@ -348,15 +409,18 @@ export default function InterviewPrepTab({
               <span className="text-xs text-slate-400">
                 Anticipation des questions comportementales (avec renvoi STAR+R) et techniques déduites de l'offre.
               </span>
-              <button
-                type="button"
-                disabled={generatingModule !== null}
-                onClick={() => handleGenerateModule("questions")}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/90 hover:bg-indigo-600 text-white shrink-0 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-              >
-                <FiRefreshCw className={`w-3.5 h-3.5 ${generatingModule === "questions" ? "animate-spin" : ""}`} />
-                <span>{generatingModule === "questions" ? "Génération..." : questionsCount > 0 ? "Régénérer" : "Générer les questions"}</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={generatingModule !== null}
+                  onClick={() => handleGenerateModule("questions")}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/90 hover:bg-indigo-600 text-white shrink-0 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                >
+                  <FiRefreshCw className={`w-3.5 h-3.5 ${generatingModule === "questions" ? "animate-spin" : ""}`} />
+                  <span>{generatingModule === "questions" ? "Génération..." : questionsCount > 0 ? "Régénérer" : "Générer les questions"}</span>
+                </button>
+                {renderCancelButton("questions")}
+              </div>
             </div>
 
             {questionsCount === 0 ? (
@@ -368,7 +432,12 @@ export default function InterviewPrepTab({
                 </p>
               </div>
             ) : (
-              <AnticipatedQuestionsViewer questions={prep!.anticipated_questions} />
+              <AnticipatedQuestionsViewer
+                offerId={offerId}
+                questions={prep!.anticipated_questions}
+                attempts={prep!.practice_attempts ?? []}
+                onPrepUpdated={setPrep}
+              />
             )}
           </div>
         )}
@@ -379,15 +448,18 @@ export default function InterviewPrepTab({
               <span className="text-xs text-slate-400">
                 Questions d'audit pour évaluer la santé de l'équipe, la dette technique et l'autonomie.
               </span>
-              <button
-                type="button"
-                disabled={generatingModule !== null}
-                onClick={() => handleGenerateModule("reverse-questions")}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/90 hover:bg-indigo-600 text-white shrink-0 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-              >
-                <FiRefreshCw className={`w-3.5 h-3.5 ${generatingModule === "reverse-questions" ? "animate-spin" : ""}`} />
-                <span>{generatingModule === "reverse-questions" ? "Génération..." : reverseCount > 0 ? "Régénérer" : "Générer les questions"}</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  disabled={generatingModule !== null}
+                  onClick={() => handleGenerateModule("reverse-questions")}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/90 hover:bg-indigo-600 text-white shrink-0 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                >
+                  <FiRefreshCw className={`w-3.5 h-3.5 ${generatingModule === "reverse-questions" ? "animate-spin" : ""}`} />
+                  <span>{generatingModule === "reverse-questions" ? "Génération..." : reverseCount > 0 ? "Régénérer" : "Générer les questions"}</span>
+                </button>
+                {renderCancelButton("reverse-questions")}
+              </div>
             </div>
 
             {reverseCount === 0 ? (

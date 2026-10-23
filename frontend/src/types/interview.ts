@@ -50,6 +50,24 @@ export interface ReverseQuestion {
   probe_intent: string;
 }
 
+export interface PracticeCriterion {
+  key: "structure" | "quantified_result" | "offer_fit" | "coverage" | string;
+  score: number;
+  comment: string;
+}
+
+export interface PracticeAttempt {
+  id: string;
+  question_id: string;
+  question: string;
+  answer: string;
+  criteria: PracticeCriterion[];
+  overall_score: number;
+  missing: string[];
+  improved_answer: string;
+  created_at: string;
+}
+
 export interface InterviewPrep {
   id?: string;
   offer_id: string;
@@ -60,6 +78,7 @@ export interface InterviewPrep {
   tech_pack?: AudiencePackTechPanel | null;
   anticipated_questions: AnticipatedQuestion[];
   reverse_questions: ReverseQuestion[];
+  practice_attempts?: PracticeAttempt[];
   created_at?: string;
   updated_at?: string;
 }

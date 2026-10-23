@@ -70,6 +70,7 @@ apiClient.interceptors.request.use((config) => {
 interface RequestOptions {
   headers?: Record<string, string>;
   noAuth?: boolean;
+  signal?: AbortSignal;
 }
 
 // Fonction utilitaire pour les requêtes API
@@ -85,6 +86,7 @@ async function fetchApi<T, D = Record<string, unknown>>(
     headers: {
       ...options.headers,
     },
+    signal: options.signal,
   };
 
   // Supprimer l'en-tête d'authentification si nécessaire
@@ -898,24 +900,31 @@ export const interviewPrepApi = {
     return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep`, "GET");
   },
 
-  generateStories: async (offerId: string) => {
-    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/stories`, "POST");
+  generateStories: async (offerId: string, signal?: AbortSignal) => {
+    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/stories`, "POST", undefined, { signal });
   },
 
-  generateAudiencePacks: async (offerId: string) => {
-    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/audience-packs`, "POST");
+  generateAudiencePacks: async (offerId: string, signal?: AbortSignal) => {
+    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/audience-packs`, "POST", undefined, { signal });
   },
 
-  generateQuestions: async (offerId: string) => {
-    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/questions`, "POST");
+  generateQuestions: async (offerId: string, signal?: AbortSignal) => {
+    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/questions`, "POST", undefined, { signal });
   },
 
-  generateReverseQuestions: async (offerId: string) => {
-    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/reverse-questions`, "POST");
+  generateReverseQuestions: async (offerId: string, signal?: AbortSignal) => {
+    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/reverse-questions`, "POST", undefined, { signal });
   },
 
-  generateAll: async (offerId: string) => {
-    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/all`, "POST");
+  generateAll: async (offerId: string, signal?: AbortSignal) => {
+    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/generate/all`, "POST", undefined, { signal });
+  },
+
+  practice: async (offerId: string, questionId: string, answer: string) => {
+    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/practice`, "POST", {
+      question_id: questionId,
+      answer,
+    });
   },
 
   update: async (offerId: string, data: UpdateInterviewPrepPayload) => {

@@ -19,6 +19,8 @@ from app.services.interview_prep_service import (
     generate_anticipated_questions,
     generate_reverse_questions,
     export_interview_prep_markdown,
+    evaluate_practice_answer,
+    _mask_invented_numbers,
 )
 
 
@@ -332,9 +334,114 @@ async def test_generators_omit_temperature_for_models_that_reject_it(model, expe
             await ips.generate_audience_packs(db=None, user_id=ObjectId(), profile={}, offer=offer)
         except Exception:
             pass  # "[]" n'est pas un objet de packs : seul l'appel LLM nous intéresse ici
+        question = AnticipatedQuestion(category="behavioral", question="Q ?", why_it_will_be_asked="W")
+        try:
+            await ips.evaluate_practice_answer(
+                db=None, user_id=ObjectId(), offer=offer, evaluation=None, question=question, answer="R"
+            )
+        except ValueError:
+            pass  # "[]" n'est pas un objet de retour : seul l'appel LLM nous intéresse ici
 
-    assert mock_llm.call_count == 4
+    assert mock_llm.call_count == 5
     for call in mock_llm.call_args_list:
         assert call.kwargs["model"] == model
         assert call.kwargs.get("temperature") == expected_temperature
         assert call.kwargs["drop_params"] is True
+
+
+def _practice_llm_response(payload):
+    mock_resp = AsyncMock()
+    mock_resp.choices = [AsyncMock(message=AsyncMock(content=json.dumps(payload)))]
+    mock_resp.usage = AsyncMock(prompt_tokens=10, completion_tokens=20, total_tokens=30)
+    return mock_resp
+
+
+_PRACTICE_QUESTION = AnticipatedQuestion(
+    category="behavioral",
+    question="Parlez-moi d'une migration difficile.",
+    why_it_will_be_asked="Exigence Kubernetes",
+    key_points_to_cover=["Gestion du risque de coupure"],
+)
+_PRACTICE_STORY = StarRStory(
+    title="Migration K8s",
+    theme="Architecture",
+    target_requirement="Kubernetes",
+    situation="Cluster legacy de 40 services",
+    task="Migrer sans coupure",
+    action="Bascule progressive",
+    result="Zéro incident",
+    reflection="Automatiser plus tôt",
+)
+
+
+@pytest.mark.asyncio
+async def test_practice_evaluate_scores_and_average():
+    payload = {
+        "criteria": {
+            "coverage": {"score": 3, "comment": "Points clés partiels."},
+            "structure": {"score": 0, "comment": "Pas de STAR."},
+            "offer_fit": {"score": 4, "comment": "Lien explicite."},
+            "quantified_result": {"score": 7, "comment": "Chiffré."},
+        },
+        "missing": ["Préciser le résultat"],
+        "improved_answer": "J'ai migré 40 services.",
+    }
+    offer = {"_id": ObjectId(), "poste": "SRE", "entreprise": "Co", "description": "K8s"}
+
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)) as mock_llm, \
+         patch("app.services.interview_prep_service.record_api_usage", return_value=None) as mock_usage:
+        attempt = await evaluate_practice_answer(
+            db=None,
+            user_id=ObjectId(),
+            offer=offer,
+            evaluation=None,
+            question=_PRACTICE_QUESTION,
+            answer="J'ai migré le cluster en douceur.",
+            story=_PRACTICE_STORY,
+        )
+
+    assert [c.key for c in attempt.criteria] == ["structure", "quantified_result", "offer_fit", "coverage"]
+    assert [c.score for c in attempt.criteria] == [1, 5, 4, 3]
+    assert attempt.overall_score == 3.2
+    assert attempt.question_id == _PRACTICE_QUESTION.id
+    assert attempt.question == _PRACTICE_QUESTION.question
+    assert attempt.missing == ["Préciser le résultat"]
+    assert attempt.improved_answer == "J'ai migré 40 services."  # 40 vient de l'histoire liée
+    assert mock_usage.call_args.kwargs["metadata"]["sub_action"] == "practice"
+
+    prompt = mock_llm.call_args.kwargs["messages"][0]["content"]
+    assert "J'ai migré le cluster en douceur." in prompt
+    assert "Cluster legacy de 40 services" in prompt
+    assert "Gestion du risque de coupure" in prompt
+
+
+@pytest.mark.asyncio
+async def test_practice_evaluate_rejects_missing_criterion():
+    payload = {
+        "criteria": {
+            "structure": {"score": 3, "comment": "c"},
+            "quantified_result": {"score": 3, "comment": "c"},
+            "offer_fit": {"score": 3, "comment": "c"},
+        },
+        "missing": [],
+        "improved_answer": "R",
+    }
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)), \
+         patch("app.services.interview_prep_service.record_api_usage", return_value=None):
+        with pytest.raises(ValueError, match="coverage"):
+            await evaluate_practice_answer(
+                db=None,
+                user_id=ObjectId(),
+                offer={"poste": "SRE", "entreprise": "Co", "description": "D"},
+                evaluation=None,
+                question=_PRACTICE_QUESTION,
+                answer="R",
+            )
+
+
+def test_practice_mask_invented_numbers():
+    sources = "J'ai réduit la latence de 30 % sur 1,5 an."
+    text = "Sur K8s et S3, j'ai réduit la latence de 30 % en 1.5 an pour 200 clients."
+    assert _mask_invented_numbers(text, sources) == (
+        "Sur K8s et S3, j'ai réduit la latence de 30 % en 1.5 an pour [à chiffrer] clients."
+    )
