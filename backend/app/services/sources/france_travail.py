@@ -65,6 +65,7 @@ def map_france_travail_offer(item: dict) -> dict:
         "url": offer_url,
         "source_url": offer_url,
         "ats_platform": "france_travail",
+        "source_record": item,
     }
 
 

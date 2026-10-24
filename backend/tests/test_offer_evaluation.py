@@ -23,6 +23,7 @@ from app.models import (
 from app.services.evaluation.evaluator import (
     _clean_json_output,
     calculate_evaluation_score,
+    compute_offer_evaluation,
     evaluate_offer_two_pass,
     quote_in_offer,
     reconcile_with_pass1,
@@ -473,6 +474,81 @@ async def test_evaluate_offer_two_pass_wires_blocs_a_b_g():
     assert any("publiée 3 fois" in w for w in evaluation.bloc_g.warnings)
     assert any("Description courte" in w for w in evaluation.bloc_g.warnings)
     assert evaluation.score == 1.5
+
+
+@pytest.mark.asyncio
+async def test_compute_offer_evaluation_has_no_side_effects():
+    # Base en lecture seule : toute écriture, sur n'importe quelle collection, lève.
+    write_methods = ("update_one", "update_many", "insert_one", "replace_one", "delete_one", "delete_many")
+    collections = {}
+
+    def collection(name):
+        if name not in collections:
+            col = AsyncMock()
+            for method in write_methods:
+                setattr(col, method, AsyncMock(side_effect=AssertionError(f"{name}.{method} interdit")))
+            collections[name] = col
+        return collections[name]
+
+    collection("job_offers").find_one.return_value = {
+        "_id": ObjectId(TEST_OFFER_ID),
+        "poste": "Senior Fullstack Engineer",
+        "entreprise": "Acme Corp",
+        "description": "Nous recherchons un Senior Fullstack Engineer maîtrisant React, FastAPI et MongoDB.",
+    }
+    collection("candidate_profile").find_one.return_value = {
+        "user_id": TEST_USER_ID,
+        "headline": "Fullstack Developer 6 YoE",
+        "skills": {"frameworks": ["FastAPI", "React"]},
+    }
+    db = MagicMock()
+    db.__getitem__.side_effect = collection
+
+    pass1 = _llm_response(
+        {
+            "archetype": "Senior Fullstack Engineer",
+            "summary": "Mission fullstack.",
+            "requirements": [
+                {"requirement": "FastAPI", "weight": "critical", "quote_from_offer": "maîtrisant React, FastAPI et MongoDB"}
+            ],
+        }
+    )
+    pass2 = _llm_response(
+        {
+            "matched_requirements": [
+                {
+                    "requirement": "FastAPI",
+                    "weight": "critical",
+                    "candidate_evidence": "FastAPI dans les compétences",
+                    "verbatim_quote": "maîtrisant React, FastAPI et MongoDB",
+                    "status": "full_match",
+                }
+            ],
+            "missing_requirements": [],
+        }
+    )
+    forbidden = AsyncMock(side_effect=AssertionError("quota ou consommation interdits"))
+
+    with patch("app.services.evaluation.evaluator.require_user_quota", forbidden), \
+         patch("app.services.evaluation.evaluator.record_api_usage", forbidden), \
+         patch("app.services.evaluation.evaluator.compute_domain_relevance", AsyncMock(return_value=None)), \
+         patch("app.services.evaluation.evaluator.acompletion", AsyncMock(side_effect=[pass1, pass2])):
+        run = await compute_offer_evaluation(db=db, user_id=TEST_USER_ID, offer_id=TEST_OFFER_ID)
+
+    forbidden.assert_not_called()
+    for col in collections.values():
+        for method in write_methods:
+            getattr(col, method).assert_not_called()
+
+    # 1 exigence sur une description courte : plafond "offre pauvre", comme le Two-Pass complet
+    assert run.evaluation["score"] == 4.0
+    assert run.evaluation["user_id"] == TEST_USER_ID
+    assert run.evaluation["offer_id"] == TEST_OFFER_ID
+    assert "created_at" not in run.evaluation
+    # Somme des deux passes (100 + 100 en entrée, 50 + 50 en sortie)
+    assert run.input_tokens == 200
+    assert run.output_tokens == 100
+    assert run.latency_ms >= 0
 
 
 # --- Endpoint Tests: POST /job-offers/{id}/evaluate & GET /job-offers/{id}/evaluation ---

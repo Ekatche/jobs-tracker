@@ -1,6 +1,5 @@
 import asyncio
 import os
-import re
 import logging
 from datetime import datetime, timezone
 from app.services.job_offers import (
@@ -15,10 +14,11 @@ from app.services.normalization import (
     clean_html_entities_and_tags,
     normalize_city,
     extract_seniority,
+    detect_contract_type,
     deduplicate_and_merge_offers,
     merge_multidiffusion_offers,
     are_offers_duplicates,
-    normalize_company,
+    company_match_strength,
 )
 from app.services.role_normalizer import normalize_role
 from app.services.offer_profile_matcher import tag_new_offers
@@ -46,6 +46,9 @@ MAX_QUERIES_PER_PROFILE = 3
 MAX_TOTAL_QUERIES = 8
 # Appels LLM de résumé simultanés (offres ATS et sources structurées).
 SUMMARY_CONCURRENCY = 8
+# La recherche web (crew + Tavily, payée au crédit) ne tourne qu'au run du matin du DAG
+# (0 7,16 UTC) ; jobspy et France Travail, gratuits, tournent aux deux runs.
+WEB_SEARCH_MAX_HOUR_UTC = 12
 
 DEFAULT_QUERIES: list[str] = [
     "Je recherche un poste de data scientist",
@@ -232,6 +235,14 @@ async def crawl_urls_for_offers(urls: list) -> list:
             if isinstance(raw_crawled, list):
                 crawled_offers = raw_crawled
 
+            # Le repli JSON-LD du crawler pose `ats_platform` (l'extraction LLM non) :
+            # description brute de la page, à résumer comme les offres Zero-Token.
+            jsonld_offers = [o for o in crawled_offers if o.get("ats_platform")]
+            if jsonld_offers:
+                logger.info(f"✨ Résumé LLM pour {len(jsonld_offers)} offres du repli JSON-LD du crawler...")
+                llm_offers = [o for o in crawled_offers if not o.get("ats_platform")]
+                crawled_offers = llm_offers + await summarize_offers(jsonld_offers)
+
         total_offers = ats_offers + crawled_offers
         logger.info(
             f"📊 {len(total_offers)} offres brutes au total "
@@ -351,7 +362,8 @@ async def enrich_offers(offers: list, query: str) -> list:
                             localisation if localisation else "Non spécifié"
                         ),
                         "date": date if date else "Non spécifié",
-                        "type_contrat": type_contrat if type_contrat else "Non spécifié",
+                        # Intitulé brut : clean_job_title_syntax en a déjà retiré « Stage »
+                        "type_contrat": detect_contract_type(type_contrat, poste, description),
                         "salaire": salaire if salaire else "Non spécifié",
                         "mode_travail": mode_travail if mode_travail else "Non spécifié",
                         "competences_cles": competences_cles,
@@ -368,8 +380,8 @@ async def enrich_offers(offers: list, query: str) -> list:
                         "pipeline_stage": offer.get("pipeline_stage") or "discovered",
                         "is_deleted": False,  # Nouveau champ pour soft delete
                         "deleted_date": None,  # Date de suppression (None par défaut)
-                        # ===== RAW DATA (données originales) =====
-                        "raw_data": offer,
+                        # ===== RAW DATA : enregistrement d'origine, rangé par source =====
+                        "raw_data": {ats_platform or "llm_crawl": offer.get("source_record") or offer},
                     }
 
                     enriched_offers.append(enriched_offer)
@@ -439,6 +451,7 @@ async def save_offers_to_database(offers: list) -> dict:
         updated_count = 0
         error_count = 0
         offer_ids: list = []
+        known_companies = None
 
         for offer in consolidated_offers:
             try:
@@ -465,13 +478,19 @@ async def save_offers_to_database(offers: list) -> dict:
 
                 existing_doc = await collection.find_one({"$or": query_conditions})
 
-                # Si non trouvé directement, recherche sémantique parmi les offres de la même entreprise
+                # Si non trouvé directement, recherche sémantique parmi les offres des entreprises de nom
+                # compatible : un même poste peut être publié sous « BackMarket » et « Back Market »
                 if not existing_doc and company:
-                    norm_comp = normalize_company(company).lower()
-                    if norm_comp and norm_comp != "non spécifié":
+                    if known_companies is None:
+                        known_companies = await collection.distinct("entreprise")
+                    matching_names = [
+                        name for name in known_companies
+                        if isinstance(name, str) and company_match_strength(name, company)
+                    ]
+                    if matching_names:
                         company_candidates = await collection.find(
-                            {"entreprise": {"$regex": f"^{re.escape(norm_comp)}$", "$options": "i"}}
-                        ).to_list(20)
+                            {"entreprise": {"$in": matching_names}}
+                        ).to_list(None)
                         for candidate in company_candidates:
                             if are_offers_duplicates(candidate, offer):
                                 existing_doc = candidate
@@ -581,7 +600,12 @@ def enrich_offers_sync(offers: list, query: str) -> list:
 
 
 
-async def collect_and_save_offers(query: str) -> dict:
+def is_web_search_run(now: datetime) -> bool:
+    """Vrai si un run démarré à `now` doit lancer la recherche web (crew + Tavily)."""
+    return now.astimezone(timezone.utc).hour < WEB_SEARCH_MAX_HOUR_UTC
+
+
+async def collect_and_save_offers(query: str, use_web_search: bool = True) -> dict:
     """Version asynchrone complète pour collecter, nettoyer et enregistrer les offres.
 
     Ordre d'exécution par requête :
@@ -589,15 +613,24 @@ async def collect_and_save_offers(query: str) -> dict:
     2. URLs Tavily : retrait de celles déjà en base ou couvertes par une offre structurée (clé d'identité).
     3. En parallèle : crawl des URLs Tavily restantes + filtre géo || résumé LLM des offres structurées.
     4. Fusion -> enrich -> dédup inter-sites -> save -> tag_new_offers.
+
+    `use_web_search=False` saute la recherche Tavily (et donc le crawl) : seules les sources
+    structurées sont collectées, sans crédit Tavily ni appel LLM du crew.
     """
     logger.info(f"🚀 Collecte async démarrée: {query}")
     try:
         db = await get_database()
         _, city = parse_source_query(query)
 
+        async def _search_urls() -> list[str]:
+            if not use_web_search:
+                logger.info(f"⏭️ Recherche web désactivée pour ce run, sources structurées seules: {query}")
+                return []
+            return await get_urls_for_query(query)
+
         # Étape 1 : En parallèle, recherche Tavily (URLs) et sources structurées
         search_urls_res, structured_res = await asyncio.gather(
-            get_urls_for_query(query),
+            _search_urls(),
             collect_structured_offers(query, db),
             return_exceptions=True,
         )
@@ -667,7 +700,7 @@ async def collect_and_save_offers(query: str) -> dict:
         await cleanup_resources()
 
 
-def collect_offers_sync(query: str) -> dict:
+def collect_offers_sync(query: str, use_web_search: bool = True) -> dict:
     """Version sync pour Airflow — une seule boucle d'événements par requête."""
     os.environ.setdefault("ENVIRONMENT", "airflow")
     try:
@@ -675,7 +708,10 @@ def collect_offers_sync(query: str) -> dict:
         # jusqu'à 8 requêtes × 7 min = 56 min, sous l'execution_timeout de 60 min du DAG.
         # Sans cette borne, une requête qui pend consomme tout le budget de la tâche.
         result = asyncio.run(
-            asyncio.wait_for(collect_and_save_offers(query), timeout=COLLECT_QUERY_TIMEOUT)
+            asyncio.wait_for(
+                collect_and_save_offers(query, use_web_search=use_web_search),
+                timeout=COLLECT_QUERY_TIMEOUT,
+            )
         )
         logger.info(f"🎯 Collecte terminée: {result}")
         return result

@@ -48,6 +48,8 @@ def test_detect_closure_in_text():
         "L'offre recherchée est introuvable.",
         "Ce poste n'est plus à pourvoir.",
         "Ce poste a été attribué.",
+        "Ericsson a recruté pour ce poste Les candidatures ne sont plus acceptées",
+        "Cette offre a expiré sur Indeed",
     ],
 )
 def test_detect_closure_in_text_real_world_platform_variants(text):
@@ -180,6 +182,23 @@ def test_is_redirected_to_generic_listing():
     assert (
         is_redirected_to_generic_listing(
             orig, "https://company.com/careers/jobs/data-engineer-12345?ref=tracker"
+        )
+        is False
+    )
+
+    # LinkedIn redirige une offre purgée vers un listing marqué trk=expired_jd_redirect
+    linkedin = "https://fr.linkedin.com/jobs/view/4250000000/"
+    assert (
+        is_redirected_to_generic_listing(
+            linkedin,
+            "https://www.linkedin.com/jobs/web-content-specialist-jobs?trk=expired_jd_redirect",
+        )
+        is True
+    )
+    # Autre valeur de trk (tracking de partage) -> offre toujours en ligne
+    assert (
+        is_redirected_to_generic_listing(
+            linkedin, "https://fr.linkedin.com/jobs/view/4250000000/?trk=public_jobs_topcard"
         )
         is False
     )
@@ -428,9 +447,116 @@ async def test_verify_job_offers_workflow_dry_run_and_execution():
         assert res_exec["unknown_count"] == 1
         assert res_exec["updated_db_count"] == 1
 
-        # Assert update_one was called ONLY for closed_id
-        assert mock_collection.update_one.call_count == 1
-        call_args = mock_collection.update_one.call_args
-        assert call_args[0][0] == {"_id": closed_id}
-        assert call_args[0][1]["$set"]["is_deleted"] is True
-        assert call_args[0][1]["$set"]["deletion_reason"] == "http_status_404"
+        # Every checked offer gets last_verified_at; only closed_id is soft-deleted
+        assert mock_collection.update_one.call_count == 3
+        sets_by_id = {c.args[0]["_id"]: c.args[1]["$set"] for c in mock_collection.update_one.call_args_list}
+        assert set(sets_by_id) == {valid_id, closed_id, transient_id}
+        assert all("last_verified_at" in s for s in sets_by_id.values())
+        assert sets_by_id[closed_id]["is_deleted"] is True
+        assert sets_by_id[closed_id]["deletion_reason"] == "http_status_404"
+        assert "is_deleted" not in sets_by_id[valid_id]
+        assert "is_deleted" not in sets_by_id[transient_id]
+
+
+def _mock_offers_collection(offers):
+    mock_db = MagicMock()
+    mock_collection = MagicMock()
+    mock_db.__getitem__.return_value = mock_collection
+
+    mock_cursor = MagicMock()
+    mock_cursor.sort.return_value = mock_cursor
+    mock_cursor.limit.return_value = mock_cursor
+    mock_cursor.to_list = AsyncMock(return_value=offers)
+    mock_collection.find.return_value = mock_cursor
+
+    mock_update_res = MagicMock()
+    mock_update_res.modified_count = 1
+    mock_collection.update_one = AsyncMock(return_value=mock_update_res)
+    return mock_db, mock_collection, mock_cursor
+
+
+@pytest.mark.asyncio
+async def test_verify_job_offers_workflow_rotates_by_last_verified_at():
+    """Never/least recently verified offers come first, and every checked offer is stamped."""
+    from bson import ObjectId
+
+    offers = [
+        {"_id": ObjectId(), "url": "https://example.com/valid"},
+        {"_id": ObjectId(), "url": "https://example.com/closed-404"},
+        {"_id": ObjectId(), "url": "https://example.com/transient-500"},
+    ]
+    mock_db, mock_collection, mock_cursor = _mock_offers_collection(offers)
+    statuses = {"valid": True, "closed": False, "transient": None}
+
+    async def fake_verify_single_offer(offer, sem, http_client=None):
+        is_valid = next(v for k, v in statuses.items() if k in offer["url"])
+        return {"offer_id": str(offer["_id"]), "status": "x", "is_valid": is_valid, "reason": "r"}
+
+    with patch("app.tasks.verify_job_offers.get_database", AsyncMock(return_value=mock_db)), patch(
+        "app.tasks.verify_job_offers.verify_single_offer", side_effect=fake_verify_single_offer
+    ):
+        await verify_job_offers_workflow(limit=200)
+
+    mock_cursor.sort.assert_called_once_with([("last_verified_at", 1), ("created_at", -1)])
+    stamped = {c.args[0]["_id"] for c in mock_collection.update_one.call_args_list
+               if "last_verified_at" in c.args[1]["$set"]}
+    assert stamped == {o["_id"] for o in offers}
+
+
+@pytest.mark.asyncio
+async def test_verify_job_offers_workflow_persists_closed_before_batch_ends():
+    """A confirmed closure is written as soon as it is known, even if the run is killed later."""
+    from bson import ObjectId
+
+    closed_id = ObjectId()
+    stuck_id = ObjectId()
+    offers = [
+        {"_id": closed_id, "url": "https://example.com/closed-404"},
+        {"_id": stuck_id, "url": "https://example.com/stuck"},
+    ]
+    mock_db, mock_collection, _ = _mock_offers_collection(offers)
+
+    async def fake_verify_single_offer(offer, sem, http_client=None):
+        if offer["_id"] == stuck_id:
+            await asyncio.Event().wait()
+        return {"offer_id": str(offer["_id"]), "status": "closed", "is_valid": False, "reason": "http_status_404"}
+
+    with patch("app.tasks.verify_job_offers.get_database", AsyncMock(return_value=mock_db)), patch(
+        "app.tasks.verify_job_offers.verify_single_offer", side_effect=fake_verify_single_offer
+    ):
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(verify_job_offers_workflow(dry_run=False), 0.5)
+
+    closed_calls = [c for c in mock_collection.update_one.call_args_list if c.args[0] == {"_id": closed_id}]
+    assert len(closed_calls) == 1
+    assert closed_calls[0].args[1]["$set"]["is_deleted"] is True
+
+
+@pytest.mark.asyncio
+async def test_verify_single_offer_indeed_skips_headless():
+    """Indeed answers 401 (Cloudflare) then times out headless: skip tier 2, never archive on it."""
+    sem = asyncio.Semaphore(5)
+    url = "https://fr.indeed.com/viewjob?jk=abc"
+    offer = {"_id": "offer-indeed", "url": url}
+
+    with patch(
+        "app.tasks.verify_job_offers.check_url_http_fast",
+        new_callable=AsyncMock,
+    ) as mock_http, patch(
+        "app.tasks.verify_job_offers.check_url_headless_js",
+        new_callable=AsyncMock,
+    ) as mock_js:
+        mock_http.return_value = {
+            "status": "valid",
+            "valid": True,
+            "status_code": 401,
+            "final_url": url,
+            "reason": "http_200_ok",
+            "requires_js_check": True,
+        }
+        res = await verify_single_offer(offer, sem)
+
+    mock_js.assert_not_awaited()
+    assert res["status"] == "unknown"
+    assert res["is_valid"] is None
+    assert res["reason"] == "headless_skipped_antibot_domain"

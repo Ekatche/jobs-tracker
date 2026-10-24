@@ -64,13 +64,13 @@ class TestTavilyTool:
         result_none = tool._run()
         assert result_none == []
 
-    def test_funnel_three_passes_balanced_and_deduplicated(self, monkeypatch):
+    def test_funnel_two_passes_balanced_and_deduplicated(self, monkeypatch):
         from unittest.mock import MagicMock
         monkeypatch.delenv("FRANCE_TRAVAIL_CLIENT_ID", raising=False)
         tool = TavilyJobBoardSearchTool()
         mock_client = MagicMock()
 
-        # Mock 3 passes
+        # Mock 2 passes
         def mock_search(query, **kwargs):
             inc_domains = kwargs.get("include_domains") or []
             if "welcometothejungle.com" in inc_domains:
@@ -89,13 +89,6 @@ class TestTavilyTool:
                         {"url": "https://www.welcometothejungle.com/fr/jobs/1"},  # duplicate
                     ]
                 }
-            elif not inc_domains:
-                # Pass 3: LinkedIn Jobs
-                return {
-                    "results": [
-                        {"url": "https://www.linkedin.com/jobs/view/456"},
-                    ]
-                }
             return {"results": []}
 
         mock_client.search.side_effect = mock_search
@@ -111,14 +104,14 @@ class TestTavilyTool:
         # Passe 1 découpée par site : WTTJ n'est plus en concurrence avec HelloWork/France Travail.
         assert ["welcometothejungle.com"] in board_groups
         assert ["francetravail.fr"] in board_groups
+        # Indeed, HelloWork et LinkedIn sont couverts par jobspy : aucun crédit Tavily dépensé dessus.
         assert not any("indeed.fr" in group for group in board_groups)
-        assert mock_client.search.call_count == len(board_groups) + 2
+        assert ["hellowork.com"] not in board_groups
+        assert mock_client.search.call_count == len(board_groups) + 1
         # Jooble filtered out, WTTJ deduplicated
-        assert len(results) == 3
         assert results == [
             "https://www.welcometothejungle.com/fr/jobs/1",
             "https://boards.greenhouse.io/acme/jobs/123",
-            "https://www.linkedin.com/jobs/view/456",
         ]
 
     def test_funnel_handles_partial_pass_failure(self):
@@ -332,7 +325,7 @@ class TestAirflowCollectionPipeline:
         except ImportError:
             pytest.skip("collect_job_offers DAG not importable")
 
-        def mock_failing_collect(query):
+        def mock_failing_collect(query, use_web_search=True):
             raise ValueError("LLM stop error")
 
         import app.tasks.job_offers_collectors
@@ -353,7 +346,7 @@ class TestAirflowCollectionPipeline:
         except ImportError:
             pytest.skip("collect_job_offers DAG not importable")
 
-        def mock_mixed_collect(query):
+        def mock_mixed_collect(query, use_web_search=True):
             if "query 1" in query:
                 return {"saved": 2, "updated": 1}
             raise ValueError("LLM stop error")
@@ -366,4 +359,29 @@ class TestAirflowCollectionPipeline:
         assert summary["total_saved"] == 2
         assert summary["total_updated"] == 1
         assert len(summary["results"]) == 2
+
+    def test_afternoon_run_disables_web_search_for_every_query(self, monkeypatch):
+        import pytest
+
+        dags_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../airflow/dags"))
+        if not os.path.exists(dags_path):
+            pytest.skip("Airflow DAGs not mounted in current environment")
+        sys.path.append(dags_path)
+        try:
+            from collect_job_offers import execute_collection_pipeline
+        except ImportError:
+            pytest.skip("collect_job_offers DAG not importable")
+
+        received = []
+
+        def mock_collect(query, use_web_search=True):
+            received.append(use_web_search)
+            return {"saved": 0, "updated": 0}
+
+        import app.tasks.job_offers_collectors
+        monkeypatch.setattr(app.tasks.job_offers_collectors, "collect_offers_sync", mock_collect)
+        monkeypatch.setattr(app.tasks.job_offers_collectors, "is_web_search_run", lambda now: False)
+
+        execute_collection_pipeline.function(["query 1", "query 2"])
+        assert received == [False, False]
 

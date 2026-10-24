@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from airflow import DAG
 from airflow.decorators import task
 import logging
@@ -53,16 +53,20 @@ def execute_collection_pipeline(validated_queries: list) -> dict:
     sys.path.append("/app")
 
     logger = logging.getLogger("airflow.task")
-    from app.tasks.job_offers_collectors import collect_offers_sync
+    from app.tasks.job_offers_collectors import collect_offers_sync, is_web_search_run
 
     total_saved = 0
     total_updated = 0
     query_results = []
 
+    # Tavily (crédits limités) au seul run du matin ; jobspy et France Travail aux deux runs.
+    use_web_search = is_web_search_run(datetime.now(timezone.utc))
+    logger.info(f"🌐 Recherche web (crew + Tavily) pour ce run: {'oui' if use_web_search else 'non'}")
+
     for query in validated_queries:
         logger.info(f"🚀 Lancement de la collecte pour: '{query}'")
         try:
-            result = collect_offers_sync(query)
+            result = collect_offers_sync(query, use_web_search=use_web_search)
             saved = result.get("saved", 0)
             updated = result.get("updated", 0)
             total_saved += saved

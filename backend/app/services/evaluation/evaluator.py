@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import time
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 from bson import ObjectId
@@ -207,27 +208,35 @@ def reconcile_with_pass1(
     return matched_raw, missing
 
 
-async def evaluate_offer_two_pass(
+@dataclass
+class OfferEvaluationRun:
+    """Résultat du Two-Pass avant enregistrement : évaluation et consommation LLM."""
+
+    evaluation: Dict[str, Any]
+    input_tokens: int
+    output_tokens: int
+    latency_ms: int
+
+
+async def compute_offer_evaluation(
     db,
     user_id: Union[str, ObjectId, PyObjectId],
     offer_id: Union[str, ObjectId, PyObjectId],
     model: Optional[str] = None,
-) -> OfferEvaluation:
+) -> OfferEvaluationRun:
     """
-    Execute the Two-Pass Career-Ops Evaluation Protocol:
-    1. Pass 1: Parse job offer requirements, archetype, and ghost job signals (without CV bias).
-    2. Pass 2: Match against CandidateProfile & Preferences with mandatory verbatim citations.
-    3. Calculate score (1.0 to 5.0), deduct quota, and record API consumption.
+    Calcul pur du Two-Pass (Pass 1, Pass 2, blocs A/B/G, score), sans effet de bord.
+
+    Lit l'offre et le profil en base, mais n'écrit rien, ne vérifie aucun quota et
+    n'enregistre aucune consommation. Utilisé par le banc de mesure et par
+    `evaluate_offer_two_pass`, qui se charge de l'enregistrement.
     """
     eval_model = model or DEFAULT_EVALUATION_MODEL
     models_used: List[str] = []
     user_str_id = str(user_id)
     offer_oid = ObjectId(str(offer_id))
 
-    # 1. Vérification du quota utilisateur
-    await require_user_quota(db, user_str_id, ApiUsageAction.EVALUATION)
-
-    # 2. Récupération de l'offre
+    # 1. Récupération de l'offre
     offer_doc = await db["job_offers"].find_one({"_id": offer_oid})
     if not offer_doc:
         raise HTTPException(status_code=404, detail="Offre d'emploi introuvable")
@@ -245,7 +254,7 @@ async def evaluate_offer_two_pass(
             detail="L'offre d'emploi ne contient pas de description ou de compétences exploitables pour l'évaluation.",
         )
 
-    # 3. Récupération du profil candidat
+    # 2. Récupération du profil candidat
     profile_query = [{"user_id": user_str_id}]
     try:
         profile_query.append({"user_id": ObjectId(user_str_id)})
@@ -533,23 +542,51 @@ Réponds STRICTEMENT au format JSON avec cette structure :
 
     final_score = calculate_evaluation_score(bloc_a, bloc_b, bloc_g, len(description.strip()))
 
+    return OfferEvaluationRun(
+        evaluation={
+            "user_id": user_str_id,
+            "offer_id": str(offer_oid),
+            "score": final_score,
+            "headline": f"{bloc_a.archetype} ({final_score}/5.0)",
+            "pipeline_stage": "evaluated",
+            "bloc_a": bloc_a.model_dump(),
+            "bloc_b": bloc_b.model_dump(),
+            "bloc_g": bloc_g.model_dump(),
+            "models_used": models_used or [eval_model],
+        },
+        input_tokens=input_tokens_total,
+        output_tokens=output_tokens_total,
+        latency_ms=latency_ms,
+    )
+
+
+async def evaluate_offer_two_pass(
+    db,
+    user_id: Union[str, ObjectId, PyObjectId],
+    offer_id: Union[str, ObjectId, PyObjectId],
+    model: Optional[str] = None,
+) -> OfferEvaluation:
+    """
+    Execute the Two-Pass Career-Ops Evaluation Protocol:
+    1. Pass 1: Parse job offer requirements, archetype, and ghost job signals (without CV bias).
+    2. Pass 2: Match against CandidateProfile & Preferences with mandatory verbatim citations.
+    3. Deduct quota, store the evaluation (computed by `compute_offer_evaluation`), and record API consumption.
+    """
+    user_str_id = str(user_id)
+
+    # 1. Vérification du quota utilisateur
+    await require_user_quota(db, user_str_id, ApiUsageAction.EVALUATION)
+
+    # 2. Calcul pur : Pass 1, Pass 2, blocs et score
+    run = await compute_offer_evaluation(db, user_id, offer_id, model)
+    offer_oid = ObjectId(run.evaluation["offer_id"])
+    final_score = run.evaluation["score"]
+
     # ==========================================
     # Persistance MongoDB & Suivi Consommation
     # ==========================================
     now = utcnow_with_timezone()
-    evaluation_doc = {
-        "user_id": user_str_id,
-        "offer_id": str(offer_oid),
-        "score": final_score,
-        "headline": f"{bloc_a.archetype} ({final_score}/5.0)",
-        "pipeline_stage": "evaluated",
-        "bloc_a": bloc_a.model_dump(),
-        "bloc_b": bloc_b.model_dump(),
-        "bloc_g": bloc_g.model_dump(),
-        "models_used": models_used or [eval_model],
-        "created_at": now,
-        "updated_at": now,
-    }
+    evaluation_doc = {**run.evaluation, "created_at": now, "updated_at": now}
 
     # Upsert dans la collection offer_evaluations
     await db["offer_evaluations"].update_one(
@@ -575,10 +612,10 @@ Réponds STRICTEMENT au format JSON avec cette structure :
         db=db,
         user_id=user_str_id,
         action=ApiUsageAction.EVALUATION,
-        models_used=models_used or [eval_model],
-        input_tokens=input_tokens_total,
-        output_tokens=output_tokens_total,
-        latency_ms=latency_ms,
+        models_used=evaluation_doc["models_used"],
+        input_tokens=run.input_tokens,
+        output_tokens=run.output_tokens,
+        latency_ms=run.latency_ms,
         metadata={"offer_id": str(offer_oid), "score": final_score},
     )
 

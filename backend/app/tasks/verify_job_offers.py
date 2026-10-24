@@ -5,7 +5,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterator, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 
@@ -32,6 +32,8 @@ CLOSED_TEXT_PATTERNS = [
         r"(?:cette |l')?offre (?:d'emploi )?(?:chez [^.\n,;!?]+? )?(?:n'est plus (?:disponible|active|en ligne|accessible|consultable)|a expiré|a été (?:pourvue|supprimée|clôturée|archivée|désactivée|dépubliée)|est (?:clôturée|fermée|terminée|expirée|indisponible)|n'est plus à pourvoir)",
         r"(?:cette |l')?annonce (?:d'emploi )?(?:chez [^.\n,;!?]+? )?(?:n'est plus (?:active|disponible|accessible|en ligne|consultable)|n'existe plus|a été (?:désactivée|supprimée|archivée|dépubliée)|a expiré)",
         r"candidatures? (?:pour ce poste )?(?:sont )?(?:closes?|fermées?|terminées?|suspendues?)",
+        # Bandeau LinkedIn FR d'une offre close (figcaption.closed-job__flavor--closed)
+        r"candidatures ne sont plus acceptées",
         r"(?:ce |le )?poste (?:a été |est )?(?:pourvu|fermé|clôturé|comblé|attribué)",
         r"(?:ce |le )?poste n'est plus à pourvoir",
         r"offre (?:d'emploi )?(?:expirée|introuvable|désactivée|clôturée|supprimée)",
@@ -110,6 +112,10 @@ def is_redirected_to_generic_listing(original_url: str, final_url: str) -> bool:
 
     orig_parsed = urlparse(original_url)
     final_parsed = urlparse(final_url)
+
+    # LinkedIn redirige une offre purgée vers un listing marqué trk=expired_jd_redirect
+    if "expired_jd_redirect" in parse_qs(final_parsed.query).get("trk", []):
+        return True
 
     orig_path = orig_parsed.path.rstrip("/")
     final_path = final_parsed.path.rstrip("/")
@@ -475,6 +481,17 @@ async def verify_single_offer(
             "url": url,
         }
 
+    # Indeed: 401 Cloudflare au niveau 1 puis timeout headless (~60 s) -> jamais concluant,
+    # on garde les clôtures détectées en HTTP ci-dessus et on saute le navigateur
+    if "indeed" in (urlparse(url).hostname or "").split("."):
+        return {
+            "offer_id": offer_id,
+            "status": "unknown",
+            "is_valid": None,
+            "reason": "headless_skipped_antibot_domain",
+            "url": url,
+        }
+
     # Niveau 2: Contrôle JS si le check HTTP a réussi et le demande
     if fast_result.get("requires_js_check", True):
         async with semaphore:
@@ -503,9 +520,11 @@ async def verify_job_offers_workflow(
 ) -> Dict[str, Any]:
     """
     Workflow principal :
-    1. Récupère les offres actives (non supprimées) ayant une url ou source_url.
+    1. Récupère les offres actives (non supprimées) ayant une url ou source_url,
+       jamais vérifiées d'abord puis par last_verified_at le plus ancien (rotation).
     2. Vérifie la validité des liens en parallèle avec contrôle de concurrence.
-    3. Effectue un soft delete UNIQUEMENT sur les offres closes confirmées (is_valid is False).
+    3. Écrit au fil de l'eau last_verified_at sur chaque offre vérifiée, et un soft delete
+       UNIQUEMENT sur les offres closes confirmées (is_valid is False).
        Les offres avec statut 'unknown' (erreurs transitoires) ne sont JAMAIS supprimées.
     """
     logger.info("🔍 Lancement du workflow de vérification des offres d'emploi...")
@@ -521,7 +540,7 @@ async def verify_job_offers_workflow(
         ],
     }
 
-    cursor = collection.find(query).sort("created_at", -1)
+    cursor = collection.find(query).sort([("last_verified_at", 1), ("created_at", -1)])
     if limit:
         cursor = cursor.limit(limit)
 
@@ -540,32 +559,56 @@ async def verify_job_offers_workflow(
         }
 
     semaphore = asyncio.Semaphore(max_concurrency)
+    updated_db_count = 0
+
+    async def verify_and_persist(
+        offer: Dict[str, Any], http_client: httpx.AsyncClient
+    ) -> Dict[str, Any]:
+        nonlocal updated_db_count
+        try:
+            result = await verify_single_offer(offer, semaphore, http_client=http_client)
+        except Exception as e:
+            logger.error(f"💥 Exception non interceptée sur l'offre {offer.get('_id')}: {e}")
+            result = {
+                "offer_id": str(offer.get("_id", "")),
+                "status": "unknown",
+                "is_valid": None,
+                "reason": f"gather_exception: {str(e)}",
+                "url": offer.get("url") or offer.get("source_url"),
+            }
+
+        if dry_run:
+            return result
+
+        # Écriture au fil de l'eau : un run coupé par execution_timeout garde ce qu'il a vérifié.
+        # last_verified_at aussi sur 'unknown', sinon ces offres resteraient en tête de rotation.
+        now = datetime.now(timezone.utc)
+        fields: Dict[str, Any] = {"last_verified_at": now}
+        is_closed = result.get("is_valid") is False
+        if is_closed:
+            fields.update({
+                "is_deleted": True,
+                "pipeline_stage": "expired",
+                "deleted_date": now,
+                "deletion_reason": result["reason"],
+                "updated_at": now,
+            })
+        try:
+            update_res = await collection.update_one({"_id": offer["_id"]}, {"$set": fields})
+            if is_closed and update_res.modified_count > 0:
+                updated_db_count += 1
+        except Exception as e:
+            logger.error(f"💥 Erreur lors de l'écriture de l'offre {result['offer_id']}: {e}")
+        return result
 
     async with httpx.AsyncClient(
         headers=DEFAULT_HEADERS,
         follow_redirects=True,
         timeout=10.0,
     ) as http_client:
-        tasks = [
-            verify_single_offer(offer, semaphore, http_client=http_client)
-            for offer in offers
-        ]
-        raw_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    # Filtrer et normaliser les résultats
-    processed_results: List[Dict[str, Any]] = []
-    for idx, r in enumerate(raw_results):
-        if isinstance(r, Exception):
-            logger.error(f"💥 Exception non interceptée sur l'offre {offers[idx].get('_id')}: {r}")
-            processed_results.append({
-                "offer_id": str(offers[idx].get("_id", "")),
-                "status": "unknown",
-                "is_valid": None,
-                "reason": f"gather_exception: {str(r)}",
-                "url": offers[idx].get("url") or offers[idx].get("source_url"),
-            })
-        else:
-            processed_results.append(r)
+        processed_results: List[Dict[str, Any]] = await asyncio.gather(
+            *(verify_and_persist(offer, http_client) for offer in offers)
+        )
 
     valid_count = sum(1 for r in processed_results if r.get("is_valid") is True)
     closed_offers = [r for r in processed_results if r.get("is_valid") is False]
@@ -577,33 +620,7 @@ async def verify_job_offers_workflow(
         f"{unknown_count} inconnues (ignorées)"
     )
 
-    updated_db_count = 0
     if not dry_run and closed_offers:
-        now = datetime.now(timezone.utc)
-        for closed in closed_offers:
-            try:
-                from bson import ObjectId
-
-                obj_id = ObjectId(closed["offer_id"])
-                update_res = await collection.update_one(
-                    {"_id": obj_id},
-                    {
-                        "$set": {
-                            "is_deleted": True,
-                            "pipeline_stage": "expired",
-                            "deleted_date": now,
-                            "deletion_reason": closed["reason"],
-                            "updated_at": now,
-                        }
-                    },
-                )
-                if update_res.modified_count > 0:
-                    updated_db_count += 1
-            except Exception as e:
-                logger.error(
-                    f"💥 Erreur lors du soft delete de l'offre {closed['offer_id']}: {e}"
-                )
-
         logger.info(f"🗑️ Soft-delete appliqué à {updated_db_count} offres closes confirmées.")
 
     return {

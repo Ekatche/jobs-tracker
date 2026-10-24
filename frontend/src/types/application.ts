@@ -170,3 +170,40 @@ export interface PipelineSummary {
   thank_yous_due_count: number;
   evaluated_offers_ready_count: number;
 }
+
+/**
+ * Resolves a numerical timestamp for an application, prioritizing application_date,
+ * falling back to created_at, or 0 if neither can be parsed into a valid timestamp.
+ */
+export const getApplicationTimestamp = (app: Application): number => {
+  if (app.application_date) {
+    const time = new Date(app.application_date).getTime();
+    if (!Number.isNaN(time) && time > 0) return time;
+  }
+  if (app.created_at) {
+    const fallback = new Date(app.created_at).getTime();
+    if (!Number.isNaN(fallback) && fallback > 0) return fallback;
+  }
+  return 0;
+};
+
+/**
+ * Sorts an array of applications chronologically.
+ * By default ("asc"), oldest applications come first (ideal for following up older applications).
+ * Ties are broken deterministically by company name then application id.
+ */
+export const sortApplicationsChronologically = (
+  apps: Application[],
+  order: "asc" | "desc" = "asc"
+): Application[] => {
+  return [...apps].sort((a, b) => {
+    const timeA = getApplicationTimestamp(a);
+    const timeB = getApplicationTimestamp(b);
+    if (timeA !== timeB) {
+      return order === "asc" ? timeA - timeB : timeB - timeA;
+    }
+    const companyCompare = (a.company || "").localeCompare(b.company || "");
+    if (companyCompare !== 0) return companyCompare;
+    return (a._id || "").localeCompare(b._id || "");
+  });
+};

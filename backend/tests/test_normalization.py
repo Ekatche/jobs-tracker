@@ -247,7 +247,8 @@ def test_normalize_offer_fields():
     assert "<p>" not in cleaned["description"]
     assert "<strong>" not in cleaned["description"]
     assert "Recupere Metals & Co" in cleaned["description"]
-    assert cleaned["type_contrat"] == "CDI & Plein temps"
+    # Entités décodées, puis valeur mise sous forme canonique par detect_contract_type
+    assert cleaned["type_contrat"] == "CDI"
     assert "€" in cleaned["salaire"]
     assert cleaned["mode_travail"] == "Hybride & Flexible"
     assert cleaned["unique_key"] is not None

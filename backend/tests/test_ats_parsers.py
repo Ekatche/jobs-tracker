@@ -56,6 +56,7 @@ async def test_extract_greenhouse_job_success():
     assert result["localisation"] == "Paris, France"
     assert "Description du poste" in result["description"]
     assert result["ats_platform"] == "greenhouse"
+    assert result["source_record"] is mock_resp.json.return_value
 
 
 @pytest.mark.asyncio
@@ -101,6 +102,7 @@ async def test_extract_lever_job_success():
     assert result["type_contrat"] == "CDI"
     assert "Responsabilités et missions" in result["description"]
     assert result["ats_platform"] == "lever"
+    assert result["source_record"] is mock_resp.json.return_value
 
 
 @pytest.mark.asyncio
@@ -131,6 +133,7 @@ async def test_extract_workable_job_success():
     assert result["type_contrat"] == "CDI"
     assert "Superbe poste Lead Data Scientist." in result["description"]
     assert result["ats_platform"] == "workable"
+    assert result["source_record"] is mock_resp.json.return_value["jobs"][0]
 
 
 def test_parse_jsonld_job_posting_simple():
@@ -170,6 +173,22 @@ def test_parse_jsonld_job_posting_simple():
     assert result["type_contrat"] == "CDI"
     assert "Rejoignez notre équipe data à Lyon." in result["description"]
     assert result["ats_platform"] == "json_ld"
+
+
+def test_parse_jsonld_job_posting_keeps_source_record():
+    # Champs que le parseur ignore (salaire, expérience) : conservés pour une ré-extraction
+    html_page = """
+    <script type="application/ld+json">
+    {"@context": "https://schema.org/", "@type": "JobPosting", "title": "Data Engineer",
+     "baseSalary": {"@type": "MonetaryAmount", "currency": "EUR",
+                    "value": {"@type": "QuantitativeValue", "minValue": 45000, "maxValue": 55000, "unitText": "YEAR"}},
+     "experienceRequirements": {"@type": "OccupationalExperienceRequirements", "monthsOfExperience": 36}}
+    </script>
+    """
+    record = parse_jsonld_job_posting(html_page, "https://example.com/job/1")["source_record"]
+    assert record["@type"] == "JobPosting"
+    assert record["baseSalary"]["value"]["minValue"] == 45000
+    assert record["experienceRequirements"]["monthsOfExperience"] == 36
 
 
 def test_parse_jsonld_job_posting_graph_format():
@@ -309,6 +328,7 @@ async def test_extract_indeed_job_success():
     assert res["type_contrat"] == "CDD"
     assert "Le projet BrainTwin vise à développer" in res["description"]
     assert res["ats_platform"] == "indeed"
+    assert res["source_record"]["attributes"] == [{"label": "Python"}, {"label": "CDD"}]
     sent = client.post.call_args
     assert 'jobKeys: ["c36df2e77c64da3f"]' in sent.kwargs["json"]["query"]
     assert sent.kwargs["headers"]["indeed-co"] == "FR"
@@ -364,6 +384,7 @@ async def test_extract_smartrecruiters_job_success():
     assert res["localisation"] == "Lyon, Auvergne-Rhône-Alpes, France (Hybride)"
     assert res["type_contrat"] == "CDI"
     assert res["ats_platform"] == "smartrecruiters"
+    assert res["source_record"] is mock_resp.json.return_value
     assert "### Description entreprise" in res["description"]
     assert "ASI est une ESN." in res["description"]
     assert "### Missions" in res["description"]

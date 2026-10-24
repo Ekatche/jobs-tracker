@@ -14,9 +14,10 @@ from ..models import (
     SeenStatusRequest,
 )
 from ..database import get_database
-from ..auth import get_current_user
+from ..auth import get_current_admin_user, get_current_user
 from ..services.normalization import normalize_city, normalize_company
 from ..services.evaluation.evaluator import evaluate_offer_two_pass
+from ..tasks.clean_job_offers import safe_delete_or_expire_offer
 
 logger = logging.getLogger(__name__)
 
@@ -754,7 +755,11 @@ async def get_job_offer_evaluation_endpoint(
 
 
 @job_offers_router.patch("/{offer_id}/soft-delete")
-async def soft_delete_job_offer(offer_id: str, db=Depends(get_database)):
+async def soft_delete_job_offer(
+    offer_id: str,
+    db=Depends(get_database),
+    current_admin: UserModel = Depends(get_current_admin_user),
+):
     """Effectue un soft delete d'une offre d'emploi (marque comme supprimée)"""
     if not ObjectId.is_valid(offer_id):
         raise HTTPException(status_code=400, detail="ID invalide")
@@ -792,14 +797,23 @@ async def soft_delete_job_offer(offer_id: str, db=Depends(get_database)):
 
 
 @job_offers_router.delete("/{offer_id}")
-async def delete_job_offer(offer_id: str, db=Depends(get_database)):
-    """Supprime une offre d'emploi"""
+async def delete_job_offer(
+    offer_id: str,
+    db=Depends(get_database),
+    current_admin: UserModel = Depends(get_current_admin_user),
+):
+    """Supprime une offre d'emploi, sauf si une candidature y est liée : elle est alors expirée."""
     if not ObjectId.is_valid(offer_id):
         raise HTTPException(status_code=400, detail="ID invalide")
 
-    result = await db["job_offers"].delete_one({"_id": ObjectId(offer_id)})
-    if result.deleted_count == 0:
+    if not await db["job_offers"].find_one({"_id": ObjectId(offer_id)}, {"_id": 1}):
         raise HTTPException(status_code=404, detail="Offre non trouvée")
+
+    outcome = await safe_delete_or_expire_offer(offer_id, db["job_offers"], db)
+    if outcome == "error":
+        raise HTTPException(status_code=500, detail="Erreur lors de la suppression")
+    if outcome == "expired":
+        return {"message": "Offre liée à une candidature : conservée et marquée expirée"}
 
     return {"message": "Offre supprimée"}
 

@@ -1,5 +1,7 @@
+import datetime
 import math
 
+import bson
 import httpx
 import pytest
 
@@ -141,6 +143,12 @@ def test_map_france_travail_offer():
     assert offer["salaire"] == "Annuel de 45000 Euros à 55000 Euros"
 
 
+def test_map_france_travail_offer_keeps_source_record():
+    # L'item API complet reste disponible pour une ré-extraction (qualification, expérience...)
+    item = {"id": "1", "intitule": "Data scientist", "experienceLibelle": "3 An(s)", "qualificationLibelle": "Cadre"}
+    assert france_travail.map_france_travail_offer(item)["source_record"] is item
+
+
 @pytest.mark.asyncio
 async def test_france_travail_skipped_without_credentials(monkeypatch):
     monkeypatch.delenv("FRANCE_TRAVAIL_CLIENT_ID", raising=False)
@@ -217,6 +225,28 @@ def test_map_jobboard_row_handles_missing_values():
     assert offer["ats_platform"] == "linkedin"
 
 
+def test_map_jobboard_row_keeps_source_record():
+    # Colonnes que le mapping ignore (job_level, company_industry) : conservées pour une ré-extraction
+    row = {
+        "site": "linkedin",
+        "job_url": "https://www.linkedin.com/jobs/view/4300000001",
+        "title": "Data Scientist H/F",
+        "date_posted": datetime.date(2026, 9, 20),
+        "job_level": "mid-senior level",
+        "company_industry": "Pharmaceutical Manufacturing",
+        "is_remote": False,
+        "min_amount": math.nan,
+        "emails": None,
+    }
+    record = jobboards.map_jobboard_row(row)["source_record"]
+    assert record["date_posted"] == "2026-09-20"
+    assert record["job_level"] == "mid-senior level"
+    assert record["company_industry"] == "Pharmaceutical Manufacturing"
+    assert record["is_remote"] is False
+    assert "min_amount" not in record and "emails" not in record
+    bson.encode(record)  # datetime.date brut lèverait InvalidDocument à l'insertion Mongo
+
+
 def test_map_jobboard_row_salary_and_internship():
     row = {
         "site": "indeed", "job_url": "https://fr.indeed.com/viewjob?jk=1", "title": "Stage Data",
@@ -229,19 +259,56 @@ def test_map_jobboard_row_salary_and_internship():
     assert offer["mode_travail"] == "Télétravail total"
 
 
+def test_map_jobboard_row_multi_job_type_keeps_internship():
+    # Un stage plein temps HelloWork arrive en "internship, fulltime" : il doit rester un stage
+    # pour que le filtre anti-stage de fetch_jobboard_offers l'écarte d'une recherche en CDI.
+    def contract(job_type):
+        return jobboards.map_jobboard_row({"job_url": "https://www.hellowork.com/fr-fr/emplois/1.html", "job_type": job_type})["type_contrat"]
+
+    assert contract("internship, fulltime") == "Stage"
+    assert contract("fulltime, parttime") == "Temps partiel"
+    assert contract("fulltime") == ""
+
+
+def test_scrape_site_passes_fetch_description_and_logs_site_errors(monkeypatch, caplog):
+    import jobspy
+    import pandas as pd
+
+    calls = []
+
+    def fake_scrape_jobs(**kwargs):
+        calls.append(kwargs)
+        jobs = pd.DataFrame([{
+            "site": "linkedin", "job_url": "https://www.linkedin.com/jobs/view/1",
+            "title": "Data Engineer", "company": "Acme", "location": "Lyon, Auvergne-Rhône-Alpes, France",
+        }])
+        jobs.attrs["errors"] = {"linkedin": "response status code 429"}
+        return jobs
+
+    monkeypatch.setattr(jobspy, "scrape_jobs", fake_scrape_jobs)
+    caplog.set_level("WARNING")
+    offers = jobboards._scrape_site("linkedin", "Data Engineer", "Lyon")
+
+    assert calls[0]["fetch_description"] is True
+    assert "linkedin_fetch_description" not in calls[0]
+    # Résultats partiels conservés malgré l'erreur signalée par jobspy
+    assert [o["url"] for o in offers] == ["https://www.linkedin.com/jobs/view/1"]
+    assert "429" in caplog.text
+
+
 @pytest.mark.asyncio
 async def test_fetch_jobboard_offers_isolates_site_failure_and_drops_internships(monkeypatch):
     def fake_scrape(site, role, city):
         if site == "linkedin":
             raise RuntimeError("429")
         return [
-            {"poste": "Data Scientist", "type_contrat": "", "url": "u1"},
-            {"poste": "Stage Data", "type_contrat": "Stage", "url": "u2"},
+            {"poste": "Data Scientist", "type_contrat": "", "url": f"{site}-cdi"},
+            {"poste": "Stage Data", "type_contrat": "Stage", "url": f"{site}-stage"},
         ]
 
     monkeypatch.setattr(jobboards, "_scrape_site", fake_scrape)
     offers = await jobboards.fetch_jobboard_offers("Data Scientist", "Lyon", "cdi")
-    assert [o["url"] for o in offers] == ["u1"]
+    assert [o["url"] for o in offers] == ["indeed-cdi", "hellowork-cdi"]
 
 
 # ---------- orchestrateur ----------

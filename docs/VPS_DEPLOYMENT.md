@@ -42,7 +42,7 @@ Lorsque vous développez de nouvelles fonctionnalités ou corrigez des bugs en l
 ### Étape 2 : Sur votre VPS (Mise à jour & Relance)
 Connectez-vous en SSH à votre serveur :
 ```bash
-ssh root@185.194.142.163
+ssh sentinel-vps
 ```
 
 Puis exécutez ces deux commandes :

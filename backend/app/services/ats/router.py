@@ -108,6 +108,7 @@ async def extract_greenhouse_job(
             "type_contrat": "CDI",
             "url": url,
             "ats_platform": "greenhouse",
+            "source_record": data,
         }
     except ExpiredOfferError:
         raise
@@ -158,6 +159,7 @@ async def extract_lever_job(
             "type_contrat": contract,
             "url": url,
             "ats_platform": "lever",
+            "source_record": data,
         }
     except Exception as e:
         logger.debug(f"Échec parsing Lever API pour {url}: {e}")
@@ -196,6 +198,7 @@ async def extract_workable_job(
                         "type_contrat": contract,
                         "url": url,
                         "ats_platform": "workable",
+                        "source_record": j,
                     }
     except Exception as e:
         logger.debug(f"Échec Workable widget pour {url}: {e}")
@@ -262,6 +265,7 @@ async def extract_smartrecruiters_job(
             "type_contrat": contract,
             "url": url,
             "ats_platform": "smartrecruiters",
+            "source_record": data,
         }
     except ExpiredOfferError:
         raise
@@ -294,7 +298,7 @@ async def extract_indeed_job(
     if not job_key or not re.fullmatch(r"[a-f0-9]+", job_key):
         return None
 
-    from jobspy.indeed.constant import api_headers
+    from jobspy.indeed.constant import headers as api_headers
 
     headers = dict(api_headers)
     subdomain = parsed.netloc.lower().split(".")[0]
@@ -329,6 +333,7 @@ async def extract_indeed_job(
             "type_contrat": contract,
             "url": url,
             "ats_platform": "indeed",
+            "source_record": job,
         }
     except Exception as e:
         logger.debug(f"Échec parsing Indeed GraphQL pour {url}: {e}")
@@ -412,6 +417,7 @@ def parse_jsonld_job_posting(html_content: str, url: str) -> Optional[Dict[str, 
                 "type_contrat": contract,
                 "url": url,
                 "ats_platform": "json_ld",
+                "source_record": item,
             }
 
     return None

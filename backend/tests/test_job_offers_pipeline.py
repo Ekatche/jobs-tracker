@@ -195,6 +195,68 @@ def test_enrich_job_offer_data_url_company_fallback():
     assert stripe_offer["entreprise"] == "Stripe"
 
 
+def test_enrich_infers_contract_from_raw_title(monkeypatch):
+    """« Stage » est retiré de l'intitulé affiché mais doit rester dans type_contrat,
+    sinon le filtre « Mes contrats ciblés » ne peut pas écarter l'offre."""
+    from unittest.mock import AsyncMock
+    from app.tasks.job_offers_collectors import enrich_offers_sync
+
+    # normalize_role interroge Mongo et l'API d'embeddings : hors sujet ici
+    monkeypatch.setattr("app.tasks.job_offers_collectors.normalize_role", AsyncMock(side_effect=lambda role: role))
+
+    raw_offers = [
+        {
+            # Cas réel LinkedIn : jobspy ne transmet aucun contrat (job_type « fulltime »)
+            "poste": "Stage Data Science (F/H/X)",
+            "entreprise": "Solvay",
+            "description": "Le stagiaire Data Scientist participera au déploiement des modèles.",
+            "localisation": "Lyon",
+            "type_contrat": "",
+            "url": "https://www.linkedin.com/jobs/view/4481312374/",
+        },
+    ]
+
+    enriched = enrich_offers_sync(raw_offers, "query test")
+    assert len(enriched) == 1
+    assert enriched[0]["poste"] == "Data Science"
+    assert enriched[0]["type_contrat"] == "Stage"
+
+
+def test_enrich_raw_data_keyed_by_source(monkeypatch):
+    """raw_data garde l'enregistrement d'origine sous la clé de sa source, pas la copie normalisée."""
+    from unittest.mock import AsyncMock
+    from app.tasks.job_offers_collectors import enrich_offers_sync
+
+    monkeypatch.setattr("app.tasks.job_offers_collectors.normalize_role", AsyncMock(side_effect=lambda role: role))
+
+    linkedin_row = {"title": "Data Engineer", "job_level": "mid-senior level", "job_function": "Engineering"}
+    raw_offers = [
+        {
+            "poste": "Data Engineer",
+            "entreprise": "Alan",
+            "description": "Pipelines de données pour l'assurance santé.",
+            "localisation": "Paris",
+            "url": "https://www.linkedin.com/jobs/view/1/",
+            "ats_platform": "linkedin",
+            "source_record": linkedin_row,
+        },
+        {
+            # Offre extraite par le LLM du crawler : pas d'enregistrement d'origine
+            "poste": "Data Analyst",
+            "entreprise": "Qonto",
+            "description": "Analyse des parcours clients.",
+            "localisation": "Paris",
+            "url": "https://qonto.com/careers/2",
+        },
+    ]
+
+    enriched = enrich_offers_sync(raw_offers, "query test")
+
+    assert enriched[0]["raw_data"] == {"linkedin": linkedin_row}
+    assert enriched[1]["raw_data"] == {"llm_crawl": raw_offers[1]}
+    assert all("source_record" not in offer for offer in enriched)
+
+
 def test_crawler_dead_or_expired_detection():
     from job_crawler.crawler1 import _is_dead_or_expired, _offer_grounded_in_page, MIN_PAGE_TEXT_CHARS
 
@@ -301,6 +363,174 @@ async def test_crawler_preserves_user_facing_urls_with_optimization():
     assert offer["url"] == raw_user_url
     assert offer["source_url"] == raw_user_url
     assert result["crawl_results"][0]["url"] == raw_user_url
+
+
+def _crawl_result(url, markdown, extracted_content, html="", success=True):
+    from unittest.mock import MagicMock
+
+    result = MagicMock()
+    result.url = url
+    result.redirected_url = ""
+    result.success = success
+    result.status_code = 200
+    result.markdown = markdown
+    result.html = html
+    result.error_message = None
+    result.extracted_content = extracted_content
+    return result
+
+
+async def _run_crawler_on(results):
+    """Lance le crawler sur des résultats crawl4ai simulés (aucun navigateur, aucun appel LLM)."""
+    from unittest.mock import AsyncMock, patch
+    from job_crawler.crawler1 import crawl_and_extract_jobs_optimized
+
+    mock_crawler = AsyncMock()
+    mock_crawler.arun_many.return_value = results
+    mock_crawler_context = AsyncMock()
+    mock_crawler_context.__aenter__.return_value = mock_crawler
+    mock_crawler_context.__aexit__.return_value = None
+
+    with patch("job_crawler.crawler1.AsyncWebCrawler", return_value=mock_crawler_context):
+        output = await crawl_and_extract_jobs_optimized([r.url for r in results], api_key="dummy")
+    return output, mock_crawler
+
+
+@pytest.mark.asyncio
+async def test_crawler_metrics_by_domain_and_status():
+    long_text = "Description complète du poste Data Scientist chez Acme, équipe IA. " * 10
+    generic_text = "Rejoignez nos équipes, découvrez nos métiers et nos valeurs. " * 10
+    results = [
+        _crawl_result(
+            "https://www.acme.com/jobs/1",
+            long_text,
+            '[{"poste": "Data Scientist", "entreprise": "Acme", "error": false}]',
+        ),
+        _crawl_result(
+            "https://acme.com/jobs/2",
+            long_text,
+            '[{"index": 0, "error": true, "tags": ["error"], "content": "RateLimitError: quota"}]',
+        ),
+        _crawl_result(
+            "https://jobs.example.org/offre/3",
+            generic_text,
+            '[{"poste": "Chef de projet", "entreprise": "Globex"}]',
+        ),
+        _crawl_result(
+            "https://www.hellowork.com/fr-fr/emplois/123.html",
+            "Offre expirée — découvrez nos autres annonces.",
+            None,
+        ),
+    ]
+
+    output, _ = await _run_crawler_on(results)
+
+    summary = output["summary"]
+    assert summary["by_domain"] == {
+        "acme.com": {"success": 1, "llm_error": 1},
+        "jobs.example.org": {"grounding_rejected": 1},
+        "hellowork.com": {"dead_link": 1},
+    }
+    assert summary["successful_crawls"] == 1
+    assert summary["llm_error"] == 1
+    assert summary["grounding_rejected"] == 1
+    assert summary["dead_links"] == 1
+    assert summary["total_offers"] == 1
+
+    by_url = {r["url"]: r for r in output["crawl_results"]}
+    assert by_url["https://www.hellowork.com/fr-fr/emplois/123.html"]["dead_signal"] == "text:offre expirée"
+    assert "RateLimitError" in by_url["https://acme.com/jobs/2"]["error"]
+
+
+@pytest.mark.asyncio
+async def test_crawler_keeps_grounded_offer_on_short_page():
+    from job_crawler.crawler1 import MIN_PAGE_TEXT_CHARS
+
+    short_text = ("Poste : Data Engineer chez Lumen à Lyon, CDI, télétravail partiel. " * 3)[:200]
+    assert len(short_text) < MIN_PAGE_TEXT_CHARS
+    extraction = '[{"poste": "Data Engineer", "entreprise": "Lumen"}]'
+
+    output, mock_crawler = await _run_crawler_on(
+        [_crawl_result("https://lumen.example/jobs/42", short_text, extraction)]
+    )
+
+    assert [o["poste"] for o in output["offers"]] == ["Data Engineer"]
+    assert output["crawl_results"][0]["status"] == "success"
+    assert mock_crawler.arun_many.call_count == 1
+    assert output["summary"]["retried_urls"] == 0
+
+    # Texte vide : l'ancrage n'a rien à vérifier, la page reste classée vide
+    output, _ = await _run_crawler_on([_crawl_result("https://lumen.example/jobs/43", "", extraction)])
+    assert output["offers"] == []
+    assert output["crawl_results"][0]["status"] == "empty_content"
+
+
+def _jobposting_html(valid_through, visible_text=""):
+    import json
+
+    jsonld = json.dumps(
+        {
+            "@context": "https://schema.org",
+            "@type": "JobPosting",
+            "title": "Data Analyst",
+            "hiringOrganization": {"name": "Orbital"},
+            "validThrough": valid_through,
+            "description": "<p>Analyse des données de production.</p>",
+        }
+    )
+    return (
+        f'<html><head><script type="application/ld+json">{jsonld}</script></head>'
+        f"<body><h1>Data Analyst</h1><p>{visible_text}</p></body></html>"
+    )
+
+
+@pytest.mark.asyncio
+async def test_crawler_jsonld_fallback_guards_closed_offers():
+    page_text = "Rejoignez une équipe engagée sur des sujets variés et stimulants. " * 10
+    future = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    past = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+    open_url = "https://orbital.example/jobs/1"
+    expired_url = "https://orbital.example/jobs/2"
+    filled_url = "https://orbital.example/jobs/3"
+
+    output, _ = await _run_crawler_on(
+        [
+            _crawl_result(open_url, page_text, "[]", html=_jobposting_html(future)),
+            _crawl_result(expired_url, page_text, "[]", html=_jobposting_html(past)),
+            _crawl_result(filled_url, page_text, "[]", html=_jobposting_html(future, "Ce poste a été pourvu.")),
+        ]
+    )
+
+    assert len(output["offers"]) == 1
+    offer = output["offers"][0]
+    assert (offer["poste"], offer["entreprise"]) == ("Data Analyst", "Orbital")
+    assert offer["url"] == offer["source_url"] == open_url
+    assert offer["ats_platform"] == "json_ld"
+
+    by_url = {r["url"]: r for r in output["crawl_results"]}
+    assert by_url[open_url]["status"] == "jsonld_fallback"
+    assert by_url[open_url]["recovered_from"] == "no_extraction"
+    assert by_url[expired_url]["status"] == "no_extraction"
+    assert by_url[filled_url]["status"] == "no_extraction"
+    assert output["summary"]["jsonld_fallback"] == 1
+    assert output["summary"]["total_offers"] == 1
+
+
+def test_crawler_grounding_normalized_text():
+    from job_crawler.crawler1 import _offer_grounded_in_page
+
+    def grounded(poste, entreprise, page_text):
+        return _offer_grounded_in_page({"poste": poste, "entreprise": entreprise}, page_text)
+
+    # Apostrophe typographique, tiret demi-cadratin et accents : ancrés
+    assert grounded("Chargé d'études", "", "Poste : Chargé d’études marketing (H/F)") is True
+    assert grounded("Data Engineer - Senior", "", "Offre Data Engineer – Senior à Lyon") is True
+    assert grounded("Ingenieur Donnees", "", "Nous recrutons un Ingénieur Données confirmé") is True
+    # Pluriel : la borne de mot est à gauche seulement
+    assert grounded("Data Engineer", "", "Nous recrutons des Data Engineers") is True
+    # Sigle court au milieu d'un mot : non ancré
+    assert grounded("", "AXA", "Une taxation simplifiée pour les indépendants") is False
+    assert grounded("", "AXA", "Rejoignez AXA France à Nanterre") is True
 
 
 def test_structured_description_preservation():
@@ -515,6 +745,48 @@ async def test_save_offers_to_database_returns_offer_ids_on_update(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_save_offers_to_database_update_refreshes_raw_data(monkeypatch):
+    """La re-collecte remplace l'ancienne copie à plat de raw_data par les enregistrements d'origine."""
+    from unittest.mock import AsyncMock, MagicMock
+    from bson import ObjectId
+    from app.tasks.job_offers_collectors import save_offers_to_database
+
+    existing_doc = {
+        "_id": ObjectId("6aaa8ed40a4a13cc5c4a7b1f"),
+        "poste": "Data Engineer",
+        "entreprise": "Alan",
+        "localisation": "Paris",
+        "url": "https://www.linkedin.com/jobs/view/1/",
+        "unique_key": "alan|data engineer|paris",
+        "raw_data": {"poste": "Data Engineer", "entreprise": "Alan", "ats_platform": "linkedin"},
+    }
+
+    mock_collection = MagicMock()
+    mock_collection.find_one = AsyncMock(return_value=existing_doc)
+    mock_collection.update_one = AsyncMock(return_value=MagicMock(modified_count=1))
+    mock_collection.insert_one = AsyncMock()
+
+    async def mock_get_database():
+        return {"job_offers": mock_collection}
+
+    monkeypatch.setattr("app.tasks.job_offers_collectors.get_database", mock_get_database)
+
+    incoming_offer = {
+        "poste": "Data Engineer",
+        "entreprise": "Alan",
+        "localisation": "Paris",
+        "url": "https://www.linkedin.com/jobs/view/1/",
+        "raw_data": {"linkedin": {"job_level": "mid-senior level"}},
+    }
+
+    res = await save_offers_to_database([incoming_offer])
+
+    assert res["updated"] == 1
+    update = mock_collection.update_one.call_args.args[1]
+    assert update["$set"]["raw_data"] == {"linkedin": {"job_level": "mid-senior level"}}
+
+
+@pytest.mark.asyncio
 async def test_save_offers_to_database_returns_offer_ids_on_insert(monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
     from bson import ObjectId
@@ -522,6 +794,7 @@ async def test_save_offers_to_database_returns_offer_ids_on_insert(monkeypatch):
 
     mock_collection = MagicMock()
     mock_collection.find_one = AsyncMock(return_value=None)
+    mock_collection.distinct = AsyncMock(return_value=["Deloitte"])
     mock_find_cursor = MagicMock()
     mock_find_cursor.to_list = AsyncMock(return_value=[])
     mock_collection.find = MagicMock(return_value=mock_find_cursor)
@@ -553,6 +826,54 @@ async def test_save_offers_to_database_returns_offer_ids_on_insert(monkeypatch):
 
     assert res["saved"] == 1
     assert res["offer_ids"] == [inserted_id]
+    assert not mock_collection.find.called  # aucune entreprise de nom compatible en base
+
+
+@pytest.mark.asyncio
+async def test_save_offers_to_database_company_variant_updates_existing(monkeypatch):
+    from unittest.mock import AsyncMock, MagicMock
+    from bson import ObjectId
+    from app.tasks.job_offers_collectors import save_offers_to_database
+
+    existing_doc = {
+        "_id": ObjectId("6aaa8ed40a4a13cc5c4a7b41"),
+        "poste": "Data Engineer",
+        "entreprise": "BackMarket",
+        "localisation": "Paris",
+        "url": "https://www.linkedin.com/jobs/view/4400000001",
+        "unique_key": "backmarket|data engineer|paris",
+        "created_at": datetime(2026, 10, 20, 9, 0, 0, tzinfo=timezone.utc),
+    }
+
+    mock_collection = MagicMock()
+    mock_collection.find_one = AsyncMock(return_value=None)
+    mock_collection.distinct = AsyncMock(return_value=["BackMarket", "Doctolib"])
+    mock_find_cursor = MagicMock()
+    mock_find_cursor.to_list = AsyncMock(return_value=[existing_doc])
+    mock_collection.find = MagicMock(return_value=mock_find_cursor)
+    mock_collection.update_one = AsyncMock(return_value=MagicMock(modified_count=1))
+    mock_collection.insert_one = AsyncMock()
+
+    async def mock_get_database():
+        return {"job_offers": mock_collection}
+
+    monkeypatch.setattr("app.tasks.job_offers_collectors.get_database", mock_get_database)
+
+    incoming_offer = {
+        "poste": "Data Engineer (H/F)",
+        "entreprise": "Back Market",
+        "localisation": "Paris",
+        "url": "https://www.welcometothejungle.com/fr/companies/back-market/jobs/data-engineer_paris",
+    }
+
+    res = await save_offers_to_database([incoming_offer])
+
+    assert res["updated"] == 1
+    assert res["saved"] == 0
+    assert not mock_collection.insert_one.called
+    mock_collection.find.assert_called_once_with({"entreprise": {"$in": ["BackMarket"]}})
+    assert mock_collection.update_one.call_args[0][0] == {"_id": existing_doc["_id"]}
+    assert res["offer_ids"] == [existing_doc["_id"]]
 
 
 @pytest.mark.asyncio
@@ -654,6 +975,32 @@ async def test_collect_merges_structured_offers_and_drops_foreign_search_offers(
         "https://www.indeed.fr/viewjob?jk=1",
     ]
     assert merged[1]["description"] == "résumé"
+
+
+@pytest.mark.asyncio
+async def test_collect_skips_web_search_when_disabled(monkeypatch):
+    import app.tasks.job_offers_collectors as collectors
+
+    structured = [{"poste": "Data Scientist", "description": "brut", "url": "https://www.indeed.fr/viewjob?jk=1"}]
+    enrich = _mock_collect_pipeline(monkeypatch, collectors, [], structured)
+
+    await collectors.collect_and_save_offers(
+        "Je recherche un poste de Data Scientist proche de Lyon (CDI)", use_web_search=False
+    )
+
+    # Ni crew ni Tavily (crédits), ni crawl : seules les sources structurées sont collectées.
+    collectors.get_urls_for_query.assert_not_awaited()
+    collectors.crawl_urls_for_offers.assert_not_awaited()
+    assert [o["url"] for o in enrich.call_args.args[0]] == ["https://www.indeed.fr/viewjob?jk=1"]
+
+
+def test_is_web_search_run_only_for_morning_run():
+    from app.tasks.job_offers_collectors import is_web_search_run
+
+    assert is_web_search_run(datetime(2026, 10, 23, 7, 0, tzinfo=timezone.utc))
+    assert not is_web_search_run(datetime(2026, 10, 23, 16, 0, tzinfo=timezone.utc))
+    # 18:00 en UTC+2 = 16:00 UTC : run de l'après-midi, quel que soit le fuseau fourni.
+    assert not is_web_search_run(datetime(2026, 10, 23, 18, 0, tzinfo=timezone(timedelta(hours=2))))
 
 
 @pytest.mark.asyncio

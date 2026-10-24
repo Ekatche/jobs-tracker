@@ -703,11 +703,32 @@ async def regenerate_application_description(
         raise HTTPException(status_code=500, detail=f"Erreur lors de la régénération : {str(e)}")
 
 
+async def _migrate_user_offer_data(user_id, old_offer_id, new_offer_id: str, db) -> None:
+    """Rattache l'évaluation et le kit d'entretien de l'utilisateur au nouvel offer_id,
+    sans écraser un document qu'il aurait déjà pour ce nouvel id.
+    """
+    def id_variants(value) -> list:
+        # Selon la collection, les ids sont stockés en str ou en ObjectId.
+        return [str(value), ObjectId(str(value))] if ObjectId.is_valid(str(value)) else [str(value)]
+
+    user_ids = id_variants(user_id)
+    for collection in ("offer_evaluations", "interview_preps"):
+        if await db[collection].find_one(
+            {"user_id": {"$in": user_ids}, "offer_id": {"$in": id_variants(new_offer_id)}}, {"_id": 1}
+        ):
+            continue
+        await db[collection].update_many(
+            {"user_id": {"$in": user_ids}, "offer_id": {"$in": id_variants(old_offer_id)}},
+            {"$set": {"offer_id": str(new_offer_id)}},
+        )
+
+
 async def _ensure_offer_for_application(application_id: str, app_doc: dict, db) -> str:
     """Retrouve ou crée l'entrée job_offers correspondant à l'URL/poste de cette candidature,
     et lie son offer_id à l'application. Ne déclenche aucun scoring IA.
     """
     offer_id = app_doc.get("offer_id")
+    original_offer_id = offer_id
     now = datetime.now(timezone.utc)
     existing_offer = None
 
@@ -792,6 +813,10 @@ async def _ensure_offer_for_application(application_id: str, app_doc: dict, db) 
             {"_id": ObjectId(application_id)},
             {"$set": {"offer_id": offer_id, "updated_at": now}}
         )
+
+    # L'offre d'origine a disparu : l'évaluation et le kit d'entretien suivent le nouvel id.
+    if original_offer_id and app_doc.get("user_id") and str(original_offer_id) != str(offer_id):
+        await _migrate_user_offer_data(app_doc["user_id"], original_offer_id, offer_id, db)
 
     return offer_id
 

@@ -112,11 +112,11 @@ class TavilyJobBoardSearchTool(BaseTool):
 
         # Palier 1 : Job boards nationaux, un appel par groupe (site, max résultats). Un appel
         # unique était saturé par HelloWork et France Travail : WTTJ et Indeed n'apparaissaient plus.
-        # Indeed est collecté par python-jobspy, France Travail par son API quand elle est configurée.
+        # Indeed, LinkedIn et HelloWork sont collectés par python-jobspy, France Travail par son API
+        # quand elle est configurée : les chercher ici coûterait des crédits Tavily pour rien.
         job_board_groups = [
             (["welcometothejungle.com"], 8),
             (["apec.fr", "cadremploi.fr"], 6),
-            (["hellowork.com"], 6),
             (["free-work.com", "lesjeudis.com"], 6),
         ]
         if not (os.environ.get("FRANCE_TRAVAIL_CLIENT_ID") and os.environ.get("FRANCE_TRAVAIL_CLIENT_SECRET")):
@@ -186,26 +186,6 @@ class TavilyJobBoardSearchTool(BaseTool):
                     logger.info(f"🏢 {len(response_ats['results'])} résultats trouvés sur ATS entreprises")
             except Exception as e_ats:
                 logger.warning(f"⚠️ Erreur Passe 2 (ATS): {e_ats}")
-
-            # ✅ PASSE 3: Recherche ciblée LinkedIn Jobs (max 8)
-            linkedin_query = f"site:linkedin.com/jobs {clean_query}"
-            logger.info(f"💼 Passe 3 - LinkedIn Jobs récents: {linkedin_query}")
-            try:
-                response_linkedin = tavily_client.search(
-                    query=linkedin_query,
-                    search_depth="advanced",
-                    time_range="month",
-                    max_results=8,
-                    exclude_domains=spam_aggregators,
-                )
-                if response_linkedin and response_linkedin.get("results"):
-                    for r in response_linkedin["results"]:
-                        url = r.get("url")
-                        if url and "linkedin.com/jobs" in url and _is_valid_job_url(url):
-                            all_urls.append(url)
-                    logger.info(f"💼 {len(response_linkedin['results'])} résultats trouvés sur LinkedIn")
-            except Exception as e_li:
-                logger.warning(f"⚠️ Erreur Passe 3 (LinkedIn): {e_li}")
 
             # Dédoublonnage en conservant l'ordre
             seen = set()

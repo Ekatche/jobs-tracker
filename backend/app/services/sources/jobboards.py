@@ -1,10 +1,12 @@
-"""Sources Indeed France et LinkedIn via python-jobspy (scraping des pages publiques).
+"""Sources Indeed France, LinkedIn et HelloWork via python-jobspy (scraping des pages publiques).
 
 Chaque site est interrogé séparément : un blocage (429 LinkedIn, Cloudflare
-Indeed) ne prive pas l'autre de ses résultats.
+Indeed) ne prive pas les autres de leurs résultats. jobspy ne lève pas
+d'exception sur un blocage : l'erreur arrive dans `attrs["errors"]` du DataFrame.
 """
 
 import asyncio
+import datetime
 import logging
 import math
 from typing import Optional
@@ -13,7 +15,7 @@ from app.services.sources.geo import GEO_RADIUS_KM, clean_city_label
 
 logger = logging.getLogger(__name__)
 
-JOBBOARD_SITES = ("indeed", "linkedin")
+JOBBOARD_SITES = ("indeed", "linkedin", "hellowork")
 JOBBOARD_MAX_RESULTS = 25
 JOBBOARD_HOURS_OLD = 24 * 14
 KM_PER_MILE = 1.609
@@ -40,22 +42,36 @@ def _salary_label(row) -> str:
     return f"{amounts} {_value(row, 'currency') or ''} / {_value(row, 'interval') or ''}".strip(" /")
 
 
+def _source_record(row) -> dict:
+    """Ligne jobspy d'origine, sans cellules vides : BSON n'encode pas `datetime.date`, d'où l'ISO."""
+    record = {}
+    for key in row:
+        value = _value(row, key)
+        if value is not None:
+            record[key] = value.isoformat() if isinstance(value, datetime.date) else value
+    return record
+
+
 def map_jobboard_row(row) -> dict:
     url = str(_value(row, "job_url") or "")
     date = _value(row, "date_posted")
+    # jobspy joint plusieurs types ("internship, fulltime") : on garde le premier type connu
+    job_types = [t.strip() for t in str(_value(row, "job_type") or "").split(",")]
+    contract = next((JOB_TYPE_LABELS[t] for t in job_types if t in JOB_TYPE_LABELS), "")
     return {
         "poste": str(_value(row, "title") or ""),
         "entreprise": str(_value(row, "company") or ""),
         "description": str(_value(row, "description") or ""),
         "localisation": clean_city_label(str(_value(row, "location") or "")),
         "date": str(date)[:10] if date is not None else "",
-        "type_contrat": JOB_TYPE_LABELS.get(str(_value(row, "job_type") or ""), ""),
+        "type_contrat": contract,
         "salaire": _salary_label(row),
         "mode_travail": "Télétravail total" if _value(row, "is_remote") else "",
         "competences_cles": [],
         "url": url,
         "source_url": url,
         "ats_platform": str(_value(row, "site") or ""),
+        "source_record": _source_record(row),
     }
 
 
@@ -70,10 +86,13 @@ def _scrape_site(site: str, role: str, city: Optional[str]) -> list[dict]:
         hours_old=JOBBOARD_HOURS_OLD,
         results_wanted=JOBBOARD_MAX_RESULTS,
         country_indeed="france",
-        linkedin_fetch_description=True,
+        fetch_description=True,
         description_format="markdown",
         verbose=0,
     )
+    error = jobs.attrs.get("errors", {}).get(site)
+    if error:
+        logger.warning(f"⚠️ {site} en échec pour '{role}': {error}")
     return [map_jobboard_row(row) for row in jobs.to_dict("records")]
 
 

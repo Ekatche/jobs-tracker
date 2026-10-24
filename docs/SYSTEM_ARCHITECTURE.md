@@ -36,6 +36,7 @@ L'interface est segmentée logiquement pour une navigation SaaS fluide.
 - Module `app/auth.py` avec `get_current_user` injecté via `Depends()` sur les routes protégées.
 - Support optionnel `get_current_user_optional` pour les routes de consultation publique/catalogue.
 - Tokens JWT signés avec `SECRET_KEY`, expiration configurable (`ACCESS_TOKEN_EXPIRE_MINUTES=30`).
+- Routes d'administration du catalogue : `get_current_admin_user`. C'est le cas de `DELETE /job-offers/{id}` et `PATCH /job-offers/{id}/soft-delete`, qui n'exigeaient auparavant aucune authentification. Une offre liée à une candidature n'est jamais supprimée : elle est marquée expirée (`safe_delete_or_expire_offer`).
 
 ### B. Isolation Multi-Tenant
 - **Données Utilisateur Privées** : Chaque document `applications`, `tasks`, `candidate_profile`, `cover_letters`, `api_usage` et `user_quotas` porte un champ `user_id` obligatoire. Toutes les requêtes/mutations filtrent strictement par le `user_id` du token JWT (rejet avec HTTP 403 en cas de mismatch).
@@ -132,8 +133,8 @@ L'IA et le scraping (Crawl4AI) prennent de 15 secondes à plusieurs minutes. Le 
 > - **Pipeline de Normalisation des Rôles** : Chaque rôle cible est normalisé via embeddings sémantiques (`text-embedding-3-small`) + registre d'alias auto-alimenté. Fast path : recherche exacte MongoDB. Slow path : similarité cosinus ≥ 0.85 pour regrouper variantes FR/EN d'un même métier, sans table statique à maintenir manuellement. Permet la **mutualisation multi-utilisateurs** : 100 candidats recherchant `"Ingénieur IA"` et `"AI Engineer"` = 1 seule requête Airflow.
 > - **Fréquences optimisées** :
 >   - Collecte (`collect_job_offers`) : `0 7,16 * * 1-5` (2x/jour en semaine, captures des parutions nuit + fin matinée).
->   - Liveness (`verify_job_offers`) : `0 2 * * *` (1x/jour la nuit, détection 404/expirations).
->   - Nettoyage (`clean_job_offers`) : `0 4 * * *` (1x/jour la nuit, déduplication et archivage des offres > 30 jours non référencées).
+>   - Liveness (`verify_job_offers`) : `0 7 * * *` (1x/jour, 200 offres en rotation sur `last_verified_at`, jamais vérifiées d'abord, détection 404/410, JSON-LD `validThrough`, redirections, bandeaux de clôture LinkedIn/Indeed — détail dans `JOB_INGESTION_AND_NORMALIZATION.md`).
+>   - Nettoyage (`clean_job_offers`) : `0 6 * * *` (1x/jour, normalisation et déduplication globale ; purge par âge désactivée, la validité réelle relève de `verify_job_offers`).
 > - *(Détails complets dans `JOB_INGESTION_AND_NORMALIZATION.md`)*.
 
 > Celery + Redis ne sont **pas** ajoutés au docker-compose à ce stade. La migration future est préparée via un module `task_dispatcher.py` qui encapsule les appels `background_tasks.add_task(...)`.

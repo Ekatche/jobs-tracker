@@ -31,7 +31,7 @@ dependencies = [
     "crewai>=0.120.0",
     "tavily-python>=0.7.0",
     "litellm>=1.68.0",
-    "python-jobspy>=1.1.82",
+    "python-jobspy>=1.4.1",
     # Orchestration
     "apache-airflow>=3.0.0",
     # Utilitaires
@@ -75,3 +75,7 @@ packages = ["app"]  # Indique que le package principal est dans le dossier "app"
 
 [tool.uv]
 override-dependencies = ["numpy>=2.1"]
+# Cooldown : uv lock et uv pip compile ignorent les versions publiées depuis moins de 7 jours.
+exclude-newer = "7 days"
+# python-jobspy 1.4.1 date du 2026-10-23 : exemption à retirer après le 2026-10-30.
+exclude-newer-package = { python-jobspy = false }

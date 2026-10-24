@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Application, formatDate, calculateDays } from "@/types/application";
 import { applicationApi, type OfferEvaluation } from "@/lib/api";
 import StatusSelect from "./StatusSelect";
@@ -55,6 +55,8 @@ export default function ApplicationDetails({
   onArchive,
   hasUnsavedChanges,
 }: ApplicationDetailsProps) {
+  const router = useRouter();
+
   // Local notes state
   const [localNotes, setLocalNotes] = useState<string[]>([]);
   const [newNote, setNewNote] = useState<string>("");
@@ -194,11 +196,19 @@ export default function ApplicationDetails({
     }
   };
 
+  // Ouvre l'offre après l'avoir reliée (sans LLM) : l'offer_id stocké peut viser une offre disparue
+  const handleOpenOffer = async (suffix = "") => {
+    const targetOfferId = (await handleLinkOffer()) || application?.offer_id || evaluation?.offer_id;
+    if (targetOfferId) {
+      router.push(`/offers/${targetOfferId}${suffix}`);
+    }
+  };
+
   // Ouverture CV adapté avec auto-liaison si nécessaire
   const handleOpenTailoredResumeWithAutoLink = async () => {
     // Onglet ouvert pendant le clic : après un await, Safari bloque window.open.
     const tab = window.open("", "_blank");
-    const targetOfferId = application?.offer_id || evaluation?.offer_id || (await handleLinkOffer());
+    const targetOfferId = (await handleLinkOffer()) || application?.offer_id || evaluation?.offer_id;
     if (!tab) return;
     if (targetOfferId) {
       tab.opener = null;
@@ -380,24 +390,26 @@ export default function ApplicationDetails({
             {(application.offer_id || evaluation?.offer_id) ? (
               <>
                 {!evaluation?.offer_id && (
-                  <Link
-                    href={`/offers/${application.offer_id}`}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 transition-colors font-medium"
+                  <button
+                    type="button"
+                    onClick={() => handleOpenOffer()}
+                    disabled={isLinkingOffer}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 transition-colors font-medium disabled:opacity-60"
                   >
                     <FiLink className="w-3.5 h-3.5" />
                     <span>Offre scrapée</span>
-                  </Link>
+                  </button>
                 )}
-                <Link
-                  href={`/resumes?generate_offer_id=${application.offer_id || evaluation?.offer_id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 transition-colors font-medium"
+                <button
+                  type="button"
+                  onClick={handleOpenTailoredResumeWithAutoLink}
+                  disabled={isLinkingOffer}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 transition-colors font-medium disabled:opacity-60"
                   title="Générer un CV adapté sur-mesure pour cette offre (ouvre un nouvel onglet)"
                 >
                   <FiFileText className="w-3.5 h-3.5" />
                   <span>CV Adapté</span>
-                </Link>
+                </button>
               </>
             ) : (
               application.description && application.description.trim().length > 20 ? (
@@ -555,21 +567,25 @@ export default function ApplicationDetails({
 
                 {/* Link to full report & interview prep */}
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80 pt-3">
-                  <Link
-                    href={`/offers/${evaluation.offer_id || application.offer_id}?tab=interview`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-colors"
+                  <button
+                    type="button"
+                    onClick={() => handleOpenOffer("?tab=interview")}
+                    disabled={isLinkingOffer}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-colors disabled:opacity-60"
                   >
                     <FiTarget className="w-3.5 h-3.5 text-indigo-400" />
                     <span>🎯 Préparer l'entretien</span>
-                  </Link>
+                  </button>
 
-                  <Link
-                    href={`/offers/${evaluation.offer_id || application.offer_id}`}
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+                  <button
+                    type="button"
+                    onClick={() => handleOpenOffer()}
+                    disabled={isLinkingOffer}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-60"
                   >
                     <span>Analyse complète</span>
                     <FiArrowRight className="w-3.5 h-3.5" />
-                  </Link>
+                  </button>
                 </div>
               </div>
             ) : (

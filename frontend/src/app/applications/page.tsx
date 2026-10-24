@@ -10,6 +10,7 @@ import {
   STATUS_ORDER,
   getStatusColor,
   calculateDays,
+  sortApplicationsChronologically,
   type PipelineSummary,
 } from "@/types/application";
 import ApplicationDetails from "@/components/applications/ApplicationDetails";
@@ -368,8 +369,14 @@ export default function ApplicationsPage() {
 
   // Groupement des colonnes du Kanban (hauteurs égales et statut "En étude" dédié)
   const columns = useMemo(() => {
-    const getAppsFor = (statuses: string[]) =>
-      filteredApplications.filter((a) => !a.archived && statuses.includes(a.status));
+    const getAppsFor = (statuses: string[]) => {
+      const apps = filteredApplications.filter((a) => !a.archived && statuses.includes(a.status));
+      return sortApplicationsChronologically(apps, "asc");
+    };
+
+    const closedApps = filteredApplications.filter(
+      (a) => a.archived || a.status === "Refusée" || a.status === "Retirée"
+    );
 
     return [
       {
@@ -412,9 +419,7 @@ export default function ApplicationsPage() {
         title: "Clôturées",
         dotColor: "bg-rose-500",
         badgeBg: "bg-rose-500/20 text-rose-300 border-rose-500/30",
-        apps: filteredApplications.filter(
-          (a) => a.archived || a.status === "Refusée" || a.status === "Retirée"
-        ),
+        apps: sortApplicationsChronologically(closedApps, "asc"),
       },
     ];
   }, [filteredApplications]);

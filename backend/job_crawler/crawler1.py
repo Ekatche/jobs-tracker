@@ -3,8 +3,10 @@ import os
 import re
 import json
 import logging
+from collections import Counter
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 from pydantic import BaseModel
 from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, LLMConfig
@@ -19,6 +21,7 @@ from app.services.normalization import (
     optimize_crawl_url,
     restore_canonical_job_url,
 )
+from app.services.relevance import normalize_text
 
 logger = logging.getLogger(__name__)
 
@@ -506,28 +509,49 @@ async def crawl_and_extract_jobs_optimized(
 
                 for result in results:
                     orig_url = _resolve_original_url(result.url)
+                    domain = urlparse(orig_url).netloc.lower().removeprefix("www.")
                     logger.info(f"📊 Résultat reçu pour: {result.url} (original: {orig_url})")
 
                     page_text = _get_page_text(result)
 
                     # 1. Vérification immédiate de lien mort ou offre expirée (aucun retry inutile)
-                    if _is_dead_or_expired(result, page_text):
+                    dead_signal = _dead_or_expired_signal(result, page_text)
+                    if dead_signal:
                         logger.warning(
                             f"🛑 Lien mort ou expiré pour {orig_url} "
-                            f"(status={getattr(result, 'status_code', None)}) — sortie immédiate"
+                            f"(signal={dead_signal}) — sortie immédiate"
                         )
                         processed_results.append(
                             {
                                 "url": orig_url,
+                                "domain": domain,
                                 "status": "dead_link",
+                                "dead_signal": dead_signal,
                                 "error": "Offre expirée ou page inexistante (404/410 ou contenu expiré)",
                                 "attempts": attempt + 1,
                             }
                         )
                         continue
 
-                    # 2. Vérification de crawl vide
-                    if _is_empty_crawl(result, page_text):
+                    # 2. Extraction LLM d'abord : elle a déjà tourné pendant arun_many sur
+                    # ce même texte. Une offre ancrée dans une page courte (sous
+                    # MIN_PAGE_TEXT_CHARS) est gardée au lieu d'être classée vide.
+                    try:
+                        blocks = json.loads(result.extracted_content) if result.extracted_content else []
+                        offers, status, error = _extract_grounded_offers(blocks, page_text, orig_url)
+                    except json.JSONDecodeError as e:
+                        offers, status, error = [], "json_error", str(e)
+
+                    # Sur un texte vide, _offer_grounded_in_page accepte tout : seule une
+                    # offre ancrée dans une page réellement crawlée échappe au test de vide.
+                    has_grounded_offers = (
+                        status == "success"
+                        and getattr(result, "success", False)
+                        and bool(page_text.strip())
+                    )
+
+                    # 3. Vérification de crawl vide
+                    if not has_grounded_offers and _is_empty_crawl(result, page_text):
                         empty_counts[result.url] = empty_counts.get(result.url, 0) + 1
                         reason = (
                             result.error_message
@@ -554,118 +578,95 @@ async def crawl_and_extract_jobs_optimized(
                             )
                             actually_retried_urls.add(result.url)
                             to_retry.append(result.url)
-                        else:
-                            logger.warning(
-                                f"❌ Crawl vide après {attempt + 1} tentative(s) pour "
-                                f"{orig_url}: {reason}"
+                            continue
+
+                        logger.warning(
+                            f"❌ Crawl vide après {attempt + 1} tentative(s) pour "
+                            f"{orig_url}: {reason}"
+                        )
+                        status, error = "empty_content", reason
+                    elif status != "success":
+                        # Page correctement crawlée mais aucune offre gardée :
+                        # un retry ne changerait pas le contenu de la page.
+                        logger.warning(
+                            f"⚠️ {status} pour {orig_url} "
+                            f"({len(page_text.strip())} chars crawlés): {error}"
+                        )
+
+                    if status != "success":
+                        # 4. Repli zéro token : JSON-LD JobPosting du HTML déjà téléchargé
+                        fallback_offer = _jsonld_fallback_offer(getattr(result, "html", None), orig_url)
+                        if fallback_offer:
+                            logger.info(
+                                f"🧩 Repli JSON-LD pour {orig_url} (après {status}): "
+                                f"'{fallback_offer['poste']}' chez '{fallback_offer['entreprise']}'"
                             )
+                            all_offers.append(fallback_offer)
                             processed_results.append(
                                 {
                                     "url": orig_url,
-                                    "status": "empty_content",
-                                    "error": reason,
+                                    "domain": domain,
+                                    "status": "jsonld_fallback",
+                                    "recovered_from": status,
+                                    "offers_count": 1,
                                     "attempts": attempt + 1,
                                 }
                             )
-                        continue
+                            continue
 
-                    if not result.extracted_content:
-                        # Page correctement crawlée mais le LLM n'a rien extrait :
-                        # un retry ne changerait pas le contenu de la page.
-                        logger.warning(
-                            f"⚠️ Aucune extraction pour {orig_url} "
-                            f"({len(page_text.strip())} chars crawlés)"
-                        )
                         processed_results.append(
                             {
                                 "url": orig_url,
-                                "status": "no_extraction",
-                                "error": "Aucun contenu extrait par le LLM",
+                                "domain": domain,
+                                "status": status,
+                                "error": error,
                                 "attempts": attempt + 1,
                             }
                         )
                         continue
 
-                    try:
-                        offers = json.loads(result.extracted_content)
+                    # Ajouter source_url et url canoniques (pour l'utilisateur)
+                    for offer in offers:
+                        offer["source_url"] = orig_url
+                        offer["url"] = orig_url
+                        all_offers.append(offer)
 
-                        if isinstance(offers, dict):
-                            offers = [offers]
-                        elif not isinstance(offers, list):
-                            offers = []
+                    processed_results.append(
+                        {
+                            "url": orig_url,
+                            "domain": domain,
+                            "status": "success",
+                            "offers_count": len(offers),
+                            "attempts": attempt + 1,
+                        }
+                    )
 
-                        # Fallback nom d'entreprise depuis l'URL si manquant ou générique
-                        for offer in offers:
-                            ent = (offer.get("entreprise") or "").strip()
-                            if not ent or ent.lower() in (
-                                "non spécifié",
-                                "non disponible",
-                                "inconnu",
-                                "none",
-                                "null",
-                                "undefined",
-                            ):
-                                fallback = extract_company_from_url(orig_url)
-                                if fallback:
-                                    logger.info(
-                                        f"🏢 Entreprise enrichie depuis l'URL pour {orig_url}: '{fallback}'"
-                                    )
-                                    offer["entreprise"] = fallback
-
-                        # Filet de sécurité : rejeter les offres non ancrées dans la
-                        # page réellement crawlée (pages SPA mal chargées, contenu
-                        # générique du shell au lieu de l'offre ciblée)
-                        grounded_offers = []
-                        for offer in offers:
-                            if _offer_grounded_in_page(offer, page_text, orig_url):
-                                grounded_offers.append(offer)
-                            else:
-                                logger.warning(
-                                    f"⚠️ Offre rejetée (non retrouvée dans la page crawlée): "
-                                    f"'{offer.get('poste')}' chez '{offer.get('entreprise')}' — {orig_url}"
-                                )
-                        offers = grounded_offers
-
-                        # Ajouter source_url et url canoniques (pour l'utilisateur)
-                        for offer in offers:
-                            offer["source_url"] = orig_url
-                            offer["url"] = orig_url
-                            all_offers.append(offer)
-
-                        processed_results.append(
-                            {
-                                "url": orig_url,
-                                "status": "success",
-                                "offers_count": len(offers),
-                                "attempts": attempt + 1,
-                            }
-                        )
-
-                        logger.info(f"✅ {len(offers)} offres de {orig_url}")
-
-                    except json.JSONDecodeError as e:
-                        logger.error(f"❌ Erreur JSON pour {orig_url}: {e}")
-                        processed_results.append(
-                            {"url": orig_url, "status": "json_error", "error": str(e)}
-                        )
+                    logger.info(f"✅ {len(offers)} offres de {orig_url}")
 
 
                 pending = to_retry
                 attempt += 1
 
+        # Pertes par domaine et par statut : lues dans les logs Airflow pour décider
+        # des correctifs suivants (motifs de lien mort, seuil de page vide, quota LLM).
+        by_domain: Dict[str, Dict[str, int]] = {}
+        for r in processed_results:
+            domain_counts = by_domain.setdefault(r["domain"], {})
+            domain_counts[r["status"]] = domain_counts.get(r["status"], 0) + 1
+        status_counts = Counter(r["status"] for r in processed_results)
+
         summary = {
             "total_urls": len(urls),
-            "successful_crawls": sum(
-                1 for r in processed_results if r.get("status") == "success"
-            ),
-            "empty_crawls": sum(
-                1 for r in processed_results if r.get("status") == "empty_content"
-            ),
-            "dead_links": sum(
-                1 for r in processed_results if r.get("status") == "dead_link"
-            ),
+            "successful_crawls": status_counts["success"],
+            "empty_crawls": status_counts["empty_content"],
+            "dead_links": status_counts["dead_link"],
+            "no_extraction": status_counts["no_extraction"],
+            "llm_error": status_counts["llm_error"],
+            "grounding_rejected": status_counts["grounding_rejected"],
+            "jsonld_fallback": status_counts["jsonld_fallback"],
             "retried_urls": len(actually_retried_urls),
             "total_offers": len(all_offers),
+            "by_domain": by_domain,
         }
 
         logger.info(f"🎯 Ultra-simple terminé: {summary}")
@@ -718,28 +719,29 @@ DEAD_OR_EXPIRED_PATTERNS = (
 )
 
 
-def _is_dead_or_expired(result, page_text: str) -> bool:
+def _dead_or_expired_signal(result, page_text: str) -> Optional[str]:
     """
-    Détecte si la page correspond à un lien mort ou à une offre expirée/supprimée.
-    - Code HTTP 404, 410
-    - URL redirigée vers une page d'erreur (404 délimité, inexistante, expired)
-    - Présence de motifs textuels d'expiration dans page_text (ou raw html si page courte)
+    Renvoie le signal qui classe la page en lien mort ou offre expirée/supprimée,
+    ou None si la page semble active :
+    - `http_<code>` : code HTTP 404, 410
+    - `redirect` : URL redirigée vers une page d'erreur (404 délimité, inexistante, expired)
+    - `text:<motif>` / `html:<motif>` : motif d'expiration dans page_text (ou raw html si page courte)
     """
     status_code = getattr(result, "status_code", None)
     if status_code in (404, 410):
-        return True
+        return f"http_{status_code}"
 
     raw_redir = getattr(result, "redirected_url", None)
     redirected_url = raw_redir.lower() if isinstance(raw_redir, str) else ""
     if re.search(r"[/=_\-?]404([/?&#_\-.]|$)", redirected_url) or any(
         p in redirected_url for p in ("inexistante", "expired")
     ):
-        return True
+        return "redirect"
 
     text_to_check = page_text.lower()
     for pattern in DEAD_OR_EXPIRED_PATTERNS:
         if pattern in text_to_check:
-            return True
+            return f"text:{pattern}"
 
     # Ne scanner le HTML brut que pour les pages courtes (< MIN_PAGE_TEXT_CHARS)
     # pour éviter les faux positifs issus des bundles JS embarqués sur les pages pleines
@@ -748,10 +750,14 @@ def _is_dead_or_expired(result, page_text: str) -> bool:
         html_to_check = raw_html.lower() if isinstance(raw_html, str) else ""
         for pattern in DEAD_OR_EXPIRED_PATTERNS:
             if pattern in html_to_check:
-                return True
+                return f"html:{pattern}"
+
+    return None
 
 
-    return False
+def _is_dead_or_expired(result, page_text: str) -> bool:
+    """Détecte si la page correspond à un lien mort ou à une offre expirée/supprimée."""
+    return _dead_or_expired_signal(result, page_text) is not None
 
 
 def _is_empty_crawl(result, page_text: str) -> bool:
@@ -777,13 +783,22 @@ def _offer_grounded_in_page(
     if not page_text:
         return True  # Pas de texte à comparer : ne pas rejeter à l'aveugle
 
-    page_text_lower = page_text.lower()
+    # Comparaison normalisée (accents, apostrophes, tirets) avec borne de mot à
+    # gauche : un sigle court ("AXA") ne s'ancre plus au milieu d'un mot
+    # ("taxation"), un pluriel ("Data Engineers") reste ancré.
+    page_norm = f" {normalize_text(page_text)}"
     poste = (offer.get("poste") or "").strip().lower()
     entreprise = (offer.get("entreprise") or "").strip().lower()
+    poste_norm = normalize_text(poste)
+    entreprise_norm = normalize_text(entreprise)
 
-    poste_found = bool(poste) and poste not in ("non spécifié",) and poste in page_text_lower
+    poste_found = (
+        bool(poste_norm) and poste not in ("non spécifié",) and f" {poste_norm}" in page_norm
+    )
     entreprise_found = (
-        bool(entreprise) and entreprise not in ("non spécifié",) and entreprise in page_text_lower
+        bool(entreprise_norm)
+        and entreprise not in ("non spécifié",)
+        and f" {entreprise_norm}" in page_norm
     )
 
     # Si l'entreprise est retrouvée dans le texte du DOM : l'offre est ancrée
@@ -798,6 +813,96 @@ def _offer_grounded_in_page(
             return poste_found
 
     return poste_found
+
+
+def _extract_grounded_offers(
+    blocks: Any, page_text: str, url: str
+) -> tuple[List[Dict[str, Any]], str, Optional[str]]:
+    """
+    Garde, parmi les blocs JSON extraits par le LLM, les offres ancrées dans le texte crawlé.
+    Renvoie (offres, statut, erreur) : `success` dès qu'une offre est gardée, sinon
+    `no_extraction` (rien d'extrait), `llm_error` (blocs d'erreur de
+    RobustLLMExtractionStrategy seulement) ou `grounding_rejected` (offres extraites,
+    toutes rejetées par l'ancrage).
+    """
+    if isinstance(blocks, dict):
+        blocks = [blocks]
+    elif not isinstance(blocks, list):
+        blocks = []
+    blocks = [b for b in blocks if isinstance(b, dict)]
+
+    error_blocks = [b for b in blocks if b.get("error") is True]
+    offers = [b for b in blocks if b.get("error") is not True]
+    if not offers:
+        if error_blocks:
+            return [], "llm_error", str(error_blocks[0].get("content", ""))[:300]
+        return [], "no_extraction", "Aucun contenu extrait par le LLM"
+
+    # Fallback nom d'entreprise depuis l'URL si manquant ou générique
+    for offer in offers:
+        ent = (offer.get("entreprise") or "").strip()
+        if not ent or ent.lower() in (
+            "non spécifié",
+            "non disponible",
+            "inconnu",
+            "none",
+            "null",
+            "undefined",
+        ):
+            fallback = extract_company_from_url(url)
+            if fallback:
+                logger.info(f"🏢 Entreprise enrichie depuis l'URL pour {url}: '{fallback}'")
+                offer["entreprise"] = fallback
+
+    # Filet de sécurité : rejeter les offres non ancrées dans la
+    # page réellement crawlée (pages SPA mal chargées, contenu
+    # générique du shell au lieu de l'offre ciblée)
+    grounded_offers = []
+    for offer in offers:
+        if _offer_grounded_in_page(offer, page_text, url):
+            grounded_offers.append(offer)
+        else:
+            logger.warning(
+                f"⚠️ Offre rejetée (non retrouvée dans la page crawlée): "
+                f"'{offer.get('poste')}' chez '{offer.get('entreprise')}' — {url}"
+            )
+    if not grounded_offers:
+        return [], "grounding_rejected", f"{len(offers)} offre(s) extraite(s), aucune ancrée dans la page"
+    return grounded_offers, "success", None
+
+
+def _jsonld_fallback_offer(html: Optional[str], url: str) -> Optional[Dict[str, Any]]:
+    """
+    Repli zéro token quand l'extraction LLM n'a gardé aucune offre : lit le JSON-LD
+    `JobPosting` du HTML déjà téléchargé. Écarte l'offre si `validThrough` est dépassé
+    ou si le texte visible porte un bandeau de clôture (mêmes signaux que verify_job_offers).
+    """
+    if not isinstance(html, str) or not html:
+        return None
+
+    from app.services.ats.router import parse_jsonld_job_posting
+    from app.tasks.verify_job_offers import (
+        detect_closure_in_text,
+        extract_json_ld_valid_through,
+        extract_visible_text,
+    )
+
+    offer = parse_jsonld_job_posting(html, url)
+    if not offer:
+        return None
+
+    valid_through = extract_json_ld_valid_through(html)
+    if valid_through and valid_through < datetime.now(timezone.utc):
+        logger.info(f"🛑 Repli JSON-LD écarté pour {url}: validThrough dépassé ({valid_through.date()})")
+        return None
+
+    closure = detect_closure_in_text(extract_visible_text(html))
+    if closure:
+        logger.info(f"🛑 Repli JSON-LD écarté pour {url}: '{closure}'")
+        return None
+
+    offer["source_url"] = url
+    return offer
 
 
 def filter_offers(

@@ -1,6 +1,8 @@
 import html
 import re
 import string
+import unicodedata
+from functools import lru_cache
 from typing import Optional, List, Dict, Any, Set
 from difflib import SequenceMatcher
 
@@ -73,6 +75,56 @@ def normalize_company(company: Optional[str]) -> str:
     normalized = re.sub(r"\s+", " ", normalized.strip())
 
     return normalized if normalized else "Non spécifié"
+
+
+def _fold_ascii(text: str) -> str:
+    """Minuscules sans accents ni caractères non ASCII (ex: « D’Or » -> « dor »)."""
+    return unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
+
+
+@lru_cache(maxsize=4096)
+def _company_tokens(company: Optional[str]) -> tuple:
+    """Jetons alphanumériques sans accents du nom normalisé ; vide pour une entreprise inconnue."""
+    normalized = normalize_company(company)
+    if normalized.lower() == "non spécifié":
+        return ()
+    return tuple(re.findall(r"[a-z0-9]+", _fold_ascii(normalized)))
+
+
+def company_match_strength(company1: Optional[str], company2: Optional[str]) -> Optional[str]:
+    """Compare deux noms d'entreprise, éventuellement écrits différemment selon le job board.
+
+    "strong" : mêmes jetons une fois espaces, ponctuation et accents retirés (« BackMarket » / « Back Market »)
+    ou noms très proches (ratio >= 0.85).
+    "weak" : les jetons d'un nom sont le début de l'autre (« JEMS » / « Jems Group ») ; l'appelant doit
+    alors exiger des descriptions proches.
+    None : entreprises différentes ou inconnues.
+    """
+    t1, t2 = _company_tokens(company1), _company_tokens(company2)
+    if not t1 or not t2:
+        return None
+
+    k1, k2 = "".join(t1), "".join(t2)
+    if k1 == k2:
+        return "strong"
+    if 2 * min(len(k1), len(k2)) >= 0.85 * (len(k1) + len(k2)):
+        matcher = SequenceMatcher(None, k1, k2)
+        if matcher.quick_ratio() >= 0.85 and matcher.ratio() >= 0.85:
+            return "strong"
+
+    short, long_ = (t1, t2) if len(t1) < len(t2) else (t2, t1)
+    if long_[: len(short)] == short:
+        return "weak"
+    return None
+
+
+GENERIC_CITY_KEYS: Set[str] = {"", "nonspecifie", "france", "teletravail", "remote"}
+
+
+def _city_key(location: Optional[str]) -> str:
+    """Ville repliée, limitée au segment avant la première virgule (« Lyon, Auvergne-Rhône-Alpes, France » -> « lyon »)."""
+    city = normalize_city(location).split(",")[0]
+    return "".join(re.findall(r"[a-z0-9]+", _fold_ascii(city)))
 
 
 def normalize_position(position: Optional[str]) -> str:
@@ -463,6 +515,93 @@ def clean_job_title_syntax(title: Optional[str]) -> str:
     return cleaned if cleaned else (title.strip() or "Non spécifié")
 
 
+CONTRACT_PLACEHOLDERS: Set[str] = {"", "non spécifié", "non disponible", "inconnu", "none", "null", "undefined", "nan"}
+
+# Ordre de priorité : le premier libellé reconnu l'emporte (« CDI intérimaire » reste un CDI).
+CONTRACT_PATTERNS = (
+    ("Stage", r"(?<!-)\b(?:stage|stagiaire|internship|intern)\b"),
+    ("Alternance", r"\b(?:alternance|alternant|alternante|apprentissage|apprenti|apprentie|apprenticeship|contrat\s+pro(?:fessionnalisation)?)\b"),
+    ("Freelance", r"\b(?:freelance|ind[ée]pendant|prestation|contractor)\b"),
+    ("CDI", r"\b(?:cdi|permanent|dur[ée]e\s+ind[ée]termin[ée]e)\b"),
+    ("CDD", r"\b(?:cdd|fixed[\s\-]term|temporary|dur[ée]e\s+d[ée]termin[ée]e)\b"),
+    ("Intérim", r"\b(?:int[ée]rim|int[ée]rimaire|travail\s+temporaire)\b"),
+)
+
+# Expressions qui contiennent un mot-clé de contrat sans en désigner un
+NOT_A_CONTRACT_PATTERNS = (
+    r"\b(?:early|late|later|seed|growth|pre[\s\-]?seed|multi)[\s\-]+stage\b",  # stade d'une startup
+    r"\bapprentissage\s+(?:automatique|machine|profond|statistique|supervis[ée]|non\s+supervis[ée]|par\s+renforcement)\b",
+)
+
+# Marqueurs de description qui décrivent le contrat proposé, pas une simple mention
+# (« éventuellement sous forme de stage », « vous encadrerez des stagiaires »).
+STAGE_DESCRIPTION_MARKERS = (
+    r"\ben\s+tant\s+que\s+stagiaire\b",
+    r"(?:^|[.!?:\n]\s*)(?:le|la)\s+stagiaire\b",  # sujet de phrase : « Le stagiaire participera… »
+    r"\bstage\s+(?:de|d['’]une\s+dur[ée]e\s+de)\s+\d+\s*(?:(?:à|a|-)\s*\d+\s*)?mois\b",
+    r"\bdur[ée]e\s+du\s+stage\b",
+    r"\bconvention\s+de\s+stage\b",
+    r"\bgratification\s+de\s+stage\b",
+    r"\boffre\s+de\s+stage\b",
+    r"\bce\s+stage\b",
+    r"\b(?:this|our)\s+internship\b",
+    r"\bas\s+an?\s+intern\b",
+)
+ALTERNANCE_DESCRIPTION_MARKERS = (
+    r"\bcontrat\s+d['’]apprentissage\b",
+    r"\bcontrat\s+de\s+professionnalisation\b",
+    r"\brythme\s+d['’]alternance\b",
+    r"\ben\s+tant\s+qu['’]alternante?\b",
+    r"(?:^|[.!?:\n]\s*)l['’]alternante?\b",
+)
+
+
+def _contract_from_keywords(text: str) -> Optional[str]:
+    for pattern in NOT_A_CONTRACT_PATTERNS:
+        text = re.sub(pattern, " ", text, flags=re.IGNORECASE)
+    found = [label for label, pattern in CONTRACT_PATTERNS if re.search(pattern, text, flags=re.IGNORECASE)]
+    if "Stage" in found and "Alternance" in found:
+        return "Stage / Alternance"
+    return found[0] if found else None
+
+
+def _contract_from_description(description: str) -> Optional[str]:
+    is_stage = any(re.search(p, description, flags=re.IGNORECASE) for p in STAGE_DESCRIPTION_MARKERS)
+    is_alternance = any(re.search(p, description, flags=re.IGNORECASE) for p in ALTERNANCE_DESCRIPTION_MARKERS)
+    if is_stage and is_alternance:
+        return "Stage / Alternance"
+    if is_stage:
+        return "Stage"
+    return "Alternance" if is_alternance else None
+
+
+def detect_contract_type(
+    source_contract: Optional[str], raw_title: Optional[str], description: Optional[str] = None
+) -> str:
+    """Type de contrat d'une offre, déduit au besoin de l'intitulé brut puis de la description.
+
+    Ordre : stage ou alternance dans l'intitulé brut (avant que clean_job_title_syntax n'en retire
+    « Stage »), valeur de la source si elle est reconnue (canonisée, ex: « Permanent » -> CDI),
+    autres mots-clés de l'intitulé, marqueurs forts de la description, sinon la valeur de la source
+    telle quelle ou « Non spécifié ».
+    Dans le doute l'offre reste « Non spécifié », donc visible dans le filtre « Mes contrats ciblés ».
+    """
+    source = clean_html_entities_and_tags(source_contract)
+    if source.lower() in CONTRACT_PLACEHOLDERS:
+        source = ""
+    title_contract = _contract_from_keywords(str(raw_title or ""))
+    # Un intitulé « Stage - … » prime : certains ATS déclarent CDI ou « Permanent » pour un stage
+    if title_contract in ("Stage", "Alternance", "Stage / Alternance"):
+        return title_contract
+    return (
+        (_contract_from_keywords(source) if source else None)
+        or title_contract
+        or _contract_from_description(str(description or ""))
+        or source
+        or "Non spécifié"
+    )
+
+
 def normalize_offer_fields(offer: Dict[str, Any]) -> Dict[str, Any]:
     """Nettoie et normalise l'ensemble des champs d'une offre (titre, entreprise, ville, contrat, etc.) hors IA."""
     if not offer or not isinstance(offer, dict):
@@ -470,20 +609,10 @@ def normalize_offer_fields(offer: Dict[str, Any]) -> Dict[str, Any]:
 
     cleaned = dict(offer)
 
-    # 0. Extraction préventive du type de contrat depuis le poste si absent
-    current_contract = cleaned.get("type_contrat")
-    if not current_contract or current_contract == "Non spécifié":
-        raw_poste = str(cleaned.get("poste") or "")
-        if re.search(r"\b(stage|stagiaire|internship|intern)\b", raw_poste, flags=re.IGNORECASE):
-            cleaned["type_contrat"] = "Stage"
-        elif re.search(r"\b(alternance|alternant|alternante|apprentissage|apprenti|apprentie)\b", raw_poste, flags=re.IGNORECASE):
-            cleaned["type_contrat"] = "Alternance"
-        elif re.search(r"\b(freelance|ind[ée]pendant|prestation)\b", raw_poste, flags=re.IGNORECASE):
-            cleaned["type_contrat"] = "Freelance"
-        elif re.search(r"\b(cdi)\b", raw_poste, flags=re.IGNORECASE):
-            cleaned["type_contrat"] = "CDI"
-        elif re.search(r"\b(cdd)\b", raw_poste, flags=re.IGNORECASE):
-            cleaned["type_contrat"] = "CDD"
+    # 0. Type de contrat, déduit de l'intitulé brut avant que le nettoyage n'en retire « Stage »
+    cleaned["type_contrat"] = detect_contract_type(
+        cleaned.get("type_contrat"), cleaned.get("poste"), cleaned.get("description")
+    )
 
     # 1. Intitulé de poste
     if "poste" in cleaned and cleaned["poste"]:
@@ -594,7 +723,11 @@ def are_offers_duplicates(
     title_similarity_threshold: float = 0.82,
     jaccard_threshold: float = 0.65,
 ) -> bool:
-    """Couche 3 : Évalue si deux offres représentent le même poste (multidiffusion ou repost)."""
+    """Couche 3 : Évalue si deux offres représentent le même poste (multidiffusion ou repost).
+
+    Un nom d'entreprise en correspondance faible (« JEMS » / « Jems Group ») exige en plus des
+    descriptions proches : le préfixe seul ne prouve pas qu'il s'agit du même employeur.
+    """
     # 1. URLs identiques
     url1 = (offer1.get("url") or "").strip()
     url2 = (offer2.get("url") or "").strip()
@@ -602,41 +735,33 @@ def are_offers_duplicates(
         return True
 
     # 2. Vérification entreprise
-    c1 = normalize_company(offer1.get("entreprise", "")).lower()
-    c2 = normalize_company(offer2.get("entreprise", "")).lower()
-    if not c1 or not c2 or c1 == "non spécifié" or c2 == "non spécifié":
-        return False
-
-    c_match = (c1 == c2) or (SequenceMatcher(None, c1, c2).ratio() >= 0.85)
-    if not c_match:
+    strength = company_match_strength(offer1.get("entreprise", ""), offer2.get("entreprise", ""))
+    if not strength:
         return False
 
     # 3. Vérification compatibilité ville / localisation
-    loc1 = normalize_city(offer1.get("localisation", "")).lower()
-    loc2 = normalize_city(offer2.get("localisation", "")).lower()
-    non_spec = {"non spécifié", "france", "télétravail", "remote"}
-    if loc1 not in non_spec and loc2 not in non_spec and loc1 != loc2:
+    loc1 = _city_key(offer1.get("localisation", ""))
+    loc2 = _city_key(offer2.get("localisation", ""))
+    if loc1 not in GENERIC_CITY_KEYS and loc2 not in GENERIC_CITY_KEYS and loc1 != loc2:
         return False
 
     # 4. Similarité sur l'intitulé de poste nettoyé (Couche 1)
     p1 = clean_job_title_syntax(offer1.get("poste", "")).lower()
     p2 = clean_job_title_syntax(offer2.get("poste", "")).lower()
 
-    if p1 == p2 and p1 != "non spécifié":
-        return True
-
     ratio_title = SequenceMatcher(None, p1, p2).ratio()
-    if ratio_title >= title_similarity_threshold:
+    title_match = (p1 == p2 and p1 != "non spécifié") or ratio_title >= title_similarity_threshold
+    if strength == "strong" and title_match:
         return True
 
     # 5. Similarité textuelle sur description (Jaccard)
     d1 = offer1.get("description") or ""
     d2 = offer2.get("description") or ""
     jaccard = jaccard_description_similarity(d1, d2)
-    if jaccard >= jaccard_threshold and ratio_title >= 0.45:
-        return True
+    if strength == "weak" and jaccard < 0.5:
+        return False
 
-    return False
+    return title_match or (jaccard >= jaccard_threshold and ratio_title >= 0.45)
 
 
 def get_source_priority(url: Optional[str]) -> int:
@@ -667,6 +792,14 @@ def get_source_priority(url: Optional[str]) -> int:
         return 50
 
     return 20
+
+
+def _source_records(offer: Dict[str, Any]) -> Dict[str, Any]:
+    """`raw_data` rangé par source ({"linkedin": {...}}), ou {} pour l'ancienne copie à plat de l'offre."""
+    raw = offer.get("raw_data")
+    if isinstance(raw, dict) and raw and all(isinstance(v, dict) for v in raw.values()):
+        return raw
+    return {}
 
 
 def merge_multidiffusion_offers(primary: Dict[str, Any], secondary: Dict[str, Any]) -> Dict[str, Any]:
@@ -762,6 +895,11 @@ def merge_multidiffusion_offers(primary: Dict[str, Any], secondary: Dict[str, An
         location=p_copy.get("localisation"),
     )
 
+    # 13. Données d'origine : un enregistrement par source, le plus récent l'emporte
+    source_records = {**_source_records(p_copy), **_source_records(s_copy)}
+    if source_records:
+        p_copy["raw_data"] = source_records
+
     return p_copy
 
 
@@ -770,44 +908,32 @@ def deduplicate_and_merge_offers(
     title_similarity_threshold: float = 0.82,
     jaccard_threshold: float = 0.65,
 ) -> List[Dict[str, Any]]:
-    """Couche 4 : Déduplication multi-critères et fusion des offres multidiffusées."""
+    """Couche 4 : Déduplication multi-critères et fusion des offres multidiffusées.
+
+    Chaque offre est comparée à toutes les offres déjà retenues, et non aux seules offres de la même
+    entreprise exacte, pour rattraper un nom écrit autrement d'un job board à l'autre.
+    """
     if not offers:
         return []
 
-    company_groups: Dict[str, List[Dict[str, Any]]] = {}
-    for offer in offers:
-        comp_key = normalize_company(offer.get("entreprise", "")).lower()
-        if not comp_key or comp_key == "non spécifié":
-            comp_key = f"unknown_{id(offer)}"
-        company_groups.setdefault(comp_key, []).append(offer)
+    survivors: List[Dict[str, Any]] = []
+    for candidate in offers:
+        matched_idx = -1
+        for idx, existing in enumerate(survivors):
+            if are_offers_duplicates(
+                candidate,
+                existing,
+                title_similarity_threshold=title_similarity_threshold,
+                jaccard_threshold=jaccard_threshold,
+            ):
+                matched_idx = idx
+                break
 
-    consolidated_offers: List[Dict[str, Any]] = []
+        if matched_idx >= 0:
+            survivors[matched_idx] = merge_multidiffusion_offers(survivors[matched_idx], candidate)
+        else:
+            survivors.append(candidate)
 
-    for _comp_key, group in company_groups.items():
-        if len(group) == 1:
-            consolidated_offers.append(group[0])
-            continue
-
-        survivors: List[Dict[str, Any]] = []
-        for candidate in group:
-            matched_idx = -1
-            for idx, existing in enumerate(survivors):
-                if are_offers_duplicates(
-                    candidate,
-                    existing,
-                    title_similarity_threshold=title_similarity_threshold,
-                    jaccard_threshold=jaccard_threshold,
-                ):
-                    matched_idx = idx
-                    break
-
-            if matched_idx >= 0:
-                survivors[matched_idx] = merge_multidiffusion_offers(survivors[matched_idx], candidate)
-            else:
-                survivors.append(candidate)
-
-        consolidated_offers.extend(survivors)
-
-    return consolidated_offers
+    return survivors
 
 
