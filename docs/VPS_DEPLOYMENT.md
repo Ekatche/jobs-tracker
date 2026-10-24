@@ -54,6 +54,14 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 > **Note importante** : `git pull` met à jour le code sans **JAMAIS** toucher à votre fichier `.env` existant sur le serveur. Vos clés et mots de passe restent intacts.
 
+> **Dépendances Python modifiées** (`requirements.txt`, `uv.lock`) : le service `airflow` monte `/app/.venv` en volume anonyme, que `up --build` réutilise. L'image est reconstruite mais le conteneur garde l'ancien venv. Recréez ce volume depuis l'image :
+> ```bash
+> docker compose -f docker-compose.prod.yml up -d --no-deps -V airflow
+> # Vérification : la version doit être celle de requirements.txt
+> docker exec jobtracker-airflow python -c "import importlib.metadata as m; print(m.version('python-jobspy'))"
+> ```
+> Ne passez pas `-V` à la commande globale : il renouvellerait aussi les volumes anonymes déclarés par l'image `mongo`.
+
 ---
 
 ## 3. Astuces d'Optimisation des Déploiements
