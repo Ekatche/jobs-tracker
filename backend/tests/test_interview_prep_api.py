@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from unittest.mock import AsyncMock, patch
 from bson import ObjectId
@@ -9,8 +11,13 @@ from app.models import (
     AudiencePackHiringManager,
     AudiencePackTechPanel,
     AnticipatedQuestion,
+    BankStory,
     PracticeAttempt,
+    StoryFacts,
+    StoryOrigin,
+    StorySlot,
     UserModel,
+    utcnow_with_timezone,
 )
 from main import app
 
@@ -30,6 +37,46 @@ def override_auth():
     app.dependency_overrides.pop(get_current_user, None)
 
 
+async def _seed_bank_story(db, **overrides):
+    """Insère une histoire de la banque directement en base ; renvoie son dict brut."""
+    now = utcnow_with_timezone()
+    story = {
+        "id": str(uuid.uuid4()),
+        "user_id": mock_user_id,
+        "title": "Histoire banque",
+        "theme": "Général",
+        "situation": "S",
+        "task": "T",
+        "action": "A",
+        "result": "R",
+        "reflection": "",
+        "key_tags": [],
+        "experience": None,
+        "origin": {"kind": "manual", "offer_id": None},
+        "discarded_versions": [],
+        "not_duplicate_of": [],
+        "created_at": now,
+        "updated_at": now,
+    }
+    story.update(overrides)
+    await db.star_stories.insert_one(story)
+    return story
+
+
+def _slot_dict(story_id, requirement="Exigence", slot_id=None, fit="strong", **overrides):
+    """Une ligne `story_slots` brute, prête à être insérée dans `interview_preps`."""
+    slot = {
+        "id": slot_id or str(uuid.uuid4()),
+        "requirement": requirement,
+        "story_id": story_id,
+        "fit": fit,
+        "angle": "",
+        "angle_edited": False,
+    }
+    slot.update(overrides)
+    return slot
+
+
 def test_get_interview_prep_unauthorized(client):
     res = client.get(f"/offers/{ObjectId()}/interview-prep")
     assert res.status_code in [401, 403]
@@ -44,6 +91,21 @@ async def test_get_interview_prep_empty(client, override_auth):
     assert data["offer_id"] == offer_id
     assert data["stories"] == []
     assert data["anticipated_questions"] == []
+    assert data["story_slots"] == []
+
+
+def _bank_story_model(offer_id, **overrides):
+    defaults = dict(
+        user_id=mock_user_id,
+        title="Histoire",
+        situation="S",
+        task="T",
+        action="A",
+        result="R",
+        origin=StoryOrigin(kind="generated", offer_id=str(offer_id)),
+    )
+    defaults.update(overrides)
+    return BankStory(**defaults)
 
 
 @pytest.mark.asyncio
@@ -63,27 +125,19 @@ async def test_generate_stories_endpoint(client, override_auth, test_db):
         upsert=True,
     )
 
-    mock_generated_story = StarRStory(
-        title="[Scalabilité] Pipeline",
-        theme="Architecture",
-        target_requirement="Python",
-        situation="Charge élevée",
-        task="Optimiser",
-        action="AsyncIO",
-        result="+50%",
-        reflection="Refaire plus tôt",
-        key_tags=["python"],
-    )
+    new_story = _bank_story_model(offer_id, title="[Scalabilité] Pipeline")
+    new_slot = StorySlot(requirement="Python", story_id=new_story.id, fit="strong")
 
     with patch("app.routers.interview_prep.require_user_quota", return_value=True):
-        with patch("app.routers.interview_prep.generate_star_stories", new_callable=AsyncMock) as mock_gen:
-            mock_gen.return_value = [mock_generated_story]
+        with patch("app.routers.interview_prep.build_story_slots", new_callable=AsyncMock) as mock_build:
+            mock_build.return_value = ([new_slot], [new_story])
             res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/stories")
 
     assert res.status_code == 200
     data = res.json()
-    assert len(data["stories"]) == 1
-    assert data["stories"][0]["title"] == "[Scalabilité] Pipeline"
+    assert len(data["story_slots"]) == 1
+    assert data["story_slots"][0]["story"]["title"] == "[Scalabilité] Pipeline"
+    assert await db.star_stories.count_documents({"id": new_story.id}) == 1
 
 
 @pytest.mark.asyncio
@@ -113,13 +167,12 @@ async def test_generate_stories_clears_stale_story_links(client, override_auth, 
         "anticipated_questions": [linked.model_dump(), unlinked.model_dump()],
     })
 
-    new_story = StarRStory(
-        title="Nouvelle", theme="T", target_requirement="R",
-        situation="S", task="T", action="A", result="R", reflection="R", key_tags=[],
-    )
+    new_story = _bank_story_model(offer_id, title="Nouvelle")
+    new_slot = StorySlot(requirement="R", story_id=new_story.id, fit="strong")
+
     with patch("app.routers.interview_prep.require_user_quota", return_value=True):
-        with patch("app.routers.interview_prep.generate_star_stories", new_callable=AsyncMock) as mock_gen:
-            mock_gen.return_value = [new_story]
+        with patch("app.routers.interview_prep.build_story_slots", new_callable=AsyncMock) as mock_build:
+            mock_build.return_value = ([new_slot], [new_story])
             res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/stories")
 
     assert res.status_code == 200
@@ -129,7 +182,122 @@ async def test_generate_stories_clears_stale_story_links(client, override_auth, 
 
 
 @pytest.mark.asyncio
+async def test_generate_stories_on_unmigrated_kit_keeps_legacy_stories_in_bank(client, override_auth, test_db):
+    """Un kit jamais rouvert depuis le déploiement, régénéré directement : ses histoires
+    d'origine entrent dans la banque avant que ses lignes soient remplacées."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": []}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+
+    s1 = StarRStory(
+        title="Une", theme="T", target_requirement="R1",
+        situation="S1", task="T", action="A", result="R", reflection="", key_tags=[],
+    )
+    s2 = StarRStory(
+        title="Deux", theme="T", target_requirement="R2",
+        situation="S2", task="T", action="A", result="R", reflection="", key_tags=[],
+    )
+    legacy_stories = [s1.model_dump(), s2.model_dump()]
+    insert_result = await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "stories": legacy_stories,
+        "anticipated_questions": [],
+    })
+
+    new_story = _bank_story_model(offer_id, title="Fraîche")
+    new_slot = StorySlot(requirement="R1", story_id=new_story.id, fit="strong")
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True):
+        with patch("app.routers.interview_prep.build_story_slots", new_callable=AsyncMock) as mock_build:
+            mock_build.return_value = ([new_slot], [new_story])
+            res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/stories")
+
+    assert res.status_code == 200
+    assert await db.star_stories.count_documents({"id": {"$in": [s1.id, s2.id]}}) == 2
+    stored = await db.interview_preps.find_one({"_id": insert_result.inserted_id})
+    assert stored["stories"] == legacy_stories
+
+
+@pytest.mark.asyncio
+async def test_regenerate_never_deletes_bank_story(client, override_auth, test_db):
+    """Régénérer un kit déjà migré n'efface jamais une histoire de la banque."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": []}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+
+    s1 = await _seed_bank_story(db, title="S1")
+    await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "stories": [],
+        "story_slots": [_slot_dict(s1["id"], requirement="R1")],
+        "anticipated_questions": [],
+    })
+
+    n1 = _bank_story_model(offer_id, title="N1")
+    new_slot = StorySlot(requirement="R1", story_id=n1.id, fit="strong")
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True):
+        with patch("app.routers.interview_prep.build_story_slots", new_callable=AsyncMock) as mock_build:
+            mock_build.return_value = ([new_slot], [n1])
+            res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/stories")
+
+    assert res.status_code == 200
+    assert await db.star_stories.count_documents({"id": s1["id"]}) == 1
+    assert await db.star_stories.count_documents({"id": n1.id}) == 1
+
+
+@pytest.mark.asyncio
+async def test_generate_cancelled_writes_nothing(client, override_auth, test_db):
+    """Le client annule pendant l'appel IA : aucune histoire ni ligne n'est écrite."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": []}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+
+    s1 = await _seed_bank_story(db, title="S1")
+    insert_result = await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "stories": [],
+        "story_slots": [_slot_dict(s1["id"], requirement="R1")],
+        "anticipated_questions": [],
+    })
+    before = await db.interview_preps.find_one({"_id": insert_result.inserted_id})
+
+    n1 = _bank_story_model(offer_id, title="N1")
+    new_slot = StorySlot(requirement="R1", story_id=n1.id, fit="strong")
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch("app.routers.interview_prep.build_story_slots", new_callable=AsyncMock) as mock_build, \
+            patch("app.routers.interview_prep._generation_cancelled", new_callable=AsyncMock, return_value=True):
+        mock_build.return_value = ([new_slot], [n1])
+        res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/stories")
+
+    assert res.status_code == 499
+    assert await db.star_stories.count_documents({"id": n1.id}) == 0
+    stored_prep = await db.interview_preps.find_one({"_id": insert_result.inserted_id})
+    assert stored_prep["story_slots"] == before["story_slots"]
+
+
+@pytest.mark.asyncio
 async def test_update_and_export_interview_prep(client, override_auth, test_db):
+    """Le PUT ne porte plus `stories` ; l'export restitue l'exigence et le résultat d'une ligne du kit."""
     offer_id = ObjectId()
     db = test_db
 
@@ -139,20 +307,15 @@ async def test_update_and_export_interview_prep(client, override_auth, test_db):
         upsert=True,
     )
 
+    s1 = await _seed_bank_story(db, title="Mentor", result="3 juniors autonomes")
+    await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "story_slots": [_slot_dict(s1["id"], requirement="Mentorat", fit="strong")],
+        "anticipated_questions": [],
+    })
+
     update_payload = {
-        "stories": [
-            {
-                "title": "[Leadership] Mentor",
-                "theme": "Management",
-                "target_requirement": "Mentorat",
-                "situation": "3 juniors",
-                "task": "Former",
-                "action": "Pair programming",
-                "result": "Autonomie",
-                "reflection": "Patience",
-                "key_tags": ["mentorat"],
-            }
-        ],
         "recruiter_pack": {
             "pitch_30s": "Pitch test...",
             "comp_strategy": {"volunteer": "marché", "avoid": "aucun"},
@@ -164,14 +327,132 @@ async def test_update_and_export_interview_prep(client, override_auth, test_db):
     # PUT
     put_res = client.put(f"/offers/{str(offer_id)}/interview-prep", json=update_payload)
     assert put_res.status_code == 200
-    assert len(put_res.json()["stories"]) == 1
+    assert "stories" not in put_res.json()
+    assert put_res.json()["recruiter_pack"]["pitch_30s"] == "Pitch test..."
 
     # GET export
     export_res = client.get(f"/offers/{str(offer_id)}/interview-prep/export")
     assert export_res.status_code == 200
     assert "text/markdown" in export_res.headers["content-type"]
     assert "# Kit de Préparation d'Entretien" in export_res.text
-    assert "[Leadership] Mentor" in export_res.text
+    assert "Mentorat" in export_res.text
+    assert "3 juniors autonomes" in export_res.text
+
+
+@pytest.mark.asyncio
+async def test_questions_receive_slot_stories(client, override_auth, test_db):
+    """La route questions passe au service les histoires des lignes du kit, dans l'ordre, sans doublon ni trou."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": []}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+
+    s1 = await _seed_bank_story(db, title="S1")
+    await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "story_slots": [
+            _slot_dict(s1["id"], requirement="R1"),
+            _slot_dict(None, requirement="R2", fit="gap"),
+        ],
+        "anticipated_questions": [],
+    })
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch("app.routers.interview_prep.generate_anticipated_questions", new_callable=AsyncMock) as mock_q:
+        mock_q.return_value = []
+        res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/questions")
+
+    assert res.status_code == 200
+    assert [s.id for s in mock_q.await_args.kwargs["stories"]] == [s1["id"]]
+
+
+@pytest.mark.asyncio
+async def test_questions_dedupes_slots_pointing_to_same_story(client, override_auth, test_db):
+    """Deux lignes du kit pointant vers la même histoire ne doivent compter qu'une fois."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": []}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+
+    s1 = await _seed_bank_story(db, title="S1")
+    await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "story_slots": [
+            _slot_dict(s1["id"], requirement="R1"),
+            _slot_dict(s1["id"], requirement="R2"),
+        ],
+        "anticipated_questions": [],
+    })
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch("app.routers.interview_prep.generate_anticipated_questions", new_callable=AsyncMock) as mock_q:
+        mock_q.return_value = []
+        res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/questions")
+
+    assert res.status_code == 200
+    assert [s.id for s in mock_q.await_args.kwargs["stories"]] == [s1["id"]]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path_suffix, patch_target, return_value",
+    [
+        (
+            "generate/audience-packs",
+            "app.routers.interview_prep.generate_audience_packs",
+            (
+                AudiencePackRecruiter(pitch_30s="P"),
+                AudiencePackHiringManager(strategic_alignment="S"),
+                AudiencePackTechPanel(),
+            ),
+        ),
+        (
+            "generate/questions",
+            "app.routers.interview_prep.generate_anticipated_questions",
+            [],
+        ),
+        (
+            "generate/reverse-questions",
+            "app.routers.interview_prep.generate_reverse_questions",
+            [],
+        ),
+    ],
+)
+async def test_generate_endpoints_set_on_insert_story_slots_empty(
+    client, override_auth, test_db, path_suffix, patch_target, return_value
+):
+    """Appelées sur une offre sans kit existant, les trois routes de génération doivent
+    insérer `story_slots: []` via `$setOnInsert` — jamais l'ancien champ `stories`."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": []}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+    assert await db.interview_preps.count_documents({"offer_id": str(offer_id)}) == 0
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch(patch_target, new_callable=AsyncMock) as mock_generate:
+        mock_generate.return_value = return_value
+        res = client.post(f"/offers/{str(offer_id)}/interview-prep/{path_suffix}")
+
+    assert res.status_code == 200
+    doc = await db.interview_preps.find_one({"offer_id": str(offer_id)})
+    assert doc is not None
+    assert doc["story_slots"] == []
+    assert "stories" not in doc
 
 
 @pytest.mark.asyncio
@@ -194,52 +475,14 @@ async def test_generate_stories_uses_only_current_user_evaluation(client, overri
     )
 
     with patch("app.routers.interview_prep.require_user_quota", return_value=True):
-        with patch("app.routers.interview_prep.generate_star_stories", new_callable=AsyncMock) as mock_gen:
-            mock_gen.return_value = []
+        with patch("app.routers.interview_prep.build_story_slots", new_callable=AsyncMock) as mock_build:
+            mock_build.return_value = ([], [])
             res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/stories")
 
     assert res.status_code == 200
-    evaluation = mock_gen.call_args.kwargs["evaluation"]
+    evaluation = mock_build.call_args.kwargs["evaluation"]
     assert evaluation["user_id"] == mock_user_id
     assert evaluation["score"] == 4.5
-
-
-@pytest.mark.asyncio
-async def test_cancelled_stories_generation_keeps_existing_stories(client, override_auth, test_db):
-    """Le client a annulé pendant l'appel IA : le résultat est jeté, les histoires actuelles restent."""
-    offer_id = ObjectId()
-    db = test_db
-    await db.candidate_profile.update_one(
-        {"user_id": mock_user_id},
-        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": [{"company": "Alpha Corp"}]}},
-        upsert=True,
-    )
-    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
-    kept_story = StarRStory(
-        title="Corrigée à la main", theme="T", target_requirement="R",
-        situation="S", task="T", action="A", result="R", reflection="R", key_tags=[],
-    )
-    await db.interview_preps.insert_one({
-        "offer_id": str(offer_id),
-        "user_id": mock_user_id,
-        "stories": [kept_story.model_dump()],
-        "anticipated_questions": [],
-    })
-
-    new_story = StarRStory(
-        title="Nouvelle", theme="T", target_requirement="R",
-        situation="S", task="T", action="A", result="R", reflection="R", key_tags=[],
-    )
-    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
-            patch("app.routers.interview_prep.generate_star_stories", new_callable=AsyncMock) as mock_gen, \
-            patch("starlette.requests.Request.is_disconnected", new_callable=AsyncMock, return_value=True):
-        mock_gen.return_value = [new_story]
-        res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/stories")
-
-    assert res.status_code == 499
-    mock_gen.assert_called_once()
-    prep = await db.interview_preps.find_one({"offer_id": str(offer_id), "user_id": mock_user_id})
-    assert [s["title"] for s in prep["stories"]] == ["Corrigée à la main"]
 
 
 @pytest.mark.asyncio
@@ -255,12 +498,12 @@ async def test_cancelled_generate_all_stops_before_next_module(client, override_
     await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
 
     with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
-            patch("app.routers.interview_prep.generate_star_stories", new_callable=AsyncMock) as mock_stories, \
+            patch("app.routers.interview_prep.build_story_slots", new_callable=AsyncMock) as mock_build, \
             patch("app.routers.interview_prep.generate_audience_packs", new_callable=AsyncMock) as mock_packs, \
             patch("app.routers.interview_prep.generate_anticipated_questions", new_callable=AsyncMock) as mock_questions, \
             patch("app.routers.interview_prep.generate_reverse_questions", new_callable=AsyncMock) as mock_reverse, \
             patch("starlette.requests.Request.is_disconnected", new_callable=AsyncMock, return_value=True):
-        mock_stories.return_value = []
+        mock_build.return_value = ([], [])
         mock_packs.return_value = (
             AudiencePackRecruiter(pitch_30s="P"),
             AudiencePackHiringManager(strategic_alignment="S"),
@@ -271,11 +514,439 @@ async def test_cancelled_generate_all_stops_before_next_module(client, override_
         res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/all")
 
     assert res.status_code == 499
-    mock_stories.assert_called_once()
+    mock_build.assert_called_once()
     mock_packs.assert_not_called()
     mock_questions.assert_not_called()
     mock_reverse.assert_not_called()
     assert await db.interview_preps.count_documents({"offer_id": str(offer_id)}) == 0
+
+
+@pytest.mark.asyncio
+async def test_generate_all_sets_story_slots_not_stories(client, override_auth, test_db):
+    """`generate/all` écrit `story_slots` sans jamais toucher à la copie de sûreté `stories`."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": []}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+
+    insert_result = await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "stories": ["X"],
+        "story_slots": [],
+        "anticipated_questions": [],
+    })
+    before = await db.interview_preps.find_one({"_id": insert_result.inserted_id})
+
+    n1 = _bank_story_model(offer_id, title="N1")
+    new_slot = StorySlot(requirement="R1", story_id=n1.id, fit="strong")
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch("app.routers.interview_prep.build_story_slots", new_callable=AsyncMock) as mock_build, \
+            patch("app.routers.interview_prep.generate_audience_packs", new_callable=AsyncMock) as mock_packs, \
+            patch("app.routers.interview_prep.generate_anticipated_questions", new_callable=AsyncMock) as mock_questions, \
+            patch("app.routers.interview_prep.generate_reverse_questions", new_callable=AsyncMock) as mock_reverse:
+        mock_build.return_value = ([new_slot], [n1])
+        mock_packs.return_value = (
+            AudiencePackRecruiter(pitch_30s="P"),
+            AudiencePackHiringManager(strategic_alignment="S"),
+            AudiencePackTechPanel(),
+        )
+        mock_questions.return_value = []
+        mock_reverse.return_value = []
+        res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/all")
+
+    assert res.status_code == 200
+    stored = await db.interview_preps.find_one({"_id": insert_result.inserted_id})
+    assert stored["stories"] == before["stories"]
+    assert stored["story_slots"][0]["story_id"] == n1.id
+    assert await db.star_stories.count_documents({"id": n1.id}) == 1
+
+
+@pytest.mark.asyncio
+async def test_write_slot_only_on_gap(client, override_auth, test_db):
+    """Écrire une histoire sur une ligne qui n'est pas en manque renvoie 409."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+    s1 = await _seed_bank_story(db, title="S1")
+    strong_slot = _slot_dict(s1["id"], requirement="R1", fit="strong")
+    await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "story_slots": [strong_slot],
+        "anticipated_questions": [],
+    })
+
+    res = client.post(f"/offers/{str(offer_id)}/interview-prep/slots/{strong_slot['id']}/write")
+
+    assert res.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_write_slot_fills_gap_and_adds_story_to_bank(client, override_auth, test_db):
+    """Écrire une histoire sur une ligne en manque l'ajoute à la banque et met à jour la ligne."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": []}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+    gap_slot = _slot_dict(None, requirement="R1", fit="gap")
+    await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "story_slots": [gap_slot],
+        "anticipated_questions": [],
+    })
+
+    n1 = _bank_story_model(offer_id, title="N1")
+    new_slot = StorySlot(id=gap_slot["id"], requirement="R1", story_id=n1.id, fit="strong")
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch("app.routers.interview_prep.write_stories_for_requirements", new_callable=AsyncMock) as mock_write:
+        mock_write.return_value = [(new_slot, n1)]
+        res = client.post(f"/offers/{str(offer_id)}/interview-prep/slots/{gap_slot['id']}/write")
+
+    assert res.status_code == 200
+    row = next(r for r in res.json()["story_slots"] if r["id"] == gap_slot["id"])
+    assert (row["story_id"], row["fit"]) == (n1.id, "strong")
+    stored = await db.star_stories.find_one({"id": n1.id})
+    assert stored["origin"]["kind"] == "generated"
+
+
+@pytest.mark.asyncio
+async def test_manual_story_on_no_experience_row(client, override_auth, test_db):
+    """Ajouter une histoire manuelle sur une ligne `no_experience` sans appel IA, avec origin manual."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": [{"company": "Alpha Corp"}]}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+    noexp_slot = _slot_dict(None, requirement="R1", fit="no_experience")
+    await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "story_slots": [noexp_slot],
+        "anticipated_questions": [],
+    })
+
+    facts = StoryFacts(
+        title="Histoire manuelle", situation="S", task="T", action="A", result="R",
+    )
+
+    with patch("app.routers.interview_prep.write_stories_for_requirements", new_callable=AsyncMock) as mock_write:
+        res = client.post(
+            f"/offers/{str(offer_id)}/interview-prep/slots/{noexp_slot['id']}/manual-story",
+            json=facts.model_dump(),
+        )
+
+    assert res.status_code == 200
+    mock_write.assert_not_called()
+    row = next(r for r in res.json()["story_slots"] if r["id"] == noexp_slot["id"])
+    assert row["fit"] == "manual"
+    assert row["story"]["origin"]["kind"] == "manual"
+
+
+async def _seed_write_scenario(db, extra_slots=()):
+    """Profil, offre et kit dont la première ligne est en manque, suivie de `extra_slots`."""
+    offer_id = ObjectId()
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": []}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+    gap_slot = _slot_dict(None, requirement="R1", fit="gap")
+    insert_result = await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "story_slots": [gap_slot, *extra_slots],
+        "anticipated_questions": [],
+    })
+    return offer_id, insert_result.inserted_id, gap_slot
+
+
+@pytest.mark.asyncio
+async def test_write_slot_keeps_concurrent_edit_of_other_row(client, override_auth, test_db):
+    """Pendant l'appel IA, l'angle d'une autre ligne est modifié à la main : l'écriture ne
+    met à jour que sa propre ligne, sans réécrire l'instantané lu avant l'appel."""
+    s1 = await _seed_bank_story(test_db, title="S1")
+    other_slot = _slot_dict(s1["id"], requirement="R2", angle="Angle IA")
+    offer_id, prep_id, gap_slot = await _seed_write_scenario(test_db, extra_slots=[other_slot])
+
+    n1 = _bank_story_model(offer_id, title="N1")
+    new_slot = StorySlot(id=gap_slot["id"], requirement="R1", story_id=n1.id, fit="strong")
+
+    async def _edit_other_row_during_llm(**kwargs):
+        await kwargs["db"].interview_preps.update_one(
+            {"_id": prep_id, "story_slots.id": other_slot["id"]},
+            {"$set": {"story_slots.$.angle": "Angle retouché", "story_slots.$.angle_edited": True}},
+        )
+        return [(new_slot, n1)]
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch("app.routers.interview_prep.write_stories_for_requirements", new_callable=AsyncMock) as mock_write:
+        mock_write.side_effect = _edit_other_row_during_llm
+        res = client.post(f"/offers/{str(offer_id)}/interview-prep/slots/{gap_slot['id']}/write")
+
+    assert res.status_code == 200
+    stored = await test_db.interview_preps.find_one({"_id": prep_id})
+    rows = {s["id"]: s for s in stored["story_slots"]}
+    assert (rows[other_slot["id"]]["angle"], rows[other_slot["id"]]["angle_edited"]) == ("Angle retouché", True)
+    assert rows[gap_slot["id"]]["story_id"] == n1.id
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("concurrent_change", ["ligne supprimée", "histoire posée"])
+async def test_write_slot_conflict_keeps_written_story_in_bank(client, override_auth, test_db, concurrent_change):
+    """La ligne visée est supprimée ou reçoit une histoire pendant l'appel IA : 409, la
+    modification concurrente est conservée et l'histoire écrite reste dans la banque."""
+    chosen = await _seed_bank_story(test_db, title="Choisie")
+    offer_id, prep_id, gap_slot = await _seed_write_scenario(test_db)
+
+    n1 = _bank_story_model(offer_id, title="N1")
+    new_slot = StorySlot(id=gap_slot["id"], requirement="R1", story_id=n1.id, fit="strong")
+
+    async def _change_target_row_during_llm(**kwargs):
+        preps = kwargs["db"].interview_preps
+        if concurrent_change == "ligne supprimée":
+            await preps.update_one({"_id": prep_id}, {"$pull": {"story_slots": {"id": gap_slot["id"]}}})
+        else:
+            await preps.update_one(
+                {"_id": prep_id, "story_slots.id": gap_slot["id"]},
+                {"$set": {"story_slots.$.story_id": chosen["id"], "story_slots.$.fit": "manual"}},
+            )
+        return [(new_slot, n1)]
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch("app.routers.interview_prep.write_stories_for_requirements", new_callable=AsyncMock) as mock_write:
+        mock_write.side_effect = _change_target_row_during_llm
+        res = client.post(f"/offers/{str(offer_id)}/interview-prep/slots/{gap_slot['id']}/write")
+
+    assert res.status_code == 409
+    assert res.json()["detail"] == (
+        "La ligne a changé pendant l'écriture ; l'histoire écrite a été ajoutée à ta banque."
+    )
+    assert await test_db.star_stories.count_documents({"id": n1.id}) == 1
+    stored = await test_db.interview_preps.find_one({"_id": prep_id})
+    rows = {s["id"]: s for s in stored["story_slots"]}
+    if concurrent_change == "ligne supprimée":
+        assert gap_slot["id"] not in rows
+    else:
+        assert (rows[gap_slot["id"]]["story_id"], rows[gap_slot["id"]]["fit"]) == (chosen["id"], "manual")
+
+
+@pytest.mark.asyncio
+async def test_write_slot_conflict_without_written_story(client, override_auth, test_db):
+    """Ligne supprimée pendant un appel IA qui n'a écrit aucune histoire : 409 au détail court."""
+    offer_id, prep_id, gap_slot = await _seed_write_scenario(test_db)
+    no_story_slot = StorySlot(id=gap_slot["id"], requirement="R1", story_id=None, fit="gap")
+
+    async def _delete_target_row_during_llm(**kwargs):
+        await kwargs["db"].interview_preps.update_one(
+            {"_id": prep_id}, {"$pull": {"story_slots": {"id": gap_slot["id"]}}}
+        )
+        return [(no_story_slot, None)]
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch("app.routers.interview_prep.write_stories_for_requirements", new_callable=AsyncMock) as mock_write:
+        mock_write.side_effect = _delete_target_row_during_llm
+        res = client.post(f"/offers/{str(offer_id)}/interview-prep/slots/{gap_slot['id']}/write")
+
+    assert res.status_code == 409
+    assert res.json()["detail"] == "La ligne a changé pendant l'écriture."
+
+
+@pytest.mark.asyncio
+async def test_write_slot_does_not_restore_row_deleted_meanwhile(client, override_auth, test_db):
+    """Une autre ligne supprimée pendant l'appel IA ne réapparaît pas après l'écriture."""
+    s1 = await _seed_bank_story(test_db, title="S1")
+    other_slot = _slot_dict(s1["id"], requirement="R2")
+    offer_id, prep_id, gap_slot = await _seed_write_scenario(test_db, extra_slots=[other_slot])
+
+    n1 = _bank_story_model(offer_id, title="N1")
+    new_slot = StorySlot(id=gap_slot["id"], requirement="R1", story_id=n1.id, fit="strong")
+
+    async def _delete_other_row_during_llm(**kwargs):
+        await kwargs["db"].interview_preps.update_one(
+            {"_id": prep_id}, {"$pull": {"story_slots": {"id": other_slot["id"]}}}
+        )
+        return [(new_slot, n1)]
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch("app.routers.interview_prep.write_stories_for_requirements", new_callable=AsyncMock) as mock_write:
+        mock_write.side_effect = _delete_other_row_during_llm
+        res = client.post(f"/offers/{str(offer_id)}/interview-prep/slots/{gap_slot['id']}/write")
+
+    assert res.status_code == 200
+    stored = await test_db.interview_preps.find_one({"_id": prep_id})
+    assert [s["id"] for s in stored["story_slots"]] == [gap_slot["id"]]
+    assert stored["story_slots"][0]["story_id"] == n1.id
+
+
+@pytest.mark.asyncio
+async def test_put_slot_null_story_turns_row_into_gap_writable_by_ai(client, override_auth, test_db):
+    """Détacher l'histoire d'une ligne (`story_id: null`) la remet en manque : l'écriture IA l'accepte."""
+    s1 = await _seed_bank_story(test_db, title="S1")
+    strong_slot = _slot_dict(s1["id"], requirement="R2", fit="strong", angle="Angle", angle_edited=True)
+    offer_id, prep_id, _gap_slot = await _seed_write_scenario(test_db, extra_slots=[strong_slot])
+
+    put_res = client.put(
+        f"/offers/{str(offer_id)}/interview-prep/slots/{strong_slot['id']}", json={"story_id": None}
+    )
+
+    assert put_res.status_code == 200
+    row = next(r for r in put_res.json()["story_slots"] if r["id"] == strong_slot["id"])
+    assert (row["story_id"], row["fit"], row["angle"], row["angle_edited"], row["story"]) == (
+        None, "gap", "", False, None
+    )
+
+    n1 = _bank_story_model(offer_id, title="N1")
+    new_slot = StorySlot(id=strong_slot["id"], requirement="R2", story_id=n1.id, fit="strong")
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch("app.routers.interview_prep.write_stories_for_requirements", new_callable=AsyncMock) as mock_write:
+        mock_write.return_value = [(new_slot, n1)]
+        write_res = client.post(f"/offers/{str(offer_id)}/interview-prep/slots/{strong_slot['id']}/write")
+
+    assert write_res.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_generate_stories_turns_row_of_story_deleted_meanwhile_into_gap(client, override_auth, test_db):
+    """Une histoire de la banque supprimée pendant l'appel IA ne laisse pas de référence
+    pendante : la nouvelle ligne qui la pointait passe en manque."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": []}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+    s1 = await _seed_bank_story(db, title="S1")
+    insert_result = await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "story_slots": [],
+        "anticipated_questions": [],
+    })
+
+    new_slot = StorySlot(requirement="R1", story_id=s1["id"], fit="strong", angle="Angle IA")
+
+    async def _delete_story_during_llm(**kwargs):
+        await kwargs["db"].star_stories.delete_one({"id": s1["id"]})
+        return [new_slot], []
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch("app.routers.interview_prep.build_story_slots", new_callable=AsyncMock) as mock_build:
+        mock_build.side_effect = _delete_story_during_llm
+        res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/stories")
+
+    assert res.status_code == 200
+    stored = await db.interview_preps.find_one({"_id": insert_result.inserted_id})
+    row = stored["story_slots"][0]
+    assert (row["story_id"], row["fit"], row["angle"], row["angle_edited"]) == (None, "gap", "", False)
+
+
+@pytest.mark.asyncio
+async def test_generate_stories_rereads_questions_after_llm(client, override_auth, test_db):
+    """Une question redirigée pendant l'appel IA (fusion d'histoires) garde sa nouvelle cible :
+    les questions sont relues après l'appel, pas reprises de l'instantané d'avant."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": []}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+    kept = await _seed_bank_story(db, title="Gardée")
+    discarded = await _seed_bank_story(db, title="Écartée")
+    question = AnticipatedQuestion(
+        category="behavioral", question="Parlez d'une migration", why_it_will_be_asked="JD",
+        mapped_story_id=discarded["id"],
+    )
+    insert_result = await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "story_slots": [_slot_dict(discarded["id"], requirement="R1")],
+        "anticipated_questions": [question.model_dump()],
+    })
+
+    new_slot = StorySlot(requirement="R1", story_id=kept["id"], fit="strong")
+
+    async def _redirect_question_during_llm(**kwargs):
+        await kwargs["db"].interview_preps.update_one(
+            {"_id": insert_result.inserted_id},
+            {"$set": {"anticipated_questions.0.mapped_story_id": kept["id"]}},
+        )
+        return [new_slot], []
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch("app.routers.interview_prep.build_story_slots", new_callable=AsyncMock) as mock_build:
+        mock_build.side_effect = _redirect_question_during_llm
+        res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/stories")
+
+    assert res.status_code == 200
+    stored = await db.interview_preps.find_one({"_id": insert_result.inserted_id})
+    assert stored["anticipated_questions"][0]["mapped_story_id"] == kept["id"]
+
+
+@pytest.mark.asyncio
+async def test_generate_all_turns_row_of_story_deleted_meanwhile_into_gap(client, override_auth, test_db):
+    """Même garde que generate/stories pour « Tout générer » : aucune ligne écrite ne pointe
+    vers une histoire supprimée de la banque pendant la génération."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": []}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+    s1 = await _seed_bank_story(db, title="S1")
+    insert_result = await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "story_slots": [],
+        "anticipated_questions": [],
+    })
+
+    new_slot = StorySlot(requirement="R1", story_id=s1["id"], fit="strong", angle="Angle IA")
+
+    async def _delete_story_during_llm(**kwargs):
+        await kwargs["db"].star_stories.delete_one({"id": s1["id"]})
+        return [new_slot], []
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch("app.routers.interview_prep.build_story_slots", new_callable=AsyncMock) as mock_build, \
+            patch("app.routers.interview_prep.generate_audience_packs", new_callable=AsyncMock) as mock_packs, \
+            patch("app.routers.interview_prep.generate_anticipated_questions", new_callable=AsyncMock) as mock_questions, \
+            patch("app.routers.interview_prep.generate_reverse_questions", new_callable=AsyncMock) as mock_reverse:
+        mock_build.side_effect = _delete_story_during_llm
+        mock_packs.return_value = (
+            AudiencePackRecruiter(pitch_30s="P"),
+            AudiencePackHiringManager(strategic_alignment="S"),
+            AudiencePackTechPanel(),
+        )
+        mock_questions.return_value = []
+        mock_reverse.return_value = []
+        res = client.post(f"/offers/{str(offer_id)}/interview-prep/generate/all")
+
+    assert res.status_code == 200
+    stored = await db.interview_preps.find_one({"_id": insert_result.inserted_id})
+    row = stored["story_slots"][0]
+    assert (row["story_id"], row["fit"], row["angle"], row["angle_edited"]) == (None, "gap", "", False)
 
 
 def _practice_attempt(**kwargs):
@@ -335,6 +1006,46 @@ async def test_practice_appends_attempt_to_history(client, override_auth, test_d
 
     export_res = client.get(f"/offers/{str(offer_id)}/interview-prep/export")
     assert export_res.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_practice_reads_up_to_date_facts_from_bank(client, override_auth, test_db):
+    """practice lit l'histoire par `get_bank_story` : un fait corrigé dans la banque après
+    la génération des questions est pris en compte, sans régénérer le kit."""
+    offer_id = ObjectId()
+    db = test_db
+    await db.candidate_profile.update_one(
+        {"user_id": mock_user_id},
+        {"$set": {"user_id": mock_user_id, "skills": ["Python"], "experiences": []}},
+        upsert=True,
+    )
+    await db.job_offers.insert_one({"_id": offer_id, "title": "Senior Python", "company": "Alpha Corp"})
+
+    s1 = await _seed_bank_story(db, title="S1", result="Avant correction")
+    question = AnticipatedQuestion(
+        category="behavioral", question="Parlez d'une migration", why_it_will_be_asked="JD",
+        mapped_story_id=s1["id"],
+    )
+    await db.interview_preps.insert_one({
+        "offer_id": str(offer_id),
+        "user_id": mock_user_id,
+        "story_slots": [_slot_dict(s1["id"], requirement="R1")],
+        "anticipated_questions": [question.model_dump()],
+    })
+
+    patch_res = client.patch(f"/star-stories/{s1['id']}", json={"result": "−45 %"})
+    assert patch_res.status_code == 200
+
+    with patch("app.routers.interview_prep.require_user_quota", return_value=True), \
+            patch("app.routers.interview_prep.evaluate_practice_answer", new_callable=AsyncMock) as mock_eval:
+        mock_eval.side_effect = _practice_attempt
+        res = client.post(
+            f"/offers/{str(offer_id)}/interview-prep/practice",
+            json={"question_id": question.id, "answer": "Réponse"},
+        )
+
+    assert res.status_code == 200
+    assert mock_eval.await_args.kwargs["story"].result == "−45 %"
 
 
 @pytest.mark.asyncio

@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from bson import ObjectId
 from litellm import acompletion
+from pydantic import BaseModel
 
 from app.models import (
     ApiUsageAction,
@@ -16,13 +17,22 @@ from app.models import (
     AudiencePackHiringManager,
     AudiencePackRecruiter,
     AudiencePackTechPanel,
+    BankStory,
     InterviewPrep,
     PracticeAttempt,
     PracticeCriterion,
     ReverseQuestion,
-    StarRStory,
+    StoryExperience,
+    StoryOrigin,
+    StorySlot,
 )
 from app.services.profile.context import build_candidate_context
+from app.services.star_bank_rules import (
+    _mask_invented_numbers,
+    _story_facts_sources,
+    experience_label,
+    match_profile_experience,
+)
 from app.services.usage_tracker import record_api_usage
 
 # `letter_llm` vit hors du package `app` (même montage que profile/collectors/website.py).
@@ -135,14 +145,248 @@ def _offer_role_and_company(offer: Dict[str, Any]) -> Tuple[str, str]:
     return role, company
 
 
-async def generate_star_stories(
+# --- Banque d'histoires STAR+R : sélection des exigences et association ---
+
+WEIGHT_RANK = {"critical": 0, "high": 1, "meaningful": 2}
+MAX_STORY_SLOTS = 5
+BANK_SUMMARY_LIMIT = 60
+
+
+class RequirementPick(BaseModel):
+    requirement: str
+    weight: str = "high"
+    covered: Optional[bool] = None
+
+
+def select_requirements(
+    evaluation: Optional[Dict[str, Any]], limit: int = MAX_STORY_SLOTS
+) -> List[RequirementPick]:
+    """Agrège `bloc_b.matched_requirements` puis `missing_requirements`, triés par poids (stable, inconnu en dernier)."""
+    if not evaluation:
+        return []
+    bloc_b = evaluation.get("bloc_b") or {}
+    picks: List[RequirementPick] = []
+    for items, covered in (
+        (bloc_b.get("matched_requirements") or [], True),
+        (bloc_b.get("missing_requirements") or [], False),
+    ):
+        for entry in items:
+            requirement = (entry.get("requirement") or "").strip()
+            if not requirement:
+                continue
+            picks.append(
+                RequirementPick(requirement=requirement, weight=entry.get("weight", "high"), covered=covered)
+            )
+    picks.sort(key=lambda p: WEIGHT_RANK.get(p.weight, len(WEIGHT_RANK)))
+    return picks[:limit]
+
+
+def format_requirements_block(picks: Optional[List[RequirementPick]]) -> str:
+    """Numérote les exigences choisies ; sans sélection, demande à l'IA d'en extraire au plus 5 de la description."""
+    if picks is None:
+        return "Extrais toi-même au plus 5 exigences clés de la description de poste ci-dessus."
+    return "\n".join(f"{i}. {pick.requirement}" for i, pick in enumerate(picks, 1))
+
+
+def format_bank_summary(bank: List[BankStory], limit: int = BANK_SUMMARY_LIMIT) -> str:
+    """Une ligne par histoire de la banque : id, titre, expérience, résultat tronqué, tags."""
+    lines = []
+    for story in bank[:limit]:
+        label = experience_label(story.experience) if story.experience else "sans expérience"
+        lines.append(
+            f"[{story.id}] {story.title} | {label} | {story.result[:160]} | {', '.join(story.key_tags)}"
+        )
+    return "\n".join(lines)
+
+
+def _resolve_match_fit(covered: Optional[bool], ai_fit: Any) -> str:
+    if covered is False:
+        return "transferable"
+    if ai_fit in ("strong", "partial"):
+        return ai_fit
+    if ai_fit == "transferable" and covered is None:
+        return "transferable"
+    return "partial"
+
+
+def _build_matched_slot(
+    pick: RequirementPick, match: Dict[str, Any], bank_by_id: Dict[str, BankStory]
+) -> Optional[StorySlot]:
+    story_id = match.get("story_id")
+    story = bank_by_id.get(story_id) if story_id else None
+    if story is None:
+        return None
+    angle = _mask_invented_numbers(str(match.get("angle", "")), _story_facts_sources(story))
+    return StorySlot(
+        requirement=pick.requirement,
+        story_id=story.id,
+        fit=_resolve_match_fit(pick.covered, match.get("fit")),
+        angle=angle,
+    )
+
+
+async def match_bank_stories(
     db,
-    user_id: Union[str, ObjectId],
+    user_id: str,
+    offer: Dict[str, Any],
+    picks: Optional[List[RequirementPick]],
+    bank: List[BankStory],
+) -> List[Tuple[RequirementPick, Optional[StorySlot]]]:
+    """Associe par IA les exigences sélectionnées (ou extraites par l'IA) aux histoires de la banque."""
+    prompt_file = PROMPTS_DIR / "story_match.md"
+    template = prompt_file.read_text(encoding="utf-8")
+
+    prompt = template.format(
+        target_company=_offer_role_and_company(offer)[1],
+        target_role=_offer_role_and_company(offer)[0],
+        offer_description=offer.get("description", "")[:4000],
+        requirements_block=format_requirements_block(picks),
+        bank_summary=format_bank_summary(bank),
+    )
+
+    t0 = time.time()
+    response = await acompletion(
+        model=DEFAULT_INTERVIEW_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        drop_params=True,
+        **build_completion_kwargs(DEFAULT_INTERVIEW_MODEL, 0.2),
+    )
+    latency_ms = int((time.time() - t0) * 1000)
+
+    usage = getattr(response, "usage", None)
+    input_tokens = getattr(usage, "prompt_tokens", 0) or 0
+    output_tokens = getattr(usage, "completion_tokens", 0) or 0
+
+    await record_api_usage(
+        db=db,
+        user_id=user_id,
+        action=ApiUsageAction.INTERVIEW_PREP,
+        models_used=[DEFAULT_INTERVIEW_MODEL],
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        latency_ms=latency_ms,
+        success=True,
+        metadata={"sub_action": "story_match", "offer_id": str(offer.get("_id", ""))},
+    )
+
+    raw_content = response.choices[0].message.content
+    parsed = _clean_json_output(raw_content)
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("matches"), list):
+        raise ValueError("Expected a JSON object with a 'matches' list")
+    matches = parsed["matches"]
+
+    bank_by_id = {story.id: story for story in bank}
+
+    if picks is not None:
+        match_by_index: Dict[int, Dict[str, Any]] = {}
+        for item in matches:
+            idx = item.get("requirement_index")
+            if not isinstance(idx, int) or isinstance(idx, bool) or not (1 <= idx <= len(picks)):
+                continue
+            if idx not in match_by_index:
+                match_by_index[idx] = item
+
+        pairs: List[Tuple[RequirementPick, Optional[StorySlot]]] = []
+        for i, pick in enumerate(picks, 1):
+            match = match_by_index.get(i)
+            slot = _build_matched_slot(pick, match, bank_by_id) if match else None
+            pairs.append((pick, slot))
+        return pairs
+
+    # Sans sélection préalable : les exigences viennent des `requirement` renvoyés par l'IA, 5 au plus.
+    pairs = []
+    for item in matches:
+        if len(pairs) >= MAX_STORY_SLOTS:
+            break
+        requirement = (item.get("requirement") or "").strip()
+        if not requirement:
+            continue
+        pick = RequirementPick(requirement=requirement, covered=None)
+        pairs.append((pick, _build_matched_slot(pick, item, bank_by_id)))
+    return pairs
+
+
+# --- Banque d'histoires STAR+R : écriture des manques et assemblage des lignes ---
+
+_REQUIRED_STORY_FACTS = ("title", "situation", "task", "action", "result")
+
+
+def _has_required_story_facts(raw_story: Any) -> bool:
+    return isinstance(raw_story, dict) and all(raw_story.get(field) for field in _REQUIRED_STORY_FACTS)
+
+
+def _resolve_story_experience(
+    raw_experience: Any, profile_experiences: List[Dict[str, Any]]
+) -> Optional[StoryExperience]:
+    if not isinstance(raw_experience, dict) or not raw_experience.get("company"):
+        return None
+    candidate = StoryExperience(company=raw_experience["company"], role=raw_experience.get("role"))
+    idx = match_profile_experience(candidate, profile_experiences)
+    if idx is None:
+        return None
+    exp = profile_experiences[idx]
+    return StoryExperience(company=exp["company"], role=exp.get("role"), start=exp.get("start"))
+
+
+def _resolve_write_fit(covered: Optional[bool], ai_fit: Any) -> str:
+    if covered is False:
+        return "transferable"
+    if ai_fit in ("strong", "partial"):
+        return ai_fit
+    return "strong"
+
+
+def _no_story_fit(covered: Optional[bool]) -> str:
+    return "gap" if covered is True else "no_experience"
+
+
+def _build_written_result(
+    pick: RequirementPick,
+    item: Optional[Dict[str, Any]],
+    offer: Dict[str, Any],
+    profile_experiences: List[Dict[str, Any]],
+    user_id: str,
+) -> Tuple[StorySlot, Optional[BankStory]]:
+    raw_story = item.get("story") if item else None
+    if not _has_required_story_facts(raw_story):
+        return StorySlot(requirement=pick.requirement, story_id=None, fit=_no_story_fit(pick.covered)), None
+
+    story = BankStory(
+        user_id=user_id,
+        title=raw_story.get("title", ""),
+        theme=raw_story.get("theme", "Général"),
+        situation=raw_story.get("situation", ""),
+        task=raw_story.get("task", ""),
+        action=raw_story.get("action", ""),
+        result=raw_story.get("result", ""),
+        reflection=raw_story.get("reflection", ""),
+        key_tags=raw_story.get("key_tags") or [],
+        experience=_resolve_story_experience(item.get("experience"), profile_experiences),
+        origin=StoryOrigin(kind="generated", offer_id=str(offer["_id"])),
+    )
+    angle = _mask_invented_numbers(str(item.get("angle", "")), _story_facts_sources(story))
+    slot = StorySlot(
+        requirement=pick.requirement,
+        story_id=story.id,
+        fit=_resolve_write_fit(pick.covered, item.get("fit")),
+        angle=angle,
+    )
+    return slot, story
+
+
+async def write_stories_for_requirements(
+    db,
+    user_id: str,
     profile: Dict[str, Any],
     offer: Dict[str, Any],
-    evaluation: Optional[Dict[str, Any]] = None,
-) -> List[StarRStory]:
-    """Generate 3 to 5 STAR+R candidate stories grounded in candidate profile."""
+    evaluation: Optional[Dict[str, Any]],
+    picks: Optional[List[RequirementPick]],
+) -> List[Tuple[StorySlot, Optional[BankStory]]]:
+    """Écrit par IA une histoire pour chaque exigence sans couverture dans la banque (`sub_action="stories"`).
+
+    Même longueur et même ordre que `picks` ; sans `picks`, les exigences sont extraites des
+    `requirement` renvoyés par l'IA (5 au plus).
+    """
     prompt_file = PROMPTS_DIR / "star_stories.md"
     template = prompt_file.read_text(encoding="utf-8")
 
@@ -152,6 +396,7 @@ async def generate_star_stories(
         target_role=_offer_role_and_company(offer)[0],
         offer_description=offer.get("description", "")[:4000],
         evaluation_context=format_evaluation_context(evaluation),
+        requirements_block=format_requirements_block(picks),
     )
 
     t0 = time.time()
@@ -181,25 +426,91 @@ async def generate_star_stories(
 
     raw_content = response.choices[0].message.content
     parsed = _clean_json_output(raw_content)
-    if not isinstance(parsed, list):
-        raise ValueError("Expected a JSON list of STAR+R stories")
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("items"), list):
+        raise ValueError("Expected a JSON object with an 'items' list")
+    items = parsed["items"]
 
-    stories = []
-    for item in parsed:
-        stories.append(
-            StarRStory(
-                title=item.get("title", "Histoire STAR+R"),
-                theme=item.get("theme", "Général"),
-                target_requirement=item.get("target_requirement", "Exigence clé"),
-                situation=item.get("situation", ""),
-                task=item.get("task", ""),
-                action=item.get("action", ""),
-                result=item.get("result", ""),
-                reflection=item.get("reflection", ""),
-                key_tags=item.get("key_tags", []),
-            )
-        )
-    return stories
+    profile_experiences = profile.get("experiences") or []
+
+    if picks is not None:
+        item_by_index: Dict[int, Dict[str, Any]] = {}
+        for item in items:
+            idx = item.get("requirement_index")
+            if not isinstance(idx, int) or isinstance(idx, bool) or not (1 <= idx <= len(picks)):
+                continue
+            if idx not in item_by_index:
+                item_by_index[idx] = item
+        pairs: List[Tuple[RequirementPick, Optional[Dict[str, Any]]]] = [
+            (pick, item_by_index.get(i)) for i, pick in enumerate(picks, 1)
+        ]
+    else:
+        # Sans sélection préalable : les exigences viennent des `requirement` renvoyés par l'IA, 5 au plus.
+        pairs = []
+        for item in items:
+            if len(pairs) >= MAX_STORY_SLOTS:
+                break
+            requirement = (item.get("requirement") or "").strip()
+            if not requirement:
+                continue
+            pairs.append((RequirementPick(requirement=requirement, covered=None), item))
+
+    return [_build_written_result(pick, item, offer, profile_experiences, user_id) for pick, item in pairs]
+
+
+def carry_over_edited_angles(previous: List[StorySlot], new: List[StorySlot]) -> List[StorySlot]:
+    """Reprend `angle`/`angle_edited=True` d'une ligne précédente éditée à la main.
+
+    Condition : même exigence (comparaison `casefold`) et même `story_id` non nul.
+    """
+    previous_edited = {
+        (slot.requirement.casefold(), slot.story_id): slot
+        for slot in previous
+        if slot.angle_edited and slot.story_id is not None
+    }
+    result = []
+    for slot in new:
+        old = previous_edited.get((slot.requirement.casefold(), slot.story_id)) if slot.story_id else None
+        if old is not None:
+            slot = slot.model_copy(update={"angle": old.angle, "angle_edited": True})
+        result.append(slot)
+    return result
+
+
+async def build_story_slots(
+    db,
+    user_id: str,
+    profile: Dict[str, Any],
+    offer: Dict[str, Any],
+    evaluation: Optional[Dict[str, Any]],
+    bank: List[BankStory],
+    previous_slots: List[StorySlot],
+) -> Tuple[List[StorySlot], List[BankStory]]:
+    """Assemble les lignes du kit : association banque (si non vide) puis écriture des manques.
+
+    Le service n'écrit rien en base : il renvoie les lignes et les nouvelles histoires à insérer.
+    """
+    picks = select_requirements(evaluation) or None
+
+    if not bank:
+        # Banque vide : pas d'appel d'association, tout part directement à l'écriture
+        # (mode extraction si `picks` est None faute d'évaluation).
+        written = await write_stories_for_requirements(db, user_id, profile, offer, evaluation, picks)
+        slots = [slot for slot, _ in written]
+        new_stories = [story for _, story in written if story is not None]
+        return carry_over_edited_angles(previous_slots, slots), new_stories
+
+    matched = await match_bank_stories(db, user_id, offer, picks, bank)
+    gaps = [pick for pick, slot in matched if slot is None]
+
+    new_stories: List[BankStory] = []
+    gap_results_iter = iter(())
+    if gaps:
+        written = await write_stories_for_requirements(db, user_id, profile, offer, evaluation, gaps)
+        new_stories = [story for _, story in written if story is not None]
+        gap_results_iter = iter(written)
+
+    slots = [slot if slot is not None else next(gap_results_iter)[0] for _, slot in matched]
+    return carry_over_edited_angles(previous_slots, slots), new_stories
 
 
 async def generate_audience_packs(
@@ -280,7 +591,7 @@ async def generate_anticipated_questions(
     profile: Dict[str, Any],
     offer: Dict[str, Any],
     evaluation: Optional[Dict[str, Any]] = None,
-    stories: Optional[List[StarRStory]] = None,
+    stories: Optional[List[BankStory]] = None,
 ) -> List[AnticipatedQuestion]:
     """Generate behavioral and technical questions anticipated for this exact JD."""
     prompt_file = PROMPTS_DIR / "anticipated_questions.md"
@@ -404,16 +715,6 @@ async def generate_reverse_questions(
 
 
 PRACTICE_CRITERIA = ("structure", "quantified_result", "offer_fit", "coverage")
-_NUMBER_RE = re.compile(r"\b\d+(?:[.,]\d+)?\b")
-
-
-def _mask_invented_numbers(text: str, sources: str) -> str:
-    """Remplace par `[à chiffrer]` tout nombre absent des sources (réponse du candidat, histoire liée)."""
-    known = {n.replace(",", ".") for n in _NUMBER_RE.findall(sources)}
-    return _NUMBER_RE.sub(
-        lambda m: m.group(0) if m.group(0).replace(",", ".") in known else "[à chiffrer]",
-        text,
-    )
 
 
 async def evaluate_practice_answer(
@@ -423,7 +724,7 @@ async def evaluate_practice_answer(
     evaluation: Optional[Dict[str, Any]],
     question: AnticipatedQuestion,
     answer: str,
-    story: Optional[StarRStory] = None,
+    story: Optional[BankStory] = None,
 ) -> PracticeAttempt:
     """Note la réponse d'entraînement du candidat et propose une version retravaillée."""
     prompt_file = PROMPTS_DIR / "answer_feedback.md"
@@ -505,8 +806,26 @@ async def evaluate_practice_answer(
     )
 
 
-def export_interview_prep_markdown(prep: InterviewPrep, offer: Dict[str, Any]) -> str:
-    """Render the full interview prep document as a clean, structured Markdown export."""
+FIT_LABELS: Dict[str, str] = {
+    "strong": "forte",
+    "partial": "partielle",
+    "transferable": "transférable",
+    "gap": "manque",
+    "no_experience": "pas d'expérience dans ton profil",
+    "manual": "choisie",
+}
+
+
+def export_interview_prep_markdown(
+    prep: InterviewPrep,
+    offer: Dict[str, Any],
+    slots: List[Tuple[StorySlot, Optional[BankStory]]],
+) -> str:
+    """Render the full interview prep document as a clean, structured Markdown export.
+
+    `slots` : chaque ligne du kit appariée à l'histoire de la banque qu'elle
+    référence (`star_bank.slots_with_stories`), dans l'ordre des lignes.
+    """
     title, company = _offer_role_and_company(offer)
     date_str = prep.updated_at.strftime("%Y-%m-%d")
 
@@ -520,23 +839,31 @@ def export_interview_prep_markdown(prep: InterviewPrep, offer: Dict[str, Any]) -
         "",
     ]
 
-    if not prep.stories:
+    if not slots:
         md_lines.append("_Aucune histoire STAR+R générée._\n")
     else:
-        for idx, s in enumerate(prep.stories, 1):
-            tags_str = ", ".join(s.key_tags) if s.key_tags else "général"
-            md_lines.extend([
-                f"### {idx}. {s.title}",
-                f"**Thème :** {s.theme} | **Tags :** `{tags_str}`",
-                f"**Exigence ciblée (Bloc B) :** {s.target_requirement}",
-                "",
-                f"- **S (Situation) :** {s.situation}",
-                f"- **T (Task) :** {s.task}",
-                f"- **A (Action) :** {s.action}",
-                f"- **R (Result) :** {s.result}",
-                f"- **+R (Reflection) :** {s.reflection}",
-                "",
-            ])
+        for idx, (slot, story) in enumerate(slots, 1):
+            fit_label = FIT_LABELS.get(slot.fit, slot.fit)
+            md_lines.append(f"### {idx}. {slot.requirement}")
+            md_lines.append(f"**Adéquation :** {fit_label}")
+            if slot.angle:
+                md_lines.append(f"**Angle :** {slot.angle}")
+            md_lines.append("")
+            if story is None:
+                md_lines.append("Aucune histoire pour cette exigence.")
+                md_lines.append("")
+            else:
+                tags_str = ", ".join(story.key_tags) if story.key_tags else "général"
+                md_lines.extend([
+                    f"**{story.title}** | **Thème :** {story.theme} | **Tags :** `{tags_str}`",
+                    "",
+                    f"- **S (Situation) :** {story.situation}",
+                    f"- **T (Task) :** {story.task}",
+                    f"- **A (Action) :** {story.action}",
+                    f"- **R (Result) :** {story.result}",
+                    f"- **+R (Reflection) :** {story.reflection}",
+                    "",
+                ])
 
     md_lines.extend([
         "---",

@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 
-from app.database import get_database, create_job_offers_indexes
+from app.database import get_database, create_job_offers_indexes, create_star_stories_indexes
 from app.llm.provider_errors import classify_llm_error
 from app.routers import (
     auth_router,
@@ -22,6 +22,7 @@ from app.routers import (
     usage_router,
     resumes_router,
     interview_prep_router,
+    star_stories_router,
     admin_router,
 )
 
@@ -29,10 +30,12 @@ from app.routers import (
 @asynccontextmanager
 async def lifespan(app):
     # Code de démarrage (remplace on_event("startup"))
+    db = None
     try:
         # Test réel de la connexion avec une commande ping
-        db = await get_database()
-        await db.command("ping")
+        connection = await get_database()
+        await connection.command("ping")
+        db = connection
         print("Connexion à la base de données établie avec succès")
 
         # Créer les index nécessaires
@@ -41,6 +44,14 @@ async def lifespan(app):
         await create_job_offers_indexes(db)
     except Exception as e:
         print(f"Erreur de connexion à la base de données: {e}")
+
+    # Index de la banque STAR+R à part : un échec sur les index ci-dessus ne doit pas
+    # empêcher l'index unique `id`. Seulement si la connexion a répondu au ping.
+    if db is not None:
+        try:
+            await create_star_stories_indexes(db)
+        except Exception as e:
+            print(f"Erreur de création des index star_stories: {e}")
 
     yield  # L'application s'exécute pendant cette période
 
@@ -98,6 +109,7 @@ app.include_router(cover_letters_router)
 app.include_router(usage_router)
 app.include_router(resumes_router)
 app.include_router(interview_prep_router)
+app.include_router(star_stories_router)
 app.include_router(admin_router)
 
 

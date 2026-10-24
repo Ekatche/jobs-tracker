@@ -71,7 +71,11 @@ def test_interview_prep_reports_provider_credits(api):
     with patch("app.routers.interview_prep.require_user_quota", new_callable=AsyncMock), \
          patch("app.routers.interview_prep._get_profile_and_offer",
                new=AsyncMock(return_value=({}, {}, None))), \
-         patch("app.routers.interview_prep.generate_star_stories",
+         patch("app.routers.interview_prep._get_prep_or_empty",
+               new=AsyncMock(return_value={"story_slots": []})), \
+         patch("app.routers.interview_prep.load_bank",
+               new=AsyncMock(return_value=[])), \
+         patch("app.routers.interview_prep.build_story_slots",
                new=AsyncMock(side_effect=_openai_credits_error())):
         res = api.post(f"/offers/{ObjectId()}/interview-prep/generate/stories")
     _assert_openai_credits(res)

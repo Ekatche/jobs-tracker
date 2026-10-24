@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { StarRStory } from "@/types/interview";
+import { starBankApi } from "@/lib/api";
+import { BankStory, StoryFacts } from "@/types/interview";
 import {
   FiChevronDown,
   FiChevronUp,
@@ -9,30 +10,73 @@ import {
   FiCheck,
   FiEdit2,
   FiTag,
-  FiTarget,
 } from "react-icons/fi";
 
 interface StarStoryCardProps {
-  story: StarRStory;
-  index: number;
-  onSave?: (story: StarRStory) => Promise<void>;
+  story: BankStory;
+  usedInKits: number;
+  onSaveFacts: (facts: StoryFacts) => Promise<void>;
+  onRestoreVersion: (versionId: string) => Promise<void>;
+  onDelete: () => Promise<void>;
+}
+
+interface UsageKit {
+  offer_id: string;
+  company: string;
+  role: string;
 }
 
 const fieldClass =
   "w-full rounded-lg bg-slate-950/60 border border-slate-700 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500";
 
-export default function StarStoryCard({ story, index, onSave }: StarStoryCardProps) {
+function otherKitsNote(usedInKits: number): string | null {
+  const others = usedInKits - 1;
+  if (others <= 0) return null;
+  if (others === 1) return "Corrige aussi dans l'autre kit qui utilise cette histoire.";
+  return `Corrige aussi dans les ${others} autres kits qui utilisent cette histoire.`;
+}
+
+function factsToDraft(story: BankStory): StoryFacts {
+  return {
+    title: story.title,
+    theme: story.theme,
+    situation: story.situation,
+    task: story.task,
+    action: story.action,
+    result: story.result,
+    reflection: story.reflection,
+    key_tags: story.key_tags,
+  };
+}
+
+export default function StarStoryCard({
+  story,
+  usedInKits,
+  onSaveFacts,
+  onRestoreVersion,
+  onDelete,
+}: StarStoryCardProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState<StarRStory>(story);
+  const [draft, setDraft] = useState<StoryFacts>(factsToDraft(story));
   const [tagsInput, setTagsInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+
+  const [deletePhase, setDeletePhase] = useState<"idle" | "loading" | "confirm" | "deleting">("idle");
+  const [usageKits, setUsageKits] = useState<UsageKit[]>([]);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const note = otherKitsNote(usedInKits);
+
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setDraft(story);
+    setDraft(factsToDraft(story));
     setTagsInput(story.key_tags?.join(", ") ?? "");
     setSaveError(null);
     setIsEditing(true);
@@ -40,11 +84,10 @@ export default function StarStoryCard({ story, index, onSave }: StarStoryCardPro
   };
 
   const handleSave = async () => {
-    if (!onSave) return;
     try {
       setSaving(true);
       setSaveError(null);
-      await onSave({
+      await onSaveFacts({
         ...draft,
         key_tags: tagsInput.split(",").map((tag) => tag.trim()).filter(Boolean),
       });
@@ -54,6 +97,51 @@ export default function StarStoryCard({ story, index, onSave }: StarStoryCardPro
       setSaveError(msg);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRestore = async (versionId: string) => {
+    try {
+      setRestoringVersionId(versionId);
+      setRestoreError(null);
+      await onRestoreVersion(versionId);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Impossible de restaurer cette version.";
+      setRestoreError(msg);
+    } finally {
+      setRestoringVersionId(null);
+    }
+  };
+
+  const handleDeleteClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      setDeletePhase("loading");
+      setDeleteError(null);
+      const { kits } = await starBankApi.usage(story.id);
+      setUsageKits(kits);
+      setDeletePhase("confirm");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Impossible de vérifier l'utilisation de cette histoire.";
+      setDeleteError(msg);
+      setDeletePhase("idle");
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeletePhase("idle");
+    setDeleteError(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      setDeletePhase("deleting");
+      setDeleteError(null);
+      await onDelete();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Impossible de supprimer cette histoire.";
+      setDeleteError(msg);
+      setDeletePhase("confirm");
     }
   };
 
@@ -85,7 +173,7 @@ export default function StarStoryCard({ story, index, onSave }: StarStoryCardPro
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const text = `${story.title}\nThème: ${story.theme}\nCible: ${story.target_requirement}\n\n• S (Situation): ${story.situation}\n• T (Task): ${story.task}\n• A (Action): ${story.action}\n• R (Result): ${story.result}\n• +R (Reflection): ${story.reflection}`;
+    const text = `${story.title}\nThème: ${story.theme}\n\n• S (Situation): ${story.situation}\n• T (Task): ${story.task}\n• A (Action): ${story.action}\n• R (Result): ${story.result}\n• +R (Reflection): ${story.reflection}`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -101,7 +189,7 @@ export default function StarStoryCard({ story, index, onSave }: StarStoryCardPro
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1.5">
             <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              #{index + 1} {story.theme}
+              {story.theme}
             </span>
             {story.key_tags?.map((tag) => (
               <span
@@ -116,21 +204,13 @@ export default function StarStoryCard({ story, index, onSave }: StarStoryCardPro
           <h4 className="text-base sm:text-lg font-semibold text-white truncate">
             {story.title}
           </h4>
-          {story.target_requirement && (
-            <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1">
-              <FiTarget className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="truncate">
-                Exigence ciblée :{" "}
-                <strong className="text-slate-300 font-medium">
-                  {story.target_requirement}
-                </strong>
-              </span>
-            </div>
+          {!isEditing && note && (
+            <p className="text-[11px] text-slate-500 mt-1">{note}</p>
           )}
         </div>
 
         <div className="flex items-center gap-2 shrink-0 pt-1">
-          {onSave && !isEditing && (
+          {!isEditing && (
             <button
               type="button"
               onClick={handleStartEdit}
@@ -168,11 +248,13 @@ export default function StarStoryCard({ story, index, onSave }: StarStoryCardPro
       {/* Edit form */}
       {isOpen && isEditing && (
         <div className="p-4 sm:p-5 space-y-3 border-t border-slate-800/80 bg-slate-900/40">
+          {note && (
+            <p className="text-xs text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+              {note}
+            </p>
+          )}
           {editField("Titre", draft.title, (v) => setDraft({ ...draft, title: v }))}
-          <div className="grid sm:grid-cols-2 gap-3">
-            {editField("Thème", draft.theme, (v) => setDraft({ ...draft, theme: v }))}
-            {editField("Exigence ciblée", draft.target_requirement, (v) => setDraft({ ...draft, target_requirement: v }))}
-          </div>
+          {editField("Thème", draft.theme, (v) => setDraft({ ...draft, theme: v }))}
           {editField("S — Situation & Contexte", draft.situation, (v) => setDraft({ ...draft, situation: v }), true)}
           {editField("T — Mission & Rôle", draft.task, (v) => setDraft({ ...draft, task: v }), true)}
           {editField("A — Actions & Choix Techniques", draft.action, (v) => setDraft({ ...draft, action: v }), true)}
@@ -279,6 +361,96 @@ export default function StarStoryCard({ story, index, onSave }: StarStoryCardPro
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Versions écartées */}
+      {isOpen && !isEditing && story.discarded_versions.length > 0 && (
+        <div className="border-t border-slate-800/80 bg-slate-900/40">
+          <button
+            type="button"
+            onClick={() => setVersionsOpen((v) => !v)}
+            className="w-full p-4 sm:p-5 flex items-center justify-between gap-2 text-left text-xs font-semibold text-slate-300 hover:text-white transition-colors"
+          >
+            <span>Versions écartées ({story.discarded_versions.length})</span>
+            {versionsOpen ? <FiChevronUp className="w-4 h-4" /> : <FiChevronDown className="w-4 h-4" />}
+          </button>
+          {versionsOpen && (
+            <div className="px-4 sm:px-5 pb-4 sm:pb-5 space-y-2">
+              {restoreError && <p className="text-xs text-red-400">{restoreError}</p>}
+              {story.discarded_versions.map((version) => (
+                <div
+                  key={version.id}
+                  className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-slate-950/40 border border-slate-800"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm text-slate-200 truncate">{version.facts.title}</p>
+                    <p className="text-xs text-slate-400 truncate">{version.facts.result}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {new Date(version.discarded_at).toLocaleDateString("fr-FR")}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={restoringVersionId !== null}
+                    onClick={() => handleRestore(version.id)}
+                    className="shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-indigo-600/90 hover:bg-indigo-600 text-white transition-colors disabled:opacity-50"
+                  >
+                    {restoringVersionId === version.id ? "..." : "Restaurer"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Suppression de la banque */}
+      {isOpen && !isEditing && (
+        <div className="border-t border-slate-800/80 bg-slate-900/40 p-4 sm:p-5">
+          {deleteError && <p className="text-xs text-red-400 mb-2">{deleteError}</p>}
+          {deletePhase === "confirm" || deletePhase === "deleting" ? (
+            <div className="space-y-2">
+              <p className="text-xs text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                Cette histoire est utilisée dans :
+              </p>
+              <ul className="text-xs text-slate-300 list-disc list-inside space-y-0.5">
+                {usageKits.map((kit) => (
+                  <li key={kit.offer_id}>
+                    {kit.company} — {kit.role}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-slate-400">Ces lignes passeront en « manque ».</p>
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={deletePhase === "deleting"}
+                  onClick={handleCancelDelete}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  disabled={deletePhase === "deleting"}
+                  onClick={handleConfirmDelete}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors disabled:opacity-50"
+                >
+                  {deletePhase === "deleting" ? "Suppression..." : "Confirmer la suppression"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={deletePhase === "loading"}
+              onClick={handleDeleteClick}
+              className="text-xs font-medium text-rose-400 hover:text-rose-300 transition-colors disabled:opacity-50"
+            >
+              {deletePhase === "loading" ? "Vérification..." : "Supprimer de ma banque"}
+            </button>
+          )}
         </div>
       )}
     </div>

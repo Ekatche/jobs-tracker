@@ -11,16 +11,27 @@ from app.models import (
     AnticipatedQuestion,
     ReverseQuestion,
     InterviewPrep,
+    BankStory,
+    StoryExperience,
+    StoryOrigin,
+    StorySlot,
 )
 from app.services.interview_prep_service import (
     _clean_json_output,
-    generate_star_stories,
     generate_audience_packs,
     generate_anticipated_questions,
     generate_reverse_questions,
     export_interview_prep_markdown,
     evaluate_practice_answer,
     _mask_invented_numbers,
+    select_requirements,
+    format_requirements_block,
+    format_bank_summary,
+    match_bank_stories,
+    write_stories_for_requirements,
+    carry_over_edited_angles,
+    build_story_slots,
+    RequirementPick,
 )
 
 
@@ -37,45 +48,55 @@ def test_clean_json_output():
 
 
 @pytest.mark.asyncio
-async def test_generate_star_stories_mocked():
-    mock_stories = [
+async def test_writer_builds_story_and_slot_mocked():
+    payload = {"items": [
         {
-            "title": "[Scalabilité] Pipeline Kafka",
-            "theme": "Architecture",
-            "target_requirement": "Expérience Kafka",
-            "situation": "Trafic de 50k req/s",
-            "task": "Concevoir l'ingestion",
-            "action": "Partitionnement et consumer groups",
-            "result": "Latence diminuée de 40%",
-            "reflection": "Gérer les rebalances plus tôt",
-            "key_tags": ["kafka", "python"],
+            "requirement_index": 1,
+            "requirement": "Expérience Kafka",
+            "fit": "strong",
+            "angle": "Mets en avant la latence réduite de 40 %",
+            "experience": {"company": "Tech Corp", "role": "Backend Engineer"},
+            "story": {
+                "title": "[Scalabilité] Pipeline Kafka",
+                "theme": "Architecture",
+                "situation": "Trafic de 50k req/s",
+                "task": "Concevoir l'ingestion",
+                "action": "Partitionnement et consumer groups",
+                "result": "Latence diminuée de 40%",
+                "reflection": "Gérer les rebalances plus tôt",
+                "key_tags": ["kafka", "python"],
+            },
         }
-    ]
+    ]}
 
     mock_resp = AsyncMock()
     mock_resp.choices = [
-        AsyncMock(message=AsyncMock(content=json.dumps(mock_stories)))
+        AsyncMock(message=AsyncMock(content=json.dumps(payload)))
     ]
     mock_resp.usage = AsyncMock(prompt_tokens=100, completion_tokens=200, total_tokens=300)
 
-    profile = {"skills": ["Python", "Kafka"], "experiences": [{"company": "Tech Corp"}]}
-    offer = {"title": "Senior Backend", "company": "ScaleUp", "description": "Need Kafka"}
-    evaluation = {"bloc_b": {"matched_requirements": [{"requirement": "Kafka", "candidate_evidence": "Used at Tech Corp"}]}}
+    profile = {"skills": ["Python", "Kafka"], "experiences": [{"company": "Tech Corp", "role": "Backend Engineer", "start": "2020-01"}]}
+    offer = {"_id": ObjectId(), "title": "Senior Backend", "company": "ScaleUp", "description": "Need Kafka"}
+    pick = RequirementPick(requirement="Expérience Kafka", covered=True)
 
     with patch("app.services.interview_prep_service.acompletion", return_value=mock_resp):
-        with patch("app.services.interview_prep_service.record_api_usage", return_value=None):
-            stories = await generate_star_stories(
+        with patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock) as mock_usage:
+            [(slot, story)] = await write_stories_for_requirements(
                 db=None,
-                user_id=ObjectId(),
+                user_id="u",
                 profile=profile,
                 offer=offer,
-                evaluation=evaluation,
+                evaluation=None,
+                picks=[pick],
             )
 
-    assert len(stories) == 1
-    assert isinstance(stories[0], StarRStory)
-    assert stories[0].title == "[Scalabilité] Pipeline Kafka"
-    assert stories[0].action == "Partitionnement et consumer groups"
+    assert isinstance(story, BankStory)
+    assert story.title == "[Scalabilité] Pipeline Kafka"
+    assert story.action == "Partitionnement et consumer groups"
+    assert story.origin == StoryOrigin(kind="generated", offer_id=str(offer["_id"]))
+    assert story.experience == StoryExperience(company="Tech Corp", role="Backend Engineer", start="2020-01")
+    assert slot.fit == "strong" and slot.story_id == story.id
+    assert mock_usage.call_args.kwargs["metadata"]["sub_action"] == "stories"
 
 
 @pytest.mark.asyncio
@@ -196,21 +217,9 @@ async def test_generate_reverse_questions_mocked():
 
 
 def test_export_interview_prep_markdown():
-    story = StarRStory(
-        title="[Scalabilité] Pipeline Kafka",
-        theme="Architecture",
-        target_requirement="Expérience Kafka",
-        situation="50k req/s",
-        task="Conception",
-        action="Partitions",
-        result="-40% latence",
-        reflection="Rebalances",
-        key_tags=["kafka"],
-    )
     prep = InterviewPrep(
         offer_id=ObjectId(),
         user_id=ObjectId(),
-        stories=[story],
         recruiter_pack=AudiencePackRecruiter(
             pitch_30s="Mon pitch...",
             comp_strategy={"volunteer": "marché", "avoid": "chiffre"},
@@ -235,14 +244,43 @@ def test_export_interview_prep_markdown():
     )
     offer = {"title": "Lead Backend", "company": "TechCorp"}
 
-    md = export_interview_prep_markdown(prep, offer)
+    md = export_interview_prep_markdown(prep, offer, [])
     assert "# Kit de Préparation d'Entretien : Lead Backend @ TechCorp" in md
     assert "## 1. Histoires STAR+R" in md
-    assert "[Scalabilité] Pipeline Kafka" in md
+    assert "_Aucune histoire STAR+R générée._" in md
     assert "## 2. Packs d'Audience" in md
     assert "### Pack Recruteur / RH" in md
     assert "## 3. Questions Anticipées" in md
     assert "## 4. Questions Inversées (Anti Red-Flags)" in md
+
+
+def test_export_markdown_uses_slots_and_bank_facts():
+    """Chaque ligne du kit rend l'exigence, l'adéquation en français, l'angle, puis les
+    faits de l'histoire de la banque ; une ligne sans histoire a un libellé dédié."""
+    s1 = BankStory(
+        user_id="u1",
+        title="Migration Kafka",
+        theme="Architecture",
+        situation="Trafic de 50k req/s",
+        task="Fiabiliser l'ingestion",
+        action="Partitionnement et consumer groups",
+        result="Latence réduite de −60 %",
+        reflection="Automatiser le rebalance",
+        key_tags=["kafka"],
+        origin=StoryOrigin(kind="manual", offer_id=None),
+    )
+    prep = InterviewPrep(offer_id=ObjectId(), user_id=ObjectId())
+    offer = {"title": "Lead Backend", "company": "TechCorp"}
+    slots = [
+        (StorySlot(requirement="Piloter", story_id="s1", fit="strong", angle="Coordination"), s1),
+        (StorySlot(requirement="GCP", fit="no_experience"), None),
+    ]
+
+    md = export_interview_prep_markdown(prep, offer, slots)
+
+    assert "Piloter" in md and "Coordination" in md and "−60 %" in md
+    assert "pas d'expérience dans ton profil" in md
+    assert "Aucune histoire pour cette exigence." in md
 
 
 def test_format_candidate_profile_context_uses_headline_and_real_fields():
@@ -294,15 +332,15 @@ def test_format_evaluation_context_reads_weight_reason_and_warnings():
 
 
 @pytest.mark.asyncio
-async def test_star_stories_prompt_uses_job_offer_poste_and_entreprise():
+async def test_writer_prompt_uses_job_offer_poste_and_entreprise():
     mock_resp = AsyncMock()
-    mock_resp.choices = [AsyncMock(message=AsyncMock(content="[]"))]
+    mock_resp.choices = [AsyncMock(message=AsyncMock(content=json.dumps({"items": []})))]
     mock_resp.usage = AsyncMock(prompt_tokens=1, completion_tokens=1, total_tokens=2)
-    offer = {"poste": "Animateur périscolaire", "entreprise": "Mairie de Bourgoin", "description": "..."}
+    offer = {"_id": ObjectId(), "poste": "Animateur périscolaire", "entreprise": "Mairie de Bourgoin", "description": "..."}
 
     with patch("app.services.interview_prep_service.acompletion", return_value=mock_resp) as mock_llm:
-        with patch("app.services.interview_prep_service.record_api_usage", return_value=None):
-            await generate_star_stories(db=None, user_id=ObjectId(), profile={}, offer=offer)
+        with patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock):
+            await write_stories_for_requirements(db=None, user_id="u", profile={}, offer=offer, evaluation=None, picks=None)
 
     prompt = mock_llm.call_args.kwargs["messages"][0]["content"]
     assert "Animateur périscolaire" in prompt
@@ -322,12 +360,17 @@ async def test_generators_omit_temperature_for_models_that_reject_it(model, expe
     mock_resp = AsyncMock()
     mock_resp.choices = [AsyncMock(message=AsyncMock(content="[]"))]
     mock_resp.usage = AsyncMock(prompt_tokens=1, completion_tokens=1, total_tokens=2)
-    offer = {"poste": "Dev", "entreprise": "Co", "description": "D"}
+    offer = {"_id": ObjectId(), "poste": "Dev", "entreprise": "Co", "description": "D"}
 
     with patch.object(ips, "DEFAULT_INTERVIEW_MODEL", model), \
          patch("app.services.interview_prep_service.acompletion", return_value=mock_resp) as mock_llm, \
          patch("app.services.interview_prep_service.record_api_usage", return_value=None):
-        await ips.generate_star_stories(db=None, user_id=ObjectId(), profile={}, offer=offer)
+        try:
+            await ips.write_stories_for_requirements(
+                db=None, user_id="u", profile={}, offer=offer, evaluation=None, picks=None
+            )
+        except ValueError:
+            pass  # "[]" n'est pas un objet avec 'items' : seul l'appel LLM nous intéresse ici
         await ips.generate_anticipated_questions(db=None, user_id=ObjectId(), profile={}, offer=offer)
         await ips.generate_reverse_questions(db=None, user_id=ObjectId(), offer=offer)
         try:
@@ -445,3 +488,248 @@ def test_practice_mask_invented_numbers():
     assert _mask_invented_numbers(text, sources) == (
         "Sur K8s et S3, j'ai réduit la latence de 30 % en 1.5 an pour [à chiffrer] clients."
     )
+
+
+# --- select_requirements / match_bank_stories (banque d'histoires STAR) ---
+
+EVAL = {"bloc_b": {
+    "matched_requirements": [{"requirement": "SQL", "weight": "meaningful"}, {"requirement": "Piloter une équipe", "weight": "critical"}],
+    "missing_requirements": [{"requirement": "GCP", "weight": "critical"}, {"requirement": "Airflow", "weight": "high"}]}}
+
+
+def test_select_requirements_orders_by_weight_then_bloc_b_order():
+    assert [(p.requirement, p.covered) for p in select_requirements(EVAL)] == [
+        ("Piloter une équipe", True), ("GCP", False), ("Airflow", False), ("SQL", True)]
+
+
+def test_select_requirements_caps_at_limit():
+    assert len(select_requirements(EVAL, limit=2)) == 2
+
+
+def test_select_requirements_without_evaluation_is_empty():
+    assert select_requirements(None) == [] and select_requirements({"bloc_b": {}}) == []
+
+
+def test_select_requirements_skips_empty_requirement():
+    evaluation = {"bloc_b": {"matched_requirements": [{"requirement": "", "weight": "critical"}]}}
+    assert select_requirements(evaluation) == []
+
+
+def test_format_requirements_block_without_picks_asks_to_extract():
+    text = format_requirements_block(None)
+    assert "5" in text and "exigences" in text.lower()
+
+
+def test_format_requirements_block_numbers_from_one():
+    picks = [RequirementPick(requirement="SQL"), RequirementPick(requirement="GCP")]
+    assert format_requirements_block(picks) == "1. SQL\n2. GCP"
+
+
+OFFER = {"_id": ObjectId(), "poste": "Lead Data", "entreprise": "Acme", "description": "Fiabiliser la plateforme data."}
+
+s1 = BankStory(
+    id="s1",
+    user_id="u",
+    title="Fiabilisation du pipeline nocturne",
+    situation="Chez Acme, le pipeline nocturne échouait une nuit sur deux.",
+    task="Fiabiliser le traitement sans régression.",
+    action="J'ai ajouté des reprises idempotentes et un monitoring.",
+    result="−60 % de temps de traitement et zéro incident depuis 3 mois.",
+    reflection="Automatiser les tests de charge plus tôt.",
+    key_tags=["data", "fiabilité"],
+    origin=StoryOrigin(kind="manual"),
+)
+
+
+def test_format_bank_summary_formats_one_line_per_story():
+    text = format_bank_summary([s1])
+    assert text == "[s1] Fiabilisation du pipeline nocturne | sans expérience | −60 % de temps de traitement et zéro incident depuis 3 mois. | data, fiabilité"
+
+
+@pytest.mark.asyncio
+async def test_match_maps_by_index_and_masks_invented_numbers():
+    # banque : histoire s1 dont le résultat est "−60 % de temps de traitement"
+    payload = {"matches": [{"requirement_index": 1, "story_id": "s1", "fit": "strong", "angle": "Gain de 75 % et −60 %"}]}
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)), \
+         patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock):
+        [(pick, slot)] = await match_bank_stories(
+            None, "u", OFFER, [RequirementPick(requirement="Fiabiliser", covered=True)], [s1]
+        )
+    assert (slot.story_id, slot.fit, slot.requirement) == ("s1", "strong", "Fiabiliser")
+    assert "75" not in slot.angle and "[à chiffrer]" in slot.angle and "60" in slot.angle
+
+
+@pytest.mark.asyncio
+async def test_match_ignores_story_id_outside_bank():
+    payload = {"matches": [{"requirement_index": 1, "story_id": "story-of-someone-else", "fit": "strong", "angle": "x"}]}
+    pick = RequirementPick(requirement="Fiabiliser", covered=True)
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)), \
+         patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock):
+        result = await match_bank_stories(None, "u", OFFER, [pick], [s1])
+    assert result[0][1] is None
+
+
+@pytest.mark.asyncio
+async def test_match_uncovered_requirement_is_transferable():
+    payload = {"matches": [{"requirement_index": 1, "story_id": "s1", "fit": "strong", "angle": "Pont AWS vers GCP"}]}
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)), \
+         patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock):
+        result = await match_bank_stories(None, "u", OFFER, [RequirementPick(requirement="GCP", covered=False)], [s1])
+    assert result[0][1].fit == "transferable"
+
+
+@pytest.mark.asyncio
+async def test_match_unmatched_requirement_stays_none():
+    payload = {"matches": []}
+    pick = RequirementPick(requirement="Fiabiliser", covered=True)
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)), \
+         patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock):
+        [(returned_pick, slot)] = await match_bank_stories(None, "u", OFFER, [pick], [s1])
+    assert returned_pick is pick and slot is None
+
+
+@pytest.mark.asyncio
+async def test_match_without_picks_builds_from_ai_requirements_capped_at_five():
+    payload = {"matches": [
+        {"requirement_index": i, "requirement": f"Exigence {i}", "story_id": None, "fit": "partial", "angle": "a"}
+        for i in range(1, 7)
+    ]}
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)), \
+         patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock):
+        result = await match_bank_stories(None, "u", OFFER, None, [s1])
+    assert len(result) == 5
+    assert [p.requirement for p, _ in result] == [f"Exigence {i}" for i in range(1, 6)]
+    assert all(p.covered is None for p, _ in result)
+
+
+@pytest.mark.asyncio
+async def test_match_records_story_match_usage():
+    payload = {"matches": [{"requirement_index": 1, "story_id": "s1", "fit": "strong", "angle": "x"}]}
+    pick = RequirementPick(requirement="Fiabiliser", covered=True)
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)), \
+         patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock) as mock_usage:
+        await match_bank_stories(None, "u", OFFER, [pick], [s1])
+    assert mock_usage.call_args.kwargs["metadata"]["sub_action"] == "story_match"
+
+
+# --- write_stories_for_requirements / carry_over_edited_angles / build_story_slots ---
+
+PROFILE = {"experiences": [{"company": "Alpha Corp", "role": "Data Engineer", "start": "2022-01"}]}
+
+_RAW_STORY = {
+    "title": "[Agilité] Titre percutant",
+    "theme": "Architecture",
+    "situation": "Situation détaillée",
+    "task": "Tâche précise",
+    "action": "Action concrète",
+    "result": "Résultat de −60 % et zéro incident",
+    "reflection": "Enseignement tiré",
+    "key_tags": ["x"],
+}
+
+
+@pytest.mark.asyncio
+async def test_writer_uncovered_without_neighbor_gives_no_experience():
+    payload = {"items": [{"requirement_index": 1, "story": None, "experience": None, "fit": "strong", "angle": ""}]}
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)), \
+         patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock):
+        [(slot, story)] = await write_stories_for_requirements(
+            None, "u", PROFILE, OFFER, None, [RequirementPick(requirement="GCP", covered=False)]
+        )
+    assert (slot.fit, slot.story_id, story) == ("no_experience", None, None)
+
+
+@pytest.mark.asyncio
+async def test_writer_uncovered_with_neighbor_gives_transferable():
+    payload = {"items": [{
+        "requirement_index": 1,
+        "story": _RAW_STORY,
+        "experience": {"company": "Alpha Corp", "role": "Data Engineer"},
+        "fit": "strong",
+        "angle": "",
+    }]}
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)), \
+         patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock):
+        [(slot, story)] = await write_stories_for_requirements(
+            None, "u", PROFILE, OFFER, None, [RequirementPick(requirement="GCP", covered=False)]
+        )
+    assert slot.fit == "transferable" and story.origin.kind == "generated" and slot.story_id == story.id
+
+
+@pytest.mark.asyncio
+async def test_writer_fewer_items_than_requirements():
+    payload = {"items": [
+        {"requirement_index": 1, "story": _RAW_STORY, "experience": None, "fit": "strong", "angle": ""},
+    ]}
+    picks = [RequirementPick(requirement="SQL", covered=True), RequirementPick(requirement="GCP", covered=False)]
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)), \
+         patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock):
+        result = await write_stories_for_requirements(None, "u", PROFILE, OFFER, None, picks)
+    assert [s.fit for s, _ in result] == ["strong", "no_experience"]
+
+
+@pytest.mark.asyncio
+async def test_writer_drops_experience_not_in_profile():
+    payload = {"items": [
+        {"requirement_index": 1, "story": _RAW_STORY, "experience": {"company": "Inconnue SA"}, "fit": "strong", "angle": ""},
+        {"requirement_index": 2, "story": _RAW_STORY, "experience": {"company": "alpha corp"}, "fit": "strong", "angle": ""},
+    ]}
+    picks = [RequirementPick(requirement="R1", covered=True), RequirementPick(requirement="R2", covered=True)]
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)), \
+         patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock):
+        result = await write_stories_for_requirements(None, "u", PROFILE, OFFER, None, picks)
+    assert result[0][1].experience is None
+    assert result[1][1].experience == StoryExperience(company="Alpha Corp", role="Data Engineer", start="2022-01")
+
+
+@pytest.mark.asyncio
+async def test_writer_masks_numbers_absent_from_new_story():
+    payload = {"items": [{
+        "requirement_index": 1,
+        "story": _RAW_STORY,
+        "experience": None,
+        "fit": "strong",
+        "angle": "Gain de −90 %",
+    }]}
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)), \
+         patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock):
+        [(slot, story)] = await write_stories_for_requirements(
+            None, "u", PROFILE, OFFER, None, [RequirementPick(requirement="X", covered=True)]
+        )
+    assert "90" not in slot.angle and "[à chiffrer]" in slot.angle
+
+
+def test_carry_over_keeps_edited_angle_for_same_pair():
+    old = StorySlot(requirement="Piloter une équipe", story_id="s1", angle="Mon angle", angle_edited=True)
+    [kept] = carry_over_edited_angles([old], [StorySlot(requirement="piloter une équipe", story_id="s1", angle="IA")])
+    assert (kept.angle, kept.angle_edited) == ("Mon angle", True)
+
+
+def test_carry_over_drops_angle_when_story_changes():
+    old = StorySlot(requirement="Piloter une équipe", story_id="s1", angle="Mon angle", angle_edited=True)
+    [new] = carry_over_edited_angles([old], [StorySlot(requirement="Piloter une équipe", story_id="s2", angle="IA")])
+    assert (new.angle, new.angle_edited) == ("IA", False)
+
+
+@pytest.mark.asyncio
+async def test_build_with_empty_bank_skips_match_call():
+    payload = {"items": []}
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)) as mock_llm, \
+         patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock) as mock_usage:
+        slots, new_stories = await build_story_slots(None, "u", {}, OFFER, None, [], [])
+    assert mock_llm.call_count == 1
+    assert mock_usage.call_args.kwargs["metadata"]["sub_action"] == "stories"
+    assert slots == [] and new_stories == []
+
+
+@pytest.mark.asyncio
+async def test_build_with_no_gap_skips_writer_call():
+    evaluation = {"bloc_b": {"matched_requirements": [{"requirement": "Fiabiliser", "weight": "critical"}]}}
+    payload = {"matches": [{"requirement_index": 1, "story_id": "s1", "fit": "strong", "angle": "x"}]}
+    with patch("app.services.interview_prep_service.acompletion", return_value=_practice_llm_response(payload)) as mock_llm, \
+         patch("app.services.interview_prep_service.record_api_usage", new_callable=AsyncMock) as mock_usage:
+        slots, new_stories = await build_story_slots(None, "u", {}, OFFER, evaluation, [s1], [])
+    assert mock_llm.call_count == 1
+    assert mock_usage.call_args.kwargs["metadata"]["sub_action"] == "story_match"
+    assert new_stories == []
+    assert len(slots) == 1 and slots[0].fit == "strong" and slots[0].story_id == "s1"

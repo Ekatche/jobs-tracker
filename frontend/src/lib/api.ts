@@ -18,7 +18,15 @@ import {
 import { Task } from "@/types/tasks";
 import { CoverLetter, CandidateProfile, CandidatePreferences } from "@/types/coverLetter";
 import { TailoredResume, GenerateResumeRequest, UpdateResumeRequest, PdfOptions } from "@/types/resume";
-import { InterviewPrep, UpdateInterviewPrepPayload } from "@/types/interview";
+import {
+  InterviewPrep,
+  UpdateInterviewPrepPayload,
+  BankStory,
+  BankGroup,
+  BankExperience,
+  StoryExperience,
+  StoryFacts,
+} from "@/types/interview";
 import { UserQuotaSummary, ApiUsageRecord, TierPricingInfo, UserTier } from "@/types/usage";
 import { AdminPeriod, AdminCostSummary, AdminUserSummary } from "@/types/admin";
 import Cookies from "js-cookie";
@@ -931,6 +939,39 @@ export const interviewPrepApi = {
     return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep`, "PUT", data);
   },
 
+  updateSlot: async (
+    offerId: string,
+    slotId: string,
+    data: { story_id?: string | null; requirement?: string; angle?: string }
+  ) => {
+    return fetchApi<InterviewPrep, { story_id?: string | null; requirement?: string; angle?: string }>(
+      `/offers/${offerId}/interview-prep/slots/${slotId}`,
+      "PUT",
+      data
+    );
+  },
+
+  deleteSlot: async (offerId: string, slotId: string) => {
+    return fetchApi<InterviewPrep>(`/offers/${offerId}/interview-prep/slots/${slotId}`, "DELETE");
+  },
+
+  writeSlot: async (offerId: string, slotId: string, signal?: AbortSignal) => {
+    return fetchApi<InterviewPrep>(
+      `/offers/${offerId}/interview-prep/slots/${slotId}/write`,
+      "POST",
+      undefined,
+      { signal }
+    );
+  },
+
+  createManualStory: async (offerId: string, slotId: string, facts: StoryFacts) => {
+    return fetchApi<InterviewPrep, StoryFacts>(
+      `/offers/${offerId}/interview-prep/slots/${slotId}/manual-story`,
+      "POST",
+      facts
+    );
+  },
+
   exportMarkdown: async (offerId: string): Promise<string> => {
     const token = getToken();
     const baseUrl = getApiBaseUrl();
@@ -961,6 +1002,46 @@ export const interviewPrepApi = {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+  },
+};
+
+export const starBankApi = {
+  list: async () => {
+    return fetchApi<{ groups: BankGroup[]; experiences: BankExperience[]; count: number }>(
+      "/star-stories",
+      "GET"
+    );
+  },
+
+  updateFacts: async (id: string, changes: Partial<StoryFacts & { experience: StoryExperience }>) => {
+    return fetchApi<BankStory, Partial<StoryFacts & { experience: StoryExperience }>>(
+      `/star-stories/${id}`,
+      "PATCH",
+      changes
+    );
+  },
+
+  usage: async (id: string) => {
+    return fetchApi<{ kits: Array<{ offer_id: string; company: string; role: string }> }>(
+      `/star-stories/${id}/usage`,
+      "GET"
+    );
+  },
+
+  remove: async (id: string) => {
+    return fetchApi<{ affected_kits: number }>(`/star-stories/${id}`, "DELETE");
+  },
+
+  merge: async (keepId: string, discardId: string) => {
+    return fetchApi<BankStory>(`/star-stories/${keepId}/merge`, "POST", { discard_id: discardId });
+  },
+
+  markDifferent: async (id: string, otherId: string) => {
+    return fetchApi<BankStory>(`/star-stories/${id}/not-duplicate`, "POST", { other_id: otherId });
+  },
+
+  restore: async (id: string, versionId: string) => {
+    return fetchApi<BankStory>(`/star-stories/${id}/restore`, "POST", { version_id: versionId });
   },
 };
 
@@ -1022,6 +1103,7 @@ const api = {
   coverLetters: coverLetterApi,
   resumes: resumeApi,
   interviewPrep: interviewPrepApi,
+  starBank: starBankApi,
   usage: usageApi,
   admin: adminApi,
 };

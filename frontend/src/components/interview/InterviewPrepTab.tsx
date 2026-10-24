@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { interviewPrepApi } from "@/lib/api";
-import { InterviewPrep, StarRStory } from "@/types/interview";
-import StarStoryCard from "./StarStoryCard";
+import { InterviewPrep } from "@/types/interview";
+import StorySlotsTable from "./StorySlotsTable";
+import StoryBankPanel from "./StoryBankPanel";
 import AudiencePacksViewer from "./AudiencePacksViewer";
 import AnticipatedQuestionsViewer from "./AnticipatedQuestionsViewer";
 import ReverseQuestionsViewer from "./ReverseQuestionsViewer";
@@ -38,6 +39,8 @@ export default function InterviewPrepTab({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [activeSection, setActiveSection] = useState<"stories" | "audience" | "questions" | "reverse">("stories");
+  // État du panneau « Toute ma banque » : survit aux changements de section, pas de reset nécessaire.
+  const [bankOpen, setBankOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const loadPrep = useCallback(async () => {
@@ -59,7 +62,7 @@ export default function InterviewPrepTab({
     loadPrep();
   }, [loadPrep]);
 
-  const storiesCount = prep?.stories?.length || 0;
+  const storiesCount = prep?.story_slots?.length ?? 0;
   const hasAudience = !!(prep?.recruiter_pack || prep?.hm_pack || prep?.tech_pack);
   const questionsCount = prep?.anticipated_questions?.length || 0;
   const reverseCount = prep?.reverse_questions?.length || 0;
@@ -80,6 +83,14 @@ export default function InterviewPrepTab({
         : "Régénérer cette section ? Son contenu actuel, y compris vos corrections, sera remplacé.";
       if ((moduleType === "questions" || moduleType === "all") && practiceCount > 0) {
         message += ` Votre historique d'entraînement (${practiceCount} essai${practiceCount > 1 ? "s" : ""}) sera effacé.`;
+      }
+      if (moduleType === "stories" || moduleType === "all") {
+        const editedRequirements = (prep?.story_slots ?? [])
+          .filter((slot) => slot.angle_edited)
+          .map((slot) => slot.requirement);
+        if (editedRequirements.length > 0) {
+          message += ` Les angles rédigés à la main pour : ${editedRequirements.join(", ")} seront perdus si la même histoire n'est pas reprise.`;
+        }
       }
       if (!confirm(message)) {
         return;
@@ -134,14 +145,6 @@ export default function InterviewPrepTab({
       </button>
     );
   }
-
-  // Errors propagate to the card, which stays in edit mode and shows them.
-  const handleSaveStory = async (story: StarRStory) => {
-    if (!prep) return;
-    const stories = prep.stories.map((s) => (s.id === story.id ? story : s));
-    const updated = await interviewPrepApi.update(offerId, { stories });
-    setPrep(updated);
-  };
 
   const handleCopyMarkdown = async () => {
     try {
@@ -347,21 +350,40 @@ export default function InterviewPrepTab({
               </div>
             </div>
 
-            {storiesCount === 0 ? (
-              <div className="text-center py-12 px-4 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800">
-                <FiBookOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                <h4 className="text-sm font-medium text-slate-300">Aucune histoire STAR+R générée</h4>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  Cliquez sur "Générer les histoires" pour extraire vos meilleures réalisations alignées sur cette offre.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {prep!.stories.map((story, idx) => (
-                  <StarStoryCard key={story.id || idx} story={story} index={idx} onSave={handleSaveStory} />
-                ))}
-              </div>
-            )}
+            {(() => {
+              const storiesBody =
+                storiesCount === 0 ? (
+                  <div className="text-center py-12 px-4 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800">
+                    <FiBookOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                    <h4 className="text-sm font-medium text-slate-300">Aucune histoire STAR+R générée</h4>
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                      Cliquez sur "Générer les histoires" pour extraire vos meilleures réalisations alignées sur cette offre.
+                    </p>
+                  </div>
+                ) : (
+                  <StorySlotsTable
+                    prep={prep!}
+                    offerId={offerId}
+                    onPrepUpdated={setPrep}
+                    onOpenBank={() => setBankOpen(true)}
+                  />
+                );
+
+              if (!bankOpen) return storiesBody;
+
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 items-start">
+                  <div className="min-w-0">{storiesBody}</div>
+                  <StoryBankPanel
+                    offerId={offerId}
+                    prep={prep}
+                    open={bankOpen}
+                    onClose={() => setBankOpen(false)}
+                    onPrepUpdated={setPrep}
+                  />
+                </div>
+              );
+            })()}
           </div>
         )}
 

@@ -159,8 +159,12 @@ Lorsqu'une offre est validée par l'utilisateur (Score >= 4.0).
 ## 6. Phase Finale : Préparation d'Entretien ("Interview Prep & STAR+R")
 Lorsque le statut passe à "Entretien programmé" (`interview`).
 
-*   **Génération du Plan d'Attaque (STAR+R)** :
-    *   L'IA analyse le "Bloc B" (les exigences de l'offre) et sélectionne dans le profil candidat les 3 à 5 meilleures histoires (Situation, Task, Action, Result + Reflection) à raconter.
+*   **Banque d'histoires STAR+R commune à toutes les offres** (spec `docs/superpowers/specs/2026-10-24-banque-histoires-star-design.md`) :
+    *   Une seule version de chaque histoire par utilisateur (collection `star_stories`). Les **faits** (Situation, Task, Action, Result + Reflection, chiffres) vivent dans la banque et suivent dans tous les kits : une correction faite depuis un kit s'applique partout, sans régénération payante.
+    *   Le kit ne garde que l'**angle propre à l'offre** : un tableau « Ce que l'offre demande / Ton histoire / Adéquation » (`story_slots`), avec les adéquations forte, partielle, transférable, manque, pas d'expérience dans ton profil, choisie.
+    *   La génération puise d'abord dans la banque (appel d'association court `story_match`) ; l'IA n'écrit une nouvelle histoire que pour un manque, et elle entre dans la banque. Une ligne en manque propose aussi « L'écrire moi-même ».
+    *   Panneau « Toute ma banque (N) » à côté du kit : histoires groupées par expérience du profil, recherche, « Utiliser pour… » une ligne du tableau, rattachement d'une histoire à une expérience.
+    *   Doublons (même expérience racontée avec des chiffres différents dans deux kits) signalés dans le kit et tranchés une fois sur une vue côte à côte ; la version écartée reste restaurable.
 *   **Anticipation des Questions** :
     *   Génération d'une liste des questions comportementales ("Behavioral") et techniques les plus probables pour cette fiche de poste précise.
 *   **Détection des Red-Flags Employeur** :
@@ -171,8 +175,15 @@ Lorsque le statut passe à "Entretien programmé" (`interview`).
 ### Déjà implémenté ✅
 | Composant | Fichier(s) | Notes |
 |---|---|---|
-| Modèles Pydantic `InterviewPrep` | `app/models.py` | `StarRStory`, `AudiencePack*`, `AnticipatedQuestion`, `ReverseQuestion` |
-| Prompts modulaires Career-Ops | `app/llm/prompts/interview/` | `star_stories.md`, `audience_packs.md`, `anticipated_questions.md`, `reverse_questions.md` |
+| Modèles Pydantic `InterviewPrep` | `app/models.py` | `StorySlot` (`story_slots`), `AudiencePack*`, `AnticipatedQuestion`, `ReverseQuestion` ; `StarRStory` ne sert plus qu'à lire l'ancien champ `stories` |
+| Modèles de la banque STAR+R | `app/models.py` | `StoryFacts`, `StoryExperience`, `StoryOrigin`, `DiscardedStoryVersion`, `BankStory` (collection `star_stories`) |
+| Prompts modulaires Career-Ops | `app/llm/prompts/interview/` | `story_match.md` (association exigences → banque), `star_stories.md` (écriture des seuls manques), `audience_packs.md`, `anticipated_questions.md`, `reverse_questions.md` |
+| Service de la banque | `app/services/star_bank.py` | Chargement, hydratation du kit (`story_slots[].story`, `bank_count`, `duplicates`), migration paresseuse d'un kit à l'ancien format, usage, fusion, restauration, suppression (lignes repassées en manque) |
+| Règles déterministes de la banque | `app/services/star_bank_rules.py` | Rattachement d'une histoire à une expérience du profil, détection des doublons (même entreprise, et titres proches ou chiffre de résultat commun ; paires marquées « différentes » exclues) |
+| Endpoints de la banque | `app/routers/star_stories.py` | `/star-stories` : liste groupée par expérience, PATCH des faits, usage, suppression, fusion, « deux histoires différentes », restauration d'une version écartée |
+| Endpoints des lignes du kit | `app/routers/interview_prep.py` | `/offers/{id}/interview-prep/slots/{slot_id}` : PUT (histoire, exigence, angle), DELETE, `/write` (IA, annulable), `/manual-story` |
+| Remplissage initial de la banque | `backend/migrate_star_stories_to_bank.py` | Copie les histoires des kits existants dans la banque (simulation par défaut, `--apply` pour écrire) ; l'ancien champ `stories` est conservé comme copie de sûreté |
+| Composants de la banque | `frontend/src/components/interview/` | `StorySlotsTable` (tableau exigence / histoire / adéquation), `StoryBankPanel` (panneau « Toute ma banque »), `DuplicateResolver` (vue côte à côte des doublons), `StarStoryCard` (faits, versions écartées, suppression) |
 | Service de génération & Quotas | `app/services/interview_prep_service.py` | LiteLLM Gemini 3.7 Flash, extraction JSON déterministe, décompte `ApiUsageAction.INTERVIEW_PREP` |
 | Exporteur Markdown complet | `app/services/interview_prep_service.py` | Rendu mémo complet prêt à l'export/impression |
 | Endpoints REST FastAPI | `app/routers/interview_prep.py` | Routes `/offers/{id}/interview-prep/*` (GET, POST modular, PUT, export) |
@@ -182,7 +193,9 @@ Lorsque le statut passe à "Entretien programmé" (`interview`).
 | Raccourci Kanban `/applications` | `frontend/src/components/applications/ApplicationDetails.tsx` | Bouton direct "🎯 Préparer l'entretien" dans le tiroir latéral |
 
 ### Reste à faire ⬜
-- Aucun (Phase 6 100% complétée)
+- Remplissage de la banque en production : sauvegarde de la base, puis `migrate_star_stories_to_bank.py` en simulation, puis `--apply` (à lancer par l'utilisateur). Sans cela, chaque kit existant migre seul à sa première ouverture.
+- Mesurer le coût : comparer dans `api_usage` les tokens par kit (`sub_action` `story_match` et `stories`) à la moyenne des kits d'avant la banque.
+- Retirer le champ `interview_preps.stories` (projet séparé, après vérification en production).
 
 ---
 

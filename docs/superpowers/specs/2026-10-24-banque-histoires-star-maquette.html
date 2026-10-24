@@ -1,0 +1,85 @@
+<style>
+  .sb { background:#0f172a; color:#e2e8f0; border-radius:10px; padding:16px; font-size:13px; line-height:1.45; }
+  .sb-tabs { display:flex; gap:18px; border-bottom:1px solid #334155; margin-bottom:14px; color:#94a3b8; font-size:12.5px; flex-wrap:wrap; }
+  .sb-tabs span { padding-bottom:6px; }
+  .sb-tabs .on { color:#fff; border-bottom:2px solid #6366f1; }
+  .sb-split { display:grid; grid-template-columns:1.4fr 1fr; gap:14px; }
+  .sb-btn { background:#4f46e5; color:#fff; border-radius:6px; padding:4px 10px; font-size:12px; white-space:nowrap; }
+  .sb-btn.ghost { background:transparent; border:1px solid #475569; color:#cbd5e1; }
+  .sb-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; }
+  .sb-head b { color:#fff; }
+  table.sb-t { width:100%; border-collapse:collapse; font-size:12.5px; }
+  table.sb-t th { text-align:left; color:#94a3b8; font-weight:500; padding:6px 8px; border-bottom:1px solid #334155; }
+  table.sb-t td { padding:8px; border-bottom:1px solid #1e293b; vertical-align:top; }
+  .fit { font-size:11px; padding:2px 8px; border-radius:999px; }
+  .fit.f { background:rgba(16,185,129,.15); color:#34d399; }
+  .fit.p { background:rgba(245,158,11,.15); color:#fbbf24; }
+  .fit.n { background:rgba(244,63,94,.15); color:#fb7185; }
+  .sb-warn { background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.4); color:#fcd34d; border-radius:8px; padding:8px 10px; margin:10px 0; font-size:12px; }
+  .sb-panel { background:#111c33; border:1px solid #6366f1; border-radius:8px; padding:12px; }
+  .sb-panel h4 { margin:0 0 4px; color:#fff; font-size:13px; }
+  .sb-search { background:#020617; border:1px solid #334155; border-radius:6px; padding:5px 10px; color:#64748b; margin:8px 0; }
+  .sb-exp { margin:10px 0 4px; color:#94a3b8; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  .sb-item { background:#1e293b; border:1px solid #334155; border-radius:6px; padding:7px 9px; margin-bottom:6px; }
+  .sb-item b { color:#fff; font-weight:600; font-size:12.5px; }
+  .sb-item small { display:block; color:#94a3b8; }
+  .sb-item small em { color:#34d399; font-style:normal; }
+  .sb-item .act { display:flex; justify-content:space-between; margin-top:4px; font-size:11.5px; color:#818cf8; }
+  .sb-note { color:#64748b; font-size:11.5px; margin-top:8px; }
+  .sb-field { margin-bottom:6px; } .sb-field i { color:#64748b; font-style:normal; font-size:11px; text-transform:uppercase; letter-spacing:.04em; display:block; }
+  .why { color:#94a3b8; font-size:12.5px; } .why li { margin-bottom:4px; }
+</style>
+
+<h2>Variante : la banque reste dans la préparation d'entretien</h2>
+<p class="subtitle">Aucune nouvelle entrée dans le menu. La banque s'ouvre en panneau à côté du kit de l'offre. Les histoires sont fictives.</p>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">Offre Lead Data · Société Y</div>
+    <div class="mockup-body">
+      <div class="sb">
+        <div class="sb-tabs"><span>Annonce du poste</span><span>Matching</span><span>Stratégie &amp; Intégrité</span><span class="on">Préparation entretien</span></div>
+
+        <div class="sb-split">
+          <div>
+            <div class="sb-head"><b>Histoires pour cette offre</b><span class="sb-btn ghost">Toute ma banque (5) ›</span></div>
+            <table class="sb-t">
+              <tr><th>Ce que l'offre demande</th><th>Ton histoire</th><th>Adéquation</th></tr>
+              <tr><td>Piloter une équipe de 5 personnes</td><td>Migration du pipeline de facturation</td><td><span class="fit f">forte</span></td></tr>
+              <tr><td>Fiabiliser des traitements critiques</td><td>L'incident de production du lundi</td><td><span class="fit p">partielle</span></td></tr>
+              <tr><td>Expérience cloud GCP</td><td style="color:#64748b">Aucune ne répond <span class="sb-btn" style="margin-left:6px">Écrire avec l'IA</span></td><td><span class="fit n">manque</span></td></tr>
+            </table>
+
+            <div class="sb-warn">⚠ « Migration du pipeline de facturation » est racontée avec −45 % dans un autre kit et −60 % ici. <u>Choisir la bonne version</u></div>
+
+            <div class="sb-field"><i>Angle pour cette offre</i>Mettre en avant la coordination des 5 personnes et les arbitrages.</div>
+            <div class="sb-field"><i>Résultat</i>−60 % de temps de traitement, 0 incident en 6 mois. <span class="sb-btn ghost" style="margin-left:6px">Modifier</span></div>
+            <div class="sb-note">Modifier un fait ici le corrige aussi dans les 2 autres kits qui utilisent cette histoire.</div>
+          </div>
+
+          <div class="sb-panel">
+            <h4>Ma banque d'histoires</h4>
+            <div class="sb-search">Rechercher…</div>
+            <div class="sb-exp">Data Engineer · Entreprise A</div>
+            <div class="sb-item"><b>Migration du pipeline de facturation</b><small>Résultat : <em>−60 %</em> · utilisée dans 3 kits</small><div class="act"><span>✓ dans ce kit</span></div></div>
+            <div class="sb-item"><b>L'incident de production du lundi</b><small>Résultat : <em>45 min</em> · utilisée dans 2 kits</small><div class="act"><span>✓ dans ce kit</span></div></div>
+            <div class="sb-item"><b>Désaccord sur le choix de l'outil</b><small>Résultat : <em>1 atelier</em> · utilisée dans 1 kit</small><div class="act"><span>Utiliser pour…</span></div></div>
+            <div class="sb-exp">Data Analyst · Entreprise B</div>
+            <div class="sb-item"><b>Le tableau de bord que personne n'ouvrait</b><small>Résultat : <em>4 → 40</em> personnes · 1 kit</small><div class="act"><span>Utiliser pour…</span></div></div>
+            <div class="sb-note">« Utiliser pour… » remplace l'histoire d'une ligne du tableau.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Ce que cette variante gagne et perd</h3>
+  <ul class="why">
+    <li><b>Gagne :</b> un seul endroit pour préparer un entretien. On lit et on corrige ses histoires là où on en a besoin, sans changer de page.</li>
+    <li><b>Gagne :</b> le menu reste à 5 entrées.</li>
+    <li><b>Perd :</b> pour écrire une histoire ou trancher un doublon, il faut passer par une offre qui a un kit.</li>
+    <li><b>Perd :</b> pas de vue d'ensemble des doublons. Ils s'affichent offre par offre, quand l'histoire concernée est dans le kit ouvert.</li>
+  </ul>
+</div>

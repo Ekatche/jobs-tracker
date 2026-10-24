@@ -39,7 +39,7 @@ L'interface est segmentée logiquement pour une navigation SaaS fluide.
 - Routes d'administration du catalogue : `get_current_admin_user`. C'est le cas de `DELETE /job-offers/{id}` et `PATCH /job-offers/{id}/soft-delete`, qui n'exigeaient auparavant aucune authentification. Une offre liée à une candidature n'est jamais supprimée : elle est marquée expirée (`safe_delete_or_expire_offer`).
 
 ### B. Isolation Multi-Tenant
-- **Données Utilisateur Privées** : Chaque document `applications`, `tasks`, `candidate_profile`, `cover_letters`, `api_usage` et `user_quotas` porte un champ `user_id` obligatoire. Toutes les requêtes/mutations filtrent strictement par le `user_id` du token JWT (rejet avec HTTP 403 en cas de mismatch).
+- **Données Utilisateur Privées** : Chaque document `applications`, `tasks`, `candidate_profile`, `cover_letters`, `interview_preps`, `star_stories`, `api_usage` et `user_quotas` porte un champ `user_id` obligatoire. Toutes les requêtes/mutations filtrent strictement par le `user_id` du token JWT (rejet avec HTTP 403 en cas de mismatch).
 - **Catalogue Global d'Offres (`job_offers`)** : Pool partagé alimenté par Zero-Token ATS, Airflow et Crawl4AI. L'état personnel d'un utilisateur vis-à-vis d'une offre (favori, masqué, match score) est découplé dans `user_offer_interactions` (index unique `user_id + offer_id`) pour ne jamais polluer le catalogue commun.
 - *(Détails complets dans `JOB_INGESTION_AND_NORMALIZATION.md`)*.
 
@@ -70,6 +70,14 @@ User (users)
  │    ├── status: ApplicationStatus enum             [9 valeurs]
  │    └── CoverLetter (cover_letters)                [1:1 par application]
  │         └── versions[]                            [versioning avec guard_report + critic]
+ ├── InterviewPrep (interview_preps)                 [1 par offre, kit de préparation d'entretien]
+ │    ├── offer_id → JobOffer._id
+ │    └── story_slots[]: requirement, story_id → StarStory.id, fit, angle
+ │                                                   [l'angle propre à l'offre ; les faits restent dans la banque]
+ ├── StarStory (star_stories)                        [1:N, banque d'histoires STAR+R commune aux kits]
+ │    ├── faits STAR+R (title, situation, task, action, result, reflection, key_tags)
+ │    ├── experience: company, role, start           [rattachement à une expérience du profil]
+ │    └── discarded_versions[], not_duplicate_of[]   [doublons tranchés, versions restaurables]
  ├── Task (tasks)                                    [1:N, tâches manuelles]
  ├── ApiUsageRecord (api_usage)                      [1:N, logs de consommation]
  └── UserQuota (user_quotas)                         [1:1, limites par tier]
@@ -234,3 +242,4 @@ Deux points d'interception :
 | Résumé d'offre via LLM | `app/llm/utils.py` | ✅ En production |
 | Scraping CrewAI (3 agents) | `job_trackers/crew.py` | ✅ En production |
 | Airflow DAGs | `airflow/dags/` | ✅ En production |
+| Banque d'histoires STAR+R (commune aux kits d'entretien) | `app/services/star_bank.py`, `app/services/star_bank_rules.py`, `app/routers/star_stories.py` | ✅ En production ; remplissage depuis les kits existants par `backend/migrate_star_stories_to_bank.py --apply` à lancer après sauvegarde |

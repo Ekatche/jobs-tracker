@@ -7,6 +7,7 @@ from .cover_letters import cover_letters_router
 from .usage import usage_router
 from .resumes import resumes_router
 from .interview_prep import interview_prep_router
+from .star_stories import star_stories_router
 from .admin import admin_router
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     "usage_router",
     "resumes_router",
     "interview_prep_router",
+    "star_stories_router",
     "admin_router",
 ]
 

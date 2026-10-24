@@ -94,3 +94,10 @@ async def create_job_offers_indexes(db):
 
     # Index sur le matching persistant profil <-> offre (filtre "Selon mon profil")
     await collection.create_index("matched_user_ids")
+
+
+async def create_star_stories_indexes(db):
+    """Crée les index de la banque d'histoires STAR+R."""
+    collection = db["star_stories"]
+    await collection.create_index("id", unique=True)
+    await collection.create_index("user_id")

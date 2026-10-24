@@ -1,14 +1,69 @@
-export interface StarRStory {
-  id: string;
+export type StoryFit = "strong" | "partial" | "transferable" | "gap" | "no_experience" | "manual";
+
+export interface StoryExperience {
+  company: string;
+  role?: string | null;
+  start?: string | null;
+}
+
+export interface StoryFacts {
   title: string;
   theme: string;
-  target_requirement: string;
   situation: string;
   task: string;
   action: string;
   result: string;
   reflection: string;
   key_tags: string[];
+}
+
+export interface StoryOrigin {
+  kind: "migrated" | "generated" | "manual";
+  offer_id?: string | null;
+}
+
+export interface DiscardedStoryVersion {
+  id: string;
+  facts: StoryFacts;
+  source_story_id: string;
+  discarded_at: string;
+}
+
+export interface BankStory extends StoryFacts {
+  id: string;
+  user_id: string;
+  experience?: StoryExperience | null;
+  origin: StoryOrigin;
+  discarded_versions: DiscardedStoryVersion[];
+  not_duplicate_of: string[];
+  created_at: string;
+  updated_at: string;
+  used_in_kits?: number;
+}
+
+export interface StorySlot {
+  id: string;
+  requirement: string;
+  story_id?: string | null;
+  fit: StoryFit;
+  angle: string;
+  angle_edited: boolean;
+  story: BankStory | null;
+}
+
+export interface StoryDuplicate {
+  story_id: string;
+  other_story: BankStory;
+}
+
+export interface BankExperience extends StoryExperience {
+  label: string;
+}
+
+export interface BankGroup {
+  label: string;
+  experience: StoryExperience | null;
+  stories: BankStory[];
 }
 
 export interface AudiencePackRecruiter {
@@ -72,7 +127,9 @@ export interface InterviewPrep {
   id?: string;
   offer_id: string;
   user_id: string;
-  stories: StarRStory[];
+  story_slots: StorySlot[];
+  bank_count: number;
+  duplicates: StoryDuplicate[];
   recruiter_pack?: AudiencePackRecruiter | null;
   hm_pack?: AudiencePackHiringManager | null;
   tech_pack?: AudiencePackTechPanel | null;
@@ -85,7 +142,6 @@ export interface InterviewPrep {
 
 export interface UpdateInterviewPrepPayload {
   [key: string]: unknown;
-  stories?: StarRStory[];
   recruiter_pack?: AudiencePackRecruiter | null;
   hm_pack?: AudiencePackHiringManager | null;
   tech_pack?: AudiencePackTechPanel | null;

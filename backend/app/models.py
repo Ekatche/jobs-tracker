@@ -779,6 +779,71 @@ class StarRStory(BaseModel):
     model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
 
 
+# --- Banque d'histoires STAR+R (commune à toutes les offres) ---
+StoryFit = Literal["strong", "partial", "transferable", "gap", "no_experience", "manual"]
+
+
+class StoryExperience(BaseModel):
+    company: str
+    role: Optional[str] = None
+    start: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class StoryFacts(BaseModel):
+    title: str
+    theme: str = "Général"
+    situation: str
+    task: str
+    action: str
+    result: str
+    reflection: str = ""
+    key_tags: List[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class StoryOrigin(BaseModel):
+    kind: Literal["migrated", "generated", "manual"]
+    offer_id: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class DiscardedStoryVersion(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    facts: StoryFacts
+    source_story_id: str
+    discarded_at: datetime = Field(default_factory=utcnow_with_timezone)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class BankStory(StoryFacts):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    experience: Optional[StoryExperience] = None
+    origin: StoryOrigin
+    discarded_versions: List[DiscardedStoryVersion] = Field(default_factory=list)
+    not_duplicate_of: List[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utcnow_with_timezone)
+    updated_at: datetime = Field(default_factory=utcnow_with_timezone)
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
+class StorySlot(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    requirement: str
+    story_id: Optional[str] = None
+    fit: StoryFit = "gap"
+    angle: str = ""
+    angle_edited: bool = False
+
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+
 class AudiencePackRecruiter(BaseModel):
     pitch_30s: str
     comp_strategy: Dict[str, str] = Field(default_factory=dict)  # "volunteer", "avoid"
@@ -855,6 +920,7 @@ class InterviewPrep(BaseModel):
     anticipated_questions: List[AnticipatedQuestion] = Field(default_factory=list)
     reverse_questions: List[ReverseQuestion] = Field(default_factory=list)
     practice_attempts: List[PracticeAttempt] = Field(default_factory=list)
+    story_slots: Optional[List[StorySlot]] = None
     created_at: datetime = Field(default_factory=utcnow_with_timezone)
     updated_at: datetime = Field(default_factory=utcnow_with_timezone)
 
