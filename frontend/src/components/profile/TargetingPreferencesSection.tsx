@@ -20,6 +20,7 @@ import {
 } from "react-icons/fi";
 import { CandidatePreferences, RemotePolicy } from "@/types/coverLetter";
 import { coverLetterApi } from "@/lib/api";
+import { SECTOR_OPTIONS, COMPANY_SIZE_OPTIONS } from "@/lib/companyTaxonomy";
 
 interface TargetingPreferencesSectionProps {
   initialPreferences?: CandidatePreferences;
@@ -37,28 +38,7 @@ const REMOTE_OPTIONS: { value: RemotePolicy; label: string; desc: string; icon: 
 const CONTRACT_OPTIONS = ["CDI", "Freelance / Prestation", "CDD", "Alternance", "Stage"];
 const NOTICE_OPTIONS = ["Immédiat", "1 mois", "2 mois", "3 mois", "Plus de 3 mois"];
 
-// Clés de la taxonomie backend (company_profiles.PREFERENCE_SECTORS / COMPANY_SIZES)
-const SECTOR_OPTIONS: { value: string; label: string; desc: string }[] = [
-  { value: "tech_it", label: "Tech & Logiciel", desc: "Éditeurs de logiciels, produits et plateformes numériques, Télécoms" },
-  { value: "finance_insurance", label: "Banque, Finance & Assurance", desc: "Banque, Finance, Assurance, Fintech" },
-  { value: "healthcare_pharma", label: "Santé & Pharma", desc: "Santé, Pharmacie, Biotech, Médical" },
-  { value: "consulting_services", label: "Conseil, Audit & ESN", desc: "Conseil, Audit, ESN, Services B2B" },
-  { value: "retail_ecommerce", label: "Retail & E-commerce", desc: "E-commerce, Retail, Grande Distribution, Mode" },
-  { value: "industry_aerospace", label: "Industrie & Aéronautique", desc: "Industrie, Aéronautique, Automobile, Défense" },
-  { value: "energy_environment", label: "Énergie & Environnement", desc: "Énergie, Environnement, CleanTech, RSE" },
-  { value: "media_communication", label: "Médias & Communication", desc: "Médias, Communication, Divertissement, Jeux vidéo" },
-  { value: "public_education", label: "Secteur public & Éducation", desc: "Secteur Public, Administration, Éducation, Recherche" },
-  { value: "construction_realestate", label: "Immobilier & BTP", desc: "Immobilier, Construction, BTP, Urbanisme" },
-  { value: "logistics_transport", label: "Transport & Logistique", desc: "Transport, Logistique, Supply Chain" },
-  { value: "agri_food", label: "Agroalimentaire & Agriculture", desc: "Agroalimentaire, Agriculture" },
-];
 const SECTOR_VALUES = new Set(SECTOR_OPTIONS.map((s) => s.value));
-const COMPANY_SIZE_OPTIONS: { value: string; label: string }[] = [
-  { value: "startup_tpe", label: "Startup / TPE (< 20 salariés)" },
-  { value: "pme", label: "PME (20 - 249 salariés)" },
-  { value: "eti", label: "ETI (250 - 4 999 salariés)" },
-  { value: "grand_groupe", label: "Grand Groupe (5 000+ salariés)" },
-];
 
 const toggleValue = (list: string[], value: string) =>
   list.includes(value) ? list.filter((v) => v !== value) : [...list, value];

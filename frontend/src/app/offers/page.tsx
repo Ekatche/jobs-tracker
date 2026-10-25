@@ -37,6 +37,7 @@ import {
 } from "react-icons/fi";
 import { PrefilledData } from "@/components/dashboard/NewApplicationModal";
 import { getContractBadgeStyles } from "@/lib/contractBadge";
+import { SECTOR_OPTIONS, COMPANY_SIZE_OPTIONS } from "@/lib/companyTaxonomy";
 
 function cleanDescriptionPreview(text: string | undefined): string {
   if (!text || text === "Non spécifié") return "";
@@ -94,6 +95,13 @@ function formatAddedDate(createdAtStr?: string): string | null {
 }
 
 const ITEMS_PER_PAGE = 16; // 4x4 grille
+
+// Libellés des conditions non remplies (Task 6, offer_relevance.failed_conditions).
+// Un code inconnu ne doit rien afficher (pas de crash, pas de code brut).
+const FAILED_CONDITION_LABELS: Record<string, string> = {
+  geo: "Hors de votre zone géographique",
+  contract: "Contrat différent de vos préférences",
+};
 
 // Fonction pour formater la date
 function formatDate(dateString: string) {
@@ -305,6 +313,25 @@ const OfferCard = memo(function OfferCard({
               </span>
             )}
           </div>
+
+          {/* Conditions de pertinence non remplies (Task 6) : étiquette discrète, pas de score */}
+          {offer.failed_conditions && offer.failed_conditions.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {offer.failed_conditions.map((code) => {
+                const label = FAILED_CONDITION_LABELS[code];
+                if (!label) return null;
+                return (
+                  <span
+                    key={code}
+                    className="px-2 py-0.5 bg-slate-800/60 text-slate-400 text-[11px] rounded-md border border-slate-700/50 flex items-center gap-1"
+                  >
+                    <FiAlertCircle className="w-3 h-3" />
+                    <span>{label}</span>
+                  </span>
+                );
+              })}
+            </div>
+          )}
 
           {/* Description nettoyée */}
           {!cleanedDescription ? (
@@ -534,6 +561,9 @@ function OffersPageContent() {
   const [interactionStatus, setInteractionStatus] = useState<"saved" | "applied" | "hidden" | undefined>(undefined);
   const [unseenOnly, setUnseenOnly] = useState(false);
   const [minScoreFilter, setMinScoreFilter] = useState<number | undefined>(undefined);
+  const [sortFilter, setSortFilter] = useState<"recent" | "relevance">("recent");
+  const [sectorFilter, setSectorFilter] = useState<string[]>([]);
+  const [companySizeFilter, setCompanySizeFilter] = useState<string[]>([]);
   const [profileRoles, setProfileRoles] = useState<string[]>([]);
   const [profileLocations, setProfileLocations] = useState<string[]>([]);
   const [profileContracts, setProfileContracts] = useState<string[]>([]);
@@ -578,6 +608,9 @@ function OffersPageContent() {
     if (interactionStatus) f.interaction_status = interactionStatus;
     if (unseenOnly) f.unseen_only = true;
     if (minScoreFilter !== undefined) f.min_score = minScoreFilter;
+    if (sortFilter !== "recent") f.sort = sortFilter;
+    if (sectorFilter.length > 0) f.sector = sectorFilter;
+    if (companySizeFilter.length > 0) f.company_size = companySizeFilter;
     return f;
   }, [
     searchTerm,
@@ -591,6 +624,9 @@ function OffersPageContent() {
     interactionStatus,
     unseenOnly,
     minScoreFilter,
+    sortFilter,
+    sectorFilter,
+    companySizeFilter,
   ]);
 
   // Fonction pour charger le nombre total d'offres
@@ -835,6 +871,9 @@ function OffersPageContent() {
     interactionStatus,
     unseenOnly,
     minScoreFilter,
+    sortFilter,
+    sectorFilter,
+    companySizeFilter,
   ]);
 
   // Synchroniser la page courante dans l'URL (retour arrière / rafraîchissement la préservent)
@@ -1317,6 +1356,60 @@ function OffersPageContent() {
                       <option value="30">30 derniers jours</option>
                     </select>
                   </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Tri
+                    </label>
+                    <select
+                      value={sortFilter}
+                      onChange={(e) => setSortFilter(e.target.value as "recent" | "relevance")}
+                      className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    >
+                      <option value="recent">Plus récentes</option>
+                      <option value="relevance">Pertinence</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Secteur
+                    </label>
+                    <select
+                      multiple
+                      value={sectorFilter}
+                      onChange={(e) =>
+                        setSectorFilter(Array.from(e.target.selectedOptions, (o) => o.value))
+                      }
+                      className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 min-h-[88px]"
+                    >
+                      {SECTOR_OPTIONS.map((sector) => (
+                        <option key={sector.value} value={sector.value}>
+                          {sector.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                      Taille d&apos;entreprise
+                    </label>
+                    <select
+                      multiple
+                      value={companySizeFilter}
+                      onChange={(e) =>
+                        setCompanySizeFilter(Array.from(e.target.selectedOptions, (o) => o.value))
+                      }
+                      className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 min-h-[88px]"
+                    >
+                      {COMPANY_SIZE_OPTIONS.map((size) => (
+                        <option key={size.value} value={size.value}>
+                          {size.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               )}
             </div>
@@ -1352,7 +1445,10 @@ function OffersPageContent() {
                 daysRecentFilter !== undefined ||
                 onlySaved ||
                 interactionStatus ||
-                minScoreFilter !== undefined) && (
+                minScoreFilter !== undefined ||
+                sortFilter !== "recent" ||
+                sectorFilter.length > 0 ||
+                companySizeFilter.length > 0) && (
                 <button
                   onClick={() => {
                     setSearchTerm("");
@@ -1364,6 +1460,9 @@ function OffersPageContent() {
                     setOnlySaved(false);
                     setInteractionStatus(undefined);
                     setMinScoreFilter(undefined);
+                    setSortFilter("recent");
+                    setSectorFilter([]);
+                    setCompanySizeFilter([]);
                   }}
                   className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
                 >

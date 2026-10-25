@@ -369,6 +369,9 @@ export interface JobOffer {
   evaluation_score?: number;
   user_interaction?: "saved" | "hidden" | "applied" | "dismissed" | null;
   seen?: boolean;
+  failed_conditions?: string[];
+  sector?: string | null;
+  company_size?: string | null;
 }
 
 export type {
@@ -396,6 +399,9 @@ export interface JobOfferFilter {
   include_hidden?: boolean;
   unseen_only?: boolean;
   min_score?: number;
+  sort?: "relevance" | "recent";
+  sector?: string[];
+  company_size?: string[];
 }
 
 export interface JobOfferStats {
@@ -630,6 +636,9 @@ export const jobOffersApi = {
     if (filters.min_score !== undefined && filters.min_score !== null) {
       params.append("min_score", filters.min_score.toString());
     }
+    if (filters.sort) params.append("sort", filters.sort);
+    filters.sector?.forEach((s) => params.append("sector", s));
+    filters.company_size?.forEach((s) => params.append("company_size", s));
     if (filters.limit) params.append("limit", filters.limit.toString());
     if (filters.skip) params.append("skip", filters.skip.toString());
 
@@ -738,6 +747,8 @@ export const jobOffersApi = {
     if (filters.min_score !== undefined && filters.min_score !== null) {
       params.append("min_score", filters.min_score.toString());
     }
+    filters.sector?.forEach((s) => params.append("sector", s));
+    filters.company_size?.forEach((s) => params.append("company_size", s));
 
     const endpoint = `/job-offers/count/?${params.toString()}`;
     return fetchApi<{ total: number }>(endpoint, "GET");
