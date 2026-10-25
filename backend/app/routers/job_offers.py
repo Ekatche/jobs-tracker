@@ -2,7 +2,7 @@ import inspect
 import logging
 import re
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List, Optional
+from typing import List, Literal, Optional
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 from ..models import (
@@ -15,6 +15,7 @@ from ..models import (
 )
 from ..database import get_database
 from ..auth import get_current_admin_user, get_current_user
+from ..services.company_profiles import COMPANY_SIZES, SECTORS
 from ..services.normalization import normalize_city, normalize_company
 from ..services.evaluation.evaluator import evaluate_offer_two_pass
 from ..tasks.clean_job_offers import safe_delete_or_expire_offer
@@ -225,6 +226,45 @@ def _build_contract_type_filter(contract_type: str) -> dict:
     }
 
 
+def _build_sector_filter(sector: List[str]) -> dict:
+    """Filtre par secteur(s) (taxonomie `SECTORS`) : plusieurs valeurs se combinent en $in."""
+    return {"sector": {"$in": sector}}
+
+
+def _build_company_size_filter(company_size: List[str]) -> dict:
+    """Filtre par taille(s) d'entreprise (taxonomie `COMPANY_SIZES`) : plusieurs valeurs se combinent en $in."""
+    return {"company_size": {"$in": company_size}}
+
+
+def relevance_lookup_stages(user_id: str) -> list[dict]:
+    """Étapes d'agrégation qui rattachent à chaque offre le score de pertinence hybride
+    de l'utilisateur courant (Task 6, collection `offer_relevance`, un document par
+    (user_id, offer_id)).
+
+    Une offre attachée sans document `offer_relevance` — gardée par le garde-fou
+    d'interaction après un filtre dur, attachée avant le premier rematch, ou passée
+    pendant une panne d'embedding — n'est jamais masquée : elle obtient `_score_sort`
+    à -1 (reléguée en fin de tri par pertinence) et `failed_conditions` vide.
+    """
+    return [
+        {"$addFields": {"_oid_str": {"$toString": "$_id"}}},
+        {
+            "$lookup": {
+                "from": "offer_relevance",
+                "localField": "_oid_str",
+                "foreignField": "offer_id",
+                "pipeline": [
+                    {"$match": {"user_id": user_id}},
+                    {"$project": {"_id": 0, "score": 1, "failed_conditions": 1}},
+                ],
+                "as": "_relevance",
+            }
+        },
+        {"$addFields": {"_relevance": {"$arrayElemAt": ["$_relevance", 0]}}},
+        {"$addFields": {"_score_sort": {"$ifNull": ["$_relevance.score", -1]}}},
+    ]
+
+
 def restrict_to_profile_offers(
     match_filter: dict,
     current_user: Optional[UserModel],
@@ -366,12 +406,19 @@ async def get_job_offers(
     include_hidden: bool = Query(False),
     unseen_only: bool = Query(False),
     min_score: Optional[float] = Query(None),
+    sort: Literal["relevance", "recent"] = Query("recent"),
+    sector: Optional[List[Literal[*SECTORS]]] = Query(None),
+    company_size: Optional[List[Literal[*COMPANY_SIZES]]] = Query(None),
     limit: int = Query(16, ge=1, le=100),
     skip: int = Query(0, ge=0),
     db=Depends(get_database),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Récupère les offres d'emploi avec pagination, déduplication et statut d'interaction multi-tenant."""
+    """Récupère les offres d'emploi avec pagination, déduplication et statut d'interaction multi-tenant.
+
+    `sort="relevance"` trie par score de pertinence hybride (Task 6) décroissant, puis
+    par date ; par défaut (`"recent"`), l'ordre reste chronologique. Dans les deux cas,
+    aucune offre n'est masquée ni repliée selon son score — le tri est le seul effet."""
     try:
         collection = db["job_offers"]
 
@@ -414,6 +461,14 @@ async def get_job_offers(
 
         if work_mode:
             match_filter["mode_travail"] = {"$regex": work_mode, "$options": "i"}
+
+        if sector:
+            match_filter["$and"] = match_filter.get("$and", [])
+            match_filter["$and"].append(_build_sector_filter(sector))
+
+        if company_size:
+            match_filter["$and"] = match_filter.get("$and", [])
+            match_filter["$and"].append(_build_company_size_filter(company_size))
 
         restrict_to_profile_offers(match_filter, current_user, only_saved, interaction_status)
 
@@ -461,10 +516,30 @@ async def get_job_offers(
             },
             {"$replaceRoot": {"newRoot": "$offer"}},
             {"$unset": "dedup_key"},
-            {"$sort": {"created_at": -1, "_id": -1}},
-            {"$skip": skip},
-            {"$limit": limit},
         ]
+
+        # Le lookup de pertinence s'applique pour tout utilisateur connecté, quel que
+        # soit le tri demandé (il alimente aussi `failed_conditions`, exposé même en
+        # tri "recent"). Il se place après la déduplication, avant le tri final.
+        if current_user:
+            pipeline.extend(relevance_lookup_stages(str(current_user.id)))
+
+        if sort == "relevance" and current_user:
+            final_sort = {"_score_sort": -1, "created_at": -1, "_id": -1}
+        else:
+            final_sort = {"created_at": -1, "_id": -1}
+
+        pipeline.append({"$sort": final_sort})
+        pipeline.append({"$skip": skip})
+        pipeline.append({"$limit": limit})
+
+        if current_user:
+            # `failed_conditions` remonte au premier niveau pour JobOfferResponse ;
+            # les champs internes du lookup ne doivent jamais fuiter dans la réponse.
+            pipeline.append(
+                {"$addFields": {"failed_conditions": {"$ifNull": ["$_relevance.failed_conditions", []]}}}
+            )
+            pipeline.append({"$unset": ["_relevance", "_oid_str", "_score_sort"]})
 
         cursor = collection.aggregate(pipeline)
         offers = await cursor.to_list(length=None)
@@ -972,10 +1047,16 @@ async def get_job_offers_count(
     include_hidden: bool = Query(False),
     unseen_only: bool = Query(False),
     min_score: Optional[float] = Query(None),
+    sort: Literal["relevance", "recent"] = Query("recent"),
+    sector: Optional[List[Literal[*SECTORS]]] = Query(None),
+    company_size: Optional[List[Literal[*COMPANY_SIZES]]] = Query(None),
     db=Depends(get_database),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """Compte les offres d'emploi dédupliquées en tenant compte des filtres multi-tenant."""
+    """Compte les offres d'emploi dédupliquées en tenant compte des filtres multi-tenant.
+
+    `sort` n'a aucun effet sur un total : accepté ici uniquement pour que le front
+    puisse envoyer les mêmes paramètres qu'à la liste sans déclencher de 422."""
     try:
         collection = db["job_offers"]
 
@@ -1018,6 +1099,14 @@ async def get_job_offers_count(
 
         if work_mode:
             match_filter["mode_travail"] = {"$regex": work_mode, "$options": "i"}
+
+        if sector:
+            match_filter["$and"] = match_filter.get("$and", [])
+            match_filter["$and"].append(_build_sector_filter(sector))
+
+        if company_size:
+            match_filter["$and"] = match_filter.get("$and", [])
+            match_filter["$and"].append(_build_company_size_filter(company_size))
 
         restrict_to_profile_offers(match_filter, current_user, only_saved, interaction_status)
 

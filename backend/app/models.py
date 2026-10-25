@@ -363,6 +363,9 @@ class JobOfferResponse(BaseModel):
     alternative_urls: Optional[List[str]] = None
     user_interaction: Optional[str] = None  # Interaction: "saved", "hidden", "applied", "dismissed"
     seen: Optional[bool] = False  # Tag "vu" neutre, indépendant de user_interaction
+    sector: Optional[str] = None  # Clé de SECTORS (company_profiles.py)
+    company_size: Optional[str] = None  # Clé de COMPANY_SIZES (company_profiles.py)
+    failed_conditions: List[str] = []  # Score de pertinence hybride (Task 6) : conditions non remplies, jamais masquant
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
