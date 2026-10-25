@@ -54,6 +54,7 @@ export interface CandidatePreferences {
   work_authorization?: string;
   excluded_keywords?: string[];
   preferred_industries?: string[];
+  preferred_company_sizes?: string[];
   search_active?: boolean;
 }
 

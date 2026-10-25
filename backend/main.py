@@ -10,7 +10,12 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 
-from app.database import get_database, create_job_offers_indexes, create_star_stories_indexes
+from app.database import (
+    get_database,
+    create_company_profiles_indexes,
+    create_job_offers_indexes,
+    create_star_stories_indexes,
+)
 from app.llm.provider_errors import classify_llm_error
 from app.routers import (
     auth_router,
@@ -52,6 +57,10 @@ async def lifespan(app):
             await create_star_stories_indexes(db)
         except Exception as e:
             print(f"Erreur de création des index star_stories: {e}")
+        try:
+            await create_company_profiles_indexes(db)
+        except Exception as e:
+            print(f"Erreur de création des index company_profiles: {e}")
 
     yield  # L'application s'exécute pendant cette période
 

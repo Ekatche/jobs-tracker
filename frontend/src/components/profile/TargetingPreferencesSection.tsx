@@ -16,6 +16,7 @@ import {
   FiShield,
   FiCheck,
   FiChevronDown,
+  FiLayers,
 } from "react-icons/fi";
 import { CandidatePreferences, RemotePolicy } from "@/types/coverLetter";
 import { coverLetterApi } from "@/lib/api";
@@ -35,6 +36,32 @@ const REMOTE_OPTIONS: { value: RemotePolicy; label: string; desc: string; icon: 
 
 const CONTRACT_OPTIONS = ["CDI", "Freelance / Prestation", "CDD", "Alternance", "Stage"];
 const NOTICE_OPTIONS = ["Immédiat", "1 mois", "2 mois", "3 mois", "Plus de 3 mois"];
+
+// Clés de la taxonomie backend (company_profiles.PREFERENCE_SECTORS / COMPANY_SIZES)
+const SECTOR_OPTIONS: { value: string; label: string; desc: string }[] = [
+  { value: "tech_it", label: "Tech & Logiciel", desc: "Éditeurs de logiciels, produits et plateformes numériques, Télécoms" },
+  { value: "finance_insurance", label: "Banque, Finance & Assurance", desc: "Banque, Finance, Assurance, Fintech" },
+  { value: "healthcare_pharma", label: "Santé & Pharma", desc: "Santé, Pharmacie, Biotech, Médical" },
+  { value: "consulting_services", label: "Conseil, Audit & ESN", desc: "Conseil, Audit, ESN, Services B2B" },
+  { value: "retail_ecommerce", label: "Retail & E-commerce", desc: "E-commerce, Retail, Grande Distribution, Mode" },
+  { value: "industry_aerospace", label: "Industrie & Aéronautique", desc: "Industrie, Aéronautique, Automobile, Défense" },
+  { value: "energy_environment", label: "Énergie & Environnement", desc: "Énergie, Environnement, CleanTech, RSE" },
+  { value: "media_communication", label: "Médias & Communication", desc: "Médias, Communication, Divertissement, Jeux vidéo" },
+  { value: "public_education", label: "Secteur public & Éducation", desc: "Secteur Public, Administration, Éducation, Recherche" },
+  { value: "construction_realestate", label: "Immobilier & BTP", desc: "Immobilier, Construction, BTP, Urbanisme" },
+  { value: "logistics_transport", label: "Transport & Logistique", desc: "Transport, Logistique, Supply Chain" },
+  { value: "agri_food", label: "Agroalimentaire & Agriculture", desc: "Agroalimentaire, Agriculture" },
+];
+const SECTOR_VALUES = new Set(SECTOR_OPTIONS.map((s) => s.value));
+const COMPANY_SIZE_OPTIONS: { value: string; label: string }[] = [
+  { value: "startup_tpe", label: "Startup / TPE (< 20 salariés)" },
+  { value: "pme", label: "PME (20 - 249 salariés)" },
+  { value: "eti", label: "ETI (250 - 4 999 salariés)" },
+  { value: "grand_groupe", label: "Grand Groupe (5 000+ salariés)" },
+];
+
+const toggleValue = (list: string[], value: string) =>
+  list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 const SENIORITY_OPTIONS = [
   { value: "junior", label: "Junior", desc: "0-2 ans d'expérience" },
   { value: "mid", label: "Intermédiaire", desc: "3-5 ans d'expérience" },
@@ -76,6 +103,9 @@ export default function TargetingPreferencesSection({
   const [noticePeriod, setNoticePeriod] = useState<string>("");
   const [workAuthorization, setWorkAuthorization] = useState<string>("");
 
+  const [preferredIndustries, setPreferredIndustries] = useState<string[]>([]);
+  const [preferredCompanySizes, setPreferredCompanySizes] = useState<string[]>([]);
+
   const [excludedKeywords, setExcludedKeywords] = useState<string[]>([]);
   const [newExcludedInput, setNewExcludedInput] = useState("");
 
@@ -89,6 +119,7 @@ export default function TargetingPreferencesSection({
     location: false,
     salary: false,
     contract: false,
+    sectors: false,
     excluded: false,
   });
   const toggleSection = (key: keyof typeof openSections) => {
@@ -112,6 +143,8 @@ export default function TargetingPreferencesSection({
     setContractTypes(pref.contract_types || []);
     setNoticePeriod(pref.notice_period || "");
     setWorkAuthorization(pref.work_authorization || "");
+    setPreferredIndustries(pref.preferred_industries || []);
+    setPreferredCompanySizes(pref.preferred_company_sizes || []);
     setExcludedKeywords(pref.excluded_keywords || []);
     setSearchActive(pref.search_active ?? true);
   };
@@ -211,6 +244,8 @@ export default function TargetingPreferencesSection({
       contract_types: contractTypes,
       notice_period: noticePeriod || undefined,
       work_authorization: workAuthorization || undefined,
+      preferred_industries: preferredIndustries,
+      preferred_company_sizes: preferredCompanySizes,
       excluded_keywords: excludedKeywords,
       search_active: searchActive,
     };
@@ -781,7 +816,104 @@ export default function TargetingPreferencesSection({
         )}
       </div>
 
-      {/* 5. Mots-clés Exclus (Filtre anti-bruit) */}
+      {/* 5. Secteurs d'activité & Taille d'entreprise */}
+      <div className="bg-slate-900/70 border border-slate-800 backdrop-blur-md rounded-2xl p-6 shadow-xl space-y-6">
+        <button
+          type="button"
+          onClick={() => toggleSection("sectors")}
+          className="w-full flex items-center justify-between gap-3 border-b border-slate-800/80 pb-4 text-left cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-cyan-950/60 text-cyan-400 border border-cyan-800/50 rounded-xl">
+              <FiLayers className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">
+                Secteurs d'activité & Taille d'entreprise
+              </h3>
+              <p className="text-xs text-slate-400">
+                Les secteurs et tailles d'entreprise qui vous intéressent.
+              </p>
+            </div>
+          </div>
+          <FiChevronDown className={`w-4 h-4 text-slate-500 shrink-0 transition-transform ${openSections.sectors ? "rotate-180" : ""}`} />
+        </button>
+
+        {openSections.sectors && (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2.5">
+              Secteurs d'activité
+            </label>
+            <div className="flex flex-wrap gap-2.5">
+              {SECTOR_OPTIONS.map((sector) => {
+                const isSelected = preferredIndustries.includes(sector.value);
+                return (
+                  <button
+                    key={sector.value}
+                    type="button"
+                    title={sector.desc}
+                    onClick={() => setPreferredIndustries(toggleValue(preferredIndustries, sector.value))}
+                    className={`px-3.5 py-2 text-xs font-semibold rounded-xl border transition-all ${
+                      isSelected
+                        ? "bg-cyan-950/50 border-cyan-500 text-cyan-200 shadow-md shadow-cyan-500/10"
+                        : "bg-slate-950/50 border-slate-800 text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                    }`}
+                  >
+                    {sector.label}
+                  </button>
+                );
+              })}
+              {preferredIndustries
+                .filter((value) => !SECTOR_VALUES.has(value))
+                .map((value) => (
+                  <span
+                    key={value}
+                    title="Ancienne valeur, non utilisée pour le tri"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-800 bg-slate-900/40 text-slate-500"
+                  >
+                    {value}
+                    <button
+                      type="button"
+                      onClick={() => setPreferredIndustries(preferredIndustries.filter((v) => v !== value))}
+                      className="hover:text-slate-300"
+                    >
+                      <FiX className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
+                ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2.5">
+              Taille d'entreprise
+            </label>
+            <div className="flex flex-wrap gap-2.5">
+              {COMPANY_SIZE_OPTIONS.map((size) => {
+                const isSelected = preferredCompanySizes.includes(size.value);
+                return (
+                  <button
+                    key={size.value}
+                    type="button"
+                    onClick={() => setPreferredCompanySizes(toggleValue(preferredCompanySizes, size.value))}
+                    className={`px-3.5 py-2 text-xs font-semibold rounded-xl border transition-all ${
+                      isSelected
+                        ? "bg-cyan-950/50 border-cyan-500 text-cyan-200 shadow-md shadow-cyan-500/10"
+                        : "bg-slate-950/50 border-slate-800 text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                    }`}
+                  >
+                    {size.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        )}
+      </div>
+
+      {/* 6. Mots-clés Exclus (Filtre anti-bruit) */}
       <div className="bg-slate-900/70 border border-slate-800 backdrop-blur-md rounded-2xl p-6 shadow-xl space-y-6">
         <button
           type="button"

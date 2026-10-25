@@ -1,7 +1,7 @@
 # Design Doc: Matching Hybride, Secteurs & Tailles d'Entreprise (Lot 1)
 
 **Date** : 2026-10-24 (révisé le même jour après revue, cf. §9)  
-**Statut** : Révisé — décisions 1 et 3 tranchées, décision 2 ouverte (§8)  
+**Statut** : Révisé — décisions 1, 2 et 3 tranchées (§8)  
 **Périmètre** : Lot 1 — Mesure & Benchmark + Étage 1 (Filtres durs) + Étage 2 (Score d'adéquation hybride, conditions géographie / contrat) + API & UI Préférences, Niveaux & Tri Pertinence  
 
 ---
@@ -274,7 +274,7 @@ Le score exact sert au tri. L'affichage, lui, ne montre qu'un niveau : un écart
 * **Carte d'offre** :
   * Badge de niveau, sans pourcentage (§4.5) : « Pertinence forte » (vert), « Pertinence moyenne » (bleu), « Pertinence faible » (gris).
   * Tooltip au survol : score exact, décomposition par composante (`breakdown`), composantes inconnues signalées, et conditions non remplies (`failed_conditions`) formulées pour l'utilisateur (ex : « Hors de votre zone géographique », « Contrat différent de vos préférences »).
-  * Coexistence avec le score IA Two-Pass (`evaluation_score`) déjà affiché : cf. §8, décision 2.
+  * Coexistence avec le score IA Two-Pass (`evaluation_score`) déjà affiché : badge distinct « Analyse IA », réservé aux meilleures offres (§8, décision 2).
 * **Section repliée « Moins pertinentes »** :
   * Les offres avec `level === "weak"` sont regroupées par défaut sous un bandeau replié : *« X offres moins pertinentes — Déplier »*.
   * L'utilisateur parcourt ses offres prioritaires sans être pollué, tout en conservant la visibilité complète en un clic.
@@ -294,7 +294,7 @@ Le banc de mesure est livré **en premier** (§7, étape 1b) ; il fixe, une fois
 2. **Comparaison de trois classements et critère de livraison** — sur les mêmes 100 offres × 2 profils :
    - **Chronologique** : le tri actuel (`created_at` décroissant), référence à battre.
    - **Hybride** : le score des §4.3 à §4.5.
-   - **Two-Pass** : le calcul pur du §4.7 sur chaque offre (jamais `evaluate_offer_two_pass`, qui écrit en base et consomme le quota). Coût estimé à environ 3,5 $ pour un passage unique (mesure locale : 0,0176 $ et 28 s par offre). Le coût et la latence réels sont relevés : ils servent à trancher la décision 2 du §8.
+   - **Two-Pass** : le calcul pur du §4.7 sur chaque offre (jamais `evaluate_offer_two_pass`, qui écrit en base et consomme le quota). Coût estimé à environ 3,5 $ pour un passage unique (mesure locale : 0,0176 $ et 28 s par offre). Le coût et la latence réels sont relevés : ils servent à dimensionner le périmètre des meilleures offres analysées par le Two-Pass (§8, décision 2).
    - **Critère** (valeurs de départ, à confirmer à la lecture des premiers résultats) : le score hybride alimente seul les niveaux si, **sur chacun des 2 profils**, sa Precision@10 dépasse celle du chronologique d'au moins 0.2 (deux bonnes offres de plus dans le Top 10) **et** que la garde de rappel est respectée.
    - **Sinon**, l'identification rapide (§2) est livrée quand même, avec l'une de ces deux sources, choisie sur les mesures du benchmark :
      - (a) hybride corrigé (poids ou composantes), remesuré sur le même jeu ;
@@ -340,7 +340,7 @@ Le banc de mesure est livré **en premier** (§7, étape 1b) ; il fixe, une fois
 ## 8. Décisions ouvertes
 
 1. **Stockage du score par utilisateur — tranchée le 2026-10-24** : le score est stocké pour être affiché, dans la collection `offer_relevance`, sur le modèle de `offer_evaluations`. Alternative écartée : champ `relevance.<user_id>` dans `job_offers` (tri plus simple, mais index wildcard, document partagé qui grossit avec le nombre d'utilisateurs, et précédent de fuite avec `evaluation_score`).
-2. **Relation avec le score IA Two-Pass.** Recommandation : le score de pertinence trie et rattache tout le stock à faible coût ; le Two-Pass reste l'analyse approfondie existante. Sur la carte, deux badges distincts et nommés différemment (« Pertinence », « Analyse IA »). Le Lot 2 consiste alors à lancer automatiquement le Two-Pass existant sur le Top N, plutôt qu'à construire un second reranker LLM. **Tranchée par le benchmark** (§6.2), qui mesure sur les mêmes offres la précision, le coût et la latence du Two-Pass face au score hybride : si le Two-Pass n'apporte pas de gain net de précision sur le Top 10, le Lot 2 n'a pas lieu d'être sous cette forme. À l'inverse, si l'hybride seul échoue au critère et que le Two-Pass le bat nettement, l'option (b) du §6.2 avance ce Lot 2 dans le Lot 1.
+2. **Relation avec le score IA Two-Pass — tranchée par l'utilisateur le 2026-10-24** : « limite-le aux meilleures offres car les deux n'ont pas le même purpose ». Le score de pertinence trie et rattache tout le stock à faible coût ; le Two-Pass reste l'analyse approfondie existante, **réservée aux meilleures offres** du score de pertinence. Sur la carte, deux badges distincts et nommés différemment (« Pertinence », « Analyse IA »), jamais fusionnés : ils ne répondent pas à la même question. Le Lot 2 n'est donc plus conditionné à un gain de précision du Two-Pass ; le benchmark (§6.2) ne sert plus qu'à en dimensionner le périmètre (N, à partir du coût et de la latence réels). Reste à préciser au moment du Lot 2 : déclenchement automatique sur le Top N (garde-fous de l'option (b) du §6.2) ou bouton d'évaluation proposé seulement sur ces offres.
 3. **Partie API & UI — tranchée le 2026-10-24** : implémentée dans le Lot 1 par la même session que le backend (précondition au §5).
 
 ---
@@ -378,3 +378,7 @@ Le banc de mesure est livré **en premier** (§7, étape 1b) ; il fixe, une fois
 - §6.1 : juge OpenAI, plus capable que `gpt-5-nano`.
 - §6.2 : recommandation de miser sur l'hybride seul ; garde-fous de l'option (b) (action `AUTO_EVALUATION` à quota séparé, nouvelles offres fortes ou moyennes, 5 par jour et par utilisateur au plus).
 - §7 : incohérence corrigée. Le benchmark ne pouvait pas comparer l'hybride à l'étape 1, puisque le score n'existe qu'à l'étape 3. L'étape 1 est scindée en 1a (séparation du Two-Pass) et 1b (banc de mesure figé) ; la calibration et la décision du §6.2 ont lieu à l'étape 3.
+
+**2026-10-24 — décision 2 tranchée par l'utilisateur :**
+- §8 décision 2 : le Two-Pass est réservé aux meilleures offres du score de pertinence, avec un badge distinct, parce que les deux scores n'ont pas le même objectif. Le benchmark ne décide plus de l'existence du Lot 2, il en dimensionne le périmètre. Reste ouvert pour le Lot 2 : déclenchement automatique ou bouton limité à ces offres.
+- §5.2 (badge) et §6 point 2 (rôle du coût et de la latence mesurés) alignés sur cette décision.

@@ -582,6 +582,7 @@ class CandidatePreferences(BaseModel):
     work_authorization: Optional[str] = None
     excluded_keywords: List[str] = Field(default_factory=list)
     preferred_industries: List[str] = Field(default_factory=list)
+    preferred_company_sizes: List[str] = Field(default_factory=list)
     search_active: bool = True
 
     @model_validator(mode="after")

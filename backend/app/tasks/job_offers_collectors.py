@@ -7,6 +7,7 @@ from app.services.job_offers import (
     get_job_offers_from_query,
 )
 from app.database import get_database
+from app.services.company_profiles import CompanyResolver
 from app.services.normalization import (
     compute_unique_key,
     extract_company_from_url,
@@ -432,6 +433,14 @@ async def clean_duplicate_offers(offers: list) -> list:
         raise
 
 
+async def _resolve_company_attributes(resolver: CompanyResolver, offer: dict) -> None:
+    """Secteur et taille de l'entreprise : un échec d'enrichissement ne bloque jamais la sauvegarde."""
+    try:
+        await resolver.resolve(offer)
+    except Exception as e:
+        logger.warning(f"⚠️ Secteur/taille non résolus pour '{offer.get('entreprise')}': {e}")
+
+
 async def save_offers_to_database(offers: list) -> dict:
     """Étape 6: Sauvegarde en base de données avec réconciliation cross-sources et fusion intelligente"""
     logger.info(f"💾 Sauvegarde de {len(offers)} offres")
@@ -443,6 +452,7 @@ async def save_offers_to_database(offers: list) -> dict:
     try:
         db = await get_database()
         collection = db["job_offers"]
+        company_resolver = CompanyResolver(db)
 
         # 1. Déduplication multi-critères en mémoire sur le lot entrant
         consolidated_offers = deduplicate_and_merge_offers(offers)
@@ -499,6 +509,7 @@ async def save_offers_to_database(offers: list) -> dict:
                 if existing_doc:
                     # Fusion des offres avec conservation de la source prioritaire et des métadonnées
                     merged = merge_multidiffusion_offers(existing_doc, offer)
+                    await _resolve_company_attributes(company_resolver, merged)
                     update_fields = {
                         k: v for k, v in merged.items()
                         if k not in {"_id", "created_at", "date_creation"}
@@ -518,6 +529,7 @@ async def save_offers_to_database(offers: list) -> dict:
                     new_doc["unique_key"] = unique_key
                     new_doc["created_at"] = offer.get("created_at") or datetime.now(timezone.utc)
                     new_doc["updated_at"] = datetime.now(timezone.utc)
+                    await _resolve_company_attributes(company_resolver, new_doc)
                     try:
                         await collection.insert_one(new_doc)
                         offer_ids.append(new_doc["_id"])

@@ -876,6 +876,127 @@ async def test_save_offers_to_database_company_variant_updates_existing(monkeypa
     assert res["offer_ids"] == [existing_doc["_id"]]
 
 
+def _insert_only_collection():
+    from unittest.mock import AsyncMock, MagicMock
+    from bson import ObjectId
+
+    mock_collection = MagicMock()
+    mock_collection.find_one = AsyncMock(return_value=None)
+    mock_collection.distinct = AsyncMock(return_value=[])
+
+    async def insert_one(doc):
+        doc["_id"] = ObjectId("6aaa8ed40a4a13cc5c4a7b60")
+        return MagicMock()
+
+    mock_collection.insert_one = AsyncMock(side_effect=insert_one)
+    return mock_collection
+
+
+@pytest.mark.asyncio
+async def test_save_offers_insert_carries_resolved_sector(monkeypatch):
+    from app.tasks.job_offers_collectors import save_offers_to_database
+
+    class FakeResolver:
+        def __init__(self, db, *args, **kwargs):
+            pass
+
+        async def resolve(self, offer):
+            offer["sector"] = "finance_insurance"
+            offer["company_size"] = "eti"
+
+    mock_collection = _insert_only_collection()
+
+    async def mock_get_database():
+        return {"job_offers": mock_collection}
+
+    monkeypatch.setattr("app.tasks.job_offers_collectors.get_database", mock_get_database)
+    monkeypatch.setattr("app.tasks.job_offers_collectors.CompanyResolver", FakeResolver)
+
+    offer = {"poste": "Contrôleur de gestion", "entreprise": "BNP Paribas", "localisation": "Paris", "url": "https://x.fr/1"}
+    res = await save_offers_to_database([offer])
+
+    assert res["saved"] == 1
+    inserted = mock_collection.insert_one.call_args.args[0]
+    assert inserted["sector"] == "finance_insurance"
+    assert inserted["company_size"] == "eti"
+
+
+@pytest.mark.asyncio
+async def test_save_offers_update_keeps_existing_sector(monkeypatch):
+    from unittest.mock import AsyncMock, MagicMock
+    from bson import ObjectId
+    from app.tasks.job_offers_collectors import save_offers_to_database
+
+    existing_doc = {
+        "_id": ObjectId("6aaa8ed40a4a13cc5c4a7b51"),
+        "poste": "Contrôleur de gestion",
+        "entreprise": "BNP Paribas",
+        "localisation": "Paris",
+        "url": "https://www.hellowork.com/fr-fr/emplois/1.html",
+        "unique_key": "bnp paribas|controleur de gestion|paris",
+        "sector": "finance_insurance",
+        "company_size": "eti",
+        "raw_data": {"linkedin": {"job_level": "associate"}},
+    }
+
+    mock_collection = MagicMock()
+    mock_collection.find_one = AsyncMock(return_value=existing_doc)
+    mock_collection.update_one = AsyncMock(return_value=MagicMock(modified_count=1))
+    mock_collection.insert_one = AsyncMock()
+
+    async def mock_get_database():
+        return {"job_offers": mock_collection}
+
+    lookup = AsyncMock(return_value=(None, None))
+    infer = AsyncMock(return_value={"sector": None, "company_size": None})
+    monkeypatch.setattr("app.tasks.job_offers_collectors.get_database", mock_get_database)
+    monkeypatch.setattr("app.services.company_profiles.lookup_company_size", lookup)
+    monkeypatch.setattr("app.services.company_profiles.infer_company_attributes", infer)
+
+    incoming_offer = {
+        "poste": "Contrôleur de gestion",
+        "entreprise": "BNP Paribas",
+        "localisation": "Paris",
+        "url": "https://www.hellowork.com/fr-fr/emplois/1.html",
+        "raw_data": {"hellowork": {"job_url": "https://www.hellowork.com/fr-fr/emplois/1.html"}},
+    }
+
+    res = await save_offers_to_database([incoming_offer])
+
+    assert res["updated"] == 1
+    update = mock_collection.update_one.call_args.args[1]["$set"]
+    assert update["sector"] == "finance_insurance"
+    assert update["company_size"] == "eti"
+    lookup.assert_not_awaited()
+    infer.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_save_offers_survives_company_resolver_failure(monkeypatch):
+    from app.tasks.job_offers_collectors import save_offers_to_database
+
+    class FailingResolver:
+        def __init__(self, db, *args, **kwargs):
+            pass
+
+        async def resolve(self, offer):
+            raise RuntimeError("company_profiles indisponible")
+
+    mock_collection = _insert_only_collection()
+
+    async def mock_get_database():
+        return {"job_offers": mock_collection}
+
+    monkeypatch.setattr("app.tasks.job_offers_collectors.get_database", mock_get_database)
+    monkeypatch.setattr("app.tasks.job_offers_collectors.CompanyResolver", FailingResolver)
+
+    offer = {"poste": "FP&A Analyst", "entreprise": "Danone", "localisation": "Paris", "url": "https://x.fr/2"}
+    res = await save_offers_to_database([offer])
+
+    assert res["saved"] == 1
+    assert mock_collection.insert_one.called
+
+
 @pytest.mark.asyncio
 async def test_crawl_skips_offers_expired_on_ats(monkeypatch):
     from unittest.mock import AsyncMock

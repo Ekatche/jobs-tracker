@@ -101,3 +101,8 @@ async def create_star_stories_indexes(db):
     collection = db["star_stories"]
     await collection.create_index("id", unique=True)
     await collection.create_index("user_id")
+
+
+async def create_company_profiles_indexes(db):
+    """Un profil par entreprise normalisée (secteur et taille mis en cache)."""
+    await db["company_profiles"].create_index("company_name_normalized", unique=True)

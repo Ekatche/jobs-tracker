@@ -11,6 +11,7 @@ def test_candidate_preferences_defaults():
     assert pref.currency == "EUR"
     assert pref.contract_types == []
     assert pref.excluded_keywords == []
+    assert pref.preferred_company_sizes == []
     assert pref.search_active is True
 
 
@@ -135,6 +136,52 @@ def test_put_preferences_endpoint(client):
         assert get_data["preferences"]["target_roles"] == ["Data Engineer", "MLOps Engineer"]
         assert get_data["preferences"]["locations"] == ["Paris", "Lyon"]
         assert get_data["preferences"]["remote_policy"] == "hybrid"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_put_preferences_round_trips_sectors_and_sizes(client):
+    from unittest.mock import AsyncMock, MagicMock
+    from bson import ObjectId
+    from app.auth import get_current_user
+    from app.database import get_database
+    from main import app
+
+    user_id = "60c72b2f9b1d8b2bad7f1234"
+    stored = {"user_id": user_id, "headline": "Dev", "experiences": []}
+
+    async def find_one(_query):
+        return dict(stored)
+
+    async def update_one(_filter, update, upsert=False):
+        stored.update(update.get("$set", {}))
+        stored.setdefault("_id", ObjectId())
+        return MagicMock()
+
+    collection = MagicMock()
+    collection.find_one = AsyncMock(side_effect=find_one)
+    collection.update_one = AsyncMock(side_effect=update_one)
+    db = MagicMock()
+    db.__getitem__.return_value = collection
+
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: UserModel(
+        id=user_id, username="tester", email="t@example.com", hashed_password="x"
+    )
+
+    try:
+        payload = {
+            "preferred_industries": ["finance_insurance", "tech_it"],
+            "preferred_company_sizes": ["eti", "grand_groupe"],
+        }
+        response = client.put("/profile/candidate/preferences", json=payload)
+        assert response.status_code == 200
+        assert response.json()["preferences"]["preferred_industries"] == ["finance_insurance", "tech_it"]
+        assert response.json()["preferences"]["preferred_company_sizes"] == ["eti", "grand_groupe"]
+
+        get_data = client.get("/profile/candidate").json()
+        assert get_data["preferences"]["preferred_industries"] == ["finance_insurance", "tech_it"]
+        assert get_data["preferences"]["preferred_company_sizes"] == ["eti", "grand_groupe"]
     finally:
         app.dependency_overrides.clear()
 
