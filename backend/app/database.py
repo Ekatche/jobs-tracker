@@ -113,7 +113,11 @@ async def create_offer_scoring_indexes(db) -> None:
 
     `offer_embeddings` : un document par (offre, modèle d'embedding) — upsert
     key du cache dans app.services.offer_scoring.embeddings.get_offer_vectors.
-    Task 6 y ajoutera les index de `offer_relevance` ; garder une seule
-    fonction pour que le lifespan n'ait qu'un appel à faire.
+    `offer_relevance` : un document par (utilisateur, offre) — upsert key du
+    score persisté par `app.services.offer_profile_matcher.rematch_user` /
+    `tag_new_offers`, plus un index de tri pour lister les offres les mieux
+    notées d'un utilisateur.
     """
     await db["offer_embeddings"].create_index([("offer_id", 1), ("model", 1)], unique=True)
+    await db["offer_relevance"].create_index([("user_id", 1), ("offer_id", 1)], unique=True)
+    await db["offer_relevance"].create_index([("user_id", 1), ("score", -1)])

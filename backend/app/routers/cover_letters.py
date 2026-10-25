@@ -639,7 +639,16 @@ async def update_candidate_preferences(
 
         matching_fields_changed = any(
             old_preferences.get(field) != manual["preferences"].get(field)
-            for field in ("target_roles", "locations", "remote_policy")
+            for field in (
+                "target_roles",
+                "locations",
+                "remote_policy",
+                "excluded_keywords",
+                "contract_types",
+                "seniority_levels",
+                "preferred_industries",
+                "preferred_company_sizes",
+            )
         )
         if matching_fields_changed:
             background_tasks.add_task(_safe_rematch_user, str(current_user.id), db)

@@ -243,6 +243,53 @@ def test_put_preferences_triggers_rematch_on_target_roles_change():
         app.dependency_overrides.clear()
 
 
+def test_put_preferences_rematch_when_contract_types_change():
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from bson import ObjectId
+    from app.auth import get_current_user
+    from app.database import get_database
+    from main import app
+
+    user_id = "60c72b2f9b1d8b2bad7f6789"
+    stored = {
+        "user_id": user_id,
+        "headline": "Dev",
+        "experiences": [],
+        "sources": {"manual": {"preferences": {"contract_types": []}}},
+    }
+
+    async def find_one(_query):
+        return dict(stored) if stored else None
+
+    async def update_one(_filter, update, upsert=False):
+        stored.update(update.get("$set", {}))
+        stored.setdefault("_id", ObjectId())
+        return MagicMock()
+
+    collection = MagicMock()
+    collection.find_one = AsyncMock(side_effect=find_one)
+    collection.update_one = AsyncMock(side_effect=update_one)
+    db = MagicMock()
+    db.__getitem__.return_value = collection
+
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: UserModel(
+        id=user_id, username="tester", email="t6@example.com", hashed_password="x"
+    )
+
+    try:
+        with patch("app.routers.cover_letters.rematch_user", AsyncMock()) as mock_rematch:
+            payload = {"contract_types": ["CDI"]}
+            from fastapi.testclient import TestClient
+            test_client = TestClient(app)
+            response = test_client.put("/profile/candidate/preferences", json=payload)
+            assert response.status_code == 200
+            mock_rematch.assert_called_once()
+            assert mock_rematch.call_args.args[0] == user_id
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_put_preferences_no_rematch_when_matching_fields_unchanged():
     from unittest.mock import AsyncMock, MagicMock, patch
     from bson import ObjectId

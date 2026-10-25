@@ -1,143 +1,224 @@
 """Moteur de matching persistant entre un profil candidat et le stock d'offres.
 
-Une offre appartient à un profil si la requête qui l'a collectée
-(source_query) cherchait un de ses rôles dans une de ses villes. En complément,
-le canonical_title / localisation normalisés de l'offre peuvent correspondre
-directement aux préférences. Maintient à jour job_offers.matched_user_ids.
+Chaque offre active du stock reçoit, par profil, un score de pertinence
+hybride (app.services.offer_scoring). Le rattachement ne passe plus par
+source_query : une offre est rattachée (job_offers.matched_user_ids) quand
+elle n'est pas filtrée dur et que son score est au moins FLOOR, et détachée
+sinon — sauf si le candidat a interagi avec elle (vue/sauvegardée/masquée/
+candidature), auquel cas elle est simplement laissée telle quelle. Le score
+de chaque offre évaluée (hors filtre dur) est persisté dans offer_relevance.
 """
 
+import logging
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import List
+
 from bson import ObjectId
+from pymongo import UpdateOne
 
-from app.services.normalization import clean_job_title_syntax, normalize_city
-from app.services.relevance import parse_source_query
-from app.services.role_normalizer import normalize_role
+from app.services.offer_scoring.assess import assess_offer
+from app.services.offer_scoring.constants import FLOOR, SCORING_VERSION
+from app.services.offer_scoring.embeddings import embed_texts, get_offer_vectors, get_profile_vector
+from app.services.offer_scoring.score import SkillIdf, build_skill_idf, profile_features
+from app.services.role_normalizer import cosine_similarity
+
+logger = logging.getLogger(__name__)
 
 
-def offer_matches_criteria(
-    offer: dict,
-    normalized_roles: set[str],
-    normalized_locations: set[str],
-    remote_policy: str,
-) -> bool:
-    """Pure, sans I/O. Un profil sans aucun critère exploitable (ni rôle ni
-    localisation) ne matche jamais aucune offre, pour ne jamais afficher le
-    stock entier comme s'il était filtré."""
-    if not normalized_roles and not normalized_locations:
-        return False
+async def load_skill_idf(db) -> SkillIdf:
+    """IDF des compétences sur le stock actif.
 
-    # Rattachement par la requête d'origine : la recherche portait sur un rôle
-    # et une ville de ce profil. France Travail renvoie des villes voisines,
-    # d'où la comparaison sur la ville de la requête et non celle de l'offre.
-    query_role, query_loc = parse_source_query(offer.get("source_query") or "")
-    if query_role and query_role.lower() in normalized_roles:
-        if (
-            not query_loc
-            or not normalized_locations
-            or normalize_city(query_loc).lower() in normalized_locations
-        ):
-            return True
+    Agrégation `$unwind`/`$group` plutôt qu'un `to_list` complet des offres :
+    seules les compétences de chaque offre active transitent, pas le reste
+    du document (description, etc).
+    """
+    pipeline = [
+        {"$match": {"is_deleted": {"$ne": True}}},
+        {"$unwind": {"path": "$competences_cles", "preserveNullAndEmptyArrays": True}},
+        {"$group": {"_id": "$_id", "skills": {"$addToSet": "$competences_cles"}}},
+    ]
+    skill_lists: List[List[str]] = []
+    async for doc in db["job_offers"].aggregate(pipeline):
+        skill_lists.append([s for s in (doc.get("skills") or []) if s])
+    return build_skill_idf(skill_lists)
 
-    canonical_title = (offer.get("canonical_title") or "").lower()
-    role_match = not normalized_roles or canonical_title in normalized_roles
 
-    localisation = (offer.get("localisation") or "").lower()
-    loc_match = (
-        not normalized_locations
-        or localisation in normalized_locations
-        or (remote_policy == "full_remote" and offer.get("mode_travail") == "Télétravail total")
+async def interacted_offer_ids(user_id: str, db) -> set[str]:
+    """Offres avec lesquelles le candidat a interagi : interaction explicite
+    (status non nul) ou candidature. Sert de garde contre le détachement d'une
+    offre sous FLOOR mais déjà vue/postulée par l'utilisateur."""
+    ids: set[str] = set()
+
+    interactions = await db["user_offer_interactions"].find(
+        {"user_id": user_id, "status": {"$ne": None}}
+    ).to_list(length=None)
+    for doc in interactions:
+        offer_id = doc.get("offer_id")
+        if offer_id:
+            ids.add(str(offer_id))
+
+    applications = await db["applications"].find(
+        {"user_id": {"$in": [user_id, ObjectId(user_id)]}, "offer_id": {"$ne": None}}
+    ).to_list(length=None)
+    for doc in applications:
+        offer_id = doc.get("offer_id")
+        if offer_id:
+            ids.add(str(offer_id))
+
+    return ids
+
+
+@dataclass
+class RematchSummary:
+    attached: int = 0
+    detached: int = 0
+    kept_by_guard: int = 0
+    applied_below_floor: list = field(default_factory=list)
+    levels: dict = field(default_factory=dict)
+
+
+def _relevance_update(user_id: str, offer_id_str: str, result, now) -> UpdateOne:
+    return UpdateOne(
+        {"user_id": user_id, "offer_id": offer_id_str},
+        {
+            "$set": {
+                "user_id": user_id,
+                "offer_id": offer_id_str,
+                "score": result.score,
+                "level": result.level,
+                "breakdown": result.breakdown,
+                "unknown_components": result.unknown_components,
+                "failed_conditions": result.failed_conditions,
+                "scoring_version": SCORING_VERSION,
+                "updated_at": now,
+            }
+        },
+        upsert=True,
     )
 
-    return role_match and loc_match
 
+async def rematch_user(user_id: str, db, *, apply: bool = True, embed=embed_texts) -> "RematchSummary":
+    """Recalcule le score hybride d'UN user contre tout le stock actif et
+    rattache/détache selon FLOOR, avec garde d'interaction. `apply=False`
+    calcule le résumé sans rien écrire (ni job_offers, ni offer_relevance, ni
+    le cache offer_embeddings — `cache=apply` est passé à `get_offer_vectors`)."""
+    summary = RematchSummary()
 
-async def get_normalized_profile_criteria(
-    prefs: dict, db
-) -> tuple[set[str], set[str], str]:
-    """Normalise target_roles (normalize_role, async, caché via role_aliases)
-    et locations (normalize_city, sync) vers les mêmes formes canoniques que
-    celles déjà stockées sur les offres. Retourne (roles, locations, remote_policy)."""
-    target_roles = prefs.get("target_roles") or []
-    locations = prefs.get("locations") or []
-    remote_policy = prefs.get("remote_policy") or "flexible"
-
-    normalized_roles: set[str] = set()
-    for role in target_roles:
-        if not role or not role.strip():
-            continue
-        # Même préparation que build_search_queries, pour que le rôle écrit
-        # dans source_query soit reconnu à l'identique.
-        cleaned = clean_job_title_syntax(role)
-        if not cleaned or cleaned == "Non spécifié":
-            cleaned = role
-        canonical = await normalize_role(cleaned, db=db)
-        if canonical:
-            normalized_roles.add(canonical.lower())
-
-    normalized_locations = {normalize_city(loc).lower() for loc in locations if loc}
-
-    return normalized_roles, normalized_locations, remote_policy
-
-
-async def rematch_user(user_id: str, db) -> None:
-    """Recalcule le matching d'UN user contre tout le stock actif.
-    $addToSet sur les offres qui matchent désormais, $pull sur celles qui
-    ne matchent plus. Idempotent : rejouer sans changement de préférences
-    ne modifie pas matched_user_ids."""
     profile = await db["candidate_profile"].find_one({"user_id": ObjectId(user_id)})
     if not profile:
-        return
+        return summary
 
-    prefs = profile.get("preferences") or {}
-    normalized_roles, normalized_locations, remote_policy = await get_normalized_profile_criteria(prefs, db)
+    features = profile_features(profile)
+    offers = await db["job_offers"].find({"is_deleted": {"$ne": True}}).to_list(length=None)
+    idf = await load_skill_idf(db)
+    offer_vectors = await get_offer_vectors(offers, db, embed=embed, cache=apply)
+    profile_vector = await get_profile_vector(features.identity, embed=embed)
+    guarded_ids = await interacted_offer_ids(user_id, db)
 
-    collection = db["job_offers"]
-    offers = await collection.find({"is_deleted": {"$ne": True}}).to_list(length=None)
+    now = datetime.now(timezone.utc)
+    attach_ids = []
+    detach_ids = []
+    relevance_ops: List[UpdateOne] = []
 
-    matching_ids = [
-        offer["_id"]
-        for offer in offers
-        if offer_matches_criteria(offer, normalized_roles, normalized_locations, remote_policy)
-    ]
-    matching_id_set = set(matching_ids)
-    non_matching_ids = [offer["_id"] for offer in offers if offer["_id"] not in matching_id_set]
+    for offer in offers:
+        offer_id = offer["_id"]
+        offer_id_str = str(offer_id)
 
-    if matching_ids:
-        await collection.update_many(
-            {"_id": {"$in": matching_ids}},
-            {"$addToSet": {"matched_user_ids": user_id}},
-        )
-    if non_matching_ids:
-        await collection.update_many(
-            {"_id": {"$in": non_matching_ids}},
-            {"$pull": {"matched_user_ids": user_id}},
-        )
+        cos = None
+        if profile_vector is not None:
+            vector = offer_vectors.get(offer_id_str)
+            if vector is not None:
+                cos = cosine_similarity(profile_vector, vector)
+
+        reason, result = assess_offer(offer, features, cos, idf)
+
+        if result is not None:
+            summary.levels[result.level] = summary.levels.get(result.level, 0) + 1
+            relevance_ops.append(_relevance_update(user_id, offer_id_str, result, now))
+
+        should_attach = reason is None and result is not None and result.score >= FLOOR
+        if should_attach:
+            attach_ids.append(offer_id)
+            summary.attached += 1
+            continue
+
+        if offer_id_str in guarded_ids:
+            summary.kept_by_guard += 1
+            if reason is None and result is not None:
+                summary.applied_below_floor.append(offer_id_str)
+                logger.warning(
+                    "Offre %s sous FLOOR mais conservée (garde interaction) pour user %s",
+                    offer_id_str,
+                    user_id[:8],
+                )
+            continue
+
+        detach_ids.append(offer_id)
+        summary.detached += 1
+
+    if apply:
+        if attach_ids:
+            await db["job_offers"].update_many(
+                {"_id": {"$in": attach_ids}}, {"$addToSet": {"matched_user_ids": user_id}}
+            )
+        if detach_ids:
+            await db["job_offers"].update_many(
+                {"_id": {"$in": detach_ids}}, {"$pull": {"matched_user_ids": user_id}}
+            )
+        if relevance_ops:
+            await db["offer_relevance"].bulk_write(relevance_ops)
+
+    return summary
 
 
-async def tag_new_offers(offer_ids: list, db) -> None:
-    """Recalcule le matching de TOUS les profils contre un lot d'offres
-    fraîchement sauvegardées. Utilisé en fin de cycle de collecte."""
+async def tag_new_offers(offer_ids: list, db, *, embed=embed_texts) -> None:
+    """Recalcule le score hybride de TOUS les profils contre un lot d'offres
+    fraîchement sauvegardées. Utilisé en fin de cycle de collecte : rattache
+    (`$addToSet`) les offres adaptées, ne détache jamais (ce lot est neuf,
+    aucune offre n'y est déjà rattachée à tort)."""
     if not offer_ids:
         return
 
-    collection = db["job_offers"]
-    offers = await collection.find({"_id": {"$in": offer_ids}}).to_list(length=None)
+    offers = await db["job_offers"].find({"_id": {"$in": offer_ids}}).to_list(length=None)
     if not offers:
         return
 
+    idf = await load_skill_idf(db)
+    offer_vectors = await get_offer_vectors(offers, db, embed=embed)
+
     profiles = await db["candidate_profile"].find({}).to_list(length=None)
+    now = datetime.now(timezone.utc)
 
     for profile in profiles:
         user_id = str(profile["user_id"])
-        prefs = profile.get("preferences") or {}
-        normalized_roles, normalized_locations, remote_policy = await get_normalized_profile_criteria(prefs, db)
+        features = profile_features(profile)
+        profile_vector = await get_profile_vector(features.identity, embed=embed)
 
-        matching_ids = [
-            offer["_id"]
-            for offer in offers
-            if offer_matches_criteria(offer, normalized_roles, normalized_locations, remote_policy)
-        ]
-        if matching_ids:
-            await collection.update_many(
-                {"_id": {"$in": matching_ids}},
-                {"$addToSet": {"matched_user_ids": user_id}},
+        attach_ids = []
+        relevance_ops: List[UpdateOne] = []
+
+        for offer in offers:
+            offer_id = offer["_id"]
+            offer_id_str = str(offer_id)
+
+            cos = None
+            if profile_vector is not None:
+                vector = offer_vectors.get(offer_id_str)
+                if vector is not None:
+                    cos = cosine_similarity(profile_vector, vector)
+
+            reason, result = assess_offer(offer, features, cos, idf)
+
+            if result is not None:
+                relevance_ops.append(_relevance_update(user_id, offer_id_str, result, now))
+
+            if reason is None and result is not None and result.score >= FLOOR:
+                attach_ids.append(offer_id)
+
+        if attach_ids:
+            await db["job_offers"].update_many(
+                {"_id": {"$in": attach_ids}}, {"$addToSet": {"matched_user_ids": user_id}}
             )
+        if relevance_ops:
+            await db["offer_relevance"].bulk_write(relevance_ops)
