@@ -12,6 +12,7 @@ import math
 
 import pytest
 from bson import ObjectId
+from pymongo import DeleteOne
 
 from app.services.offer_profile_matcher import rematch_user, tag_new_offers
 from app.services.offer_scoring.constants import SCORING_VERSION
@@ -35,6 +36,8 @@ def _matches(doc, query):
             if "$ne" in cond and value == cond["$ne"]:
                 return False
             if "$in" in cond and value not in cond["$in"]:
+                return False
+            if "$nin" in cond and value in cond["$nin"]:
                 return False
         elif value != cond:
             return False
@@ -140,6 +143,9 @@ class FakeOfferRelevanceCollection:
     async def bulk_write(self, ops):
         self.bulk_write_calls.append(ops)
         for op in ops:
+            if isinstance(op, DeleteOne):
+                self.docs = [d for d in self.docs if not _matches(d, op._filter)]
+                continue
             existing = next((d for d in self.docs if _matches(d, op._filter)), None)
             if existing is not None:
                 existing.update(op._doc.get("$set", {}))
@@ -223,6 +229,27 @@ def make_profile(*, user_id=None, headline="Data Engineer", skills=None, prefere
 
 
 @pytest.mark.asyncio
+async def test_rematch_user_no_profile_does_nothing():
+    from unittest.mock import AsyncMock, MagicMock
+
+    mock_profile_collection = MagicMock()
+    mock_profile_collection.find_one = AsyncMock(return_value=None)
+
+    mock_offers_cursor = MagicMock()
+    mock_offers_cursor.to_list = AsyncMock(return_value=[])
+
+    mock_offers_collection = MagicMock()
+    mock_offers_collection.find = MagicMock(return_value=mock_offers_cursor)
+    mock_offers_collection.update_many = AsyncMock()
+
+    mock_db = {"candidate_profile": mock_profile_collection, "job_offers": mock_offers_collection}
+
+    await rematch_user("650000000000000000000099", mock_db)
+
+    mock_offers_collection.update_many.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_rematch_user_attaches_by_score_and_writes_relevance():
     profile = make_profile()
     good_offer = {
@@ -240,6 +267,7 @@ async def test_rematch_user_attaches_by_score_and_writes_relevance():
         "competences_cles": [],
         "localisation": "Nantes",
         "type_contrat": "CDI",
+        "matched_user_ids": [str(USER_ID)],
     }
     vector_by_text = {
         identity_for(profile): PROFILE_VECTOR,
@@ -353,6 +381,45 @@ async def test_rematch_user_keeps_applied_offer_below_floor(guard_kind, caplog):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("status,should_guard", [("none", False), ("saved", True)])
+async def test_rematch_user_interaction_status_none_does_not_guard(status, should_guard):
+    """`status: "none"` (écrit par set_offer_seen pour une simple vue, job_offers.py:666)
+    n'est pas une interaction réelle et ne doit pas protéger du détachement ;
+    `status: "saved"` protège, comme les autres statuts réels."""
+    profile = make_profile()
+    offer = {
+        "_id": oid("45"),
+        "poste": "Comptable",
+        "description": "Gestion comptable quotidienne.",
+        "competences_cles": [],
+        "localisation": "Lyon",
+        "type_contrat": "CDI",
+        "matched_user_ids": [str(profile["user_id"])],
+    }
+    offer_id_str = str(offer["_id"])
+    vector_by_text = {
+        identity_for(profile): PROFILE_VECTOR,
+        offer_embedding_text(offer): vector_for_cosine(0.62),
+    }
+    fake_embed, _calls = make_fake_embed(vector_by_text)
+    interactions = [{"user_id": str(profile["user_id"]), "offer_id": offer_id_str, "status": status}]
+    db, offer_relevance = make_db(profiles=[profile], offers=[offer], interactions=interactions)
+
+    summary = await rematch_user(str(profile["user_id"]), db, embed=fake_embed)
+
+    offers_collection = db["job_offers"]
+    pulled = any("$pull" in update for _filter, update in offers_collection.update_many_calls)
+    if should_guard:
+        assert not pulled
+        assert summary.kept_by_guard == 1
+        assert summary.detached == 0
+    else:
+        assert pulled
+        assert summary.kept_by_guard == 0
+        assert summary.detached == 1
+
+
+@pytest.mark.asyncio
 async def test_rematch_user_hard_filtered_offer_detached():
     profile = make_profile(preferences={"contract_types": ["CDI"]})
     offer = {
@@ -362,13 +429,20 @@ async def test_rematch_user_hard_filtered_offer_detached():
         "type_contrat": "Stage",
         "localisation": "Lyon",
         "competences_cles": [],
+        "matched_user_ids": [str(profile["user_id"])],
     }
+    offer_id_str = str(offer["_id"])
     vector_by_text = {
         identity_for(profile): PROFILE_VECTOR,
         offer_embedding_text(offer): vector_for_cosine(0.9),
     }
     fake_embed, _calls = make_fake_embed(vector_by_text)
     db, offer_relevance = make_db(profiles=[profile], offers=[offer])
+    # document offer_relevance périmé : l'offre était scorée avant de devenir
+    # filtrée dur (ex. contract_types restreint après coup) ; il doit disparaître.
+    offer_relevance.docs.append(
+        {"user_id": str(profile["user_id"]), "offer_id": offer_id_str, "score": 80, "level": "strong"}
+    )
 
     summary = await rematch_user(str(profile["user_id"]), db, embed=fake_embed)
 
@@ -383,35 +457,43 @@ async def test_rematch_user_hard_filtered_offer_detached():
 
 @pytest.mark.asyncio
 async def test_rematch_user_embedding_down_detaches_nothing_new():
+    """Panne d'embedding (profil non vide, cos indisponible) : les offres non
+    filtrées dur ne sont pas évaluées ce tour-ci — ni $addToSet, ni $pull, ni
+    écriture offer_relevance. Le stock entier reste dans l'état où il était."""
     profile = make_profile()
-    offer = {
+    unattached_offer = {
         "_id": oid("60"),
+        "poste": "Comptable",
+        "description": "Gestion comptable quotidienne.",
+        "competences_cles": [],
+        "localisation": "Nantes",
+        "type_contrat": "CDI",
+    }
+    attached_offer = {
+        "_id": oid("61"),
         "poste": "Data Engineer",
         "description": "Poste data engineer.",
         "competences_cles": ["Python"],
         "localisation": "Lyon",
         "type_contrat": "CDI",
+        "matched_user_ids": [str(profile["user_id"])],
     }
 
     async def failing_embed(texts):
         raise RuntimeError("quota exceeded")
 
-    db, offer_relevance = make_db(profiles=[profile], offers=[offer])
+    db, offer_relevance = make_db(profiles=[profile], offers=[unattached_offer, attached_offer])
 
     summary = await rematch_user(str(profile["user_id"]), db, embed=failing_embed)
 
     offers_collection = db["job_offers"]
-    assert offers_collection.update_many_calls == [
-        (
-            {"_id": {"$in": [offer["_id"]]}},
-            {"$addToSet": {"matched_user_ids": str(profile["user_id"])}},
-        )
-    ]
-    assert summary.attached == 1
+    assert offers_collection.update_many_calls == []
+    assert offer_relevance.docs == []
+    assert summary.semantic_unknown == 2
+    assert summary.attached == 0
     assert summary.detached == 0
-    relevance_doc = offer_relevance.docs[0]
-    assert relevance_doc["breakdown"]["semantic"] == 22.5
-    assert "semantic" in relevance_doc["unknown_components"]
+    assert str(profile["user_id"]) not in (unattached_offer.get("matched_user_ids") or [])
+    assert str(profile["user_id"]) in attached_offer["matched_user_ids"]
 
 
 @pytest.mark.asyncio
@@ -470,13 +552,64 @@ async def test_rematch_user_empty_profile_attaches_nothing():
     assert summary.applied_below_floor == []
 
 
+@pytest.mark.asyncio
+async def test_rematch_user_counts_only_real_changes():
+    """`attached`/`detached` ne comptent (et n'écrivent) que les changements
+    réels : une offre déjà rattachée toujours au-dessus de FLOOR ne redéclenche
+    pas un $addToSet ; une offre jamais rattachée et sous FLOOR ne déclenche
+    pas un $pull inutile."""
+    profile = make_profile()
+    already_attached_strong_offer = {
+        "_id": oid("65"),
+        "poste": "Data Engineer",
+        "description": "Poste data chez une scale-up lyonnaise.",
+        "competences_cles": ["Python"],
+        "localisation": "Lyon",
+        "type_contrat": "CDI",
+        "matched_user_ids": [str(profile["user_id"])],
+    }
+    never_attached_weak_offer = {
+        "_id": oid("66"),
+        "poste": "Comptable",
+        "description": "Gestion comptable quotidienne.",
+        "competences_cles": [],
+        "localisation": "Nantes",
+        "type_contrat": "CDI",
+    }
+    vector_by_text = {
+        identity_for(profile): PROFILE_VECTOR,
+        offer_embedding_text(already_attached_strong_offer): vector_for_cosine(0.95),
+        offer_embedding_text(never_attached_weak_offer): vector_for_cosine(0.62),
+    }
+    fake_embed, _calls = make_fake_embed(vector_by_text)
+    db, offer_relevance = make_db(
+        profiles=[profile], offers=[already_attached_strong_offer, never_attached_weak_offer]
+    )
+
+    summary = await rematch_user(str(profile["user_id"]), db, embed=fake_embed)
+
+    assert db["job_offers"].update_many_calls == []
+    assert summary.attached == 0
+    assert summary.detached == 0
+
+
 # ---------- tag_new_offers ----------
 
 
 @pytest.mark.asyncio
 async def test_tag_new_offers_scores_batch_for_every_profile():
-    profile_a = make_profile(user_id=oid("1"), headline="Data Engineer", skills={"tech": ["Python"]})
-    profile_b = make_profile(user_id=oid("2"), headline="Java Developer", skills={"tech": ["Java"]})
+    profile_a = make_profile(
+        user_id=oid("1"),
+        headline="Data Engineer",
+        skills={"tech": ["Python"]},
+        preferences={"contract_types": ["CDI"]},
+    )
+    profile_b = make_profile(
+        user_id=oid("2"),
+        headline="Java Developer",
+        skills={"tech": ["Java"]},
+        preferences={"contract_types": ["CDI"]},
+    )
     offer1 = {
         "_id": oid("90"),
         "poste": "Data Engineer",
@@ -493,19 +626,34 @@ async def test_tag_new_offers_scores_batch_for_every_profile():
         "localisation": "Lyon",
         "type_contrat": "CDI",
     }
+    # Filtrée dur (contrat exclu) pour les deux profils (contract_types=["CDI"]
+    # ci-dessus) : ne doit jamais être rattachée ni scorée, quel que soit le profil.
+    excluded_offer = {
+        "_id": oid("92"),
+        "poste": "Data Analyst",
+        "description": "Stage de 6 mois en data.",
+        "competences_cles": ["Python"],
+        "localisation": "Lyon",
+        "type_contrat": "Stage",
+    }
+    excluded_offer_id_str = str(excluded_offer["_id"])
     vector_by_text = {
         identity_for(profile_a): [1.0, 0.0],
         identity_for(profile_b): [0.0, 1.0],
         offer_embedding_text(offer1): [1.0, 0.0],
         offer_embedding_text(offer2): [0.0, 1.0],
+        offer_embedding_text(excluded_offer): [1.0, 0.0],
     }
     fake_embed, _calls = make_fake_embed(vector_by_text)
-    db, offer_relevance = make_db(profiles=[profile_a, profile_b], offers=[offer1, offer2])
+    db, offer_relevance = make_db(profiles=[profile_a, profile_b], offers=[offer1, offer2, excluded_offer])
 
-    await tag_new_offers([offer1["_id"], offer2["_id"]], db, embed=fake_embed)
+    await tag_new_offers([offer1["_id"], offer2["_id"], excluded_offer["_id"]], db, embed=fake_embed)
 
     offers_collection = db["job_offers"]
     assert all("$pull" not in update for _filter, update in offers_collection.update_many_calls)
+    assert not any(
+        excluded_offer["_id"] in filter_["_id"]["$in"] for filter_, _update in offers_collection.update_many_calls
+    )
 
     calls_by_user = {
         update["$addToSet"]["matched_user_ids"]: filter_ for filter_, update in offers_collection.update_many_calls
@@ -513,6 +661,38 @@ async def test_tag_new_offers_scores_batch_for_every_profile():
     assert calls_by_user[str(profile_a["user_id"])] == {"_id": {"$in": [offer1["_id"]]}}
     assert calls_by_user[str(profile_b["user_id"])] == {"_id": {"$in": [offer2["_id"]]}}
     assert len(offer_relevance.docs) == 4
+    assert not any(d["offer_id"] == excluded_offer_id_str for d in offer_relevance.docs)
+
+
+@pytest.mark.asyncio
+async def test_tag_new_offers_embedding_down_skips_offers(caplog):
+    """Panne d'embedding pendant tag_new_offers : l'offre hors sujet n'est pas
+    évaluée ce tour (pas de $addToSet, pas de document offer_relevance), avec
+    un seul warning agrégé par profil (jamais de texte d'offre)."""
+    profile = make_profile()
+    offer = {
+        "_id": oid("93"),
+        "poste": "Comptable",
+        "description": "Gestion comptable quotidienne.",
+        "competences_cles": [],
+        "localisation": "Nantes",
+        "type_contrat": "CDI",
+    }
+
+    async def failing_embed(texts):
+        raise RuntimeError("quota exceeded")
+
+    db, offer_relevance = make_db(profiles=[profile], offers=[offer])
+
+    with caplog.at_level(logging.WARNING):
+        await tag_new_offers([offer["_id"]], db, embed=failing_embed)
+
+    offers_collection = db["job_offers"]
+    assert offers_collection.update_many_calls == []
+    assert offer_relevance.docs == []
+    warnings = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+    assert any(str(profile["user_id"])[:8] in message for message in warnings)
+    assert all(offer["poste"] not in message and offer["description"] not in message for message in warnings)
 
 
 @pytest.mark.asyncio

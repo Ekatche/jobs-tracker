@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from typing import List
 
 from bson import ObjectId
-from pymongo import UpdateOne
+from pymongo import DeleteOne, UpdateOne
 
 from app.services.offer_scoring.assess import assess_offer
 from app.services.offer_scoring.constants import FLOOR, SCORING_VERSION
@@ -45,13 +45,15 @@ async def load_skill_idf(db) -> SkillIdf:
 
 
 async def interacted_offer_ids(user_id: str, db) -> set[str]:
-    """Offres avec lesquelles le candidat a interagi : interaction explicite
-    (status non nul) ou candidature. Sert de garde contre le détachement d'une
+    """Offres avec lesquelles le candidat a interagi : interaction explicite à
+    statut réel (ni `None` ni `"none"` — ce dernier est écrit par
+    `set_offer_seen`, job_offers.py:666, pour une simple vue, pas une
+    interaction) ou candidature. Sert de garde contre le détachement d'une
     offre sous FLOOR mais déjà vue/postulée par l'utilisateur."""
     ids: set[str] = set()
 
     interactions = await db["user_offer_interactions"].find(
-        {"user_id": user_id, "status": {"$ne": None}}
+        {"user_id": user_id, "status": {"$nin": [None, "none"]}}
     ).to_list(length=None)
     for doc in interactions:
         offer_id = doc.get("offer_id")
@@ -74,8 +76,15 @@ class RematchSummary:
     attached: int = 0
     detached: int = 0
     kept_by_guard: int = 0
+    semantic_unknown: int = 0
     applied_below_floor: list = field(default_factory=list)
     levels: dict = field(default_factory=dict)
+
+
+def _relevance_delete(user_id: str, offer_id_str: str) -> DeleteOne:
+    """Supprime un document `offer_relevance` périmé : l'offre vient de devenir
+    filtrée dur (un filtre dur n'a jamais de score à conserver)."""
+    return DeleteOne({"user_id": user_id, "offer_id": offer_id_str})
 
 
 def _relevance_update(user_id: str, offer_id_str: str, result, now) -> UpdateOne:
@@ -124,6 +133,7 @@ async def rematch_user(user_id: str, db, *, apply: bool = True, embed=embed_text
     for offer in offers:
         offer_id = offer["_id"]
         offer_id_str = str(offer_id)
+        already_attached = user_id in (offer.get("matched_user_ids") or [])
 
         cos = None
         if profile_vector is not None:
@@ -133,14 +143,27 @@ async def rematch_user(user_id: str, db, *, apply: bool = True, embed=embed_text
 
         reason, result = assess_offer(offer, features, cos, idf)
 
-        if result is not None:
+        # Panne d'embedding : profil exploitable (identité non vide) mais
+        # cosinus indisponible (vecteur profil ou offre manquant). Si l'offre
+        # n'est pas filtrée dur, elle n'est pas évaluée ce tour — ni rattachée
+        # ni détachée, aucune écriture — plutôt que de (dés)attacher tout le
+        # stock sur un score à moitié connu par panne plutôt que par absence
+        # de préférence candidat.
+        if reason is None and features.identity.strip() and cos is None:
+            summary.semantic_unknown += 1
+            continue
+
+        if reason is not None:
+            relevance_ops.append(_relevance_delete(user_id, offer_id_str))
+        elif result is not None:
             summary.levels[result.level] = summary.levels.get(result.level, 0) + 1
             relevance_ops.append(_relevance_update(user_id, offer_id_str, result, now))
 
         should_attach = reason is None and result is not None and result.score >= FLOOR
         if should_attach:
-            attach_ids.append(offer_id)
-            summary.attached += 1
+            if not already_attached:
+                attach_ids.append(offer_id)
+                summary.attached += 1
             continue
 
         if offer_id_str in guarded_ids:
@@ -154,8 +177,9 @@ async def rematch_user(user_id: str, db, *, apply: bool = True, embed=embed_text
                 )
             continue
 
-        detach_ids.append(offer_id)
-        summary.detached += 1
+        if already_attached:
+            detach_ids.append(offer_id)
+            summary.detached += 1
 
     if apply:
         if attach_ids:
@@ -197,6 +221,7 @@ async def tag_new_offers(offer_ids: list, db, *, embed=embed_texts) -> None:
 
         attach_ids = []
         relevance_ops: List[UpdateOne] = []
+        semantic_unknown_count = 0
 
         for offer in offers:
             offer_id = offer["_id"]
@@ -210,11 +235,26 @@ async def tag_new_offers(offer_ids: list, db, *, embed=embed_texts) -> None:
 
             reason, result = assess_offer(offer, features, cos, idf)
 
-            if result is not None:
+            # Même garde que rematch_user : panne d'embedding sur une offre
+            # non filtrée dur => pas évaluée ce tour (cf. commentaire là-bas).
+            if reason is None and features.identity.strip() and cos is None:
+                semantic_unknown_count += 1
+                continue
+
+            if reason is not None:
+                relevance_ops.append(_relevance_delete(user_id, offer_id_str))
+            elif result is not None:
                 relevance_ops.append(_relevance_update(user_id, offer_id_str, result, now))
 
             if reason is None and result is not None and result.score >= FLOOR:
                 attach_ids.append(offer_id)
+
+        if semantic_unknown_count:
+            logger.warning(
+                "%d offre(s) ignorée(s) ce tour (sémantique inconnue par échec d'embedding) pour user %s",
+                semantic_unknown_count,
+                user_id[:8],
+            )
 
         if attach_ids:
             await db["job_offers"].update_many(

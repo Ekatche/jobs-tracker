@@ -32,9 +32,15 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 
-async def _estimate_embedding_cost(db, offers: list) -> None:
+async def _estimate_embedding_cost(db, offers: list, *, apply: bool, profile_count: int) -> None:
     """Affiche le nombre d'offres sans vecteur en cache et le coût estimé de leur
-    embarquement, avant tout rematch (même formule que `matching_bench.py run_embed`)."""
+    embarquement, avant tout rematch (même formule que `matching_bench.py run_embed`).
+
+    En dry-run, `rematch_user(..., apply=False)` ne persiste jamais le cache
+    `offer_embeddings` (cf. docstring module) : chaque profil réembarque donc
+    les mêmes offres manquantes. Le coût affiché ici est celui d'UNE passe —
+    le coût réel d'un dry-run complet est ce montant multiplié par le nombre
+    de profils, affiché séparément pour ne pas sous-estimer la facture."""
     offer_texts = {}
     for offer in offers:
         text = offer_embedding_text(offer)
@@ -57,11 +63,20 @@ async def _estimate_embedding_cost(db, offers: list) -> None:
             missing_chars += len(text)
             missing_count += 1
 
-    cost = (missing_chars / 4) / 1_000_000 * 0.1
-    logger.info(
-        f"🧮 Embeddings offres {EMBEDDING_MODEL} : {missing_count} offre(s) sans vecteur en cache sur "
-        f"{len(offer_texts)}, coût estimé {cost:.4f} $."
-    )
+    cost_per_pass = (missing_chars / 4) / 1_000_000 * 0.1
+    if apply:
+        logger.info(
+            f"🧮 Embeddings offres {EMBEDDING_MODEL} : {missing_count} offre(s) sans vecteur en cache sur "
+            f"{len(offer_texts)}, coût estimé {cost_per_pass:.4f} $ (cache écrit après la 1ère passe)."
+        )
+    else:
+        estimated_total = cost_per_pass * profile_count
+        logger.info(
+            f"🧮 Embeddings offres {EMBEDDING_MODEL} : {missing_count} offre(s) sans vecteur en cache sur "
+            f"{len(offer_texts)}, coût par passe {cost_per_pass:.4f} $ — DRY-RUN n'écrit pas le cache "
+            f"offer_embeddings, donc les {missing_count} offre(s) sont réembarquées à chaque profil : "
+            f"{profile_count} profil(s) × {cost_per_pass:.4f} $ ≈ {estimated_total:.4f} $ au total estimé."
+        )
 
 
 async def rematch_all_users(apply: bool) -> None:
@@ -70,7 +85,7 @@ async def rematch_all_users(apply: bool) -> None:
     profiles = await db["candidate_profile"].find({}).to_list(length=None)
     offers = await db["job_offers"].find({"is_deleted": {"$ne": True}}).to_list(length=None)
 
-    await _estimate_embedding_cost(db, offers)
+    await _estimate_embedding_cost(db, offers, apply=apply, profile_count=len(profiles))
 
     mode = "RUN RÉEL (écriture)" if apply else "DRY-RUN (aucune écriture)"
     logger.info(f"🔍 {len(profiles)} profil(s) candidat(s), {len(offers)} offre(s) active(s) [{mode}]")
