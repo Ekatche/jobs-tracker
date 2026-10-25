@@ -357,6 +357,73 @@ async def test_hybrid_cos_cache_reused_only_for_same_text(tmp_path):
     assert updated["cos"] == pytest.approx(1.0)
 
 
+def test_rank_hybrid_breaks_ties_on_raw_cosine():
+    # Les trois offres ont le même score total et la même composante sémantique
+    # (le départage par `breakdown["semantic"]` ne les distinguerait pas) : seul le
+    # cosinus brut doit décider de l'ordre. Les offer_id sont choisis pour que le
+    # repli alphabétique donnerait un ordre différent (sinon le test serait vert par
+    # accident même sans brancher le cosinus).
+    tied = ScoreResult(
+        score=50.0,
+        raw_score=50.0,
+        level="strong",
+        breakdown={"semantic": 45.0},
+        unknown_components=[],
+        failed_conditions=[],
+    )
+    assessed = {
+        "offer_none_cos": (None, tied),
+        "offer_low_cos": (None, tied),
+        "offer_high_cos": (None, tied),
+    }
+    cos = {"offer_low_cos": 0.84, "offer_high_cos": 0.98, "offer_none_cos": None}
+
+    ranking = rank_hybrid(["offer_none_cos", "offer_low_cos", "offer_high_cos"], assessed, cos)
+
+    assert ranking == ["offer_high_cos", "offer_low_cos", "offer_none_cos"]
+
+
+@pytest.mark.asyncio
+async def test_run_embed_skips_pending_for_profile_without_identity(tmp_path):
+    # Ruling R1 : un candidat sans identité exploitable ne peut jamais produire de
+    # cosinus (`semantic` sort du dénominateur) ; ses paires ne doivent donc jamais
+    # entrer dans `pending`, ni déclencher d'embarquement de texte d'offre.
+    export = _export([_offer(1)], [_oid(1)])
+    export["profiles"][0]["profile"]["headline"] = ""
+    cache = tmp_path / "hybrid_cos_cache.json"
+    fake_embed = AsyncMock(side_effect=AssertionError("aucun embedding pour un profil sans identité"))
+
+    with patch("scripts.matching_bench.embed_texts", fake_embed):
+        await run_embed(export, cache, confirm=True)
+
+    fake_embed.assert_not_called()
+
+
+def test_results_payload_hybrid_blocks_contain_no_profile_data():
+    # Chemin réel (hybrid_scores -> compute_metrics -> build_results_payload), pas des
+    # métriques factices : `scripts/matching_bench_results.json` est versionné dans un
+    # repo public, le garde-fou doit couvrir les blocs `hybrid`/`separation`.
+    export = _export([_offer(1)], [_oid(1)])
+    profile = export["profiles"][0]["profile"]
+    profile["skills"] = {"tech": ["Python secret skill"]}
+    profile["preferences"] = {"target_roles": ["Role très spécifique"]}
+
+    cos_records = [{"alias": "A", "offer_id": _oid(1), "cos": 0.9}]
+    hybrid = hybrid_scores(export, cos_records)
+    hybrid_cos = {"A": {_oid(1): 0.9}}
+    metrics = compute_metrics(
+        export, [], [], [], twopass_model="gemini/gemini-3.8-flash", hybrid=hybrid, hybrid_cos=hybrid_cos
+    )
+
+    payload = build_results_payload(export, [], [], [], metrics, twopass_model="gemini/gemini-3.8-flash")
+
+    serialized = json.dumps(payload, default=str)
+    assert PROFILE_HEADLINE not in serialized
+    assert "secret skill" not in serialized
+    assert "spécifique" not in serialized
+    assert USER_A not in serialized
+
+
 def test_select_validation_pairs_is_balanced_and_deterministic():
     labels = {}
     for alias in ("A", "B"):

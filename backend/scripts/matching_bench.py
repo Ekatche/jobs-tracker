@@ -36,7 +36,7 @@ import sys
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -390,7 +390,9 @@ async def run_embed(export: Dict[str, Any], cache_path: Path, confirm: bool) -> 
     pending: List[Tuple[str, str]] = []
     for p in export["profiles"]:
         alias = p["alias"]
-        _, identity_hash = identities[alias]
+        identity, identity_hash = identities[alias]
+        if not identity:  # ruling R1 : `semantic` sort du dénominateur, aucun cosinus à calculer
+            continue
         for oid in ids:
             text = offer_texts[oid]
             if text is None:  # jamais embarquée (ni intitulé ni description)
@@ -510,17 +512,22 @@ def hybrid_scores(
 
 
 def rank_hybrid(
-    ids: List[str], assessed: Dict[str, Tuple[Optional[str], Optional[ScoreResult]]]
+    ids: List[str],
+    assessed: Dict[str, Tuple[Optional[str], Optional[ScoreResult]]],
+    cos: Optional[Mapping[str, Optional[float]]] = None,
 ) -> List[str]:
-    """Score décroissant, cosinus (composante sémantique) en départage, puis `offer_id` ;
-    offres filtrées ou sans composante applicable en dernier."""
+    """Score décroissant, cosinus brut en départage (une valeur manquante ou `None` est
+    classée sous toute valeur connue à score égal), puis `offer_id` ; offres filtrées ou
+    sans composante applicable en dernier."""
+    cos = cos or {}
 
     def key(oid: str):
         reason, result = assessed.get(oid, ("missing", None))
         scored = reason is None and result is not None
         score = result.score if scored else 0.0
-        semantic = result.breakdown.get("semantic", 0.0) if scored else 0.0
-        return (scored, score, semantic, oid)
+        raw_cos = cos.get(oid)
+        cos_rank = raw_cos if raw_cos is not None else float("-inf")
+        return (scored, score, cos_rank, oid)
 
     return sorted(ids, key=key, reverse=True)
 
@@ -719,6 +726,7 @@ def compute_metrics(
     human_records: List[Dict[str, Any]],
     twopass_model: str,
     hybrid: Optional[Dict[str, Dict[str, Tuple[Optional[str], Optional[ScoreResult]]]]] = None,
+    hybrid_cos: Optional[Dict[str, Dict[str, Optional[float]]]] = None,
 ) -> Dict[str, Any]:
     offers = offers_by_id(export)
     ids = sample_ids(export)
@@ -735,7 +743,7 @@ def compute_metrics(
         }
         assessed = (hybrid or {}).get(alias)
         if assessed is not None:
-            rankings["hybrid"] = rank_hybrid(ids, assessed)
+            rankings["hybrid"] = rank_hybrid(ids, assessed, (hybrid_cos or {}).get(alias))
         per_profile[alias] = {
             name: {
                 "p@10": precision_at_k(ranking, labels, 10),
@@ -881,13 +889,16 @@ def report(export: Dict[str, Any], model: str) -> None:
     human_records = read_human_labels()
     cos_records = cached_hybrid_cos_records(export)
     hybrid = hybrid_scores(export, cos_records)
+    hybrid_cos: Dict[str, Dict[str, Optional[float]]] = {}
+    for r in cos_records:
+        hybrid_cos.setdefault(r["alias"], {})[r["offer_id"]] = r["cos"]
     logger.info(
         f"📊 {len(judge_records)}/{len(judge_pairs(export))} paires jugées, "
         f"{len(twopass_records)}/{len(export['profiles']) * len(sample_ids(export))} Two-Pass ({model}), "
         f"{len(cos_records)}/{len(export['profiles']) * len(sample_ids(export))} cos hybrides, "
         f"{len(human_records)} labels humains"
     )
-    metrics = compute_metrics(export, judge_records, twopass_records, human_records, model, hybrid=hybrid)
+    metrics = compute_metrics(export, judge_records, twopass_records, human_records, model, hybrid=hybrid, hybrid_cos=hybrid_cos)
 
     print("| Profil | Classement | P@10 | P@20 | FP@20 |")
     print("|---|---|---|---|---|")
