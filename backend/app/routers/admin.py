@@ -384,6 +384,7 @@ async def delete_user_gdpr_erasure(
     await db["cv_tailored"].delete_many({"user_id": match_user})
     await db["user_offer_interactions"].delete_many({"user_id": user_id})
     await db["offer_evaluations"].delete_many({"user_id": user_id})
+    await db["offer_relevance"].delete_many({"user_id": user_id})
 
     # Anonymisation de l'historique d'usage (conservation des totaux sans identification)
     await db["api_usage"].update_many(

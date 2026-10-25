@@ -275,3 +275,60 @@ def test_admin_delete_user_gdpr(mock_admin):
     generic_col.update_many.assert_called_once()
 
     app.dependency_overrides.clear()
+
+
+class _FakeOfferRelevanceCollection:
+    """Fake collection minimale qui filtre réellement par user_id."""
+
+    def __init__(self, docs):
+        self.docs = docs
+
+    async def delete_many(self, filt):
+        user_id = filt["user_id"]
+        before = len(self.docs)
+        self.docs = [d for d in self.docs if d["user_id"] != user_id]
+        result = MagicMock()
+        result.deleted_count = before - len(self.docs)
+        return result
+
+
+def test_admin_delete_user_gdpr_erases_offer_relevance(mock_admin):
+    mock_db = MagicMock()
+    users_col = MagicMock()
+    users_col.find_one = AsyncMock(return_value={"_id": ObjectId(USER_ID), "email": "john.doe@example.com"})
+    users_col.delete_one = AsyncMock(return_value=MagicMock())
+
+    other_user_id = "507f1f77bcf86cd799439099"
+    offer_relevance_col = _FakeOfferRelevanceCollection(
+        docs=[
+            {"user_id": USER_ID, "offer_id": "offer-1"},
+            {"user_id": other_user_id, "offer_id": "offer-2"},
+        ]
+    )
+
+    generic_col = MagicMock()
+    generic_col.delete_many = AsyncMock()
+    generic_col.update_many = AsyncMock()
+    generic_col.delete_one = AsyncMock()
+
+    def mock_db_getitem(name):
+        if name == "users":
+            return users_col
+        if name == "offer_relevance":
+            return offer_relevance_col
+        return generic_col
+
+    mock_db.__getitem__.side_effect = mock_db_getitem
+
+    app.dependency_overrides[get_current_user] = lambda: mock_admin
+    app.dependency_overrides[get_database] = lambda: mock_db
+    client = TestClient(app)
+
+    res = client.delete(f"/admin/users/{USER_ID}/gdpr")
+    assert res.status_code == 200
+
+    remaining_user_ids = {doc["user_id"] for doc in offer_relevance_col.docs}
+    assert USER_ID not in remaining_user_ids
+    assert other_user_id in remaining_user_ids
+
+    app.dependency_overrides.clear()
