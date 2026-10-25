@@ -106,3 +106,14 @@ async def create_star_stories_indexes(db):
 async def create_company_profiles_indexes(db):
     """Un profil par entreprise normalisée (secteur et taille mis en cache)."""
     await db["company_profiles"].create_index("company_name_normalized", unique=True)
+
+
+async def create_offer_scoring_indexes(db) -> None:
+    """Index du score de pertinence hybride.
+
+    `offer_embeddings` : un document par (offre, modèle d'embedding) — upsert
+    key du cache dans app.services.offer_scoring.embeddings.get_offer_vectors.
+    Task 6 y ajoutera les index de `offer_relevance` ; garder une seule
+    fonction pour que le lifespan n'ait qu'un appel à faire.
+    """
+    await db["offer_embeddings"].create_index([("offer_id", 1), ("model", 1)], unique=True)

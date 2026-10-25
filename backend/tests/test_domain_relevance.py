@@ -73,6 +73,26 @@ def test_expand_title_acronyms(title, expected):
     assert expand_title_acronyms(title) == expected
 
 
+@pytest.mark.parametrize(
+    "title,expected",
+    [
+        ("Senior PO", "Senior Product Owner"),
+        ("ML Engineer", "Machine Learning Engineer"),
+        ("Data Analyst BI", "Data Analyst Business Intelligence"),
+        ("SRE / DevOps", "Site Reliability Engineer / DevOps"),
+        ("QA Engineer", "Quality Assurance Engineer"),
+        ("PM Data", "Product Manager Data"),
+        ("DS confirmé", "Data Scientist confirmé"),
+        ("DE Spark", "Data Engineer Spark"),
+        ("Chef de projet", "Chef de projet"),
+        ("CHEF DE PROJET DA", "CHEF DE PROJET DA"),
+        ("Développeur Confirmé Ia", "Développeur Confirmé intelligence artificielle"),
+    ],
+)
+def test_expand_title_acronyms_extended(title, expected):
+    assert expand_title_acronyms(title) == expected
+
+
 @pytest.mark.asyncio
 async def test_compute_domain_relevance_embeds_expanded_title():
     fake_resp = MagicMock()

@@ -14,6 +14,7 @@ from app.database import (
     get_database,
     create_company_profiles_indexes,
     create_job_offers_indexes,
+    create_offer_scoring_indexes,
     create_star_stories_indexes,
 )
 from app.llm.provider_errors import classify_llm_error
@@ -61,6 +62,10 @@ async def lifespan(app):
             await create_company_profiles_indexes(db)
         except Exception as e:
             print(f"Erreur de création des index company_profiles: {e}")
+        try:
+            await create_offer_scoring_indexes(db)
+        except Exception as e:
+            print(f"Erreur de création des index offer_scoring: {e}")
 
     yield  # L'application s'exécute pendant cette période
 

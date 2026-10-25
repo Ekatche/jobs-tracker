@@ -25,10 +25,32 @@ DOMAIN_RELEVANCE_THRESHOLD = 0.30
 # tombait à 0.28 face à un profil "AI Engineer", contre 0.43 une fois développé.
 ACRONYM_EXPANSIONS = [(re.compile(r"\bia\b", re.I), "intelligence artificielle")]
 
+# Acronymes métiers fréquents, développés uniquement si trouvés tels quels
+# (casse exacte, sans re.I) : insensibles à la casse, "PM", "DE", "DS"...
+# collisionneraient avec des mots français courants ("de", "ds" familier).
+# "DA" (directeur artistique en français) est volontairement exclu.
+CASE_SENSITIVE_ACRONYMS = [
+    (re.compile(r"\bPM\b"), "Product Manager"),
+    (re.compile(r"\bPO\b"), "Product Owner"),
+    (re.compile(r"\bML\b"), "Machine Learning"),
+    (re.compile(r"\bQA\b"), "Quality Assurance"),
+    (re.compile(r"\bSRE\b"), "Site Reliability Engineer"),
+    (re.compile(r"\bBI\b"), "Business Intelligence"),
+    (re.compile(r"\bDE\b"), "Data Engineer"),
+    (re.compile(r"\bDS\b"), "Data Scientist"),
+]
+
 
 def expand_title_acronyms(title: str) -> str:
+    # Un intitulé tout en majuscules ("CHEF DE PROJET DA") ne permet pas de
+    # distinguer un acronyme d'un mot ordinaire en capitales : on ne tente
+    # alors que l'expansion insensible à la casse ("IA").
+    title_is_upper = title.isupper()
     for pattern, expansion in ACRONYM_EXPANSIONS:
         title = pattern.sub(expansion, title)
+    if not title_is_upper:
+        for pattern, expansion in CASE_SENSITIVE_ACRONYMS:
+            title = pattern.sub(expansion, title)
     return title
 
 

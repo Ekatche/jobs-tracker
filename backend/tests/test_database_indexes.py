@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from app.database import create_company_profiles_indexes, create_job_offers_indexes
+from app.database import create_company_profiles_indexes, create_job_offers_indexes, create_offer_scoring_indexes
 
 
 @pytest.mark.asyncio
@@ -24,3 +24,16 @@ async def test_create_company_profiles_indexes_unique_name():
     await create_company_profiles_indexes(mock_db)
 
     mock_collection.create_index.assert_awaited_once_with("company_name_normalized", unique=True)
+
+
+@pytest.mark.asyncio
+async def test_create_offer_scoring_indexes_unique_offer_id_model():
+    mock_collection = MagicMock()
+    mock_collection.create_index = AsyncMock()
+    mock_db = {"offer_embeddings": mock_collection}
+
+    await create_offer_scoring_indexes(mock_db)
+
+    mock_collection.create_index.assert_awaited_once_with(
+        [("offer_id", 1), ("model", 1)], unique=True
+    )
