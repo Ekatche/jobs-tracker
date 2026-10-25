@@ -15,6 +15,9 @@ from bson import ObjectId
 from app.services.evaluation.evaluator import compute_offer_evaluation
 from scripts.export_matching_bench import assign_aliases, select_sample
 from app.services.usage_tracker import estimate_llm_cost
+from app.services.offer_scoring.constants import EMBEDDING_MODEL
+from app.services.offer_scoring.embeddings import offer_embedding_text, text_hash
+from app.services.offer_scoring.score import ScoreResult, profile_features
 from scripts.matching_bench import (
     JUDGE_FALLBACK_MODEL,
     JUDGE_MODEL,
@@ -24,12 +27,16 @@ from scripts.matching_bench import (
     cached_judge_records,
     compute_metrics,
     false_positive_rate_at_k,
+    hybrid_cos_key,
+    hybrid_scores,
     judge_coherence,
     judge_key,
     parse_judge_label,
     precision_at_k,
     rank_chronological,
+    rank_hybrid,
     rank_twopass,
+    run_embed,
     run_judge,
     run_twopass,
     select_validation_pairs,
@@ -267,6 +274,87 @@ def test_compute_metrics_on_tiny_bench():
     assert chrono["top3"] == [_oid(1), _oid(2), _oid(3)]
     assert metrics["twopass_cost"]["n_ok"] == 3 and metrics["twopass_cost"]["latency_ms_mean"] == 2000
     assert metrics["agreement"]["n"] == 0
+
+
+def _score_result(score: float) -> ScoreResult:
+    return ScoreResult(
+        score=score, raw_score=score, level="strong", breakdown={"raw_score": score},
+        unknown_components=[], failed_conditions=[],
+    )
+
+
+def test_rank_hybrid_orders_by_score_with_filtered_last():
+    assessed = {
+        "o1": (None, _score_result(80.0)),
+        "o2": (None, _score_result(40.0)),
+        "o3": (None, _score_result(60.0)),
+        "o4": ("geo", None),
+    }
+
+    ranking = rank_hybrid(["o1", "o2", "o3", "o4"], assessed)
+
+    assert ranking == ["o1", "o3", "o2", "o4"]
+
+
+def test_compute_metrics_includes_hybrid_and_recall_guard():
+    offers = [
+        _offer(1, created_at=datetime(2026, 10, 1)),
+        _offer(2, created_at=datetime(2026, 10, 2)),
+    ]
+    export = _export(
+        offers,
+        [_oid(1), _oid(2)],
+        interactions=[{"alias": "A", "offer_id": _oid(1), "status": "applied"}],
+    )
+    # Profil minimal (ni compétences, ni séniorité, ni secteur, ni taille voulus) :
+    # seule la composante sémantique s'applique. Cosinus sous COS_FLOOR pour l'offre 1
+    # -> 0 point -> score sous FLOOR, la garde de rappel doit la signaler.
+    cos_records = [{"alias": "A", "offer_id": _oid(1), "cos": 0.1}]
+    hybrid = hybrid_scores(export, cos_records)
+
+    metrics = compute_metrics(export, [], [], [], twopass_model="gemini/gemini-3.8-flash", hybrid=hybrid)
+
+    assert "p@10" in metrics["per_profile"]["A"]["hybrid"]
+    assert metrics["per_profile"]["A"]["separation"]["applied_below_floor"] == [_oid(1)]
+
+
+@pytest.mark.asyncio
+async def test_embed_dry_run_makes_no_api_call(tmp_path):
+    export = _export([_offer(1), _offer(2)], [_oid(1), _oid(2)])
+    cache = tmp_path / "hybrid_cos_cache.json"
+    fake_embed = AsyncMock(side_effect=AssertionError("aucun embedding sans --confirm"))
+
+    with patch("scripts.matching_bench.embed_texts", fake_embed):
+        await run_embed(export, cache, confirm=False)
+
+    fake_embed.assert_not_called()
+    assert not cache.exists()
+
+
+@pytest.mark.asyncio
+async def test_hybrid_cos_cache_reused_only_for_same_text(tmp_path):
+    offer = _offer(1)
+    export = _export([offer], [_oid(1)])
+    cache_path = tmp_path / "hybrid_cos_cache.json"
+    identity = profile_features(export["profiles"][0]["profile"]).identity
+    stale_record = {
+        "alias": "A",
+        "offer_id": _oid(1),
+        "model": EMBEDDING_MODEL,
+        "text_hash": text_hash("texte périmé"),
+        "identity_hash": text_hash(identity),
+        "cos": 0.1,
+    }
+    cache_path.write_text(json.dumps({hybrid_cos_key(EMBEDDING_MODEL, "A", _oid(1)): stale_record}))
+    fake_embed = AsyncMock(return_value=[[1.0, 0.0]])
+
+    with patch("scripts.matching_bench.embed_texts", fake_embed):
+        await run_embed(export, cache_path, confirm=True)
+
+    assert fake_embed.await_count == 2
+    updated = json.loads(cache_path.read_text())[hybrid_cos_key(EMBEDDING_MODEL, "A", _oid(1))]
+    assert updated["text_hash"] == text_hash(offer_embedding_text(offer))
+    assert updated["cos"] == pytest.approx(1.0)
 
 
 def test_select_validation_pairs_is_balanced_and_deterministic():

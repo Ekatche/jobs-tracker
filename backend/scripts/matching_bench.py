@@ -15,6 +15,8 @@ Usage:
     docker exec jobtracker-backend python scripts/matching_bench.py judge --confirm
     docker exec jobtracker-backend python scripts/matching_bench.py twopass --model gemini/gemini-3.8-flash
     docker exec jobtracker-backend python scripts/matching_bench.py twopass --confirm --model gemini/gemini-3.8-flash
+    docker exec jobtracker-backend python scripts/matching_bench.py embed
+    docker exec jobtracker-backend python scripts/matching_bench.py embed --confirm
     docker exec jobtracker-backend python scripts/matching_bench.py validation-sheet
     docker exec jobtracker-backend python scripts/matching_bench.py report --model gemini/gemini-3.8-flash
 """
@@ -43,7 +45,12 @@ from fastapi import HTTPException
 from litellm import acompletion
 
 from app.services.evaluation.evaluator import DEFAULT_EVALUATION_MODEL, compute_offer_evaluation
+from app.services.offer_scoring.assess import assess_offer
+from app.services.offer_scoring.constants import EMBEDDING_MODEL, FLOOR
+from app.services.offer_scoring.embeddings import embed_texts, offer_embedding_text, text_hash
+from app.services.offer_scoring.score import ScoreResult, build_skill_idf, profile_features
 from app.services.profile.context import build_candidate_context
+from app.services.role_normalizer import cosine_similarity
 from app.services.usage_tracker import estimate_llm_cost
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -53,6 +60,7 @@ DATA_DIR = Path("scripts/data/matching_bench")
 DEFAULT_EXPORT = DATA_DIR / "export.json"
 JUDGE_CACHE = DATA_DIR / "judge_cache.json"
 TWOPASS_CACHE = DATA_DIR / "twopass_cache.json"
+HYBRID_COS_CACHE = DATA_DIR / "hybrid_cos_cache.json"
 VALIDATION_CSV = DATA_DIR / "validation.csv"
 RESULTS_PATH = Path("scripts/matching_bench_results.json")
 
@@ -341,6 +349,182 @@ async def run_twopass(
     return remaining
 
 
+# --- Score hybride ---
+
+
+def hybrid_cos_key(model: str, alias: str, offer_id: str) -> str:
+    return f"{model}|{alias}|{offer_id}"
+
+
+def _cos_record_valid(record: Optional[Dict[str, Any]], model: str, offer_hash: str, identity_hash: Optional[str]) -> bool:
+    """Un enregistrement n'est réutilisé que si modèle, texte d'offre et identité candidat
+    n'ont pas changé depuis son calcul (cf. global-constraints.md)."""
+    return (
+        record is not None
+        and record.get("model") == model
+        and record.get("text_hash") == offer_hash
+        and record.get("identity_hash") == identity_hash
+    )
+
+
+def _profile_identities(export: Dict[str, Any]) -> Dict[str, Tuple[Optional[str], Optional[str]]]:
+    """(identité, hash de l'identité) par alias ; (None, None) si le candidat n'a aucune
+    identité exploitable (profil vide, ruling R1)."""
+    identities = {}
+    for p in export["profiles"]:
+        identity = profile_features(p["profile"]).identity or None
+        identities[p["alias"]] = (identity, text_hash(identity) if identity else None)
+    return identities
+
+
+async def run_embed(export: Dict[str, Any], cache_path: Path, confirm: bool) -> None:
+    """Embarque les offres de l'échantillon et les identités candidates pour le cosinus
+    du score hybride, mis en cache par (modèle, alias, offre). Sans `confirm`, n'appelle
+    rien et chiffre les paires manquantes et le coût estimé."""
+    cache = load_cache(cache_path)
+    offers = offers_by_id(export)
+    ids = sample_ids(export)
+    offer_texts = {oid: offer_embedding_text(offers[oid]) for oid in ids}
+    identities = _profile_identities(export)
+
+    pending: List[Tuple[str, str]] = []
+    for p in export["profiles"]:
+        alias = p["alias"]
+        _, identity_hash = identities[alias]
+        for oid in ids:
+            text = offer_texts[oid]
+            if text is None:  # jamais embarquée (ni intitulé ni description)
+                continue
+            record = cache.get(hybrid_cos_key(EMBEDDING_MODEL, alias, oid))
+            if not _cos_record_valid(record, EMBEDDING_MODEL, text_hash(text), identity_hash):
+                pending.append((alias, oid))
+
+    if not confirm:
+        chars = 0
+        seen_offers: set = set()
+        seen_aliases: set = set()
+        for alias, oid in pending:
+            if oid not in seen_offers:
+                chars += len(offer_texts[oid])
+                seen_offers.add(oid)
+            identity, _ = identities[alias]
+            if identity and alias not in seen_aliases:
+                chars += len(identity)
+                seen_aliases.add(alias)
+        cost = (chars / 4) / 1_000_000 * 0.1
+        logger.info(
+            f"🧮 Embeddings hybrides {EMBEDDING_MODEL} : {len(pending)} paires manquantes sur "
+            f"{len(export['profiles']) * len(ids)}, coût estimé {cost:.4f} $. Aucun appel sans --confirm."
+        )
+        return
+
+    # Chaque texte d'offre et chaque identité candidat n'est embarqué qu'une fois,
+    # même s'il manque à plusieurs paires (offre partagée entre profils).
+    missing_offer_ids = sorted({oid for _, oid in pending})
+    missing_aliases = sorted({alias for alias, _ in pending if identities[alias][0]})
+
+    offer_vectors: Dict[str, List[float]] = {}
+    if missing_offer_ids:
+        vectors = await embed_texts([offer_texts[oid] for oid in missing_offer_ids])
+        offer_vectors = dict(zip(missing_offer_ids, vectors))
+
+    identity_vectors: Dict[str, List[float]] = {}
+    if missing_aliases:
+        vectors = await embed_texts([identities[alias][0] for alias in missing_aliases])
+        identity_vectors = dict(zip(missing_aliases, vectors))
+
+    for alias, oid in pending:
+        _, identity_hash = identities[alias]
+        offer_vector = offer_vectors.get(oid)
+        identity_vector = identity_vectors.get(alias)
+        cos = cosine_similarity(offer_vector, identity_vector) if offer_vector and identity_vector else None
+        cache[hybrid_cos_key(EMBEDDING_MODEL, alias, oid)] = {
+            "alias": alias,
+            "offer_id": oid,
+            "model": EMBEDDING_MODEL,
+            "text_hash": text_hash(offer_texts[oid]),
+            "identity_hash": identity_hash,
+            "cos": cos,
+        }
+    save_cache(cache_path, cache)
+    logger.info(f"✅ Embeddings hybrides : {len(pending)} paires calculées")
+
+
+def cached_hybrid_cos_records(export: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Enregistrements cos valides pour le texte d'offre et l'identité candidat courants.
+    Une paire sans enregistrement valide est ignorée : `assess_offer` la scorera avec
+    `cos=None` (moitié des points sémantiques, cf. global-constraints.md)."""
+    cache = load_cache(HYBRID_COS_CACHE)
+    offers = offers_by_id(export)
+    offer_hashes = {
+        oid: text_hash(text)
+        for oid, text in ((oid, offer_embedding_text(offers[oid])) for oid in sample_ids(export))
+        if text is not None
+    }
+    identities = _profile_identities(export)
+
+    records = []
+    for p in export["profiles"]:
+        alias = p["alias"]
+        _, identity_hash = identities[alias]
+        for oid, offer_hash in offer_hashes.items():
+            record = cache.get(hybrid_cos_key(EMBEDDING_MODEL, alias, oid))
+            if _cos_record_valid(record, EMBEDDING_MODEL, offer_hash, identity_hash):
+                records.append(record)
+    return records
+
+
+def _hybrid_assessment_ids(export: Dict[str, Any], alias: str) -> List[str]:
+    """Offres à évaluer pour cet alias : l'échantillon, plus les offres de ses propres
+    interactions (nécessaires à la garde de rappel `applied_below_floor`)."""
+    offers = offers_by_id(export)
+    ids = list(sample_ids(export))
+    seen = set(ids)
+    for i in export["interactions"]:
+        if i["alias"] == alias and i["offer_id"] in offers and i["offer_id"] not in seen:
+            ids.append(i["offer_id"])
+            seen.add(i["offer_id"])
+    return ids
+
+
+def hybrid_scores(
+    export: Dict[str, Any], cos_records: List[Dict[str, Any]]
+) -> Dict[str, Dict[str, Tuple[Optional[str], Optional[ScoreResult]]]]:
+    """Évalue chaque offre pertinente (échantillon + interactions) pour chaque profil avec
+    `assess_offer`. IDF construit sur les `competences_cles` de toutes les offres de
+    l'export, approximation du stock actif (spec §6)."""
+    offers = offers_by_id(export)
+    cos_by_pair = {(r["alias"], r["offer_id"]): r["cos"] for r in cos_records}
+    idf = build_skill_idf(o.get("competences_cles") or [] for o in export["offers"])
+
+    result: Dict[str, Dict[str, Tuple[Optional[str], Optional[ScoreResult]]]] = {}
+    for p in export["profiles"]:
+        alias = p["alias"]
+        features = profile_features(p["profile"])
+        assessed = {}
+        for oid in _hybrid_assessment_ids(export, alias):
+            cos = cos_by_pair.get((alias, oid))
+            assessed[oid] = assess_offer(offers[oid], features, cos, idf)
+        result[alias] = assessed
+    return result
+
+
+def rank_hybrid(
+    ids: List[str], assessed: Dict[str, Tuple[Optional[str], Optional[ScoreResult]]]
+) -> List[str]:
+    """Score décroissant, cosinus (composante sémantique) en départage, puis `offer_id` ;
+    offres filtrées ou sans composante applicable en dernier."""
+
+    def key(oid: str):
+        reason, result = assessed.get(oid, ("missing", None))
+        scored = reason is None and result is not None
+        score = result.score if scored else 0.0
+        semantic = result.breakdown.get("semantic", 0.0) if scored else 0.0
+        return (scored, score, semantic, oid)
+
+    return sorted(ids, key=key, reverse=True)
+
+
 # --- Classements et métriques ---
 
 
@@ -440,12 +624,101 @@ def _percentile(values: List[float], q: float) -> Optional[float]:
     return ordered[max(0, math.ceil(q * len(ordered)) - 1)]
 
 
+def _is_detached(result_tuple: Tuple[Optional[str], Optional[ScoreResult]], floor: float) -> bool:
+    """Une offre est détachée si elle est filtrée, sans composante applicable, ou sous `floor`."""
+    reason, result = result_tuple
+    return reason is not None or result is None or result.score < floor
+
+
+def _detached_by_label(
+    assessed: Dict[str, Tuple[Optional[str], Optional[ScoreResult]]],
+    ids: List[str],
+    labels: Dict[str, str],
+    floor: float,
+) -> Dict[str, int]:
+    counts = {name: 0 for name in LABELS}
+    for oid in ids:
+        label = labels.get(oid)
+        if label is None or oid not in assessed:
+            continue
+        if _is_detached(assessed[oid], floor):
+            counts[label] += 1
+    return counts
+
+
+def _levels_by_label(
+    assessed: Dict[str, Tuple[Optional[str], Optional[ScoreResult]]], ids: List[str], labels: Dict[str, str]
+) -> Dict[str, Dict[str, int]]:
+    result: Dict[str, Dict[str, int]] = {}
+    for oid in ids:
+        label = labels.get(oid)
+        if label is None or oid not in assessed:
+            continue
+        _, score_result = assessed[oid]
+        if score_result is None:
+            continue
+        bucket = result.setdefault(score_result.level, {name: 0 for name in LABELS})
+        bucket[label] += 1
+    return result
+
+
+def _score_range_by_label(
+    assessed: Dict[str, Tuple[Optional[str], Optional[ScoreResult]]], ids: List[str], labels: Dict[str, str]
+) -> Dict[str, Dict[str, Optional[float]]]:
+    scores_by_label: Dict[str, List[float]] = {name: [] for name in LABELS}
+    for oid in ids:
+        label = labels.get(oid)
+        if label is None or oid not in assessed:
+            continue
+        _, score_result = assessed[oid]
+        if score_result is None:
+            continue
+        scores_by_label[label].append(score_result.score)
+    return {
+        label: (
+            {"min": min(values), "median": statistics.median(values), "max": max(values)}
+            if values
+            else {"min": None, "median": None, "max": None}
+        )
+        for label, values in scores_by_label.items()
+    }
+
+
+def _separation_metrics(
+    assessed: Dict[str, Tuple[Optional[str], Optional[ScoreResult]]],
+    ids: List[str],
+    labels: Dict[str, str],
+    interactions: List[Dict[str, Any]],
+    alias: str,
+) -> Dict[str, Any]:
+    """Qualité de la séparation du score hybride : où le `FLOOR` courant place les offres
+    jugées, et garde de rappel sur les candidatures réelles du profil."""
+    applied_below_floor = sorted(
+        {
+            i["offer_id"]
+            for i in interactions
+            if i["alias"] == alias
+            and i["status"] == "applied"
+            and i["offer_id"] in assessed
+            and _is_detached(assessed[i["offer_id"]], FLOOR)
+        }
+    )
+    return {
+        "detached_by_label": _detached_by_label(assessed, ids, labels, FLOOR),
+        "applied_below_floor": applied_below_floor,
+        "levels_by_label": _levels_by_label(assessed, ids, labels),
+        "score_range_by_label": _score_range_by_label(assessed, ids, labels),
+        "floor_sweep": {floor: _detached_by_label(assessed, ids, labels, floor) for floor in (20, 30, 35, 40)},
+    }
+
+
 def compute_metrics(
     export: Dict[str, Any],
     judge_records: List[Dict[str, Any]],
     twopass_records: List[Dict[str, Any]],
     human_records: List[Dict[str, Any]],
     twopass_model: str,
+    hybrid: Optional[Dict[str, Dict[str, Tuple[Optional[str], Optional[ScoreResult]]]]] = None,
 ) -> Dict[str, Any]:
     offers = offers_by_id(export)
     ids = sample_ids(export)
@@ -460,6 +733,9 @@ def compute_metrics(
             "chronological": rank_chronological(offers, ids, profile["user_id"]),
             "twopass": rank_twopass(offers, ids, scores),
         }
+        assessed = (hybrid or {}).get(alias)
+        if assessed is not None:
+            rankings["hybrid"] = rank_hybrid(ids, assessed)
         per_profile[alias] = {
             name: {
                 "p@10": precision_at_k(ranking, labels, 10),
@@ -469,6 +745,8 @@ def compute_metrics(
             }
             for name, ranking in rankings.items()
         }
+        if assessed is not None:
+            per_profile[alias]["separation"] = _separation_metrics(assessed, ids, labels, export["interactions"], alias)
 
     ok = [r for r in twopass_records if r.get("score") is not None]
     latencies = [r["latency_ms"] for r in ok]
@@ -601,18 +879,33 @@ def report(export: Dict[str, Any], model: str) -> None:
     judge_records = cached_judge_records(export)
     twopass_records = cached_twopass_records(export, model)
     human_records = read_human_labels()
+    cos_records = cached_hybrid_cos_records(export)
+    hybrid = hybrid_scores(export, cos_records)
     logger.info(
         f"📊 {len(judge_records)}/{len(judge_pairs(export))} paires jugées, "
         f"{len(twopass_records)}/{len(export['profiles']) * len(sample_ids(export))} Two-Pass ({model}), "
+        f"{len(cos_records)}/{len(export['profiles']) * len(sample_ids(export))} cos hybrides, "
         f"{len(human_records)} labels humains"
     )
-    metrics = compute_metrics(export, judge_records, twopass_records, human_records, model)
+    metrics = compute_metrics(export, judge_records, twopass_records, human_records, model, hybrid=hybrid)
 
     print("| Profil | Classement | P@10 | P@20 | FP@20 |")
     print("|---|---|---|---|---|")
     for alias, rankings in metrics["per_profile"].items():
         for name, m in rankings.items():
+            if name == "separation":
+                continue
             print(f"| {alias} | {name} | {_fmt(m['p@10'])} | {_fmt(m['p@20'])} | {_fmt(m['fp@20'])} |")
+    for alias, rankings in metrics["per_profile"].items():
+        separation = rankings.get("separation")
+        if not separation:
+            continue
+        print(f"\nSéparation hybride {alias} (FLOOR={FLOOR}) :")
+        print(f"  Détachées par label : {separation['detached_by_label']}")
+        print(f"  Candidatures (applied) sous FLOOR ou filtrées : {separation['applied_below_floor']}")
+        print(f"  Niveaux par label : {separation['levels_by_label']}")
+        print(f"  Score min/médiane/max par label : {separation['score_range_by_label']}")
+        print(f"  Balayage du FLOOR (20/30/35/40) : {separation['floor_sweep']}")
     cost = metrics["twopass_cost"]
     print(
         f"\nTwo-Pass {cost['model']} : {cost['n_ok']} ok, {cost['n_errors']} erreurs, {cost['n_prefiltered']} préfiltrées, "
@@ -642,6 +935,8 @@ def main() -> None:
     twopass.add_argument("--confirm", action="store_true", help="Appeler le LLM (dépense)")
     twopass.add_argument("--concurrency", type=int, default=4)
     twopass.add_argument("--model", default=DEFAULT_EVALUATION_MODEL)
+    embed = sub.add_parser("embed", help="Embarquer offres et identités pour le cosinus du score hybride")
+    embed.add_argument("--confirm", action="store_true", help="Appeler l'API d'embedding (dépense)")
     sub.add_parser("validation-sheet", help="Écrire la feuille de validation humaine (20 paires)")
     report_parser = sub.add_parser("report", help="Calculer les métriques et écrire le fichier de résultats")
     report_parser.add_argument("--model", default=DEFAULT_EVALUATION_MODEL, help="Modèle du Two-Pass mesuré")
@@ -652,6 +947,8 @@ def main() -> None:
         asyncio.run(run_judge(export, JUDGE_CACHE, args.confirm, args.concurrency, args.model))
     elif args.command == "twopass":
         asyncio.run(run_twopass(export, TWOPASS_CACHE, args.confirm, args.concurrency, args.model))
+    elif args.command == "embed":
+        asyncio.run(run_embed(export, HYBRID_COS_CACHE, args.confirm))
     elif args.command == "validation-sheet":
         write_validation_sheet(export)
     else:
