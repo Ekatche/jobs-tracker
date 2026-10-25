@@ -636,6 +636,82 @@
             "6adb08e28f7d6aef2675616b",
             "6adb08e28f7d6aef26756169"
           ]
+        },
+        "hybrid": {
+          "p@10": 0.1,
+          "p@20": 0.2,
+          "fp@20": 0.0,
+          "top3": [
+            "6ac2878a1a1c20ac97d1f411",
+            "6acfa9f1e648f3c85df4eb9e",
+            "6ac288eb1a1c20ac97d1f457"
+          ]
+        },
+        "separation": {
+          "detached_by_label": {
+            "relevant": 0,
+            "partial": 0,
+            "irrelevant": 4
+          },
+          "applied_below_floor": [
+            "6ada3377f5f24bb257dd25e1"
+          ],
+          "levels_by_label": {
+            "weak": {
+              "relevant": 6,
+              "partial": 25,
+              "irrelevant": 24
+            },
+            "medium": {
+              "relevant": 2,
+              "partial": 7,
+              "irrelevant": 0
+            },
+            "strong": {
+              "relevant": 0,
+              "partial": 4,
+              "irrelevant": 0
+            }
+          },
+          "score_range_by_label": {
+            "relevant": {
+              "min": 45.40391608499742,
+              "median": 55.801394190278046,
+              "max": 70.36602197248268
+            },
+            "partial": {
+              "min": 25.843484959915912,
+              "median": 53.87141381085141,
+              "max": 77.6470588235294
+            },
+            "irrelevant": {
+              "min": 17.647058823529413,
+              "median": 23.529411764705884,
+              "max": 39.053263212051746
+            }
+          },
+          "floor_sweep": {
+            "20": {
+              "relevant": 0,
+              "partial": 0,
+              "irrelevant": 4
+            },
+            "30": {
+              "relevant": 0,
+              "partial": 1,
+              "irrelevant": 21
+            },
+            "35": {
+              "relevant": 0,
+              "partial": 2,
+              "irrelevant": 24
+            },
+            "40": {
+              "relevant": 0,
+              "partial": 3,
+              "irrelevant": 26
+            }
+          }
         }
       }
     },
