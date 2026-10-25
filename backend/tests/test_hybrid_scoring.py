@@ -33,6 +33,26 @@ def test_skill_points_unknown_and_not_applicable():
     assert skill_points(["Python"], frozenset(), idf) is None
 
 
+def test_skill_points_matches_word_inside_candidate_phrase():
+    idf = build_skill_idf([["Python", "SQL"]])
+    result = skill_points(
+        ["Python", "SQL"], frozenset({"python scikit learn", "sql analytique avance"}), idf
+    )
+    assert result == ComponentPoints(30, 30, True)
+
+
+def test_skill_points_never_below_unknown():
+    idf = build_skill_idf([["Kubernetes"]])
+    result = skill_points(["Kubernetes"], frozenset({"python"}), idf)
+    assert result == ComponentPoints(15, 30, True)
+
+
+def test_skill_points_word_match_needs_boundary():
+    idf = build_skill_idf([["SQL"]])
+    result = skill_points(["SQL"], frozenset({"nosql mongodb"}), idf)
+    assert result == ComponentPoints(15, 30, True)
+
+
 @pytest.mark.parametrize(
     "offer_level,wanted,expected",
     [

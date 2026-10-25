@@ -30,5 +30,6 @@ W_SIZE = 5
 # (géographie, type de contrat...).
 STRONG_THRESHOLD = 75
 MEDIUM_THRESHOLD = 60
-FLOOR = 20
+# Décision de la porte de fiabilité du 2026-10-25 (20 au départ).
+FLOOR = 35
 CAP_SCORE = MEDIUM_THRESHOLD - 1

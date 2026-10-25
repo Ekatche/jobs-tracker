@@ -24,7 +24,7 @@ from app.services.offer_scoring.constants import (
     W_SENIORITY,
     W_SKILLS,
 )
-from app.services.relevance import normalize_text
+from app.services.relevance import contains_keyword, normalize_text
 
 
 class ComponentPoints(NamedTuple):
@@ -92,6 +92,17 @@ def semantic_points(cos: Optional[float]) -> ComponentPoints:
 def skill_points(
     offer_skills: Sequence[str], candidate_skills: frozenset[str], idf: SkillIdf
 ) -> Optional[ComponentPoints]:
+    """Composante compétences, en bonus seul.
+
+    Le profil écrit ses compétences en expressions de plusieurs mots
+    ("python scikit learn") quand l'offre liste des mots isolés ("python") :
+    une correspondance exacte échouerait presque toujours. Une compétence de
+    l'offre compte si elle apparaît, avec des frontières de mot, dans une
+    compétence du profil (sens unique : l'inverse ne compte pas). La
+    composante ne descend jamais sous la moitié de ses points quand l'offre
+    liste des compétences, pour qu'un profil incomplet ne pénalise pas
+    l'offre.
+    """
     if not candidate_skills:
         return None
 
@@ -103,8 +114,13 @@ def skill_points(
     if total == 0:
         return ComponentPoints(W_SKILLS / 2, W_SKILLS, False)
 
-    matched = sum(idf.weight(skill) for skill in normalized_offer_skills if skill in candidate_skills)
-    return ComponentPoints(W_SKILLS * matched / total, W_SKILLS, True)
+    def matches(skill: str) -> bool:
+        if skill in candidate_skills:
+            return True
+        return any(contains_keyword(phrase, frozenset({skill})) for phrase in candidate_skills)
+
+    matched = sum(idf.weight(skill) for skill in normalized_offer_skills if matches(skill))
+    return ComponentPoints(max(W_SKILLS / 2, W_SKILLS * matched / total), W_SKILLS, True)
 
 
 def seniority_points(offer_level: Optional[str], wanted: Sequence[str]) -> Optional[ComponentPoints]:
