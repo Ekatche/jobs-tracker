@@ -14,13 +14,18 @@ from bson import ObjectId
 
 from app.services.evaluation.evaluator import compute_offer_evaluation
 from scripts.export_matching_bench import assign_aliases, select_sample
+from app.services.usage_tracker import estimate_llm_cost
 from scripts.matching_bench import (
+    JUDGE_FALLBACK_MODEL,
+    JUDGE_MODEL,
     BenchDatabase,
     agreement,
     build_results_payload,
+    cached_judge_records,
     compute_metrics,
     false_positive_rate_at_k,
     judge_coherence,
+    judge_key,
     parse_judge_label,
     precision_at_k,
     rank_chronological,
@@ -331,6 +336,57 @@ async def test_judge_confirm_fills_cache_and_resumes(tmp_path):
     assert {r["label"] for r in records.values()} == {"relevant"}
     first_messages = llm.call_args_list[0].kwargs["messages"]
     assert PROFILE_HEADLINE in first_messages[1]["content"]
+
+
+def _judge_record(n: int, label: str, model: str = JUDGE_MODEL) -> dict:
+    return {"alias": "A", "offer_id": _oid(n), "set": "sample", "label": label, "model": model,
+            "input_tokens": 1000, "output_tokens": 100}
+
+
+@pytest.mark.asyncio
+async def test_judge_fallback_only_judges_pairs_the_main_judge_missed(tmp_path):
+    export = _export([_offer(1), _offer(2)], [_oid(1), _oid(2)])
+    cache = tmp_path / "judge_cache.json"
+    cache.write_text(json.dumps({judge_key("A", _oid(1)): _judge_record(1, "irrelevant")}))
+    llm = AsyncMock(return_value=_llm_response({"label": "partial", "justification": "Métier voisin."}))
+
+    with patch("scripts.matching_bench.acompletion", llm):
+        await run_judge(export, cache, confirm=True, model=JUDGE_FALLBACK_MODEL)
+        pending_after = await run_judge(export, cache, confirm=False)
+
+    assert llm.await_count == 1
+    assert llm.call_args.kwargs["model"] == JUDGE_FALLBACK_MODEL
+    assert pending_after == 0
+    fallback = json.loads(cache.read_text())[judge_key("A", _oid(2), JUDGE_FALLBACK_MODEL)]
+    assert fallback["model"] == JUDGE_FALLBACK_MODEL and fallback["label"] == "partial"
+
+
+def test_cached_judge_records_prefer_the_main_judge(tmp_path):
+    export = _export([_offer(1), _offer(2)], [_oid(1), _oid(2)])
+    cache = tmp_path / "judge_cache.json"
+    cache.write_text(json.dumps({
+        judge_key("A", _oid(1)): _judge_record(1, "irrelevant"),
+        judge_key("A", _oid(1), JUDGE_FALLBACK_MODEL): _judge_record(1, "relevant", JUDGE_FALLBACK_MODEL),
+        judge_key("A", _oid(2), JUDGE_FALLBACK_MODEL): _judge_record(2, "partial", JUDGE_FALLBACK_MODEL),
+    }))
+
+    with patch("scripts.matching_bench.JUDGE_CACHE", cache):
+        records = cached_judge_records(export)
+
+    assert {(r["offer_id"], r["label"]) for r in records} == {(_oid(1), "irrelevant"), (_oid(2), "partial")}
+
+
+def test_judge_cost_uses_each_record_model():
+    export = _export([_offer(1), _offer(2)], [_oid(1), _oid(2)])
+    legacy = _judge_record(1, "relevant")
+    del legacy["model"]  # enregistrements écrits avant le juge de repli : juge principal
+    records = [legacy, _judge_record(2, "partial", JUDGE_FALLBACK_MODEL)]
+
+    cost = compute_metrics(export, records, [], [], twopass_model="gemini/gemini-3.8-flash")["judge_cost"]
+
+    expected = estimate_llm_cost(JUDGE_MODEL, 1000, 100) + estimate_llm_cost(JUDGE_FALLBACK_MODEL, 1000, 100)
+    assert cost["cost_usd"] == pytest.approx(round(expected, 4))
+    assert cost["models"] == {JUDGE_MODEL: 1, JUDGE_FALLBACK_MODEL: 1}
 
 
 # --- Fichier versionné ---

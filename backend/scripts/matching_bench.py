@@ -58,6 +58,9 @@ RESULTS_PATH = Path("scripts/matching_bench_results.json")
 
 # Juge d'une autre famille que le Two-Pass (gemini), cf. spec §6.1.
 JUDGE_MODEL = "openai/gpt-6.1-sol"
+# Repli pour les paires que le juge principal n'a pas pu traiter (crédit OpenAI épuisé le 2026-10-25).
+# Autre famille que le Two-Pass ; le juge principal reste prioritaire sur une paire jugée deux fois.
+JUDGE_FALLBACK_MODEL = "mistral/mistral-large-2512"
 JUDGE_PROMPT_VERSION = "v1"
 LABELS = ("relevant", "partial", "irrelevant")
 JUDGE_DESCRIPTION_MAX_CHARS = 8000
@@ -160,8 +163,13 @@ def save_cache(path: Path, cache: Dict[str, Dict[str, Any]]) -> None:
     os.replace(tmp, path)
 
 
-def judge_key(alias: str, offer_id: str) -> str:
-    return f"{JUDGE_MODEL}|{JUDGE_PROMPT_VERSION}|{alias}|{offer_id}"
+def judge_key(alias: str, offer_id: str, model: str = JUDGE_MODEL) -> str:
+    return f"{model}|{JUDGE_PROMPT_VERSION}|{alias}|{offer_id}"
+
+
+def judged_record(cache: Dict[str, Any], alias: str, offer_id: str) -> Optional[Dict[str, Any]]:
+    """Label d'une paire : juge principal d'abord, repli sinon."""
+    return cache.get(judge_key(alias, offer_id)) or cache.get(judge_key(alias, offer_id, JUDGE_FALLBACK_MODEL))
 
 
 def twopass_key(model: str, alias: str, offer_id: str) -> str:
@@ -216,22 +224,24 @@ def judge_pairs(export: Dict[str, Any]) -> List[Tuple[str, str, str]]:
     return pairs
 
 
-async def run_judge(export: Dict[str, Any], cache_path: Path, confirm: bool, concurrency: int = 8) -> int:
-    """Juge les paires absentes du cache et renvoie le nombre de paires restantes.
+async def run_judge(
+    export: Dict[str, Any], cache_path: Path, confirm: bool, concurrency: int = 8, model: str = JUDGE_MODEL
+) -> int:
+    """Juge les paires qu'aucun juge n'a encore labellisées et renvoie le nombre de paires restantes.
     Sans `confirm`, n'appelle rien et chiffre ce qui reste."""
     cache = load_cache(cache_path)
     offers = offers_by_id(export)
     profiles = {p["alias"]: p["profile"] for p in export["profiles"]}
     pairs = judge_pairs(export)
-    pending = [p for p in pairs if judge_key(p[0], p[1]) not in cache]
+    pending = [p for p in pairs if not judged_record(cache, p[0], p[1])]
 
     if not confirm:
         cost = 0.0
         for alias, offer_id, _ in pending:
             prompt_chars = sum(len(m["content"]) for m in build_judge_messages(profiles[alias], offers[offer_id]))
-            cost += estimate_llm_cost(JUDGE_MODEL, prompt_chars // 4, JUDGE_OUTPUT_TOKENS_ESTIMATE)
+            cost += estimate_llm_cost(model, prompt_chars // 4, JUDGE_OUTPUT_TOKENS_ESTIMATE)
         logger.info(
-            f"🧮 Juge {JUDGE_MODEL} : {len(pending)} paires restantes sur {len(pairs)}, "
+            f"🧮 Juge {model} : {len(pending)} paires restantes sur {len(pairs)}, "
             f"coût estimé {cost:.2f} $ hors cache de prompt. Aucun appel sans --confirm."
         )
         return len(pending)
@@ -242,7 +252,7 @@ async def run_judge(export: Dict[str, Any], cache_path: Path, confirm: bool, con
         async with semaphore:
             try:
                 response = await acompletion(
-                    model=JUDGE_MODEL,
+                    model=model,
                     messages=build_judge_messages(profiles[alias], offers[offer_id]),
                     # gpt-6.1-sol refuse temperature=0 (« Only the default (1) value is supported »)
                     # et litellm ne le sait pas : drop_params ne retire rien.
@@ -255,11 +265,12 @@ async def run_judge(export: Dict[str, Any], cache_path: Path, confirm: bool, con
                 logger.warning(f"⚠️ Juge en échec sur {alias}|{offer_id}, à retenter : {type(e).__name__}: {e}")
                 return
         usage = getattr(response, "usage", None)
-        cache[judge_key(alias, offer_id)] = {
+        cache[judge_key(alias, offer_id, model)] = {
             "alias": alias,
             "offer_id": offer_id,
             "set": set_name,
             "label": label,
+            "model": model,
             "justification": justification,
             "input_tokens": getattr(usage, "prompt_tokens", 0) or 0,
             "output_tokens": getattr(usage, "completion_tokens", 0) or 0,
@@ -267,7 +278,7 @@ async def run_judge(export: Dict[str, Any], cache_path: Path, confirm: bool, con
         save_cache(cache_path, cache)
 
     await asyncio.gather(*(judge_one(*p) for p in pending))
-    remaining = sum(1 for p in pairs if judge_key(p[0], p[1]) not in cache)
+    remaining = sum(1 for p in pairs if not judged_record(cache, p[0], p[1]))
     logger.info(f"✅ Juge : {len(pending) - remaining} paires jugées, {remaining} restantes")
     return remaining
 
@@ -462,7 +473,11 @@ def compute_metrics(
     ok = [r for r in twopass_records if r.get("score") is not None]
     latencies = [r["latency_ms"] for r in ok]
     twopass_cost = sum(estimate_llm_cost(twopass_model, r["input_tokens"], r["output_tokens"]) for r in ok)
-    judge_cost = sum(estimate_llm_cost(JUDGE_MODEL, r["input_tokens"], r["output_tokens"]) for r in judge_records)
+    # Enregistrements sans `model` : écrits avant le juge de repli, donc par le juge principal.
+    judge_models = [r.get("model", JUDGE_MODEL) for r in judge_records]
+    judge_cost = sum(
+        estimate_llm_cost(model, r["input_tokens"], r["output_tokens"]) for model, r in zip(judge_models, judge_records)
+    )
 
     return {
         "per_profile": per_profile,
@@ -476,7 +491,7 @@ def compute_metrics(
             "latency_ms_mean": round(statistics.mean(latencies)) if latencies else None,
             "latency_ms_p90": _percentile(latencies, 0.9),
         },
-        "judge_cost": {"model": JUDGE_MODEL, "n": len(judge_records), "cost_usd": round(judge_cost, 4)},
+        "judge_cost": {"models": dict(Counter(judge_models)), "n": len(judge_records), "cost_usd": round(judge_cost, 4)},
         "judge_labels": {
             alias: dict(Counter(r["label"] for r in judge_records if r["alias"] == alias and r["set"] == "sample"))
             for alias in per_profile
@@ -527,7 +542,7 @@ VALIDATION_COLUMNS = ("alias", "profil", "offer_id", "poste", "entreprise", "loc
 
 def cached_judge_records(export: Dict[str, Any]) -> List[Dict[str, Any]]:
     cache = load_cache(JUDGE_CACHE)
-    return [cache[key] for key in (judge_key(a, o) for a, o, _ in judge_pairs(export)) if key in cache]
+    return [r for r in (judged_record(cache, a, o) for a, o, _ in judge_pairs(export)) if r]
 
 
 def cached_twopass_records(export: Dict[str, Any], model: str) -> List[Dict[str, Any]]:
@@ -604,7 +619,7 @@ def report(export: Dict[str, Any], model: str) -> None:
         f"{cost['cost_usd']} $ ({cost['cost_per_pair_usd']} $ par paire), latence moyenne {cost['latency_ms_mean']} ms, "
         f"p90 {cost['latency_ms_p90']} ms"
     )
-    print(f"Juge {JUDGE_MODEL} : {metrics['judge_cost']['n']} paires, {metrics['judge_cost']['cost_usd']} $")
+    print(f"Juge {metrics['judge_cost']['models']} : {metrics['judge_cost']['n']} paires, {metrics['judge_cost']['cost_usd']} $")
     print(f"Labels du juge sur l'échantillon : {metrics['judge_labels']}")
     print(f"Cohérence du juge sur les interactions : {metrics['judge_coherence']}")
     agreement_ = metrics["agreement"]
@@ -622,6 +637,7 @@ def main() -> None:
     judge = sub.add_parser("judge", help="Annoter les paires avec le juge LLM")
     judge.add_argument("--confirm", action="store_true", help="Appeler le LLM (dépense)")
     judge.add_argument("--concurrency", type=int, default=8)
+    judge.add_argument("--model", choices=(JUDGE_MODEL, JUDGE_FALLBACK_MODEL), default=JUDGE_MODEL)
     twopass = sub.add_parser("twopass", help="Two-Pass pur sur échantillon × profils")
     twopass.add_argument("--confirm", action="store_true", help="Appeler le LLM (dépense)")
     twopass.add_argument("--concurrency", type=int, default=4)
@@ -633,7 +649,7 @@ def main() -> None:
 
     export = load_export(args.export)
     if args.command == "judge":
-        asyncio.run(run_judge(export, JUDGE_CACHE, args.confirm, args.concurrency))
+        asyncio.run(run_judge(export, JUDGE_CACHE, args.confirm, args.concurrency, args.model))
     elif args.command == "twopass":
         asyncio.run(run_twopass(export, TWOPASS_CACHE, args.confirm, args.concurrency, args.model))
     elif args.command == "validation-sheet":

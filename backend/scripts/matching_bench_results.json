@@ -1,0 +1,687 @@
+{
+  "meta": {
+    "exported_at": "2026-10-24T20:46:01.307000",
+    "seed": 20261024,
+    "judge_model": "openai/gpt-6.1-sol",
+    "judge_prompt_version": "v1",
+    "twopass_model": "gemini/gemini-3.7-flash",
+    "n_profiles": 1,
+    "n_sample": 70,
+    "n_interactions": 30,
+    "n_interactions_missing_offer": 11
+  },
+  "judge": [
+    {
+      "alias": "A",
+      "offer_id": "6ad07b5e265dc443843af7ea",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac288eb1a1c20ac97d1f452",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad8e38c6f2029333647c890",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac2878a1a1c20ac97d1f417",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac51d05059c830954a12fef",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad24ae15d3275fb19e693b1",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac2878a1a1c20ac97d1f401",
+      "set": "sample",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac288eb1a1c20ac97d1f457",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6acf297650f245fb3d2bcd7b",
+      "set": "sample",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac2878a1a1c20ac97d1f411",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad5c0c4814e56acb70e74be",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6acfa9f1e648f3c85df4eb9e",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac2878a1a1c20ac97d1f41a",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac66ebf3101438ddf1162e4",
+      "set": "sample",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6acf297650f245fb3d2bcd78",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ada34e3f5f24bb257dd25fc",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ace57d78b9066fba5362614",
+      "set": "sample",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad1cc27cc3eb81d46b16384",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac66ebf3101438ddf1162e6",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac91308ac976e0a04fa02d9",
+      "set": "sample",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad8e2266f2029333647c86b",
+      "set": "sample",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac288eb1a1c20ac97d1f44a",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac288eb1a1c20ac97d1f451",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ace56798b9066fba536260b",
+      "set": "sample",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6acd0504f3ebe428fff830a3",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ace56798b9066fba536260e",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad07b5e265dc443843af7e9",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac3cc06bba47c46eb912421",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac38e9d347eb59e6393c170",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac892062d81a8e60a8423b4",
+      "set": "sample",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad79386fb4ab1ffd87122b1",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7928dfb4ab1ffd871227a",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7913bfb4ab1ffd871222b",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6adb07748f7d6aef26756160",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7913bfb4ab1ffd8712223",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6adb07748f7d6aef26756162",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad79386fb4ab1ffd87122ca",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6adb08e28f7d6aef26756169",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7913bfb4ab1ffd8712227",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7913bfb4ab1ffd871223c",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6adb08e28f7d6aef2675616b",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7928dfb4ab1ffd8712280",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad9b873261afa5119fb0170",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad863e8050b20fda0eaf7b1",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7928dfb4ab1ffd871225a",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7913bfb4ab1ffd871223a",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7928dfb4ab1ffd8712276",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7913bfb4ab1ffd871222e",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad79386fb4ab1ffd87122bb",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7928dfb4ab1ffd871226e",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad8e42b6f2029333647c898",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad8660d050b20fda0eaf7e0",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7913bfb4ab1ffd8712220",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6adb07748f7d6aef2675615f",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad86521050b20fda0eaf7cc",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6adb85f2252225b427d36936",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7928dfb4ab1ffd8712282",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad79386fb4ab1ffd87122d4",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7913bfb4ab1ffd8712226",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7913bfb4ab1ffd8712221",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad79386fb4ab1ffd87122c6",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7928dfb4ab1ffd8712262",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7913bfb4ab1ffd871222c",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad863e8050b20fda0eaf7b0",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad79386fb4ab1ffd87122dc",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad8e2796f2029333647c877",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ada358ef5f24bb257dd2604",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad86521050b20fda0eaf7cd",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad7913bfb4ab1ffd8712235",
+      "set": "sample",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad86521050b20fda0eaf7c6",
+      "set": "sample",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac2878a1a1c20ac97d1f3f9",
+      "set": "interaction",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac2878a1a1c20ac97d1f3ff",
+      "set": "interaction",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac2878a1a1c20ac97d1f404",
+      "set": "interaction",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac2878a1a1c20ac97d1f405",
+      "set": "interaction",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac288eb1a1c20ac97d1f446",
+      "set": "interaction",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac288eb1a1c20ac97d1f44c",
+      "set": "interaction",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac289841a1c20ac97d1f469",
+      "set": "interaction",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac289841a1c20ac97d1f46a",
+      "set": "interaction",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac289841a1c20ac97d1f46b",
+      "set": "interaction",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac289841a1c20ac97d1f46c",
+      "set": "interaction",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac289841a1c20ac97d1f46e",
+      "set": "interaction",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac38c43347eb59e6393c15e",
+      "set": "interaction",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac38c43347eb59e6393c15f",
+      "set": "interaction",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac3a527b366d85292d4c96e",
+      "set": "interaction",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac3b8ebb366d85292d4c970",
+      "set": "interaction",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac90305ec5231f97ac894c9",
+      "set": "interaction",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac91308ac976e0a04fa02da",
+      "set": "interaction",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ac960aeec5231f97ac894d1",
+      "set": "interaction",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6acc87169ddacdf77e529965",
+      "set": "interaction",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6acc87169ddacdf77e529966",
+      "set": "interaction",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6acd05a4f3ebe428fff830a8",
+      "set": "interaction",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6acd066df3ebe428fff830b0",
+      "set": "interaction",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6acd184153fd967688de3bfd",
+      "set": "interaction",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6acd18f253fd967688de3c00",
+      "set": "interaction",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6acdd9404997fdf010925954",
+      "set": "interaction",
+      "label": "irrelevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad5c14c814e56acb70e74c7",
+      "set": "interaction",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad79055fb4ab1ffd87121f7",
+      "set": "interaction",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ad86350050b20fda0eaf7ab",
+      "set": "interaction",
+      "label": "partial"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ada3377f5f24bb257dd25e0",
+      "set": "interaction",
+      "label": "relevant"
+    },
+    {
+      "alias": "A",
+      "offer_id": "6ada3377f5f24bb257dd25e1",
+      "set": "interaction",
+      "label": "partial"
+    }
+  ],
+  "twopass": [],
+  "human": [],
+  "metrics": {
+    "per_profile": {
+      "A": {
+        "chronological": {
+          "p@10": 0.2,
+          "p@20": 0.35,
+          "fp@20": 0.05,
+          "top3": [
+            "6ada34e3f5f24bb257dd25fc",
+            "6ad8e38c6f2029333647c890",
+            "6ad8e2266f2029333647c86b"
+          ]
+        },
+        "twopass": {
+          "p@10": 0.0,
+          "p@20": 0.05,
+          "fp@20": 0.5,
+          "top3": [
+            "6adb85f2252225b427d36936",
+            "6adb08e28f7d6aef2675616b",
+            "6adb08e28f7d6aef26756169"
+          ]
+        }
+      }
+    },
+    "twopass_cost": {
+      "model": "gemini/gemini-3.7-flash",
+      "n_ok": 0,
+      "n_errors": 0,
+      "n_prefiltered": 0,
+      "cost_usd": 0,
+      "cost_per_pair_usd": null,
+      "latency_ms_mean": null,
+      "latency_ms_p90": null
+    },
+    "judge_cost": {
+      "models": {
+        "openai/gpt-6.1-sol": 93,
+        "mistral/mistral-large-2512": 7
+      },
+      "n": 100,
+      "cost_usd": 1.1626
+    },
+    "judge_labels": {
+      "A": {
+        "partial": 36,
+        "relevant": 8,
+        "irrelevant": 26
+      }
+    },
+    "judge_coherence": {
+      "applied": {
+        "n": 20,
+        "relevant": 13,
+        "partial": 7,
+        "irrelevant": 0
+      },
+      "hidden": {
+        "n": 10,
+        "relevant": 0,
+        "partial": 7,
+        "irrelevant": 3
+      }
+    },
+    "agreement": {
+      "n": 0,
+      "exact": null,
+      "binary": null
+    }
+  }
+}
