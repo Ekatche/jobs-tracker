@@ -227,3 +227,76 @@ def test_suggested_roles_cache_miss_persists_suggestions_for_reuse(client):
     cached = args[1]["$set"]["suggested_roles_cache"]
     assert cached["suggestions"] == ["Data Engineer"]
     assert cached["hash"] == _suggested_roles_profile_hash(profile)
+
+
+def test_suggested_roles_related_variants_keep_acronyms_uppercase(client):
+    """Les variantes de role_aliases sont stockées en minuscules : « fp&a » ne doit pas ressortir « Fp&A »."""
+    profile = {
+        "_id": ObjectId(),
+        "user_id": ObjectId(MOCK_USER_ID),
+        "headline": "Contrôleur de gestion",
+        "experiences": [],
+    }
+
+    mock_cursor = MagicMock()
+    mock_cursor.to_list = AsyncMock(return_value=[
+        {"canonical": "Contrôleur de gestion", "variants": ["contrôleur de gestion", "contrôleur de gestion fp&a", "daf adjoint"]},
+    ])
+
+    mock_db = MagicMock()
+    mock_db["candidate_profile"].find_one = AsyncMock(return_value=profile)
+    mock_db["candidate_profile"].update_one = AsyncMock()
+    mock_db["role_aliases"].find.return_value = mock_cursor
+
+    app.dependency_overrides[get_current_user] = lambda: mock_current_user
+    app.dependency_overrides[get_database] = lambda: mock_db
+
+    with patch(
+        "app.routers.cover_letters.suggest_role_titles_from_profile",
+        new_callable=AsyncMock,
+        return_value={"roles": [], "_usage": None},
+    ), patch(
+        "app.routers.cover_letters.match_taxonomy_role",
+        new_callable=AsyncMock,
+        return_value="Contrôleur de gestion",
+    ), patch(
+        "app.routers.cover_letters.require_user_quota", new_callable=AsyncMock
+    ):
+        res = client.get("/profile/candidate/suggested-roles")
+
+    assert res.status_code == 200
+    assert res.json() == {"roles": ["Contrôleur de gestion", "Contrôleur De Gestion FP&A", "DAF Adjoint"]}
+
+
+def test_suggested_roles_cache_hit_repairs_acronym_case(client):
+    """Un cache calculé avant la correction (« Fp&A ») est renvoyé avec le sigle en majuscules, sans recalcul."""
+    profile = {
+        "_id": ObjectId(),
+        "user_id": ObjectId(MOCK_USER_ID),
+        "headline": "Contrôleur de gestion",
+        "experiences": [],
+    }
+    profile["suggested_roles_cache"] = {
+        "hash": _suggested_roles_profile_hash(profile),
+        "raw_roles": [],
+        "suggestions": ["Contrôleur de gestion", "Contrôleur De Gestion Fp&A"],
+    }
+
+    mock_db = MagicMock()
+    mock_db["candidate_profile"].find_one = AsyncMock(return_value=profile)
+    mock_db["candidate_profile"].update_one = AsyncMock()
+
+    app.dependency_overrides[get_current_user] = lambda: mock_current_user
+    app.dependency_overrides[get_database] = lambda: mock_db
+
+    with patch(
+        "app.routers.cover_letters.suggest_role_titles_from_profile", new_callable=AsyncMock
+    ) as mock_llm, patch(
+        "app.routers.cover_letters.match_taxonomy_role", new_callable=AsyncMock
+    ) as mock_taxonomy:
+        res = client.get("/profile/candidate/suggested-roles")
+
+    assert res.status_code == 200
+    assert res.json() == {"roles": ["Contrôleur de gestion", "Contrôleur De Gestion FP&A"]}
+    mock_llm.assert_not_called()
+    mock_taxonomy.assert_not_called()

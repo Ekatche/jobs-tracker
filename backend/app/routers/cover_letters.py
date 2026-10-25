@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -290,6 +291,32 @@ def _suggested_roles_profile_hash(prof: dict) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 
 
+# Sigles d'intitulés de poste que str.title() abîme (« Drh », « Daf ») :
+# role_aliases stocke ses variantes en minuscules, la casse d'origine est perdue.
+TITLE_ACRONYMS = {
+    "rh", "drh", "rrh", "daf", "dsi", "dg", "rssi", "dpo", "pmo", "rse", "qse", "hse", "qhse",
+    "adv", "kam", "moa", "moe", "amoa", "esn", "btp", "pme", "eti",
+    "ceo", "cfo", "cto", "coo", "cmo", "cio", "cpo", "vp", "hr",
+    "it", "si", "ia", "ai", "ml", "nlp", "llm", "bi", "crm", "erp", "sap", "sql", "api",
+    "aws", "gcp", "qa", "ux", "ui", "seo", "sea", "b2b", "b2c",
+}
+
+
+def _restore_title_acronyms(title: str) -> str:
+    """Remet en majuscules les sigles d'un intitulé (« Fp&A » -> « FP&A »).
+
+    Un mot contenant « & » (FP&A, R&D, M&A) ou présent dans TITLE_ACRONYMS
+    passe en majuscules ; les autres mots gardent leur casse.
+    """
+    def _fix(match: re.Match) -> str:
+        word = match.group(0)
+        if "&" in word or word.lower() in TITLE_ACRONYMS:
+            return word.upper()
+        return word
+
+    return re.sub(r"\w+(?:&\w+)*", _fix, title)
+
+
 async def _canonicalize_roles(raw_roles: list[str], db) -> list[str]:
     """Canonicalise `raw_roles` puis élargit avec les métiers liés.
 
@@ -330,7 +357,7 @@ async def _canonicalize_roles(raw_roles: list[str], db) -> list[str]:
         ).to_list(length=len(canonicals))
         for alias in aliases:
             for variant in alias.get("variants") or []:
-                related = variant.strip().title()
+                related = _restore_title_acronyms(variant.strip().title())
                 key = related.lower()
                 if related and key not in seen:
                     seen.add(key)
@@ -374,7 +401,15 @@ async def get_suggested_roles(
     cache_hit = cache.get("hash") == profile_hash
 
     if cache_hit and cache.get("suggestions") is not None:
-        return {"roles": cache["suggestions"][:MAX_SUGGESTED_ROLES]}
+        # Les caches calculés avant _restore_title_acronyms contiennent encore
+        # « Fp&A » : on les répare ici plutôt que de les invalider (un appel LLM
+        # et du quota par profil pour une correction typographique).
+        return {
+            "roles": [
+                _restore_title_acronyms(role)
+                for role in cache["suggestions"][:MAX_SUGGESTED_ROLES]
+            ]
+        }
 
     raw_roles: list[str] = []
     headline = (prof.get("headline") or "").strip()
