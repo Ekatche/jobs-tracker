@@ -88,13 +88,18 @@ def test_offer_embedding_text_excludes_competences_cles():
 
 
 def test_offer_embedding_text_truncates_and_collapses_spaces():
-    description = ("abc \n" * 600)[:3000]
-    assert len(description) == 3000
+    # Un bloc de run de retours à la ligne entre deux mots longs : collapse-puis-tronque
+    # et tronque-puis-collapse donnent un nombre de "B" différent dans les 1000
+    # premiers caractères — le test échoue sous l'ordre erroné (tronquer avant de
+    # collapser), ce qui le distingue d'une simple absence de "\n"/double espace.
+    description = "A" * 600 + "\n\n\n" + "B" * 600
     offer = {"poste": "Data Analyst", "description": description}
 
     text = offer_embedding_text(offer)
 
-    assert text.startswith("Data Analyst. ")
+    # Ordre requis (calibration COS_FLOOR/COS_CEIL) : collapse d'abord, tronque ensuite.
+    expected_desc = " ".join(description.split())[:1000]
+    assert text == f"Data Analyst. {expected_desc}"
     assert "\n" not in text
     assert "  " not in text
 

@@ -16,7 +16,6 @@ propage jamais l'erreur au-delà de ce module, sauf `embed_texts` elle-même
 
 import hashlib
 import logging
-import re
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
@@ -24,8 +23,6 @@ from app.services.evaluation.domain_relevance import expand_title_acronyms
 from app.services.offer_scoring.constants import DESCRIPTION_CHARS, EMBED_BATCH, EMBEDDING_MODEL
 
 logger = logging.getLogger(__name__)
-
-_WHITESPACE_RE = re.compile(r"\s+")
 
 
 def offer_embedding_text(offer: dict) -> Optional[str]:
@@ -38,9 +35,10 @@ def offer_embedding_text(offer: dict) -> Optional[str]:
         return None
 
     title = expand_title_acronyms(poste)
-    truncated_description = description[:DESCRIPTION_CHARS]
-    text = f"{title}. {truncated_description}"
-    return _WHITESPACE_RE.sub(" ", text).strip()
+    # Collapse d'abord, tronque ensuite : COS_FLOOR/COS_CEIL ont été calibrées
+    # sur les 1000 premiers caractères du texte déjà nettoyé, pas du texte brut.
+    collapsed_description = " ".join(description.split())[:DESCRIPTION_CHARS]
+    return f"{title}. {collapsed_description}".strip()
 
 
 def text_hash(text: str) -> str:
