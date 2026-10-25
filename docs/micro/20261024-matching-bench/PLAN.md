@@ -116,7 +116,7 @@ created: 2026-10-24
   - Les `grep -c` de lecture seule, de calcul pur et de modèle juge donnent les valeurs attendues.
   - Supprimer `backend/scripts/data/matching_bench/export_local.json`, un artefact de vérification qui contient le profil local.
   - Vérification : les commandes ci-dessus et `test ! -e backend/scripts/data/matching_bench/export_local.json`.
-- [ ] Step 5 (utilisateur) : export de prod, en lecture seule, lancé par l'utilisateur. Depuis la racine du dépôt :
+- [x] Step 5 (utilisateur) : export de prod, en lecture seule, lancé par l'utilisateur. Depuis la racine du dépôt :
   `mkdir -p backend/scripts/data/matching_bench`
   `ssh sentinel-vps 'docker exec -i jobtracker-backend python - --out /tmp/matching_bench_export.json' < backend/scripts/export_matching_bench.py`
   `ssh sentinel-vps 'docker exec jobtracker-backend cat /tmp/matching_bench_export.json' > backend/scripts/data/matching_bench/export.json`
@@ -125,7 +125,7 @@ created: 2026-10-24
   L'utilisateur donne aussi le modèle d'évaluation de prod : `ssh sentinel-vps 'docker exec jobtracker-backend printenv EVALUATION_MODEL'`, un nom de modèle et pas un secret.
 
   Vérification : `cd backend && uv run python -c "from bson import json_util; e=json_util.loads(open('scripts/data/matching_bench/export.json').read()); print(len(e['profiles']), len(e['sample_offer_ids']), len(e['interactions']))"` exit 0. Comptages notés dans `## Notes` et comparés aux chiffres annoncés par la spec : 2 profils, 41 interactions (30 `applied`, 11 `hidden`).
-- [ ] Step 6 (après accord de l'utilisateur sur la dépense) : afficher les dry-runs `judge` et `twopass` sur `export.json` et donner le coût estimé à l'utilisateur. Lancer ensuite, seulement après son accord, `docker exec jobtracker-backend python scripts/matching_bench.py judge --confirm` et `... twopass --confirm --model <modèle de prod>`.
+- [~] Step 6 (après accord de l'utilisateur sur la dépense) : afficher les dry-runs `judge` et `twopass` sur `export.json` et donner le coût estimé à l'utilisateur. Lancer ensuite, seulement après son accord, `docker exec jobtracker-backend python scripts/matching_bench.py judge --confirm` et `... twopass --confirm --model <modèle de prod>`.
 
   Vérification : un second dry-run des deux sous-commandes affiche 0 appel restant, hors erreurs déterministes listées. Coût réel relevé dans `## Notes`.
 - [ ] Step 7 (utilisateur) : `docker exec jobtracker-backend python scripts/matching_bench.py validation-sheet`. L'utilisateur remplit la colonne `human_label` des 20 lignes de `backend/scripts/data/matching_bench/validation.csv`. Puis `docker exec jobtracker-backend python scripts/matching_bench.py report`.
@@ -152,8 +152,19 @@ created: 2026-10-24
 - 2026-10-24T16:23Z | claude-code | step 4 | started
 - 2026-10-24T16:24Z | claude-code | step 4 | done | `uvx pyflakes` 3 fichiers sans sortie exit 0 ; écritures 0/0 ; quota 0 ; `compute_offer_evaluation` 4 ; `JUDGE_MODEL` 1 ; build exit 0 ; `git check-ignore` exit 0 ; `export_local.json` supprimé, `test ! -e` exit 0
 - 2026-10-24T16:24Z | claude-code | step 5 | blocked | en attente de l'export de prod, lancé par l'utilisateur
+- 2026-10-24T20:49Z | claude-code | step 5 | done | vérification exit 0 : 1 profil, 70 offres d'échantillon, 41 interactions (30 applied, 11 hidden, toutes du profil A), 11 offres d'interaction introuvables ; EVALUATION_MODEL prod = gemini/gemini-3.8-flash
+- 2026-10-24T20:52Z | claude-code | step 6 | started
+- 2026-10-24T20:53Z | claude-code | step 6 | dry-run | juge openai/gpt-6.1-sol 100 paires 1,33 $ ; Two-Pass gemini/gemini-3.8-flash 70 paires 1,23 $ ; total 2,56 $ sous le plafond de 7 $, --confirm lancés en arrière-plan (logs scratchpad bench_judge.log et bench_twopass.log)
+- 2026-10-24T20:57Z | claude-code | step 6 | failure 1/2 | `judge --confirm` exit 0 mais 0 paire jugée sur 100 : `BadRequestError ... 'temperature' does not support 0 with this model. Only the default (1) value is supported.` Hypothèse : retirer `temperature=0` de `run_judge`. Two-Pass toujours en cours
+- 2026-10-24T20:58Z | claude-code | step 6 | fix 1/2 ok | `temperature=0` retiré (`matching_bench.py`, commentaire), `pytest tests/test_matching_bench.py -q` 15 passed ; une paire jugée à la main : `partial`, 5 665 tokens en entrée, 67 en sortie, 0 de raisonnement ; `judge --confirm` relancé
+- 2026-10-24T21:00Z | claude-code | step 6 | blocked | Two-Pass `twopass exit 0`, 70 évaluées, dry-run 0 restante ; juge `judge exit 0`, 93 jugées, dry-run 7 restantes (0,09 $) : `RateLimitError ... You have no credits remaining` (compte OpenAI à sec, erreur externe, pas déterministe)
 
 ## Notes
+- Étape 6 (2026-10-24T21:00Z) :
+  - premier `judge --confirm` : 0 paire jugée sur 100, `gpt-6.1-sol` refuse `temperature=0` et litellm ne le sait pas (`drop_params` ne retire rien). Correctif : paramètre retiré. Aucun coût, les 400 ne sont pas facturés ;
+  - second `judge --confirm` : 93 paires jugées (18 `relevant`, 48 `partial`, 27 `irrelevant`), 7 en échec sur `You have no credits remaining` ;
+  - coût réel calculé depuis les caches avec `estimate_llm_cost` : juge 1,10 $ (514 850 tokens en entrée, 6 931 en sortie), Two-Pass 1,30 $ (514 846 en entrée, 244 590 en sortie), paire de test 0,012 $, soit 2,41 $ au total, sous le plafond de 7 $ ;
+  - prochaine action : l'utilisateur recharge le compte OpenAI, puis `docker exec jobtracker-backend python scripts/matching_bench.py judge --confirm` (7 paires, 0,09 $ estimés, dans l'accord déjà donné), puis second dry-run à 0 et étape 7.
 - Conventions lues (Phase 3) : `CLAUDE.md`, identique à `AGENTS.md` et `GEMINI.md` (graphe de code, directives sur les tests : logique métier, contrats, pas de sur-mocking ni de réseau) ; `.cursorrules` (graphe de code).
 - Baseline (Phase 3, 2026-10-24) :
   - build : exit 1, `ModuleNotFoundError: No module named 'scripts.export_matching_bench'` ;
@@ -173,4 +184,8 @@ created: 2026-10-24
 - Le classement hybride sera branché sur ce banc à l'étape 3 de la spec, avec la garde de rappel (aucune offre `applied` sous `FLOOR`) ; il n'existe pas encore. L'export inclut les offres des interactions pour cette garde.
 - La garde de rappel ne s'applique pas ici : elle ne vaut que pour l'hybride.
 - Écart à l'étape 2 : sa vérification `-k "select_sample or aliases"` ne peut pas passer avant l'étape 3, car `tests/test_matching_bench.py` importe les deux modules en tête (exit 2, `No module named 'scripts.matching_bench'`). Ces tests sont couverts par la vérification complète de l'étape 3. La commande d'export de prod par stdin (`python -`, où `__file__` vaut `'<stdin>'`) a été validée en local, fichier temporaire supprimé du conteneur.
-- Prochaine action : l'utilisateur lance les commandes de l'étape 5 (export de prod et `printenv EVALUATION_MODEL`), puis l'étape 6 attend son accord sur la dépense (dry-run local : juge 0,88 $ et Two-Pass 1,23 $ pour 70 offres et 1 profil ; à recalculer sur l'export de prod).
+- Étape 5 (2026-10-24T20:49Z) : l'export de prod compte 1 profil, pas 2 comme l'annonçait la spec. Les 41 interactions (30 `applied`, 11 `hidden`) appartiennent toutes au même utilisateur ; aucun autre utilisateur n'a d'interaction `applied`/`hidden` avec un `candidate_profile`. Échantillon : 70 offres (30 rattachées et 40 non rattachées). 11 offres d'interaction sont introuvables (offer_id morts après la restauration du 5 octobre). Le banc reste valable, avec moins de puissance statistique : 70 paires au lieu de 200.
+- Modèle Two-Pass de prod : `gemini/gemini-3.8-flash`, égal au défaut du code. L'écart avec le `.env` local (`gemini-3.7-flash`) est tranché : `--model gemini/gemini-3.8-flash` à l'étape 6.
+- Accord de dépense donné par l'utilisateur le 2026-10-24 vers 20:33Z (« je te donne mon accord pour le banc de mesure »). Plafond retenu : 7 $ pour le passage complet, d'après l'estimation de 6,4 $. Si le dry-run sur l'export de prod dépasse 7 $, revenir vers l'utilisateur avant tout `--confirm`.
+- Décision 2 de la spec tranchée le même jour : le Two-Pass est réservé aux meilleures offres. Le banc garde sa mesure du Two-Pass, qui sert désormais à dimensionner N (coût et latence), plus à décider de l'existence du Lot 2.
+- Prochaine action : l'utilisateur lance les commandes de l'étape 5 (export de prod et `printenv EVALUATION_MODEL`). Ensuite, dry-run `judge` et `twopass` sur l'export de prod (dry-run local : juge 0,88 $ et Two-Pass 1,23 $ pour 70 offres et 1 profil), puis `--confirm` sans nouvelle question si le total reste sous le plafond.

@@ -244,7 +244,8 @@ async def run_judge(export: Dict[str, Any], cache_path: Path, confirm: bool, con
                 response = await acompletion(
                     model=JUDGE_MODEL,
                     messages=build_judge_messages(profiles[alias], offers[offer_id]),
-                    temperature=0,
+                    # gpt-6.1-sol refuse temperature=0 (« Only the default (1) value is supported »)
+                    # et litellm ne le sait pas : drop_params ne retire rien.
                     response_format={"type": "json_object"},
                     drop_params=True,
                     num_retries=3,
