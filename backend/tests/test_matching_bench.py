@@ -24,6 +24,7 @@ from scripts.matching_bench import (
     BenchDatabase,
     agreement,
     build_results_payload,
+    cached_hybrid_cos_records,
     cached_judge_records,
     compute_metrics,
     false_positive_rate_at_k,
@@ -422,6 +423,54 @@ def test_results_payload_hybrid_blocks_contain_no_profile_data():
     assert "secret skill" not in serialized
     assert "spécifique" not in serialized
     assert USER_A not in serialized
+
+
+@pytest.mark.asyncio
+async def test_run_embed_includes_interaction_offers_outside_sample(tmp_path):
+    # Offre 2 hors échantillon, référencée uniquement par une interaction `applied` :
+    # `run_embed` doit quand même l'embarquer, comme `hybrid_scores`/`_hybrid_assessment_ids`
+    # l'évaluent pour ce profil (garde de rappel `applied_below_floor`).
+    offer1 = _offer(1)
+    offer2 = _offer(2)
+    export = _export(
+        [offer1, offer2],
+        [_oid(1)],
+        interactions=[{"alias": "A", "offer_id": _oid(2), "status": "applied"}],
+    )
+    cache_path = tmp_path / "hybrid_cos_cache.json"
+    fake_embed = AsyncMock(side_effect=lambda texts: [[1.0, 0.0] for _ in texts])
+
+    with patch("scripts.matching_bench.embed_texts", fake_embed):
+        await run_embed(export, cache_path, confirm=True)
+
+    cache = json.loads(cache_path.read_text())
+    assert hybrid_cos_key(EMBEDDING_MODEL, "A", _oid(2)) in cache
+
+
+def test_cached_hybrid_cos_records_returns_interaction_offer_records(tmp_path):
+    offer1 = _offer(1)
+    offer2 = _offer(2)
+    export = _export(
+        [offer1, offer2],
+        [_oid(1)],
+        interactions=[{"alias": "A", "offer_id": _oid(2), "status": "applied"}],
+    )
+    identity = profile_features(export["profiles"][0]["profile"]).identity
+    record = {
+        "alias": "A",
+        "offer_id": _oid(2),
+        "model": EMBEDDING_MODEL,
+        "text_hash": text_hash(offer_embedding_text(offer2)),
+        "identity_hash": text_hash(identity),
+        "cos": 0.42,
+    }
+    cache_path = tmp_path / "hybrid_cos_cache.json"
+    cache_path.write_text(json.dumps({hybrid_cos_key(EMBEDDING_MODEL, "A", _oid(2)): record}))
+
+    with patch("scripts.matching_bench.HYBRID_COS_CACHE", cache_path):
+        records = cached_hybrid_cos_records(export)
+
+    assert record in records
 
 
 def test_select_validation_pairs_is_balanced_and_deterministic():

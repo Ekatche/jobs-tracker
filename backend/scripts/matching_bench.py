@@ -378,19 +378,24 @@ def _profile_identities(export: Dict[str, Any]) -> Dict[str, Tuple[Optional[str]
 
 
 async def run_embed(export: Dict[str, Any], cache_path: Path, confirm: bool) -> None:
-    """Embarque les offres de l'échantillon et les identités candidates pour le cosinus
-    du score hybride, mis en cache par (modèle, alias, offre). Sans `confirm`, n'appelle
-    rien et chiffre les paires manquantes et le coût estimé."""
+    """Embarque les offres pertinentes (échantillon + interactions de chaque profil, cf.
+    `_hybrid_assessment_ids`) et les identités candidates pour le cosinus du score hybride,
+    mis en cache par (modèle, alias, offre). Sans `confirm`, n'appelle rien et chiffre les
+    paires manquantes et le coût estimé."""
     cache = load_cache(cache_path)
     offers = offers_by_id(export)
-    ids = sample_ids(export)
-    offer_texts = {oid: offer_embedding_text(offers[oid]) for oid in ids}
     identities = _profile_identities(export)
+    assessment_ids = {p["alias"]: _hybrid_assessment_ids(export, p["alias"]) for p in export["profiles"]}
+    all_ids = {oid for ids in assessment_ids.values() for oid in ids}
+    offer_texts = {oid: offer_embedding_text(offers[oid]) for oid in all_ids}
 
     pending: List[Tuple[str, str]] = []
+    total_pairs = 0
     for p in export["profiles"]:
         alias = p["alias"]
         identity, identity_hash = identities[alias]
+        ids = assessment_ids[alias]
+        total_pairs += len(ids)
         if not identity:  # ruling R1 : `semantic` sort du dénominateur, aucun cosinus à calculer
             continue
         for oid in ids:
@@ -416,7 +421,7 @@ async def run_embed(export: Dict[str, Any], cache_path: Path, confirm: bool) -> 
         cost = (chars / 4) / 1_000_000 * 0.1
         logger.info(
             f"🧮 Embeddings hybrides {EMBEDDING_MODEL} : {len(pending)} paires manquantes sur "
-            f"{len(export['profiles']) * len(ids)}, coût estimé {cost:.4f} $. Aucun appel sans --confirm."
+            f"{total_pairs}, coût estimé {cost:.4f} $. Aucun appel sans --confirm."
         )
         return
 
@@ -453,23 +458,30 @@ async def run_embed(export: Dict[str, Any], cache_path: Path, confirm: bool) -> 
 
 
 def cached_hybrid_cos_records(export: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Enregistrements cos valides pour le texte d'offre et l'identité candidat courants.
-    Une paire sans enregistrement valide est ignorée : `assess_offer` la scorera avec
-    `cos=None` (moitié des points sémantiques, cf. global-constraints.md)."""
+    """Enregistrements cos valides pour le texte d'offre et l'identité candidat courants,
+    sur l'échantillon et les offres des interactions de chaque profil (mêmes ids que
+    `hybrid_scores`, cf. `_hybrid_assessment_ids`). Une paire sans enregistrement valide
+    est ignorée : `assess_offer` la scorera avec `cos=None` (moitié des points sémantiques,
+    cf. global-constraints.md)."""
     cache = load_cache(HYBRID_COS_CACHE)
     offers = offers_by_id(export)
+    identities = _profile_identities(export)
+    assessment_ids = {p["alias"]: _hybrid_assessment_ids(export, p["alias"]) for p in export["profiles"]}
+    all_ids = {oid for ids in assessment_ids.values() for oid in ids}
     offer_hashes = {
         oid: text_hash(text)
-        for oid, text in ((oid, offer_embedding_text(offers[oid])) for oid in sample_ids(export))
+        for oid, text in ((oid, offer_embedding_text(offers[oid])) for oid in all_ids)
         if text is not None
     }
-    identities = _profile_identities(export)
 
     records = []
     for p in export["profiles"]:
         alias = p["alias"]
         _, identity_hash = identities[alias]
-        for oid, offer_hash in offer_hashes.items():
+        for oid in assessment_ids[alias]:
+            offer_hash = offer_hashes.get(oid)
+            if offer_hash is None:
+                continue
             record = cache.get(hybrid_cos_key(EMBEDDING_MODEL, alias, oid))
             if _cos_record_valid(record, EMBEDDING_MODEL, offer_hash, identity_hash):
                 records.append(record)
