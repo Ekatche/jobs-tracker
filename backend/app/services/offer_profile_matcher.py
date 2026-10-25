@@ -19,7 +19,12 @@ from pymongo import DeleteOne, UpdateOne
 
 from app.services.offer_scoring.assess import assess_offer
 from app.services.offer_scoring.constants import FLOOR, SCORING_VERSION
-from app.services.offer_scoring.embeddings import embed_texts, get_offer_vectors, get_profile_vector
+from app.services.offer_scoring.embeddings import (
+    embed_texts,
+    get_offer_vectors,
+    get_profile_vector,
+    offer_embedding_text,
+)
 from app.services.offer_scoring.score import SkillIdf, build_skill_idf, profile_features
 from app.services.role_normalizer import cosine_similarity
 
@@ -197,14 +202,32 @@ async def rematch_user(user_id: str, db, *, apply: bool = True, embed=embed_text
 
 
 async def tag_new_offers(offer_ids: list, db, *, embed=embed_texts) -> None:
-    """Recalcule le score hybride de TOUS les profils contre un lot d'offres
-    fraîchement sauvegardées. Utilisé en fin de cycle de collecte : rattache
-    (`$addToSet`) les offres adaptées, ne détache jamais (ce lot est neuf,
-    aucune offre n'y est déjà rattachée à tort)."""
-    if not offer_ids:
-        return
+    """Recalcule le score hybride de TOUS les profils contre les offres du lot
+    `offer_ids` et contre les offres encore en attente d'une réévaluation
+    (`scoring_pending`, laissées de côté par une panne d'embedding lors d'un
+    appel précédent). Utilisé en fin de cycle de collecte : `offer_ids`
+    mélange des offres neuves et des offres existantes mises à jour par la
+    collecte ; ce lot ne détache jamais une offre déjà rattachée (le
+    détachement n'est fait que par `rematch_user`).
 
-    offers = await db["job_offers"].find({"_id": {"$in": offer_ids}}).to_list(length=None)
+    Une offre non évaluée pour un profil faute de cosinus (panne d'embedding
+    sur un profil à l'identité non vide, et offre non filtrée dur) est
+    marquée `scoring_pending` pour être rejouée au prochain appel — sauf si
+    elle n'a ni intitulé ni description, auquel cas elle ne pourra jamais
+    être embarquée et n'est donc jamais mise en attente. Une offre en attente
+    qui a pu être évaluée ce tour perd son marqueur `scoring_pending`.
+    """
+    if offer_ids:
+        query = {
+            "$or": [
+                {"_id": {"$in": offer_ids}},
+                {"scoring_pending": True, "is_deleted": {"$ne": True}},
+            ]
+        }
+    else:
+        query = {"scoring_pending": True, "is_deleted": {"$ne": True}}
+
+    offers = await db["job_offers"].find(query).to_list(length=None)
     if not offers:
         return
 
@@ -214,6 +237,9 @@ async def tag_new_offers(offer_ids: list, db, *, embed=embed_texts) -> None:
     profiles = await db["candidate_profile"].find({}).to_list(length=None)
     now = datetime.now(timezone.utc)
 
+    unscored_ids: set = set()
+    affected_profile_count = 0
+
     for profile in profiles:
         user_id = str(profile["user_id"])
         features = profile_features(profile)
@@ -221,7 +247,7 @@ async def tag_new_offers(offer_ids: list, db, *, embed=embed_texts) -> None:
 
         attach_ids = []
         relevance_ops: List[UpdateOne] = []
-        semantic_unknown_count = 0
+        profile_has_unscored = False
 
         for offer in offers:
             offer_id = offer["_id"]
@@ -237,8 +263,10 @@ async def tag_new_offers(offer_ids: list, db, *, embed=embed_texts) -> None:
 
             # Même garde que rematch_user : panne d'embedding sur une offre
             # non filtrée dur => pas évaluée ce tour (cf. commentaire là-bas).
+            # L'offre est rejouée au prochain appel via scoring_pending.
             if reason is None and features.identity.strip() and cos is None:
-                semantic_unknown_count += 1
+                unscored_ids.add(offer_id)
+                profile_has_unscored = True
                 continue
 
             if reason is not None:
@@ -249,12 +277,8 @@ async def tag_new_offers(offer_ids: list, db, *, embed=embed_texts) -> None:
             if reason is None and result is not None and result.score >= FLOOR:
                 attach_ids.append(offer_id)
 
-        if semantic_unknown_count:
-            logger.warning(
-                "%d offre(s) ignorée(s) ce tour (sémantique inconnue par échec d'embedding) pour user %s",
-                semantic_unknown_count,
-                user_id[:8],
-            )
+        if profile_has_unscored:
+            affected_profile_count += 1
 
         if attach_ids:
             await db["job_offers"].update_many(
@@ -262,3 +286,27 @@ async def tag_new_offers(offer_ids: list, db, *, embed=embed_texts) -> None:
             )
         if relevance_ops:
             await db["offer_relevance"].bulk_write(relevance_ops)
+
+    if unscored_ids:
+        pending_ids = [
+            offer["_id"]
+            for offer in offers
+            if offer["_id"] in unscored_ids and offer_embedding_text(offer) is not None
+        ]
+        if pending_ids:
+            await db["job_offers"].update_many(
+                {"_id": {"$in": pending_ids}}, {"$set": {"scoring_pending": True}}
+            )
+        logger.error(
+            "%d offre(s) en attente de réévaluation (panne d'embedding) pour %d profil(s) : "
+            "seront rejouées au prochain cycle de collecte. offer_ids=%s",
+            len(unscored_ids),
+            affected_profile_count,
+            [str(offer_id) for offer_id in unscored_ids],
+        )
+
+    resolved_ids = [
+        offer["_id"] for offer in offers if offer["_id"] not in unscored_ids and offer.get("scoring_pending")
+    ]
+    if resolved_ids:
+        await db["job_offers"].update_many({"_id": {"$in": resolved_ids}}, {"$unset": {"scoring_pending": ""}})

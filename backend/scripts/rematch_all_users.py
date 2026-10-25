@@ -79,7 +79,11 @@ async def _estimate_embedding_cost(db, offers: list, *, apply: bool, profile_cou
         )
 
 
-async def rematch_all_users(apply: bool) -> None:
+async def rematch_all_users(apply: bool) -> int:
+    """Rejoue le matching de tous les profils. Renvoie le total d'offres
+    `semantic_unknown` (ni rattachées ni détachées faute de cosinus, panne
+    d'embedding) cumulé sur tous les profils : un total non nul signifie que
+    des offres ont été laissées de côté et doivent être rejouées."""
     db = await get_database()
 
     profiles = await db["candidate_profile"].find({}).to_list(length=None)
@@ -90,13 +94,17 @@ async def rematch_all_users(apply: bool) -> None:
     mode = "RUN RÉEL (écriture)" if apply else "DRY-RUN (aucune écriture)"
     logger.info(f"🔍 {len(profiles)} profil(s) candidat(s), {len(offers)} offre(s) active(s) [{mode}]")
 
+    total_semantic_unknown = 0
+
     for profile in profiles:
         user_id = str(profile["user_id"])
         summary = await rematch_user(user_id, db, apply=apply)
+        total_semantic_unknown += summary.semantic_unknown
         truncated = user_id[:8]
         logger.info(
             f"  - user {truncated}… : attached={summary.attached} detached={summary.detached} "
-            f"kept_by_guard={summary.kept_by_guard} levels={summary.levels}"
+            f"kept_by_guard={summary.kept_by_guard} semantic_unknown={summary.semantic_unknown} "
+            f"levels={summary.levels}"
         )
         if summary.applied_below_floor:
             logger.info(
@@ -104,7 +112,14 @@ async def rematch_all_users(apply: bool) -> None:
                 f"{summary.applied_below_floor}"
             )
 
+    if total_semantic_unknown:
+        logger.error(
+            f"❌ {total_semantic_unknown} offre(s) ni rattachée(s) ni détachée(s) (échec d'embedding) sur "
+            f"l'ensemble des profils : relancer ce script une fois l'embedding rétabli."
+        )
+
     logger.info(f"✅ Rematch terminé [{mode}].")
+    return total_semantic_unknown
 
 
 if __name__ == "__main__":
@@ -116,4 +131,5 @@ if __name__ == "__main__":
         "Sans ce flag : dry-run, aucune écriture.",
     )
     args = parser.parse_args()
-    asyncio.run(rematch_all_users(apply=args.apply))
+    total = asyncio.run(rematch_all_users(apply=args.apply))
+    sys.exit(1 if total else 0)

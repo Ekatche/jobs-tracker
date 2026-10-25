@@ -2,6 +2,7 @@ import pytest
 
 from app.services.offer_scoring.constants import EMBEDDING_MODEL
 from app.services.offer_scoring.embeddings import (
+    embed_texts,
     get_offer_vectors,
     get_profile_vector,
     offer_embedding_text,
@@ -239,3 +240,54 @@ async def test_get_profile_vector_fail_open():
         raise RuntimeError("down")
 
     assert await get_profile_vector("Data Engineer", embed=failing_embed) is None
+
+
+# ---------- embed_texts : retry par lot ----------
+
+
+@pytest.mark.asyncio
+async def test_embed_texts_retries_transient_batch_failure(monkeypatch):
+    calls = []
+
+    async def flaky_aembedding(model, input):
+        calls.append(list(input))
+        if len(calls) == 1:
+            raise RuntimeError("transient failure")
+        return {"data": [{"embedding": [1.0, 0.0]} for _ in input]}
+
+    sleep_calls = []
+
+    async def fake_sleep(seconds):
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr("litellm.aembedding", flaky_aembedding)
+    monkeypatch.setattr("app.services.offer_scoring.embeddings.asyncio.sleep", fake_sleep)
+
+    vectors = await embed_texts(["a", "b"])
+
+    assert vectors == [[1.0, 0.0], [1.0, 0.0]]
+    assert len(calls) == 2
+    assert sleep_calls == [1]
+
+
+@pytest.mark.asyncio
+async def test_embed_texts_raises_after_three_failed_attempts(monkeypatch):
+    calls = []
+
+    async def always_failing_aembedding(model, input):
+        calls.append(list(input))
+        raise RuntimeError("quota exceeded")
+
+    sleep_calls = []
+
+    async def fake_sleep(seconds):
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr("litellm.aembedding", always_failing_aembedding)
+    monkeypatch.setattr("app.services.offer_scoring.embeddings.asyncio.sleep", fake_sleep)
+
+    with pytest.raises(RuntimeError, match="quota exceeded"):
+        await embed_texts(["a"])
+
+    assert len(calls) == 3
+    assert sleep_calls == [1, 2]

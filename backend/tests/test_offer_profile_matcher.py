@@ -31,6 +31,10 @@ def oid(suffix: str) -> ObjectId:
 
 def _matches(doc, query):
     for key, cond in query.items():
+        if key == "$or":
+            if not any(_matches(doc, sub_query) for sub_query in cond):
+                return False
+            continue
         value = doc.get(key)
         if isinstance(cond, dict):
             if "$ne" in cond and value == cond["$ne"]:
@@ -90,6 +94,11 @@ class FakeJobOffersCollection:
                 for field, value in update["$pull"].items():
                     current = doc.get(field, [])
                     doc[field] = [v for v in current if v != value]
+            if "$set" in update:
+                doc.update(update["$set"])
+            if "$unset" in update:
+                for field in update["$unset"]:
+                    doc.pop(field, None)
 
     def aggregate(self, pipeline):
         out = []
@@ -667,8 +676,9 @@ async def test_tag_new_offers_scores_batch_for_every_profile():
 @pytest.mark.asyncio
 async def test_tag_new_offers_embedding_down_skips_offers(caplog):
     """Panne d'embedding pendant tag_new_offers : l'offre hors sujet n'est pas
-    évaluée ce tour (pas de $addToSet, pas de document offer_relevance), avec
-    un seul warning agrégé par profil (jamais de texte d'offre)."""
+    évaluée ce tour (pas de $addToSet, pas de document offer_relevance), elle
+    est marquée scoring_pending pour être rejouée, avec un seul enregistrement
+    de niveau ERROR agrégé par appel (jamais de texte d'offre)."""
     profile = make_profile()
     offer = {
         "_id": oid("93"),
@@ -688,21 +698,81 @@ async def test_tag_new_offers_embedding_down_skips_offers(caplog):
         await tag_new_offers([offer["_id"]], db, embed=failing_embed)
 
     offers_collection = db["job_offers"]
-    assert offers_collection.update_many_calls == []
+    assert not any("$addToSet" in update for _filter, update in offers_collection.update_many_calls)
     assert offer_relevance.docs == []
-    warnings = [r.message for r in caplog.records if r.levelno == logging.WARNING]
-    assert any(str(profile["user_id"])[:8] in message for message in warnings)
-    assert all(offer["poste"] not in message and offer["description"] not in message for message in warnings)
+    assert offer.get("scoring_pending") is True
+    error_records = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(error_records) == 1
+    message = error_records[0].message
+    assert offer["poste"] not in message and offer["description"] not in message
+
+
+@pytest.mark.asyncio
+async def test_tag_new_offers_replays_pending_offer_when_embedding_recovers():
+    """Une offre laissée `scoring_pending` par une panne d'embedding
+    précédente est rejouée dès que l'embedding fonctionne à nouveau, même
+    sans figurer dans `offer_ids`."""
+    profile = make_profile()
+    offer = {
+        "_id": oid("94"),
+        "poste": "Data Engineer",
+        "description": "Poste Python.",
+        "competences_cles": ["Python"],
+        "localisation": "Lyon",
+        "type_contrat": "CDI",
+        "scoring_pending": True,
+    }
+    vector_by_text = {
+        identity_for(profile): [1.0, 0.0],
+        offer_embedding_text(offer): [1.0, 0.0],
+    }
+    fake_embed, _calls = make_fake_embed(vector_by_text)
+    db, offer_relevance = make_db(profiles=[profile], offers=[offer])
+
+    await tag_new_offers([], db, embed=fake_embed)
+
+    offers_collection = db["job_offers"]
+    addtoset_calls = [
+        (filter_, update) for filter_, update in offers_collection.update_many_calls if "$addToSet" in update
+    ]
+    assert len(addtoset_calls) == 1
+    assert addtoset_calls[0][0] == {"_id": {"$in": [offer["_id"]]}}
+    assert len(offer_relevance.docs) == 1
+    assert offer_relevance.docs[0]["offer_id"] == str(offer["_id"])
+    assert offer.get("scoring_pending") is None
+
+
+@pytest.mark.asyncio
+async def test_tag_new_offers_does_not_mark_offer_without_text_pending():
+    """Une offre sans intitulé ni description n'est jamais embarquable : elle
+    ne doit pas rester scoring_pending éternellement."""
+    profile = make_profile()
+    offer = {
+        "_id": oid("95"),
+        "poste": "Non spécifié",
+        "description": None,
+        "competences_cles": [],
+        "localisation": "Lyon",
+        "type_contrat": "CDI",
+    }
+
+    async def failing_embed(texts):
+        raise RuntimeError("quota exceeded")
+
+    db, offer_relevance = make_db(profiles=[profile], offers=[offer])
+
+    await tag_new_offers([offer["_id"]], db, embed=failing_embed)
+
+    assert offer.get("scoring_pending") is None
+    assert offer_relevance.docs == []
 
 
 @pytest.mark.asyncio
 async def test_tag_new_offers_empty_list_does_nothing():
-    from unittest.mock import AsyncMock, MagicMock
+    db, offer_relevance = make_db(profiles=[make_profile()], offers=[])
 
-    mock_offers_collection = MagicMock()
-    mock_offers_collection.find = MagicMock()
-    mock_db = {"job_offers": mock_offers_collection}
+    await tag_new_offers([], db)
 
-    await tag_new_offers([], mock_db)
-
-    mock_offers_collection.find.assert_not_called()
+    offers_collection = db["job_offers"]
+    assert offers_collection.update_many_calls == []
+    assert offer_relevance.docs == []

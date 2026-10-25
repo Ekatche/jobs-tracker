@@ -14,6 +14,7 @@ propage jamais l'erreur au-delà de ce module, sauf `embed_texts` elle-même
 `get_profile_vector`) absorbe l'exception.
 """
 
+import asyncio
 import hashlib
 import logging
 from datetime import datetime, timezone
@@ -52,15 +53,25 @@ def _extract_embedding(item):
 async def embed_texts(texts: List[str]) -> List[List[float]]:
     """Embarque `texts` par lots de `EMBED_BATCH` via `litellm.aembedding`.
 
-    Lève en cas d'erreur réseau/quota : c'est aux appelants (`get_offer_vectors`,
-    `get_profile_vector`) de décider du fail-open, pas à cette fonction.
+    Chaque lot est tenté au plus 3 fois (1 tentative + 2 retries), avec un
+    backoff de 1 s puis 2 s entre les tentatives. Après le 3e échec,
+    l'exception est relevée telle quelle : c'est aux appelants
+    (`get_offer_vectors`, `get_profile_vector`) de décider du fail-open, pas
+    à cette fonction.
     """
     from litellm import aembedding
 
     vectors: List[List[float]] = []
     for i in range(0, len(texts), EMBED_BATCH):
         batch = texts[i : i + EMBED_BATCH]
-        resp = await aembedding(model=EMBEDDING_MODEL, input=batch)
+        for attempt in range(3):
+            try:
+                resp = await aembedding(model=EMBEDDING_MODEL, input=batch)
+                break
+            except Exception:
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(1 if attempt == 0 else 2)
         data = resp.data if hasattr(resp, "data") else resp["data"]
         vectors.extend(_extract_embedding(item) for item in data)
     return vectors
