@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal :** chaque offre du stock reçoit, pour chaque utilisateur, un score de pertinence (0 à 100) et un niveau (forte, moyenne, faible) qui remplacent le rattachement par `source_query`, trient la liste des offres et relèguent les offres faibles dans une section repliée — **seulement si la porte de fiabilité de la Task 5 est franchie**.
+**Goal :** chaque offre du stock reçoit, pour chaque utilisateur, un score de pertinence (0 à 100) qui remplace le rattachement par `source_query` : sous `FLOOR`, l'offre est détachée. Décision de la porte (Task 5) : le score sert de **filtre seul**. La liste reste chronologique par défaut, le tri par pertinence est une option, et aucune offre n'est repliée ni badgée par niveau.
 
-**Architecture :** un paquet `app/services/offer_scoring/` porte les constantes, le score pur, le filtre dur, les conditions géographiques et contractuelles, le référentiel ville → départements et le cache d'embeddings `offer_embeddings`. Le banc de mesure (`scripts/matching_bench.py`) classe d'abord les offres avec ces fonctions ; la porte décide de la suite. Ensuite seulement, `offer_profile_matcher.py` écrit `offer_relevance` et rattache par score, le routeur trie et filtre par un `$lookup`, et `offers/page.tsx` affiche badges, tri et section repliée.
+**Architecture :** un paquet `app/services/offer_scoring/` porte les constantes, le score pur, le filtre dur, les conditions géographiques et contractuelles, le référentiel ville → départements et le cache d'embeddings `offer_embeddings`. Le banc de mesure (`scripts/matching_bench.py`) classe d'abord les offres avec ces fonctions ; la porte décide de la suite. Ensuite seulement, `offer_profile_matcher.py` écrit `offer_relevance` et rattache par score, le routeur propose le tri par pertinence et expose les conditions non remplies par un `$lookup`, et `offers/page.tsx` affiche le sélecteur de tri, les conditions non remplies et les filtres secteur et taille.
 
 **Tech Stack :** FastAPI, Motor (MongoDB `mongo:latest`), Pydantic v2, LiteLLM (`aembedding`, `mistral/mistral-embed`), pytest (`asyncio_mode = auto`), Next.js 15 / React / TypeScript, Tailwind.
 
@@ -24,10 +24,12 @@ D'où la Task 5 : une porte à deux niveaux, puis un arrêt pour la décision de
 
 - Modèle d'embedding du score : `mistral/mistral-embed`, constante `EMBEDDING_MODEL` du module `offer_scoring/constants.py`. `domain_relevance.EMBEDDING_MODEL` (`text-embedding-3-small`) reste inchangé.
 - Bornes sémantiques : `COS_FLOOR = 0.73`, `COS_CEIL = 0.83`. Texte de l'offre : `expand_title_acronyms(poste) + ". " + 1000 premiers caractères de la description` (espaces compressés), sans `competences_cles`. Vecteur profil : `build_candidate_identity(headline, target_roles)` passé par `expand_title_acronyms`.
-- Poids : sémantique 45, compétences 30, séniorité 10, secteur 10, taille 5. Seuils de départ : `STRONG_THRESHOLD = 75`, `MEDIUM_THRESHOLD = 60`, `FLOOR = 20`, `CAP_SCORE = MEDIUM_THRESHOLD - 1`. `SCORING_VERSION = "1"`. Toutes ces valeurs vivent dans `offer_scoring/constants.py` et nulle part ailleurs.
+- Poids : sémantique 45, compétences 30, séniorité 10, secteur 10, taille 5. Seuils : `STRONG_THRESHOLD = 75`, `MEDIUM_THRESHOLD = 60`, `FLOOR = 35` (décision de la porte ; 20 au départ), `CAP_SCORE = MEDIUM_THRESHOLD - 1`. `SCORING_VERSION = "1"`. Toutes ces valeurs vivent dans `offer_scoring/constants.py` et nulle part ailleurs.
+- Composante compétences (décision de la porte) : une compétence de l'offre compte si elle apparaît, avec des frontières de mot, dans une compétence du profil (« python » dans « python scikit learn »). Quand l'offre liste des compétences, la composante ne descend jamais sous `W_SKILLS / 2` : un profil incomplet ne pénalise pas une offre.
 - Règle unique de l'inconnu (§4.3) : une composante applicable dont l'offre ne renseigne pas la donnée reçoit la moitié de ses points. Une composante dont le candidat n'a pas exprimé la préférence sort du dénominateur.
 - Interprétation retenue (spec muette) : un candidat sans `contract_types` n'exclut pas les stages et alternances ; un candidat sans composante applicable (ni identité, ni compétences, ni préférence) ne reçoit aucun score et rien ne lui est rattaché, comme aujourd'hui (`offer_matches_criteria` ne rattachait rien à un profil vide).
-- Écart assumé avec le §3.2 : `offer_relevance` porte en plus `unknown_components: List[str]`, pour que le tooltip signale les composantes inconnues (§5.2) sans coder des booléens dans `breakdown`.
+- Écart assumé avec le §3.2 : `offer_relevance` porte en plus `unknown_components: List[str]`, sans coder des booléens dans `breakdown`. Ce champ est stocké mais pas affiché dans le Lot 1 (décision de la porte : pas de tooltip de score).
+- Écart assumé avec le §5.2 (décision de la porte) : pas de badge de niveau, pas de section repliée, tri chronologique par défaut. Le niveau reste calculé et stocké dans `offer_relevance`.
 - Rien de propre à un utilisateur n'est écrit dans `job_offers`, ni score ni embedding.
 - Production : aucune écriture par l'implémenteur. `scripts/rematch_all_users.py` se lance en lecture d'abord ; `--apply` en prod revient à l'utilisateur. `MISTRAL_API_KEY` en prod : à vérifier par l'utilisateur (empreinte seulement, jamais la valeur).
 - Dépense : tout appel d'embedding réel exige l'accord explicite de l'utilisateur ; le banc appelle l'API seulement avec `--confirm`. Repère : 0,1 $ par million de tokens, environ 0,03 $ pour 1 000 offres.
@@ -64,10 +66,9 @@ D'où la Task 5 : une porte à deux niveaux, puis un arrêt pour la décision de
 | `backend/app/services/offer_profile_matcher.py` (réécrit) | Rattachement par score, `offer_relevance`, garde d'interaction |
 | `backend/scripts/rematch_all_users.py` (créé) | Rattrapage du stock en prod |
 | `backend/app/routers/cover_letters.py` (modifié) | Champs qui déclenchent le rematch |
-| `backend/app/routers/job_offers.py`, `backend/app/models.py` (modifiés) | Tri, `include_weak`, `weak_total`, filtres, champs de réponse |
+| `backend/app/routers/job_offers.py`, `backend/app/models.py` (modifiés) | Tri optionnel par pertinence, filtres, champs de réponse |
 | `frontend/src/lib/companyTaxonomy.ts` (créé) | Options secteurs et tailles partagées |
-| `frontend/src/components/offers/RelevanceBadge.tsx` (créé) | Badge et tooltip |
-| `frontend/src/lib/api.ts`, `frontend/src/app/offers/page.tsx`, `frontend/src/components/profile/TargetingPreferencesSection.tsx` (modifiés) | Types, tri, filtres, section repliée |
+| `frontend/src/lib/api.ts`, `frontend/src/app/offers/page.tsx`, `frontend/src/components/profile/TargetingPreferencesSection.tsx` (modifiés) | Types, sélecteur de tri, conditions non remplies, filtres |
 | `backend/tests/test_hybrid_scoring.py`, `test_offer_scoring_embeddings.py`, `test_offer_scoring_assess.py`, `test_job_offers_relevance_api.py` (créés) ; `test_matching_bench.py`, `test_offer_profile_matcher.py`, `test_domain_relevance.py`, `test_database_indexes.py` (modifiés) | Tests |
 
 ---
@@ -376,7 +377,9 @@ Attendu : PASS (`test_job_offers_pipeline.py` couvre l'appel de `tag_new_offers`
 
 ---
 
-### Task 7 : API — tri, offres faibles, filtres secteur et taille
+### Task 7 : API — tri optionnel par pertinence, conditions non remplies, filtres secteur et taille
+
+Réécrite après la décision de la porte (filtre seul) : aucune offre n'est masquée ni repliée selon son score. Le détachement passe par `matched_user_ids` (Task 6), pas par la liste.
 
 **Files:**
 - Modify: `backend/app/routers/job_offers.py` (`restrict_to_profile_offers` l. 228-241, `get_job_offers` l. 356-514, `get_job_offers_count` l. 962), `backend/app/models.py` (`JobOfferResponse` l. 343-367)
@@ -387,73 +390,104 @@ Précondition : vérification `git status` des Global Constraints.
 **Interfaces:**
 - Consumes : `offer_relevance` (Task 6) ; `SECTORS`, `COMPANY_SIZES` (`app/services/company_profiles.py:35`, `:52`).
 - Produces :
-  - `relevance_lookup_stages(user_id: str) -> list[dict]` : `$addFields {_oid_str: {$toString: "$_id"}}` ; `$lookup {from: "offer_relevance", localField: "_oid_str", foreignField: "offer_id", pipeline: [{$match: {user_id}}, {$project: {_id: 0, score: 1, level: 1, breakdown: 1, failed_conditions: 1, unknown_components: 1}}], as: "_relevance"}` ; `_relevance` ramené à son premier élément ; `_weak = (level == "weak")` ; `_score_sort = ifNull(score, -1)`.
-  - Paramètres de `GET /job-offers/` et `GET /job-offers/count/` : `sort: Literal["relevance", "recent"] = "relevance"`, `include_weak: bool = False`, `sector: Optional[List[Literal[*SECTORS]]] = Query(None)`, `company_size: Optional[List[Literal[*COMPANY_SIZES]]] = Query(None)` (valeur hors taxonomie : 422).
-  - Tri : `relevance` → `{_weak: 1, _score_sort: -1, created_at: -1, _id: -1}` ; `recent` → `{_weak: 1, created_at: -1, _id: -1}`. Le lookup se place après la déduplication (`$replaceRoot`/`$unset`) et avant le `$sort` final (l. ~464) et `$skip`/`$limit`.
-  - Vue principale (même condition que `restrict_to_profile_offers` : utilisateur connecté, ni `only_saved` ni `interaction_status`) : `include_weak=False` ajoute `$match {_weak: {$ne: true}}`. Hors vue principale, les offres faibles sont listées normalement.
-  - `GET /job-offers/count/` → `{"total": N, "weak_total": W}` : `total` compte ce que la liste paginée renvoie avec les mêmes paramètres ; `weak_total` compte les offres faibles de la vue principale (0 ailleurs).
-  - `JobOfferResponse` : `relevance_score: Optional[float] = None`, `relevance_level: Optional[Literal["strong", "medium", "weak"]] = None`, `relevance_breakdown: Optional[Dict[str, float]] = None`, `failed_conditions: List[str] = []`, `unknown_components: List[str] = []`, `sector: Optional[str] = None`, `company_size: Optional[str] = None`. `_relevance`, `_oid_str`, `_weak` et `_score_sort` ne sortent jamais dans la réponse.
-  - Utilisateur anonyme : pas de lookup, `sort=relevance` se comporte comme `recent`.
+  - `relevance_lookup_stages(user_id: str) -> list[dict]` :
+    - `$addFields {_oid_str: {$toString: "$_id"}}` ;
+    - `$lookup {from: "offer_relevance", localField: "_oid_str", foreignField: "offer_id", pipeline: [{$match: {user_id}}, {$project: {_id: 0, score: 1, failed_conditions: 1}}], as: "_relevance"}` ;
+    - `_relevance` ramené à son premier élément ;
+    - `_score_sort = ifNull(score, -1)`.
+  - Paramètres de `GET /job-offers/` et `GET /job-offers/count/` :
+    - `sort: Literal["relevance", "recent"] = "recent"` ;
+    - `sector: Optional[List[Literal[*SECTORS]]] = Query(None)` ;
+    - `company_size: Optional[List[Literal[*COMPANY_SIZES]]] = Query(None)`. Une valeur hors taxonomie renvoie 422.
+  - Tri :
+    - `recent` → `{created_at: -1, _id: -1}`, l'ordre actuel ;
+    - `relevance` → `{_score_sort: -1, created_at: -1, _id: -1}`.
+    - Le lookup se place après la déduplication (`$replaceRoot`/`$unset`), avant le `$sort` final (l. ~464) et avant `$skip`/`$limit`. Il s'applique pour tout utilisateur connecté, quel que soit `sort`.
+  - `GET /job-offers/count/` → `{"total": N}`, format inchangé. Il applique les mêmes filtres secteur et taille que la liste.
+  - `JobOfferResponse` : `failed_conditions: List[str] = []`, `sector: Optional[str] = None`, `company_size: Optional[str] = None`. `_relevance`, `_oid_str` et `_score_sort` ne sortent jamais dans la réponse.
+  - Utilisateur anonyme : pas de lookup, et `sort=relevance` se comporte comme `recent`.
 
-- [ ] **Step 1 : écrire les tests qui échouent** dans `test_job_offers_relevance_api.py` (seed direct dans la base de test, utilisateurs A et B surchargés par `get_current_user`, sur le modèle de `test_applied_offer_retention.py` ; module marqué `skipif` si la base de test ne répond pas, sauf le premier test, pur) :
+- [ ] **Step 1 : écrire les tests qui échouent** dans `test_job_offers_relevance_api.py`.
+  - Mise en place : seed direct dans la base de test ; utilisateurs A et B surchargés par `get_current_user`, sur le modèle de `test_applied_offer_retention.py`.
+  - Le module est marqué `skipif` si la base de test ne répond pas, sauf le premier test, qui est pur.
+  - Données : quatre offres rattachées à A.
+    - A1 : score 82, la plus ancienne.
+    - A2 : score 65.
+    - A3 : score 30, `failed_conditions: ["geo"]`.
+    - A4 : sans document `offer_relevance`, la plus récente.
 
-- `test_relevance_lookup_filters_by_current_user` (sans base) : dans `relevance_lookup_stages("u1")`, le `$lookup` sur `offer_relevance` a un sous-pipeline dont le `$match` porte `user_id == "u1"`.
-- `test_list_sorts_by_relevance_and_hides_weak_by_default` : offres A1 (score 82, strong), A2 (65, medium), A3 (30, weak), A4 (sans document `offer_relevance`) → ordre A1, A2, A4 ; A3 absente ; champs `relevance_level` et `relevance_score` présents.
-- `test_include_weak_lists_weak_offers_last` : `include_weak=true` → A1, A2, A4, A3.
-- `test_sort_recent_keeps_chronological_order_with_weak_last` : `sort=recent&include_weak=true` → offres non faibles par `created_at` décroissant, puis A3.
-- `test_count_returns_total_and_weak_total` : `{"total": 3, "weak_total": 1}` ; avec `include_weak=true`, `total == 4`.
-- `test_relevance_is_per_user` : B, rattaché aux mêmes offres sans document `offer_relevance`, ne voit aucun score de A.
-- `test_saved_view_lists_weak_offers` : A3 sauvegardée, `only_saved=true` → A3 listée avec `relevance_level == "weak"`.
-- `test_filter_by_sector_and_company_size` : `sector=tech_it&company_size=pme` ne renvoie que l'offre correspondante ; `sector=fintech` → 422.
-- `test_response_has_no_internal_fields` : aucune clé commençant par `_` dans les offres renvoyées.
+  Tests :
+  - `test_relevance_lookup_filters_by_current_user` (sans base) : dans `relevance_lookup_stages("u1")`, le `$lookup` sur `offer_relevance` a un sous-pipeline dont le `$match` porte `user_id == "u1"`.
+  - `test_list_defaults_to_recent_order` : sans `sort`, la liste renvoie A4, A3, A2, A1. Les quatre offres sont présentes, aucune n'est masquée.
+  - `test_sort_relevance_orders_by_score_then_recency` : avec `sort=relevance`, la liste renvoie A1, A2, A3, A4.
+  - `test_failed_conditions_exposed` : A3 renvoie `failed_conditions == ["geo"]`, A4 renvoie `[]`.
+  - `test_count_returns_total` : `{"total": 4}`, avec ou sans `sort`.
+  - `test_relevance_is_per_user` : B est rattaché aux mêmes offres, sans document `offer_relevance`.
+    - B reçoit `failed_conditions == []` partout.
+    - Avec `sort=relevance`, B obtient l'ordre chronologique.
+  - `test_filter_by_sector_and_company_size` :
+    - `sector=tech_it&company_size=pme` ne renvoie que l'offre correspondante, et le comptage suit ;
+    - `sector=fintech` renvoie 422.
+  - `test_response_has_no_internal_fields` : aucune clé commençant par `_` dans les offres renvoyées.
 
 - [ ] **Step 2 : lancer, constater l'échec**
 
 Run : `cd backend && uv run pytest tests/test_job_offers_relevance_api.py -v`
 Attendu : FAIL (paramètres inconnus, champs absents).
 
-- [ ] **Step 3 : implémenter** ; les clauses `sector`/`company_size` passent par le même chemin de filtre que la liste et le comptage (un helper partagé, comme `_build_contract_type_filter`).
+- [ ] **Step 3 : implémenter.** Les clauses `sector`/`company_size` passent par le même chemin de filtre que la liste et le comptage : un helper partagé, comme `_build_contract_type_filter`.
 
 - [ ] **Step 4 : lancer les tests**
 
 Run : `cd backend && uv run pytest tests/test_job_offers_relevance_api.py tests/test_user_offer_interactions.py tests/test_applied_offer_retention.py tests/test_pipeline_kanban.py -v`
 Attendu : PASS.
 
-- [ ] **Step 5 : commit** (si autorisé) — `feat(job-offers): sort by relevance, fold weak offers, filter by sector and size`
+- [ ] **Step 5 : commit** (si autorisé) — `feat(job-offers): optional relevance sort, failed conditions, sector and size filters`
 
 ---
 
-### Task 8 : UI — badges, tri, filtres et section repliée
+### Task 8 : UI — tri optionnel, conditions non remplies, filtres secteur et taille
+
+Réécrite après la décision de la porte (filtre seul) : pas de badge de niveau, pas de tooltip de score, pas de section repliée.
 
 **Files:**
-- Create: `frontend/src/lib/companyTaxonomy.ts`, `frontend/src/components/offers/RelevanceBadge.tsx`
-- Modify: `frontend/src/components/profile/TargetingPreferencesSection.tsx:41-70` (options déplacées), `frontend/src/lib/api.ts` (`JobOffer` l. ~369, `JobOfferFilter`, `getCount` l. 742), `frontend/src/app/offers/page.tsx` (badge l. 257-269, états l. 522-557, `currentFilters` l. 562-595, `fetchTotalCount` l. ~598, `fetchOffers` l. ~612-628)
+- Create: `frontend/src/lib/companyTaxonomy.ts`
+- Modify :
+  - `frontend/src/components/profile/TargetingPreferencesSection.tsx:41-70` (options déplacées) ;
+  - `frontend/src/lib/api.ts` (`JobOffer` l. ~369, `JobOfferFilter`) ;
+  - `frontend/src/app/offers/page.tsx` : carte d'offre près du badge l. 257-269, états l. 522-557, `currentFilters` l. 562-595, `fetchOffers` l. ~612-628.
 
 Précondition : vérification `git status` des Global Constraints.
 
 **Interfaces:**
 - Consumes : contrat d'API de la Task 7.
 - Produces :
-  - `companyTaxonomy.ts` : `SECTOR_OPTIONS`, `COMPANY_SIZE_OPTIONS` (déplacés tels quels depuis `TargetingPreferencesSection.tsx`, qui les importe).
-  - `RelevanceBadge({ level, score, breakdown, unknownComponents, failedConditions })`.
-  - `JobOffer` : `relevance_score?: number | null`, `relevance_level?: "strong" | "medium" | "weak" | null`, `relevance_breakdown?: Record<string, number> | null`, `failed_conditions?: string[]`, `unknown_components?: string[]`, `sector?: string | null`, `company_size?: string | null`. `JobOfferFilter` : `sort?: "relevance" | "recent"`, `include_weak?: boolean`, `sector?: string[]`, `company_size?: string[]`. `getCount` renvoie `{ total: number; weak_total: number }`.
+  - `companyTaxonomy.ts` : `SECTOR_OPTIONS`, `COMPANY_SIZE_OPTIONS`, déplacés tels quels depuis `TargetingPreferencesSection.tsx`, qui les importe.
+  - `JobOffer` : `failed_conditions?: string[]`, `sector?: string | null`, `company_size?: string | null`.
+  - `JobOfferFilter` : `sort?: "relevance" | "recent"`, `sector?: string[]`, `company_size?: string[]`.
+  - `getCount` : inchangé.
 
-- [ ] **Step 1 : implémenter**, textes exacts :
-  - Badge : « Pertinence forte » (vert), « Pertinence moyenne » (bleu), « Pertinence faible » (gris), sans pourcentage ; aucun badge si `relevance_level` est absent.
-  - Tooltip : « Score : 72/100 », puis une ligne par composante présente dans `breakdown` : « Proximité du poste », « Compétences », « Séniorité », « Secteur », « Taille d'entreprise », au format `points/max`, suffixée de « (information absente de l'offre) » si la composante est dans `unknown_components` ; puis les conditions : `geo` → « Hors de votre zone géographique », `contract` → « Contrat différent de vos préférences ».
-  - L'actuel badge « Match x/5 » (l. 257-269) devient « Analyse IA x/5 », mêmes seuils (4.0 et 3.0).
-  - Sélecteur de tri « Pertinence » (par défaut) / « Plus récentes » ; filtres déroulants multiples Secteur et Taille d'entreprise, depuis `companyTaxonomy.ts` ; tous trois inclus dans `currentFilters`.
-  - Section repliée (vue principale seulement) : si `weak_total > 0`, bandeau « {weak_total} offres moins pertinentes — Déplier » sous la liste ; au clic, `include_weak=true`, rechargement, et un séparateur « Moins pertinentes » avant la première offre `weak` ; « Replier » revient à `include_weak=false`. La pagination suit `total`.
-  - `offers/page.tsx` n'a pas de vue Kanban (vérifié le 2026-10-25) malgré le titre du §5.2 : rien à faire de ce côté.
+- [ ] **Step 1 : implémenter**, avec ces textes exacts :
+  - Sur la carte d'offre, une étiquette discrète par condition non remplie :
+    - `geo` → « Hors de votre zone géographique » ;
+    - `contract` → « Contrat différent de vos préférences ».
+    - Rien si `failed_conditions` est vide. Aucun badge de niveau, aucun score de pertinence affiché.
+  - Le badge « Match x/5 » (l. 257-269) reste inchangé.
+  - Sélecteur de tri « Plus récentes » (par défaut) / « Pertinence ».
+  - Filtres déroulants multiples Secteur et Taille d'entreprise, depuis `companyTaxonomy.ts`.
+  - Le tri et les deux filtres sont inclus dans `currentFilters`.
+  - `offers/page.tsx` n'a pas de vue Kanban (vérifié le 2026-10-25), malgré le titre du §5.2 : rien à faire de ce côté.
 
 - [ ] **Step 2 : vérifier**
 
 Run : `cd frontend && npm run lint && npm run build`
 Attendu : 0 erreur.
 
-- [ ] **Step 3 : vérification manuelle** (backend local avec des documents `offer_relevance` de test) : tri par défaut, badge et tooltip, bandeau et dépliage, filtres secteur et taille, badge « Analyse IA ». Observateur : l'utilisateur, ou l'implémenteur via `chrome-devtools` avec capture d'écran jointe au rapport.
+- [ ] **Step 3 : vérification manuelle**, sur un backend local avec des documents `offer_relevance` de test.
+  - Points à contrôler : ordre chronologique par défaut, tri « Pertinence », étiquettes de conditions, filtres secteur et taille.
+  - Observateur : l'utilisateur, ou l'implémenteur via `chrome-devtools` avec une capture d'écran jointe au rapport.
 
-- [ ] **Step 4 : commit** (si autorisé) — `feat(offers): relevance badges, sorting, sector and size filters, folded weak offers`
+- [ ] **Step 4 : commit** (si autorisé) — `feat(offers): relevance sort option, failed condition tags, sector and size filters`
 
 ---
 
@@ -464,3 +498,122 @@ Attendu : 0 erreur.
 3. Rematch après import de CV (le `headline` et les `skills` changent sans passer par les préférences) : non couvert, à traiter si les scores dérivent.
 4. Départements limitrophes : hors Lot 1 (« L'Isle-d'Abeau », Isère, sera plafonnée pour un profil lyonnais).
 5. Table de prix de `usage_tracker` : ajouter `mistral-embed` si la dépense d'embedding doit apparaître dans les coûts.
+
+## Décision de la porte
+
+### Mesures (2026-10-25, branche `feat/hybrid-relevance-score` à 9bb1314)
+
+Banc : 1 profil, 70 offres d'échantillon et 30 offres d'interaction (20 `applied`, 10 `hidden`). Cosinus `mistral-embed` calculés sur les 100 paires. Labels donnés par le juge (`gpt-6.1-sol` sur 93 paires, `mistral-large-2512` sur 7) ; aucun label humain.
+
+**Niveau 1 — critère du §6.2 : échec.**
+
+| Profil | P@10 chronologique | P@10 hybride | Seuil (chrono + 0.2) | P@10 cosinus seul | Garde de rappel |
+|---|---|---|---|---|---|
+| A | 0.20 | 0.10 | ≥ 0.40 | 0.20 | 1 `applied` filtrée |
+
+**Niveau 2 — séparation.**
+
+| Mesure | Seuil proposé | Mesuré |
+|---|---|---|
+| FP@20 hybride | ≤ 0.05 | 0.00 ✓ |
+| `applied` filtrées ou sous `FLOOR` | 0 | 1 filtrée par le filtre dur `contract` (un stage) ; 0 sous `FLOOR` jusqu'à 40 |
+| `relevant` détachées au `FLOOR` retenu | 0 | 0 ✓ |
+| `irrelevant` détachées au `FLOOR` retenu | ≥ 60 % | 26/26 à 40 ✓ |
+| Accord juge / humain, binaire | ≥ 0.8 | non mesuré (0 label humain) |
+
+Balayage du `FLOOR` (offres détachées) :
+
+| `FLOOR` | `relevant` (8) | `partial` (36) | `irrelevant` (26) | `applied` (20) | `hidden` (10) |
+|---|---|---|---|---|---|
+| 20 | 0 | 0 | 4 (15 %) | 1 (filtrée) | 0 |
+| 30 | 0 | 1 | 21 (81 %) | 1 (filtrée) | 0 |
+| 35 | 0 | 2 | 24 (92 %) | 1 (filtrée) | 0 |
+| 40 | 0 | 3 | 26 (100 %) | 1 (filtrée) | 0 |
+
+Plages de score : `relevant` de 45.4 à 70.4 (médiane 55.8), `partial` de 25.8 à 77.6, `irrelevant` de 17.6 à 39.1, `applied` de 52.7 à 82.4 (médiane 71.9), `hidden` de 43.5 à 69.2 (médiane 56.7).
+
+`FLOOR` donné par la règle : **40**, la plus haute valeur du balayage qui ne détache ni `relevant` ni `applied`. L'offre filtrée est comptée à part : elle est détachée quel que soit le `FLOOR`.
+
+Niveaux par label (`levels_by_label`) :
+
+| Niveau | Échantillon : `relevant` / `partial` / `irrelevant` | `applied` : `relevant` / `partial` | `hidden` : `partial` / `irrelevant` |
+|---|---|---|---|
+| strong (≥ 75) | 0 / 4 / 0 | 7 / 2 | 0 / 0 |
+| medium (≥ 60) | 2 / 7 / 0 | 1 / 3 | 1 / 1 |
+| weak | 6 / 25 / 24 | 5 / 1 | 6 / 2 |
+
+### Constats
+
+1. **Le score dépend presque uniquement du cosinus.**
+   - `competences_cles` n'est renseignée que sur 7 offres sur 100, et la séniorité de l'offre sur 27 offres sur 68.
+   - Le profil n'exprime aucune préférence de secteur ni de taille : ces deux composantes sortent du dénominateur.
+   - Quand compétences et séniorité sont inconnues, le score vaut (points sémantiques + 20) / 85. Il reste donc entre 23.5 et 76.5.
+   - Un `FLOOR` de 40 revient à un seuil de cosinus d'environ 0.761.
+2. **Le cosinus sépare le hors-sujet, pas le `relevant` du `partial`.**
+   - Médianes du cosinus : `irrelevant` 0.726, `partial` 0.788, `relevant` 0.795.
+   - Classer par le cosinus seul donne P@10 = 0.20. Repondérer les composantes actuelles ne peut donc pas atteindre le niveau 1.
+3. **La composante compétences a un défaut.** Le profil écrit ses compétences sous forme d'expressions de plusieurs mots, les offres sous forme de mots isolés. La correspondance exacte ne trouve aucune compétence en commun.
+   - Les 2 offres `relevant` qui renseignent leurs compétences (`…1162e4`, `…fa02d9`) reçoivent 0/30. Une offre inconnue reçoit pourtant 15/30.
+   - Ces deux offres ont pourtant 5 et 2 compétences présentes, mot pour mot, dans les expressions du profil.
+4. **« Pertinence forte » veut dire « proche du poste visé », pas « pertinente ».**
+   - Sur l'échantillon : 0 `relevant` et 4 `partial`.
+   - Sur les candidatures : 7 `relevant` et 2 `partial`.
+5. **La candidature filtrée** (`…dd25e1`, label `partial`) est un stage, alors que les préférences de contrat du profil excluent les stages.
+   - La garde d'interaction de la Task 6 la garderait rattachée.
+   - Un stage semblable publié plus tard serait en revanche filtré.
+6. **Le repli des offres faibles de la Task 7 cacherait la plupart des offres `relevant`.** Par défaut, la Task 7 trie par score et replie les offres de niveau `weak` (score < 60). Au `FLOOR` 40 :
+
+   | Ensemble | Détachées | Plafonnées (`weak`) | `weak` non plafonnées | medium | strong |
+   |---|---|---|---|---|---|
+   | Échantillon | 3 `partial`, 26 `irrelevant` | 13 `partial` | 6 `relevant`, 9 `partial` | 2 `relevant`, 7 `partial` | 4 `partial` |
+   | `applied` | 1 `partial` (filtrée) | 1 `relevant` | 4 `relevant`, 1 `partial` | 1 `relevant`, 3 `partial` | 7 `relevant`, 2 `partial` |
+
+   - Vue principale par défaut, sur l'échantillon : 2 offres `relevant` sur 8 restent visibles.
+   - Sur les candidatures : 5 `relevant` sur 13 seraient repliées.
+   - Le score est donc fiable pour détacher le hors-sujet, pas pour classer ni pour replier.
+
+### Décision (2026-10-25, utilisateur)
+
+1. **Issue : le score sert de filtre seul.** C'est une variante de l'issue (i), restreinte au détachement.
+   - Task 6 inchangée : sous `FLOOR`, l'offre est détachée de `matched_user_ids`, sauf garde d'interaction.
+   - Tasks 7 et 8 réécrites :
+     - la liste reste chronologique par défaut, le tri par pertinence est une option ;
+     - aucune offre n'est repliée ;
+     - aucun badge de niveau, aucun tooltip de score ;
+     - les conditions non remplies (zone, contrat) sont affichées.
+   - Raison : le constat 6. Le score détache bien le hors-sujet, mais il ne classe pas mieux que la date (niveau 1), et le repli `weak` cacherait la plupart des offres `relevant`.
+2. **`FLOOR = 35`**, alors que la règle du Step 1 donne 40.
+   - À 35, le seuil de cosinus est d'environ 0.752 ; il est de 0.761 à 40.
+   - Le minimum des `relevant` (45.4) garde donc 10 points de marge au lieu de 5. Les minima des `hidden` (43.5) et des `applied` scorées (52.7) en gardent aussi.
+   - Coût : 2 offres `irrelevant` restent rattachées (24/26 détachées au lieu de 26/26).
+   - Pourquoi une marge : le banc compte 1 profil et 8 `relevant`, sans label humain.
+3. **Composante compétences : bonus seul.**
+   - Une compétence de l'offre compte si elle figure dans `candidate_skills`, ou si elle apparaît, avec des frontières de mot, dans une compétence du profil (`contains_keyword`).
+   - Quand l'offre liste des compétences, les points valent `max(W_SKILLS / 2, W_SKILLS × part IDF des compétences trouvées)`.
+   - Question de l'utilisateur à l'origine de ce choix : la robustesse face aux compétences que l'utilisateur n'a pas listées.
+   - Simulation au `FLOOR` 35 : correspondance exacte, mot à mot, bonus seul et composante retirée donnent les mêmes détachements sur le banc. Seules 7 offres sur 100 listent des compétences.
+   - Risque théorique couvert : avec la règle actuelle, une offre qui liste des compétences absentes du profil reçoit 0/30, et son cosinus doit atteindre 0.785 au lieu de 0.752. Le minimum des `relevant` est 0.775.
+4. **Stage** : le filtre dur `contract` est inchangé. La candidature `…dd25e1` reste rattachée par la garde d'interaction.
+5. **Constantes inchangées** :
+   - `STRONG_THRESHOLD = 75`, `MEDIUM_THRESHOLD = 60`, `CAP_SCORE = 59` : le niveau reste calculé et stocké dans `offer_relevance`, mais il n'est pas affiché.
+   - `SCORING_VERSION = "1"` : aucun score n'a encore été persisté.
+6. **Accord juge / humain** : non mesuré. Il reste à faire avec les 20 labels humains du plan du banc.
+
+### Mesures après correction (2026-10-25, commit 2615ab4)
+
+`FLOOR = 35` et composante compétences en bonus seul. Banc relancé sans appel d'API (caches locaux).
+
+| Mesure (profil A) | Avant (9bb1314) | Après (2615ab4) |
+|---|---|---|
+| P@10 hybride | 0.10 | 0.20 (= chronologique, seuil du niveau 1 toujours non atteint) |
+| P@20 hybride | 0.20 | 0.25 |
+| FP@20 hybride | 0.00 | 0.00 |
+| Détachées au `FLOOR` courant | 0 / 0 / 4 (à 20) | 0 `relevant` / 2 `partial` / 24 `irrelevant` (à 35) |
+| `applied` filtrées ou sous `FLOOR` | `…dd25e1` (filtrée, stage) | `…dd25e1` (filtrée, stage), aucune sous `FLOOR` |
+| `relevant` : min / médiane / max | 45.4 / 55.8 / 70.4 | 45.4 / 58.8 / 76.5 |
+| `irrelevant` : min / médiane / max | 17.6 / 23.5 / 39.1 | inchangé |
+| Niveaux échantillon `relevant` : strong / medium / weak | 0 / 2 / 6 | 1 / 3 / 4 |
+
+- Balayage du `FLOOR` identique avant et après : les offres détachées ne listent pas de compétences, leur score ne bouge pas. La simulation du point 3 est confirmée.
+- Marge à 35 : 10.4 points sous le minimum des `relevant`.
+
