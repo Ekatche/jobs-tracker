@@ -77,12 +77,12 @@ def _geo_condition_ok(offer: dict, features: ProfileFeatures) -> bool:
         return mode not in KNOWN_WORK_MODES
 
     offer_departments = departments_for_location(offer.get("localisation"))
+    if not offer_departments or any(not departments_for_location(loc) for loc in locations):
+        return True
+
     candidate_departments: frozenset[str] = frozenset()
     for location in locations:
         candidate_departments |= departments_for_location(location)
-
-    if not offer_departments or not candidate_departments:
-        return True
 
     return bool(offer_departments & candidate_departments)
 

@@ -101,6 +101,9 @@ def test_geo_other_department_fails():
     offer = {"localisation": "Nantes", "type_contrat": "CDI"}
     assert failed_conditions(offer, features_with()) == ["geo"]
 
+    offer_marseille = {"localisation": "Marseille", "type_contrat": "CDI"}
+    assert failed_conditions(offer_marseille, features_with(locations=["Lyon", "Paris"])) == ["geo"]
+
 
 def test_geo_full_remote_offer_passes_unless_on_site():
     offer = {"localisation": "Nantes", "mode_travail": "Télétravail total", "type_contrat": "CDI"}
@@ -129,6 +132,12 @@ def test_geo_unresolved_location_never_fails():
     assert failed_conditions(offer_nantes, features_with(locations=["St.-Denis"])) == []
 
     assert failed_conditions(offer_nantes, features_with(locations=[])) == []
+
+
+def test_geo_mixed_resolved_and_unresolved_locations_never_fails():
+    offer_nanterre = {"localisation": "Nanterre", "type_contrat": "CDI"}
+    result = failed_conditions(offer_nanterre, features_with(locations=["Lyon", "La Défense"]))
+    assert "geo" not in result
 
 
 # ---------- failed_conditions : contract ----------
