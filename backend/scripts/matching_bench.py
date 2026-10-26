@@ -904,10 +904,11 @@ def report(export: Dict[str, Any], model: str) -> None:
     hybrid_cos: Dict[str, Dict[str, Optional[float]]] = {}
     for r in cos_records:
         hybrid_cos.setdefault(r["alias"], {})[r["offer_id"]] = r["cos"]
+    n_assessment_pairs = sum(len(_hybrid_assessment_ids(export, p["alias"])) for p in export["profiles"])
     logger.info(
         f"📊 {len(judge_records)}/{len(judge_pairs(export))} paires jugées, "
         f"{len(twopass_records)}/{len(export['profiles']) * len(sample_ids(export))} Two-Pass ({model}), "
-        f"{len(cos_records)}/{len(export['profiles']) * len(sample_ids(export))} cos hybrides, "
+        f"{len(cos_records)}/{n_assessment_pairs} cos hybrides, "
         f"{len(human_records)} labels humains"
     )
     metrics = compute_metrics(export, judge_records, twopass_records, human_records, model, hybrid=hybrid, hybrid_cos=hybrid_cos)

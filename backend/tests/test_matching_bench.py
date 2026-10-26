@@ -5,6 +5,7 @@ base est la `BenchDatabase` en mémoire construite depuis un export factice.
 """
 
 import json
+import logging
 import random
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -13,11 +14,12 @@ import pytest
 from bson import ObjectId
 
 from app.services.evaluation.evaluator import compute_offer_evaluation
-from scripts.export_matching_bench import assign_aliases, select_sample
-from app.services.usage_tracker import estimate_llm_cost
 from app.services.offer_scoring.constants import EMBEDDING_MODEL
 from app.services.offer_scoring.embeddings import offer_embedding_text, text_hash
 from app.services.offer_scoring.score import ScoreResult, profile_features
+from app.services.usage_tracker import estimate_llm_cost
+from scripts import matching_bench
+from scripts.export_matching_bench import assign_aliases, select_sample
 from scripts.matching_bench import (
     JUDGE_FALLBACK_MODEL,
     JUDGE_MODEL,
@@ -37,6 +39,7 @@ from scripts.matching_bench import (
     rank_chronological,
     rank_hybrid,
     rank_twopass,
+    report,
     run_embed,
     run_judge,
     run_twopass,
@@ -632,3 +635,42 @@ def test_results_payload_contains_no_profile_data():
     assert "justification" not in serialized
     assert set(payload) == {"meta", "judge", "twopass", "human", "metrics"}
     assert payload["meta"]["n_profiles"] == 1 and payload["meta"]["n_sample"] == 1
+
+
+def test_report_logs_cos_denominator_matching_assessment_ids(monkeypatch, tmp_path, caplog):
+    """M18 : le dénominateur `cos hybrides` du log doit compter les offres réellement
+    évaluées par profil (échantillon + interactions, cf. `_hybrid_assessment_ids`),
+    pas `profils × échantillon` qui sous-compte dès qu'une interaction ajoute une
+    offre hors échantillon."""
+    offers = [
+        _offer(1, created_at=datetime(2026, 10, 1)),
+        _offer(2, created_at=datetime(2026, 10, 2)),
+        _offer(3, created_at=datetime(2026, 10, 3)),
+    ]
+    export = _export(
+        offers,
+        [_oid(1), _oid(2)],
+        interactions=[{"alias": "A", "offer_id": _oid(3), "status": "applied"}],
+    )
+
+    # Caches et feuille de validation isolés du dépôt réel : aucun n'existe, donc
+    # judge/twopass/human/cos records sont vides — seul le dénominateur loggé importe ici.
+    monkeypatch.setattr(matching_bench, "JUDGE_CACHE", tmp_path / "judge_cache.json")
+    monkeypatch.setattr(matching_bench, "TWOPASS_CACHE", tmp_path / "twopass_cache.json")
+    monkeypatch.setattr(matching_bench, "VALIDATION_CSV", tmp_path / "validation.csv")
+    monkeypatch.setattr(matching_bench, "HYBRID_COS_CACHE", tmp_path / "hybrid_cos_cache.json")
+    monkeypatch.setattr(matching_bench, "RESULTS_PATH", tmp_path / "results.json")
+
+    expected_denominator = sum(
+        len(matching_bench._hybrid_assessment_ids(export, p["alias"])) for p in export["profiles"]
+    )
+    assert expected_denominator == 3  # 2 offres d'échantillon + 1 offre d'interaction hors échantillon
+    old_buggy_denominator = len(export["profiles"]) * len(export["sample_offer_ids"])
+    assert old_buggy_denominator != expected_denominator  # sous-compte : la régression serait invisible sinon
+
+    with caplog.at_level(logging.INFO):
+        report(export, "gemini/gemini-3.8-flash")
+
+    cos_messages = [r.message for r in caplog.records if "cos hybrides" in r.message]
+    assert len(cos_messages) == 1
+    assert f"0/{expected_denominator} cos hybrides" in cos_messages[0]
