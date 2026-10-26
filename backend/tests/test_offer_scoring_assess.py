@@ -55,8 +55,13 @@ def features_with(**pref_overrides) -> ProfileFeatures:
         ("Lyon (100)", {"69"}),
         ("Fort-de-France (972)", {"972"}),
         # M11 : un nom de région remplace les communes homonymes, pas de
-        # fusion (Bretagne = exactement ses 4 départements).
+        # fusion (Bretagne = exactement ses 4 départements ; La Réunion,
+        # aussi commune du Lot-et-Garonne, reste la seule île).
         ("Bretagne", {"22", "29", "35", "56"}),
+        ("La Réunion", {"974"}),
+        # Un nom de département, lui, fusionne avec la commune homonyme :
+        # Vienne (Isère) ne doit pas être éclipsée par le département 86.
+        ("Vienne", {"38", "86"}),
     ],
 )
 def test_departments_for_location(location, expected):

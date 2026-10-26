@@ -6,11 +6,11 @@ Ouverte) pour construire un index unique `{clé normalize_text(nom) ->
 Les communes homonymes entre elles sont fusionnées (ex: « saint denis » ->
 Seine-Saint-Denis + La Réunion + les communes métropolitaines homonymes) :
 sens permissif, un faux « dans la zone » coûte moins cher qu'une offre
-perdue. En revanche un nom de département ou de région REMPLACE l'entrée
-d'éventuelles communes homonymes plutôt que de fusionner avec elles (ex:
-une commune nommée comme une région ne doit pas élargir la région à ses
-propres départements) ; les régions pointent vers la liste de leurs
-départements.
+perdue. Même règle pour un nom de département : il fusionne avec les
+communes homonymes (« vienne » -> Vienne 86 + Vienne en Isère 38). Seul un
+nom de région REMPLACE l'entrée d'éventuelles communes homonymes (ex: une
+commune nommée comme une région ne doit pas élargir la région à ses propres
+départements) ; les régions pointent vers la liste de leurs départements.
 
 Écrit `backend/app/services/offer_scoring/communes_departements.json`, PAS
 `backend/app/data/` : `.gitignore:88` ignore tout dossier `data/`
@@ -59,11 +59,9 @@ def build_index() -> dict[str, list[str]]:
 
     departements_by_region: dict[str, set[str]] = {}
     for dept in departements:
-        key = normalize_text(dept["nom"])
-        if key:
-            # Remplace (pas de fusion) : un nom de département prime sur une
-            # commune homonyme, qui pointerait vers un autre département.
-            index[key] = {dept["code"]}
+        # Fusion : un nom de département garde la commune homonyme (Vienne =
+        # Isère + Vienne), sinon une offre à Vienne (38) serait hors zone.
+        _merge(index, dept["nom"], dept["code"])
         code_region = dept.get("codeRegion")
         if code_region:
             departements_by_region.setdefault(code_region, set()).add(dept["code"])
