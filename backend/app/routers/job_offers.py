@@ -7,6 +7,7 @@ from typing import List, Literal, Optional
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 from ..models import (
+    CollectionScheduleResponse,
     JobOfferResponse,
     OfferEvaluationResponse,
     UserModel,
@@ -16,6 +17,7 @@ from ..models import (
 )
 from ..database import get_database
 from ..auth import get_current_admin_user, get_current_user
+from ..services.collection_schedule import next_collection_at, previous_collection_at
 from ..services.company_profiles import COMPANY_SIZES, SECTORS
 from ..services.normalization import normalize_city, normalize_company
 from ..services.offer_scoring.constants import RELEVANCE_LEVELS
@@ -1150,6 +1152,25 @@ async def get_offers_stats(db=Depends(get_database)):
         "top_companies": top_companies,
         "top_cities": top_cities,
     }
+
+
+@job_offers_router.get("/collection/schedule", response_model=CollectionScheduleResponse)
+async def get_collection_schedule(
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Prochaine collecte d'offres, et profil créé depuis la dernière.
+
+    `candidate_profile` n'a pas de `created_at` : l'horodatage de son `_id` en tient lieu.
+    """
+    now = datetime.now(timezone.utc)
+    profile = await db["candidate_profile"].find_one({"user_id": ObjectId(str(current_user.id))}, {"_id": 1})
+    awaiting = bool(
+        profile
+        and isinstance(profile["_id"], ObjectId)
+        and profile["_id"].generation_time > previous_collection_at(now)
+    )
+    return CollectionScheduleResponse(next_collection_at=next_collection_at(now), awaiting_first_collection=awaiting)
 
 
 @job_offers_router.get("/count/")

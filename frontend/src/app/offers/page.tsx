@@ -9,6 +9,7 @@ import {
   type JobOffer,
   type JobOfferFilter,
   type JobOfferStats,
+  type CollectionSchedule,
 } from "@/lib/api";
 import {
   FiSearch,
@@ -93,6 +94,18 @@ function formatAddedDate(createdAtStr?: string): string | null {
   } catch {
     return null;
   }
+}
+
+// Créneau de collecte (UTC côté API) affiché à l'heure de Paris, ex. « lundi 26 octobre à 17:00 »
+function formatCollectionTime(isoUtc: string): string {
+  return new Date(isoUtc).toLocaleString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Paris",
+  });
 }
 
 const ITEMS_PER_PAGE = 16; // 4x4 grille
@@ -600,6 +613,9 @@ function OffersPageContent() {
   const [stats, setStats] = useState<JobOfferStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
+  // Prochaine collecte d'offres (bandeau profil neuf, état vide)
+  const [collectionSchedule, setCollectionSchedule] = useState<CollectionSchedule | null>(null);
+
   // Filtres normalisés et mémorisés
   const currentFilters = useMemo((): JobOfferFilter => {
     const f: JobOfferFilter = {};
@@ -643,6 +659,22 @@ function OffersPageContent() {
     companySizeFilter,
     relevanceLevelFilter,
   ]);
+
+  const hasActiveFilters = Boolean(
+    searchTerm ||
+      locationFilter ||
+      companyFilter ||
+      contractTypeFilter ||
+      workModeFilter ||
+      daysRecentFilter !== undefined ||
+      onlySaved ||
+      interactionStatus ||
+      minScoreFilter !== undefined ||
+      sortFilter !== "recent" ||
+      sectorFilter.length > 0 ||
+      companySizeFilter.length > 0 ||
+      relevanceLevelFilter.length > 0
+  );
 
   // Fonction pour charger le nombre total d'offres
   const fetchTotalCount = useCallback(async () => {
@@ -857,6 +889,13 @@ function OffersPageContent() {
       fetchStats();
     }
   }, [fetchOffers, fetchStats, activeTab]);
+
+  useEffect(() => {
+    jobOffersApi
+      .getCollectionSchedule()
+      .then(setCollectionSchedule)
+      .catch((err) => console.error("Erreur lors du chargement du calendrier de collecte:", err));
+  }, []);
 
   // Candidature créée depuis la modale du Header : rafraîchit la liste sur place
   useEffect(() => {
@@ -1427,6 +1466,17 @@ function OffersPageContent() {
               )}
             </div>
 
+            {/* Profil créé depuis la dernière collecte : ses recherches ciblées n'ont pas encore tourné */}
+            {collectionSchedule?.awaiting_first_collection && (
+              <div className="mb-4 p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-200 text-xs flex items-start gap-2">
+                <FiClock className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                <span className="flex-1">
+                  Votre profil vient d&apos;être créé : la recherche d&apos;offres ciblées sur votre profil sera
+                  lancée le {formatCollectionTime(collectionSchedule.next_collection_at)}.
+                </span>
+              </div>
+            )}
+
             {/* Erreur de régénération */}
             {regenerateError && (
               <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
@@ -1450,19 +1500,7 @@ function OffersPageContent() {
                   : `${totalOffers.toLocaleString()} offre${totalOffers > 1 ? "s" : ""} au total • ${offers.length} affichée${offers.length > 1 ? "s" : ""}`}
               </p>
 
-              {(searchTerm ||
-                locationFilter ||
-                companyFilter ||
-                contractTypeFilter ||
-                workModeFilter ||
-                daysRecentFilter !== undefined ||
-                onlySaved ||
-                interactionStatus ||
-                minScoreFilter !== undefined ||
-                sortFilter !== "recent" ||
-                sectorFilter.length > 0 ||
-                companySizeFilter.length > 0 ||
-                relevanceLevelFilter.length > 0) && (
+              {hasActiveFilters && (
                 <button
                   onClick={() => {
                     setSearchTerm("");
@@ -1503,6 +1541,16 @@ function OffersPageContent() {
                 >
                   Réessayer
                 </button>
+              </div>
+            ) : offers.length === 0 && !hasActiveFilters && !unseenOnly ? (
+              <div className="text-center py-12">
+                <FiClock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-400 text-lg">Aucune offre adaptée à votre profil pour l&apos;instant</p>
+                {collectionSchedule && (
+                  <p className="text-gray-500 text-sm mt-2">
+                    Prochaine recherche d&apos;offres le {formatCollectionTime(collectionSchedule.next_collection_at)}.
+                  </p>
+                )}
               </div>
             ) : offers.length === 0 ? (
               <div className="text-center py-12">

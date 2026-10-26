@@ -225,6 +225,9 @@ DEFAULT_PREFERENCES = {
 }
 
 
+# Les offres « faibles » de ces tests s'intitulent « Comptable data » : le
+# terme « data » leur fait passer la garde métier (filtre dur « role »), c'est
+# donc bien leur cosinus qui les laisse sous FLOOR.
 def make_profile(*, user_id=None, headline="Data Engineer", skills=None, preferences=None):
     return {
         "user_id": user_id if user_id is not None else USER_ID,
@@ -271,7 +274,7 @@ async def test_rematch_user_attaches_by_score_and_writes_relevance():
     }
     bad_offer = {
         "_id": oid("20"),
-        "poste": "Comptable",
+        "poste": "Comptable data",
         "description": "Gestion comptable quotidienne.",
         "competences_cles": [],
         "localisation": "Nantes",
@@ -388,7 +391,7 @@ async def test_rematch_user_keeps_applied_offer_below_floor(guard_kind, caplog):
     profile = make_profile()
     offer = {
         "_id": oid("40"),
-        "poste": "Comptable",
+        "poste": "Comptable data",
         "description": "Gestion comptable quotidienne.",
         "competences_cles": [],
         "localisation": "Lyon",
@@ -435,7 +438,7 @@ async def test_rematch_user_interaction_status_none_does_not_guard(status, shoul
     profile = make_profile()
     offer = {
         "_id": oid("45"),
-        "poste": "Comptable",
+        "poste": "Comptable data",
         "description": "Gestion comptable quotidienne.",
         "competences_cles": [],
         "localisation": "Lyon",
@@ -547,7 +550,7 @@ async def test_rematch_user_embedding_down_detaches_nothing_new():
     profile = make_profile()
     unattached_offer = {
         "_id": oid("60"),
-        "poste": "Comptable",
+        "poste": "Comptable data",
         "description": "Gestion comptable quotidienne.",
         "competences_cles": [],
         "localisation": "Nantes",
@@ -659,7 +662,7 @@ async def test_rematch_user_counts_only_real_changes():
     }
     never_attached_weak_offer = {
         "_id": oid("66"),
-        "poste": "Comptable",
+        "poste": "Comptable data",
         "description": "Gestion comptable quotidienne.",
         "competences_cles": [],
         "localisation": "Nantes",
@@ -697,7 +700,7 @@ async def test_tag_new_offers_scores_batch_for_every_profile():
         user_id=oid("2"),
         headline="Java Developer",
         skills={"tech": ["Java"]},
-        preferences={"contract_types": ["CDI"]},
+        preferences={"contract_types": ["CDI"], "target_roles": ["Java Developer"]},
     )
     offer1 = {
         "_id": oid("90"),
@@ -749,7 +752,11 @@ async def test_tag_new_offers_scores_batch_for_every_profile():
     }
     assert calls_by_user[str(profile_a["user_id"])] == {"_id": {"$in": [offer1["_id"]]}}
     assert calls_by_user[str(profile_b["user_id"])] == {"_id": {"$in": [offer2["_id"]]}}
-    assert len(offer_relevance.docs) == 4
+    # L'offre de l'autre métier est écartée par la garde métier, sans score.
+    assert {(d["user_id"], d["offer_id"]) for d in offer_relevance.docs} == {
+        (str(profile_a["user_id"]), str(offer1["_id"])),
+        (str(profile_b["user_id"]), str(offer2["_id"])),
+    }
     assert not any(d["offer_id"] == excluded_offer_id_str for d in offer_relevance.docs)
 
 
@@ -762,7 +769,7 @@ async def test_tag_new_offers_embedding_down_skips_offers(caplog):
     profile = make_profile()
     offer = {
         "_id": oid("93"),
-        "poste": "Comptable",
+        "poste": "Comptable data",
         "description": "Gestion comptable quotidienne.",
         "competences_cles": [],
         "localisation": "Nantes",

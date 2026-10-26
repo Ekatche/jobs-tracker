@@ -24,6 +24,7 @@ from app.services.offer_scoring.constants import (
     W_SENIORITY,
     W_SKILLS,
 )
+from app.services.offer_scoring.role_gate import role_terms
 from app.services.relevance import contains_keyword, normalize_text
 
 
@@ -51,6 +52,9 @@ class ProfileFeatures:
     preferred_industries: tuple[str, ...]
     preferred_company_sizes: tuple[str, ...]
     preferences: dict
+    # Termes métier des rôles visés (garde métier de `hard_filter_reason`) ;
+    # vide = pas de garde.
+    role_terms: frozenset[str] = frozenset()
 
 
 class SkillIdf:
@@ -224,4 +228,7 @@ def profile_features(profile: dict) -> ProfileFeatures:
         preferred_industries=preferred_industries,
         preferred_company_sizes=preferred_company_sizes,
         preferences=preferences,
+        # Les rôles visés disent le métier ; le titre de profil ne sert qu'à
+        # défaut, il décrit souvent le parcours plus que la cible.
+        role_terms=role_terms(target_roles or [headline]),
     )

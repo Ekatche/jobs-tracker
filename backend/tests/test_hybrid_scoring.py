@@ -179,3 +179,15 @@ def test_profile_features_flattens_skills():
     assert features.skills == frozenset({"python", "docker"})
     assert features.seniority_levels == ("senior",)
     assert features.identity != ""
+
+
+def test_profile_features_role_terms_come_from_target_roles():
+    profile = {"headline": "Animatrice", "preferences": {"target_roles": ["Coordinateur de projets jeunesse"]}}
+
+    assert profile_features(profile).role_terms == frozenset({"jeunesse"})
+
+
+def test_profile_features_role_terms_fall_back_to_headline():
+    profile = {"headline": "Coordinatrice jeunesse", "preferences": {}}
+
+    assert profile_features(profile).role_terms == frozenset({"jeunesse"})

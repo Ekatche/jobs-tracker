@@ -2,8 +2,9 @@
 
 Trois couches, dans l'ordre où `assess_offer` les applique :
 1. `hard_filter_reason` : l'offre est écartée entièrement (mot-clé exclu,
-   stage/alternance non souhaité, hors zone géographique) — aucun score ne
-   lui est jamais rattaché.
+   stage/alternance non souhaité, hors zone géographique, intitulé sans
+   terme métier commun avec les rôles visés) — aucun score ne lui est
+   jamais rattaché.
 2. `failed_conditions` : l'offre est conservée mais plafonnée (`CAP_SCORE`)
    si le type de contrat ne correspond pas.
 3. `combine` (Task 1) assemble les composantes en un `ScoreResult`.
@@ -15,6 +16,7 @@ from app.services.evaluation.offer_fit import normalize_contract
 from app.services.normalization import detect_contract_type
 from app.services.offer_scoring.constants import W_SECTOR, W_SIZE
 from app.services.offer_scoring.geo import departments_for_location
+from app.services.offer_scoring.role_gate import title_matches_roles
 from app.services.offer_scoring.score import (
     ProfileFeatures,
     ScoreResult,
@@ -65,6 +67,9 @@ def hard_filter_reason(offer: dict, features: ProfileFeatures) -> Optional[str]:
     # recherches des autres utilisateurs.
     if not _geo_condition_ok(offer, features):
         return "geo"
+
+    if not title_matches_roles(offer.get("poste"), features.role_terms):
+        return "role"
 
     return None
 

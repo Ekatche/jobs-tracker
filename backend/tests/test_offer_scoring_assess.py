@@ -3,6 +3,7 @@ import pytest
 from app.services.offer_scoring.assess import assess_offer, failed_conditions, hard_filter_reason
 from app.services.offer_scoring.constants import CAP_SCORE
 from app.services.offer_scoring.geo import departments_for_location
+from app.services.offer_scoring.role_gate import role_terms
 from app.services.offer_scoring.score import ProfileFeatures, build_skill_idf
 
 ILE_DE_FRANCE_DEPARTMENTS = {"75", "77", "78", "91", "92", "93", "94", "95"}
@@ -285,3 +286,28 @@ def test_assess_offer_empty_identity_excludes_semantic():
 
     assert reason is None
     assert "semantic" not in result.breakdown
+
+
+# ---------- hard_filter_reason : role ----------
+# Le cosinus absolu ne sépare pas les métiers d'un profil à l'autre : sans
+# garde sur l'intitulé, tout le stock data était rattaché à une animatrice.
+
+
+def test_role_mismatch_is_hard_filtered():
+    features = make_features(role_terms=role_terms(["Animateur socioculturel", "Coordinateur de projets jeunesse"]))
+    offer = {"poste": "Gestionnaire actif passif - Responsable de projets ALM", "type_contrat": "CDI"}
+
+    assert hard_filter_reason(offer, features) == "role"
+    assert assess_offer(offer, features, cos=0.9, idf=build_skill_idf([[]])) == ("role", None)
+
+
+def test_role_match_passes():
+    features = make_features(role_terms=role_terms(["Animateur socioculturel"]))
+    offer = {"poste": "Animatrice périscolaire H/F", "type_contrat": "CDI"}
+
+    assert hard_filter_reason(offer, features) is None
+
+
+def test_profile_without_role_terms_has_no_role_filter():
+    offer = {"poste": "Contrôleur de gestion", "type_contrat": "CDI"}
+    assert hard_filter_reason(offer, make_features()) is None

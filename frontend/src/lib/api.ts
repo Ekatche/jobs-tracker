@@ -422,6 +422,11 @@ export interface JobOfferStats {
   }>;
 }
 
+export interface CollectionSchedule {
+  next_collection_at: string;
+  awaiting_first_collection: boolean;
+}
+
 // API Authentication
 export const authApi = {
   login: async (username: string, password: string, rememberMe: boolean = false) => {
@@ -720,6 +725,11 @@ export const jobOffersApi = {
   // Récupérer les statistiques
   getStats: async () => {
     return fetchApi<JobOfferStats>("/job-offers/stats/summary", "GET");
+  },
+
+  // Prochaine collecte d'offres, et profil créé depuis la dernière
+  getCollectionSchedule: async () => {
+    return fetchApi<CollectionSchedule>("/job-offers/collection/schedule", "GET");
   },
 
   // Collecter des offres (si vous ajoutez cet endpoint plus tard)

@@ -391,6 +391,13 @@ class SeenStatusRequest(BaseModel):
     seen: bool = True
 
 
+class CollectionScheduleResponse(BaseModel):
+    next_collection_at: datetime
+    # Profil créé depuis la dernière collecte : ses recherches ciblées
+    # n'ont pas encore tourné.
+    awaiting_first_collection: bool
+
+
 class JobOfferFilter(BaseModel):
     keywords: Optional[List[str]] = None
     locations: Optional[List[str]] = None
