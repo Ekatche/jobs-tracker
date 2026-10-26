@@ -1,5 +1,5 @@
 {
-"_source": "geo.api.gouv.fr (API Découpage administratif), généré le 2026-10-25",
+"_source": "geo.api.gouv.fr (API Découpage administratif), généré le 2026-10-26",
 "aast": [
 "64"
 ],
@@ -1075,8 +1075,7 @@
 "52"
 ],
 "allier": [
-"03",
-"65"
+"03"
 ],
 "allieres": [
 "09"
@@ -3786,9 +3785,7 @@
 "19"
 ],
 "aube": [
-"10",
-"57",
-"61"
+"10"
 ],
 "aubeguimont": [
 "76"
@@ -13001,9 +12998,7 @@
 "22",
 "29",
 "35",
-"36",
-"56",
-"90"
+"56"
 ],
 "bretagne d armagnac": [
 "32"
@@ -24231,8 +24226,7 @@
 "14"
 ],
 "creuse": [
-"23",
-"80"
+"23"
 ],
 "creutzwald": [
 "57"
@@ -38829,8 +38823,7 @@
 "25"
 ],
 "indre": [
-"36",
-"44"
+"36"
 ],
 "indre et loire": [
 "37"
@@ -43004,7 +42997,6 @@
 "70"
 ],
 "la reunion": [
-"47",
 "974"
 ],
 "la ricamarie": [
@@ -44950,7 +44942,6 @@
 "67"
 ],
 "landes": [
-"17",
 "40"
 ],
 "landes le gaulois": [
@@ -51298,8 +51289,7 @@
 "41"
 ],
 "loire": [
-"42",
-"49"
+"42"
 ],
 "loire atlantique": [
 "44"
@@ -94904,7 +94894,6 @@
 "51"
 ],
 "vaucluse": [
-"25",
 "84"
 ],
 "vauclusotte": [
@@ -96813,7 +96802,6 @@
 "79"
 ],
 "vienne": [
-"38",
 "86"
 ],
 "vienne en arthies": [

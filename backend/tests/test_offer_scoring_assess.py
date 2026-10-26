@@ -50,10 +50,55 @@ def features_with(**pref_overrides) -> ProfileFeatures:
         ("Non spécifié", set()),
         ("", set()),
         (None, set()),
+        # M9 : code entre parenthèses limité à 01-95 / 2A-2B / 971-976 ;
+        # un code hors plage (ex: 100) retombe sur la résolution par nom.
+        ("Lyon (100)", {"69"}),
+        ("Fort-de-France (972)", {"972"}),
+        # M11 : un nom de région remplace les communes homonymes, pas de
+        # fusion (Bretagne = exactement ses 4 départements).
+        ("Bretagne", {"22", "29", "35", "56"}),
     ],
 )
 def test_departments_for_location(location, expected):
     assert departments_for_location(location) == frozenset(expected)
+
+
+def test_departments_for_location_saint_denis_keeps_homonym_communes():
+    """Les communes homonymes entre elles restent fusionnées (sens permissif,
+    cf. docstring de build_communes_index.py) : Saint-Denis contient toujours
+    au moins la Seine-Saint-Denis (93) et La Réunion (974)."""
+    assert {"93", "974"} <= departments_for_location("Saint-Denis")
+
+
+# ---------- _load_index (M10, fail-open) ----------
+
+
+def test_load_index_missing_file_fails_open(monkeypatch, caplog):
+    from app.services.offer_scoring import geo
+
+    monkeypatch.setattr(geo, "_INDEX_PATH", geo._INDEX_PATH.parent / "does-not-exist.json")
+    geo._load_index.cache_clear()
+    try:
+        with caplog.at_level("ERROR"):
+            assert geo._load_index() == {}
+        assert any(record.levelname == "ERROR" for record in caplog.records)
+    finally:
+        geo._load_index.cache_clear()
+
+
+def test_load_index_invalid_json_fails_open(tmp_path, monkeypatch, caplog):
+    from app.services.offer_scoring import geo
+
+    bad_file = tmp_path / "invalid.json"
+    bad_file.write_text("{ceci n'est pas du json", encoding="utf-8")
+    monkeypatch.setattr(geo, "_INDEX_PATH", bad_file)
+    geo._load_index.cache_clear()
+    try:
+        with caplog.at_level("ERROR"):
+            assert geo._load_index() == {}
+        assert any(record.levelname == "ERROR" for record in caplog.records)
+    finally:
+        geo._load_index.cache_clear()
 
 
 # ---------- hard_filter_reason ----------

@@ -3,9 +3,14 @@
 Interroge geo.api.gouv.fr (public, gratuit, sans clé, données sous Licence
 Ouverte) pour construire un index unique `{clé normalize_text(nom) ->
 [codes département triés]}` couvrant communes, départements et régions.
-Les homonymes sont fusionnés (ex: « saint denis » -> Seine-Saint-Denis +
-La Réunion + deux communes métropolitaines) ; les régions pointent vers la
-liste de leurs départements.
+Les communes homonymes entre elles sont fusionnées (ex: « saint denis » ->
+Seine-Saint-Denis + La Réunion + les communes métropolitaines homonymes) :
+sens permissif, un faux « dans la zone » coûte moins cher qu'une offre
+perdue. En revanche un nom de département ou de région REMPLACE l'entrée
+d'éventuelles communes homonymes plutôt que de fusionner avec elles (ex:
+une commune nommée comme une région ne doit pas élargir la région à ses
+propres départements) ; les régions pointent vers la liste de leurs
+départements.
 
 Écrit `backend/app/services/offer_scoring/communes_departements.json`, PAS
 `backend/app/data/` : `.gitignore:88` ignore tout dossier `data/`
@@ -54,7 +59,11 @@ def build_index() -> dict[str, list[str]]:
 
     departements_by_region: dict[str, set[str]] = {}
     for dept in departements:
-        _merge(index, dept["nom"], dept["code"])
+        key = normalize_text(dept["nom"])
+        if key:
+            # Remplace (pas de fusion) : un nom de département prime sur une
+            # commune homonyme, qui pointerait vers un autre département.
+            index[key] = {dept["code"]}
         code_region = dept.get("codeRegion")
         if code_region:
             departements_by_region.setdefault(code_region, set()).add(dept["code"])
@@ -65,7 +74,8 @@ def build_index() -> dict[str, list[str]]:
         if depts:
             key = normalize_text(region["nom"])
             if key:
-                index.setdefault(key, set()).update(depts)
+                # Idem : un nom de région remplace une commune homonyme.
+                index[key] = set(depts)
 
     return {key: sorted(codes) for key, codes in sorted(index.items())}
 
