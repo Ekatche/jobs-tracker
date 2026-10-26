@@ -31,9 +31,12 @@ jobs:
           python -m pip install --upgrade pip uv
           cd backend
           uv sync --frozen
+          uv run playwright install --with-deps chromium
       - name: Create .env file
+        # À la racine du repo : app/database.py et tests/conftest.py chargent
+        # explicitement ce chemin-là au moment de l'import.
         run: |
-          cat > backend/.env << EOF
+          cat > .env << EOF
           MONGO_TEST_USER=${{ secrets.MONGO_TEST_USER }}
           MONGO_TEST_PASSWORD=${{ secrets.MONGO_TEST_PASSWORD }}
           DATABASE_NAME_TEST=jobtracker_test
