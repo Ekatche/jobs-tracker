@@ -37,7 +37,7 @@ import {
 } from "react-icons/fi";
 import { PrefilledData } from "@/components/dashboard/NewApplicationModal";
 import { getContractBadgeStyles } from "@/lib/contractBadge";
-import { SECTOR_OPTIONS, COMPANY_SIZE_OPTIONS } from "@/lib/companyTaxonomy";
+import CompanyFilters from "@/components/offers/CompanyFilters";
 
 function cleanDescriptionPreview(text: string | undefined): string {
   if (!text || text === "Non spécifié") return "";
@@ -1358,10 +1358,11 @@ function OffersPageContent() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                    <label htmlFor="offers-sort" className="block font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                       Tri
                     </label>
                     <select
+                      id="offers-sort"
                       value={sortFilter}
                       onChange={(e) => setSortFilter(e.target.value as "recent" | "relevance")}
                       className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
@@ -1371,45 +1372,12 @@ function OffersPageContent() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Secteur
-                    </label>
-                    <select
-                      multiple
-                      value={sectorFilter}
-                      onChange={(e) =>
-                        setSectorFilter(Array.from(e.target.selectedOptions, (o) => o.value))
-                      }
-                      className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 min-h-[88px]"
-                    >
-                      {SECTOR_OPTIONS.map((sector) => (
-                        <option key={sector.value} value={sector.value}>
-                          {sector.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Taille d&apos;entreprise
-                    </label>
-                    <select
-                      multiple
-                      value={companySizeFilter}
-                      onChange={(e) =>
-                        setCompanySizeFilter(Array.from(e.target.selectedOptions, (o) => o.value))
-                      }
-                      className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700/80 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 min-h-[88px]"
-                    >
-                      {COMPANY_SIZE_OPTIONS.map((size) => (
-                        <option key={size.value} value={size.value}>
-                          {size.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <CompanyFilters
+                    sectorValues={sectorFilter}
+                    onSectorChange={setSectorFilter}
+                    companySizeValues={companySizeFilter}
+                    onCompanySizeChange={setCompanySizeFilter}
+                  />
                 </div>
               )}
             </div>
