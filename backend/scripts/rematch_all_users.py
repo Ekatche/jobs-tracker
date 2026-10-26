@@ -11,7 +11,11 @@ tronqué, jamais de texte de profil) : `attached`, `detached`, `kept_by_guard`,
 `levels`, et les offres conservées sous FLOOR par la garde d'interaction.
 
 Usage:
+    # Estimation seule (lecture DB, aucun appel d'embedding) :
     docker exec jobtracker-backend python scripts/rematch_all_users.py
+    # Dry-run réel (aucune écriture, mais appelle l'embedding) :
+    docker exec jobtracker-backend python scripts/rematch_all_users.py --confirm
+    # Run réel (écrit job_offers, offer_relevance, cache offer_embeddings) :
     docker exec jobtracker-backend python scripts/rematch_all_users.py --apply
 """
 
@@ -26,21 +30,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.database import get_database
 from app.services.offer_profile_matcher import rematch_user
 from app.services.offer_scoring.constants import EMBEDDING_MODEL
-from app.services.offer_scoring.embeddings import offer_embedding_text, text_hash
+from app.services.offer_scoring.embeddings import (
+    embed_texts,
+    offer_embedding_text,
+    text_hash,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
 
 async def _estimate_embedding_cost(db, offers: list, *, apply: bool, profile_count: int) -> None:
-    """Affiche le nombre d'offres sans vecteur en cache et le coût estimé de leur
-    embarquement, avant tout rematch (même formule que `matching_bench.py run_embed`).
+    """Affiche le nombre d'offres sans vecteur en cache, le nombre de textes à
+    embarquer et le coût estimé, avant tout rematch (même formule que
+    `matching_bench.py run_embed`, en caractères).
 
     En dry-run, `rematch_user(..., apply=False)` ne persiste jamais le cache
     `offer_embeddings` (cf. docstring module) : chaque profil réembarque donc
-    les mêmes offres manquantes. Le coût affiché ici est celui d'UNE passe —
-    le coût réel d'un dry-run complet est ce montant multiplié par le nombre
-    de profils, affiché séparément pour ne pas sous-estimer la facture."""
+    les mêmes offres manquantes, plus sa propre identité. Le coût affiché ici
+    est celui d'UNE passe — le coût réel d'un dry-run complet est ce montant
+    multiplié par le nombre de profils, affiché séparément pour ne pas
+    sous-estimer la facture. En apply, chaque offre manquante n'est embarquée
+    qu'une fois (cache écrit après la 1ère passe), plus une identité par
+    profil."""
     offer_texts = {}
     for offer in offers:
         text = offer_embedding_text(offer)
@@ -65,40 +77,56 @@ async def _estimate_embedding_cost(db, offers: list, *, apply: bool, profile_cou
 
     cost_per_pass = (missing_chars / 4) / 1_000_000 * 0.1
     if apply:
+        texts_to_embed = missing_count + profile_count
         logger.info(
             f"🧮 Embeddings offres {EMBEDDING_MODEL} : {missing_count} offre(s) sans vecteur en cache sur "
-            f"{len(offer_texts)}, coût estimé {cost_per_pass:.4f} $ (cache écrit après la 1ère passe)."
+            f"{len(offer_texts)}, {texts_to_embed} texte(s) à embarquer (offres manquantes + 1 identité par "
+            f"profil), coût estimé {cost_per_pass:.4f} $ (cache écrit après la 1ère passe)."
         )
     else:
         estimated_total = cost_per_pass * profile_count
+        texts_to_embed = profile_count * (missing_count + 1)
         logger.info(
             f"🧮 Embeddings offres {EMBEDDING_MODEL} : {missing_count} offre(s) sans vecteur en cache sur "
-            f"{len(offer_texts)}, coût par passe {cost_per_pass:.4f} $ — DRY-RUN n'écrit pas le cache "
-            f"offer_embeddings, donc les {missing_count} offre(s) sont réembarquées à chaque profil : "
+            f"{len(offer_texts)}, {texts_to_embed} texte(s) à embarquer (profils × (offres manquantes + 1 "
+            f"identité)), coût par passe {cost_per_pass:.4f} $ — DRY-RUN n'écrit pas le cache offer_embeddings, "
+            f"donc les {missing_count} offre(s) sont réembarquées à chaque profil : "
             f"{profile_count} profil(s) × {cost_per_pass:.4f} $ ≈ {estimated_total:.4f} $ au total estimé."
         )
 
 
-async def rematch_all_users(apply: bool) -> int:
+async def rematch_all_users(apply: bool, confirm: bool = False, *, embed=embed_texts) -> int:
     """Rejoue le matching de tous les profils. Renvoie le total d'offres
     `semantic_unknown` (ni rattachées ni détachées faute de cosinus, panne
     d'embedding) cumulé sur tous les profils : un total non nul signifie que
-    des offres ont été laissées de côté et doivent être rejouées."""
+    des offres ont été laissées de côté et doivent être rejouées.
+
+    Sans `apply` ni `confirm` : aucun appel d'embedding, seule l'estimation
+    (lecture DB) tourne, et la fonction renvoie 0 sans boucler sur les
+    profils (résolution M8). `confirm=True` lance le dry-run réel
+    (`rematch_user(..., apply=False)`). `apply=True` vaut accord : la vraie
+    passe tourne même sans `confirm`."""
     db = await get_database()
 
     profiles = await db["candidate_profile"].find({}).to_list(length=None)
     offers = await db["job_offers"].find({"is_deleted": {"$ne": True}}).to_list(length=None)
 
+    logger.info(f"🔍 {len(profiles)} profil(s) candidat(s), {len(offers)} offre(s) active(s)")
+
     await _estimate_embedding_cost(db, offers, apply=apply, profile_count=len(profiles))
 
+    if not apply and not confirm:
+        logger.info("ℹ️ Aucun appel d'embedding sans --confirm ni --apply.")
+        return 0
+
     mode = "RUN RÉEL (écriture)" if apply else "DRY-RUN (aucune écriture)"
-    logger.info(f"🔍 {len(profiles)} profil(s) candidat(s), {len(offers)} offre(s) active(s) [{mode}]")
+    logger.info(f"▶️ Rematch de {len(profiles)} profil(s) [{mode}]")
 
     total_semantic_unknown = 0
 
     for profile in profiles:
         user_id = str(profile["user_id"])
-        summary = await rematch_user(user_id, db, apply=apply)
+        summary = await rematch_user(user_id, db, apply=apply, embed=embed)
         total_semantic_unknown += summary.semantic_unknown
         truncated = user_id[:8]
         logger.info(
@@ -133,8 +161,14 @@ if __name__ == "__main__":
         "--apply",
         action="store_true",
         help="Écrit réellement les changements (job_offers, offer_relevance, cache offer_embeddings). "
-        "Sans ce flag : dry-run, aucune écriture.",
+        "Vaut accord : lance la vraie passe même sans --confirm.",
+    )
+    parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Lance le dry-run réel (appelle l'embedding, aucune écriture). Sans --apply ni --confirm : "
+        "estimation seule (lecture DB), aucun appel d'embedding.",
     )
     args = parser.parse_args()
-    total = asyncio.run(rematch_all_users(apply=args.apply))
+    total = asyncio.run(rematch_all_users(apply=args.apply, confirm=args.confirm))
     sys.exit(1 if total else 0)
