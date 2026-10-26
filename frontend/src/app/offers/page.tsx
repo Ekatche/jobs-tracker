@@ -38,8 +38,7 @@ import {
 import { PrefilledData } from "@/components/dashboard/NewApplicationModal";
 import { getContractBadgeStyles } from "@/lib/contractBadge";
 import CompanyFilters from "@/components/offers/CompanyFilters";
-import RelevanceLevelFilter from "@/components/offers/RelevanceLevelFilter";
-import { getRelevanceLevelOption } from "@/lib/relevanceLevels";
+import { getRelevanceLevelOption, RELEVANCE_LEVEL_OPTIONS } from "@/lib/relevanceLevels";
 
 function cleanDescriptionPreview(text: string | undefined): string {
   if (!text || text === "Non spécifié") return "";
@@ -290,7 +289,7 @@ const OfferCard = memo(function OfferCard({
               const level = getRelevanceLevelOption(offer.relevance_level);
               if (!level) return null;
               return (
-                <span className={`px-2 py-0.5 text-[11px] font-medium rounded-md border ${level.className}`}>
+                <span className={`px-2.5 py-0.5 text-xs font-bold rounded-lg border shadow-sm ${level.className}`}>
                   {level.label}
                 </span>
               );
@@ -1215,6 +1214,35 @@ function OffersPageContent() {
                   <FiEye className="w-3.5 h-3.5 text-sky-400" />
                   <span>Non vues</span>
                 </button>
+
+                {/* Niveaux de pertinence : plusieurs niveaux actifs se combinent en union */}
+                <div role="group" aria-label="Pertinence" className="flex flex-wrap items-center gap-2">
+                  {RELEVANCE_LEVEL_OPTIONS.map((level) => {
+                    const active = relevanceLevelFilter.includes(level.value);
+                    return (
+                      <button
+                        key={level.value}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() =>
+                          setRelevanceLevelFilter(
+                            active
+                              ? relevanceLevelFilter.filter((v) => v !== level.value)
+                              : [...relevanceLevelFilter, level.value]
+                          )
+                        }
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 border ${
+                          active
+                            ? `${level.className} shadow-sm`
+                            : "bg-slate-800/70 text-slate-400 hover:text-white border-slate-700/60 hover:bg-slate-800"
+                        }`}
+                      >
+                        {!active && <span className={`w-2 h-2 rounded-full ${level.dotClassName}`} />}
+                        <span>{level.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Filtre auto-appliqué sur les contrats ciblés du profil : visible et dissociable */}
@@ -1388,11 +1416,6 @@ function OffersPageContent() {
                       <option value="relevance">Pertinence</option>
                     </select>
                   </div>
-
-                  <RelevanceLevelFilter
-                    values={relevanceLevelFilter}
-                    onChange={setRelevanceLevelFilter}
-                  />
 
                   <CompanyFilters
                     sectorValues={sectorFilter}

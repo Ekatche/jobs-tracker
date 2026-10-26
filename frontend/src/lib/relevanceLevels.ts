@@ -1,20 +1,24 @@
 // Niveaux du score de pertinence hybride (backend : offer_scoring RELEVANCE_LEVELS).
-// Affichés sans pourcentage : forte en vert, moyenne en bleu, faible en gris.
+// Affichés sans pourcentage, en pastilles pleines (vert, ambre, gris) pour ressortir
+// parmi les badges translucides de la carte (Match IA, Évaluée, contrat...).
 export const RELEVANCE_LEVEL_OPTIONS = [
   {
     value: "strong",
     label: "Pertinence forte",
-    className: "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
+    className: "bg-emerald-500 text-emerald-950 border-emerald-300",
+    dotClassName: "bg-emerald-400",
   },
   {
     value: "medium",
     label: "Pertinence moyenne",
-    className: "bg-blue-500/10 text-blue-300 border-blue-500/30",
+    className: "bg-amber-400 text-amber-950 border-amber-200",
+    dotClassName: "bg-amber-400",
   },
   {
     value: "weak",
     label: "Pertinence faible",
-    className: "bg-slate-700/40 text-slate-300 border-slate-600/50",
+    className: "bg-slate-500 text-white border-slate-300",
+    dotClassName: "bg-slate-400",
   },
 ] as const;
 

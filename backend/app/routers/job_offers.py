@@ -1,6 +1,7 @@
 import inspect
 import logging
 import re
+import unicodedata
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Literal, Optional
 from bson import ObjectId
@@ -99,21 +100,42 @@ STOPWORDS = {
 }
 
 
+ACCENT_VARIANTS = {
+    "a": "aàâäáã",
+    "c": "cç",
+    "e": "eéèêë",
+    "i": "iîïí",
+    "n": "nñ",
+    "o": "oôöó",
+    "u": "uùûüú",
+    "y": "yÿ",
+}
+
+STEM_PREFIXES = ("animat", "educat", "jeun", "enfant", "periscol", "developp")
+
+
+def _strip_accents(text: str) -> str:
+    return "".join(ch for ch in unicodedata.normalize("NFD", text) if not unicodedata.combining(ch))
+
+
+def _accent_insensitive(text: str) -> str:
+    """Motif regex qui trouve `text` avec ou sans accents, en minuscules comme en
+    majuscules (« ingenieur » trouve « INGÉNIEUR »), sans dépendre du repliement
+    de casse Unicode de l'option `i` de Mongo."""
+    parts = []
+    for ch in _strip_accents(text):
+        variants = ACCENT_VARIANTS.get(ch.lower())
+        parts.append(f"[{variants}{variants.upper()}]" if variants else re.escape(ch))
+    return "".join(parts)
+
+
 def _stem_keyword(w: str) -> str:
-    """Racine lexicale tolérante aux accords de genre/nombre et pluriel."""
-    if w.startswith("animat"):
-        return "animat"
-    if w.startswith("educat") or w.startswith("éducat"):
-        return r"(?:éducat|educat)"
-    if w.startswith("jeun"):
-        return "jeun"
-    if w.startswith("enfant"):
-        return "enfant"
-    if w.startswith("periscol") or w.startswith("périscol"):
-        return r"(?:périscol|periscol)"
-    if w.startswith("developp") or w.startswith("développ"):
-        return r"(?:développ|developp)"
-    return re.escape(w)
+    """Racine lexicale tolérante aux accords de genre/nombre, au pluriel et aux accents."""
+    bare = _strip_accents(w)
+    for prefix in STEM_PREFIXES:
+        if bare.startswith(prefix):
+            return _accent_insensitive(prefix)
+    return _accent_insensitive(w)
 
 
 def _build_keywords_filter(keywords: str) -> dict:
@@ -142,7 +164,7 @@ def _build_keywords_filter(keywords: str) -> dict:
     words = re.findall(r"[a-zA-ZÀ-ÿ0-9]+", clean_kw.lower())
     meaningful = [w for w in words if len(w) >= 2 and w not in STOPWORDS]
     if not meaningful:
-        return {"poste": {"$regex": re.escape(clean_kw), "$options": "i"}}
+        return {"poste": {"$regex": _accent_insensitive(clean_kw), "$options": "i"}}
 
     domain_words = [w for w in meaningful if w not in GENERIC_ROLE_MODIFIERS]
     modifier_words = [w for w in meaningful if w in GENERIC_ROLE_MODIFIERS]
@@ -150,7 +172,7 @@ def _build_keywords_filter(keywords: str) -> dict:
     or_branches = []
 
     # 1. Correspondance exacte sur le titre du poste
-    or_branches.append({"poste": {"$regex": re.escape(clean_kw), "$options": "i"}})
+    or_branches.append({"poste": {"$regex": _accent_insensitive(clean_kw), "$options": "i"}})
 
     if domain_words:
         domain_patterns = [_stem_keyword(w) for w in domain_words]
@@ -298,10 +320,10 @@ def _apply_search_filters(
             match_filter["$and"].append(kw_filter)
 
     if location:
-        match_filter["localisation"] = {"$regex": location, "$options": "i"}
+        match_filter["localisation"] = {"$regex": _accent_insensitive(location), "$options": "i"}
 
     if company:
-        match_filter["entreprise"] = {"$regex": company, "$options": "i"}
+        match_filter["entreprise"] = {"$regex": _accent_insensitive(company), "$options": "i"}
 
     if contract_type:
         cf = _build_contract_type_filter(contract_type)

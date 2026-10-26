@@ -75,11 +75,11 @@ def as_user_b():
     app.dependency_overrides.pop(get_current_user, None)
 
 
-def _insert_offer(db, *, poste, created_at, sector=None, company_size=None):
+def _insert_offer(db, *, poste, created_at, sector=None, company_size=None, localisation=None, entreprise="Acme"):
     key = uuid.uuid4().hex
     doc = {
         "poste": poste,
-        "entreprise": "Acme",
+        "entreprise": entreprise,
         "url": f"https://example.com/offre/{key}",
         "unique_key": key,
         "created_at": created_at,
@@ -91,6 +91,8 @@ def _insert_offer(db, *, poste, created_at, sector=None, company_size=None):
         doc["sector"] = sector
     if company_size is not None:
         doc["company_size"] = company_size
+    if localisation is not None:
+        doc["localisation"] = localisation
     return db.job_offers.insert_one(doc).inserted_id
 
 
@@ -370,3 +372,60 @@ def test_filter_by_relevance_level_on_list_and_count(client, db, as_user_a, seed
 def test_invalid_relevance_level_returns_422_on_list_and_count(client, db, as_user_a):
     assert client.get("/job-offers/", params={"relevance_level": "top"}).status_code == 422
     assert client.get("/job-offers/count/", params={"relevance_level": "top"}).status_code == 422
+
+
+@requires_mongo
+@pytest.mark.parametrize(
+    "keywords",
+    ["ingenieur donnees", "INGÉNIEUR DONNÉES", "Ingénieur", "ingénieur données", "developpeur", "DÉVELOPPEUR"],
+)
+def test_keywords_search_ignores_accents_and_case(client, db, as_user_a, keywords):
+    """Recherche plein texte : « ingenieur » trouve « Ingénieur », en majuscules
+    accentuées comme sans accent, sur la liste comme sur le count."""
+    now = datetime.now(timezone.utc)
+    ids = [
+        _insert_offer(db, poste="Ingénieur Données / Développeur ETL", created_at=now),
+        _insert_offer(db, poste="Comptable", created_at=now),
+    ]
+    try:
+        res = client.get("/job-offers/", params={"keywords": keywords})
+        assert res.status_code == 200, res.text
+        assert [o["poste"] for o in res.json()] == ["Ingénieur Données / Développeur ETL"]
+        assert client.get("/job-offers/count/", params={"keywords": keywords}).json() == {"total": 1}
+    finally:
+        db.job_offers.delete_many({"_id": {"$in": ids}})
+
+
+@requires_mongo
+@pytest.mark.parametrize("location", ["orleans", "ORLÉANS", "Orléans (45)"])
+def test_location_filter_ignores_accents_and_case(client, db, as_user_a, location):
+    """Filtre ville : « orleans » trouve « Orléans (45) », et les parenthèses
+    saisies sont du texte, pas un groupe regex ; sur la liste comme sur le count."""
+    now = datetime.now(timezone.utc)
+    ids = [
+        _insert_offer(db, poste="Comptable Orléans", created_at=now, localisation="Orléans (45)"),
+        _insert_offer(db, poste="Comptable Paris", created_at=now, localisation="Paris"),
+    ]
+    try:
+        res = client.get("/job-offers/", params={"location": location})
+        assert res.status_code == 200, res.text
+        assert [o["poste"] for o in res.json()] == ["Comptable Orléans"]
+        assert client.get("/job-offers/count/", params={"location": location}).json() == {"total": 1}
+    finally:
+        db.job_offers.delete_many({"_id": {"$in": ids}})
+
+
+@requires_mongo
+def test_company_filter_treats_regex_characters_as_text(client, db, as_user_a):
+    """« C++ » est un nom saisi, pas une regex invalide (500 avant)."""
+    now = datetime.now(timezone.utc)
+    ids = [
+        _insert_offer(db, poste="Dev", created_at=now, entreprise="C++ Factory"),
+        _insert_offer(db, poste="Dev", created_at=now, entreprise="Acme"),
+    ]
+    try:
+        res = client.get("/job-offers/", params={"company": "c++"})
+        assert res.status_code == 200, res.text
+        assert [o["entreprise"] for o in res.json()] == ["C++ Factory"]
+    finally:
+        db.job_offers.delete_many({"_id": {"$in": ids}})
