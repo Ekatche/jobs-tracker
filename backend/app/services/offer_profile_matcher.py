@@ -217,6 +217,11 @@ async def rematch_user(user_id: str, db, *, apply: bool = True, embed=embed_text
                 )
             elif result is not None:
                 summary.kept_below_floor.append(offer_id_str)
+                logger.warning(
+                    "Offre %s sous FLOOR mais conservée (garde interaction) pour user %s",
+                    offer_id_str,
+                    user_id[:8],
+                )
         # action == "none" : offre non rattachée que la garde ne doit pas
         # faire rattacher — rien à compter, rien à écrire.
 

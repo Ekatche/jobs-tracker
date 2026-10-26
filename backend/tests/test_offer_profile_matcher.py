@@ -349,7 +349,7 @@ async def test_rematch_user_capped_offer_stays_attached():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("guard_kind", ["applications", "interaction"])
-async def test_rematch_user_keeps_applied_offer_below_floor(guard_kind):
+async def test_rematch_user_keeps_applied_offer_below_floor(guard_kind, caplog):
     """Une offre DÉJÀ rattachée qui tombe sous FLOOR mais que le candidat a
     gardée/postulée n'est pas détachée : `kept_by_guard` compte le maintien,
     `kept_below_floor` liste l'offre. Une offre jamais rattachée n'aurait
@@ -382,12 +382,14 @@ async def test_rematch_user_keeps_applied_offer_below_floor(guard_kind):
         profiles=[profile], offers=[offer], interactions=interactions, applications=applications
     )
 
-    summary = await rematch_user(str(profile["user_id"]), db, embed=fake_embed)
+    with caplog.at_level(logging.WARNING):
+        summary = await rematch_user(str(profile["user_id"]), db, embed=fake_embed)
 
     offers_collection = db["job_offers"]
     assert not any("$pull" in update for _filter, update in offers_collection.update_many_calls)
     assert summary.kept_by_guard == 1
     assert summary.kept_below_floor == [offer_id_str]
+    assert any("sous FLOOR" in record.message and offer_id_str in record.message for record in caplog.records)
     assert summary.kept_hard_filtered == []
     # l'offre reste scorée (sous FLOOR), même si non rattachée.
     assert offer_relevance.docs[0]["offer_id"] == offer_id_str
