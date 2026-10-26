@@ -15,6 +15,7 @@ from bson import ObjectId
 from app.auth import get_current_user
 from app.models import UserModel, UserRole
 from app.routers.job_offers import _build_list_pipeline, relevance_lookup_stages
+from app.services.offer_scoring.score import level_for
 from conftest import DATABASE_NAME, MONGO_URI
 from main import app
 
@@ -99,7 +100,7 @@ def _insert_relevance(db, user_id, offer_id, score, failed_conditions=None):
             "user_id": user_id,
             "offer_id": str(offer_id),
             "score": score,
-            "level": "x",
+            "level": level_for(score),
             "failed_conditions": failed_conditions or [],
             "breakdown": {},
             "unknown_components": [],
@@ -127,7 +128,7 @@ def seeded_offers(db):
 
     _insert_relevance(db, USER_A_ID, a1, 82)
     _insert_relevance(db, USER_A_ID, a2, 65)
-    _insert_relevance(db, USER_A_ID, a3, 30, failed_conditions=["geo"])
+    _insert_relevance(db, USER_A_ID, a3, 30, failed_conditions=["contract"])
     # A4 : pas de document offer_relevance (garde d'interaction / avant premier rematch).
 
     offer_ids = [a1, a2, a3, a4]
@@ -207,7 +208,7 @@ def test_failed_conditions_exposed(client, db, as_user_a, seeded_offers):
 
     assert res.status_code == 200, res.text
     by_poste = {o["poste"]: o for o in res.json()}
-    assert by_poste["A3"]["failed_conditions"] == ["geo"]
+    assert by_poste["A3"]["failed_conditions"] == ["contract"]
     assert by_poste["A4"]["failed_conditions"] == []
 
 
@@ -260,7 +261,7 @@ def test_get_single_offer_exposes_failed_conditions(client, db, as_user_a, seede
     res = client.get(f"/job-offers/{seeded_offers['a3']}")
 
     assert res.status_code == 200, res.text
-    assert res.json()["failed_conditions"] == ["geo"]
+    assert res.json()["failed_conditions"] == ["contract"]
 
 
 @requires_mongo
@@ -284,7 +285,7 @@ def test_recent_sort_with_skip_still_exposes_failed_conditions_same_order(
     postes = [o["poste"] for o in res.json()]
     assert postes == ["A3", "A2", "A1"]
     by_poste = {o["poste"]: o for o in res.json()}
-    assert by_poste["A3"]["failed_conditions"] == ["geo"]
+    assert by_poste["A3"]["failed_conditions"] == ["contract"]
 
 
 @requires_mongo
@@ -333,3 +334,39 @@ def test_invalid_sector_and_company_size_return_422_on_list_and_count(client, db
     assert client.get("/job-offers/count/", params={"sector": "inconnu"}).status_code == 422
     assert client.get("/job-offers/", params={"company_size": "inconnu"}).status_code == 422
     assert client.get("/job-offers/count/", params={"company_size": "inconnu"}).status_code == 422
+
+
+@requires_mongo
+def test_relevance_level_exposed_on_list_and_detail(client, db, as_user_a, seeded_offers):
+    """Badge de niveau : forte (A1, 82), moyenne (A2, 65), faible (A3, 30),
+    aucun niveau sans document `offer_relevance` (A4)."""
+    res = client.get("/job-offers/")
+
+    assert res.status_code == 200, res.text
+    levels = {o["poste"]: o["relevance_level"] for o in res.json()}
+    assert levels == {"A1": "strong", "A2": "medium", "A3": "weak", "A4": None}
+
+    detail = client.get(f"/job-offers/{seeded_offers['a2']}")
+    assert detail.json()["relevance_level"] == "medium"
+    assert client.get(f"/job-offers/{seeded_offers['a4']}").json()["relevance_level"] is None
+
+
+@requires_mongo
+@pytest.mark.parametrize("sort", ["recent", "relevance"])
+def test_filter_by_relevance_level_on_list_and_count(client, db, as_user_a, seeded_offers, sort):
+    """Plusieurs niveaux se combinent en union ; une offre sans score n'a aucun
+    niveau et sort donc de toute sélection par niveau."""
+    params = [("relevance_level", "strong"), ("relevance_level", "medium"), ("sort", sort)]
+
+    res = client.get("/job-offers/", params=params)
+    assert res.status_code == 200, res.text
+    assert sorted(o["poste"] for o in res.json()) == ["A1", "A2"]
+
+    assert client.get("/job-offers/count/", params=params).json() == {"total": 2}
+    assert client.get("/job-offers/count/", params={"relevance_level": "weak"}).json() == {"total": 1}
+
+
+@requires_mongo
+def test_invalid_relevance_level_returns_422_on_list_and_count(client, db, as_user_a):
+    assert client.get("/job-offers/", params={"relevance_level": "top"}).status_code == 422
+    assert client.get("/job-offers/count/", params={"relevance_level": "top"}).status_code == 422

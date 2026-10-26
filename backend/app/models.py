@@ -366,6 +366,7 @@ class JobOfferResponse(BaseModel):
     sector: Optional[str] = None  # Clé de SECTORS (company_profiles.py)
     company_size: Optional[str] = None  # Clé de COMPANY_SIZES (company_profiles.py)
     failed_conditions: List[str] = []  # Score de pertinence hybride (Task 6) : conditions non remplies, jamais masquant
+    relevance_level: Optional[str] = None  # Niveau du score de pertinence hybride (RELEVANCE_LEVELS), None sans score
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

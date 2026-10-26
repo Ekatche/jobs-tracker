@@ -17,6 +17,7 @@ from ..database import get_database
 from ..auth import get_current_admin_user, get_current_user
 from ..services.company_profiles import COMPANY_SIZES, SECTORS
 from ..services.normalization import normalize_city, normalize_company
+from ..services.offer_scoring.constants import RELEVANCE_LEVELS
 from ..services.evaluation.evaluator import evaluate_offer_two_pass
 from ..tasks.clean_job_offers import safe_delete_or_expire_offer
 
@@ -255,7 +256,7 @@ def relevance_lookup_stages(user_id: str) -> list[dict]:
                 "foreignField": "offer_id",
                 "pipeline": [
                     {"$match": {"user_id": user_id}},
-                    {"$project": {"_id": 0, "score": 1, "failed_conditions": 1}},
+                    {"$project": {"_id": 0, "score": 1, "level": 1, "failed_conditions": 1}},
                 ],
                 "as": "_relevance",
             }
@@ -263,6 +264,13 @@ def relevance_lookup_stages(user_id: str) -> list[dict]:
         {"$addFields": {"_relevance": {"$arrayElemAt": ["$_relevance", 0]}}},
         {"$addFields": {"_score_sort": {"$ifNull": ["$_relevance.score", -1]}}},
     ]
+
+
+def _relevance_level_match(relevance_level: List[str]) -> dict:
+    """Filtre par niveau(x) de pertinence, à placer après `relevance_lookup_stages` :
+    plusieurs niveaux se combinent en $in ; une offre sans document `offer_relevance`
+    n'a aucun niveau et ne correspond donc à aucun."""
+    return {"$match": {"_relevance.level": {"$in": relevance_level}}}
 
 
 def _apply_search_filters(
@@ -336,6 +344,7 @@ def _build_list_pipeline(
     current_user: Optional[UserModel],
     skip: int,
     limit: int,
+    relevance_level: Optional[List[str]] = None,
 ) -> list[dict]:
     """Construit le pipeline d'agrégation de la liste : déduplication, lookup de
     pertinence, tri, pagination.
@@ -344,7 +353,8 @@ def _build_list_pipeline(
     conditionne l'ordre final : le lookup doit précéder le `$sort`. En tri
     `"recent"`, l'ordre final ne dépend pas du score : le lookup est reporté après
     `$skip`/`$limit`, pour ne joindre `offer_relevance` que sur les offres de la
-    page effectivement renvoyée.
+    page effectivement renvoyée — sauf filtre par niveau, qui doit précéder la
+    pagination.
     """
     pipeline = [
         {"$match": match_filter},
@@ -379,8 +389,14 @@ def _build_list_pipeline(
     ]
 
     relevance_sort = bool(current_user) and sort == "relevance"
-    if relevance_sort:
+    level_filter = bool(current_user) and bool(relevance_level)
+    early_lookup = relevance_sort or level_filter
+    if early_lookup:
         pipeline.extend(relevance_lookup_stages(str(current_user.id)))
+    if level_filter:
+        pipeline.append(_relevance_level_match(relevance_level))
+
+    if relevance_sort:
         final_sort = {"_score_sort": -1, "created_at": -1, "_id": -1}
     else:
         final_sort = {"created_at": -1, "_id": -1}
@@ -389,14 +405,19 @@ def _build_list_pipeline(
     pipeline.append({"$skip": skip})
     pipeline.append({"$limit": limit})
 
-    if current_user and not relevance_sort:
+    if current_user and not early_lookup:
         pipeline.extend(relevance_lookup_stages(str(current_user.id)))
 
     if current_user:
         # `failed_conditions` remonte au premier niveau pour JobOfferResponse ;
         # les champs internes du lookup ne doivent jamais fuiter dans la réponse.
         pipeline.append(
-            {"$addFields": {"failed_conditions": {"$ifNull": ["$_relevance.failed_conditions", []]}}}
+            {
+                "$addFields": {
+                    "failed_conditions": {"$ifNull": ["$_relevance.failed_conditions", []]},
+                    "relevance_level": "$_relevance.level",
+                }
+            }
         )
         pipeline.append({"$unset": ["_relevance", "_oid_str", "_score_sort"]})
 
@@ -547,6 +568,7 @@ async def get_job_offers(
     sort: Literal["relevance", "recent"] = Query("recent"),
     sector: Optional[List[Literal[*SECTORS]]] = Query(None),
     company_size: Optional[List[Literal[*COMPANY_SIZES]]] = Query(None),
+    relevance_level: Optional[List[Literal[*RELEVANCE_LEVELS]]] = Query(None),
     limit: int = Query(16, ge=1, le=100),
     skip: int = Query(0, ge=0),
     db=Depends(get_database),
@@ -598,7 +620,12 @@ async def get_job_offers(
         # ✅ ÉTAPE 2: Pipeline d'agrégation avec déduplication, lookup de pertinence
         # et tri déterministe (tiebreaker _id) — cf. `_build_list_pipeline`.
         pipeline = _build_list_pipeline(
-            match_filter, sort=sort, current_user=current_user, skip=skip, limit=limit
+            match_filter,
+            sort=sort,
+            current_user=current_user,
+            skip=skip,
+            limit=limit,
+            relevance_level=relevance_level,
         )
 
         cursor = collection.aggregate(pipeline)
@@ -703,6 +730,7 @@ async def get_job_offer(
             "offer_id": str(offer_id),
         })
         offer["failed_conditions"] = relevance.get("failed_conditions", []) if relevance else []
+        offer["relevance_level"] = relevance.get("level") if relevance else None
     else:
         offer["user_interaction"] = None
         offer["seen"] = False
@@ -1118,6 +1146,7 @@ async def get_job_offers_count(
     sort: Literal["relevance", "recent"] = Query("recent"),
     sector: Optional[List[Literal[*SECTORS]]] = Query(None),
     company_size: Optional[List[Literal[*COMPANY_SIZES]]] = Query(None),
+    relevance_level: Optional[List[Literal[*RELEVANCE_LEVELS]]] = Query(None),
     db=Depends(get_database),
     current_user: UserModel = Depends(get_current_user),
 ):
@@ -1190,6 +1219,18 @@ async def get_job_offers_count(
             # Compter le nombre de groupes uniques
             {"$count": "total"},
         ]
+
+        if current_user and relevance_level:
+            # Le niveau se lit sur l'offre que la liste garde par groupe (la plus
+            # récente) : même tri avant `$first`, puis même lookup que la liste.
+            count_pipeline[1:1] = [{"$sort": {"created_at": -1, "_id": -1}}]
+            count_pipeline[-2:] = [
+                {"$group": {"_id": "$dedup_key", "offer_id": {"$first": "$_id"}}},
+                {"$project": {"_id": "$offer_id"}},
+                *relevance_lookup_stages(str(current_user.id)),
+                _relevance_level_match(relevance_level),
+                {"$count": "total"},
+            ]
 
         cursor = collection.aggregate(count_pipeline)
         result = await cursor.to_list(length=1)

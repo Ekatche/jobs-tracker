@@ -38,6 +38,8 @@ import {
 import { PrefilledData } from "@/components/dashboard/NewApplicationModal";
 import { getContractBadgeStyles } from "@/lib/contractBadge";
 import CompanyFilters from "@/components/offers/CompanyFilters";
+import RelevanceLevelFilter from "@/components/offers/RelevanceLevelFilter";
+import { getRelevanceLevelOption } from "@/lib/relevanceLevels";
 
 function cleanDescriptionPreview(text: string | undefined): string {
   if (!text || text === "Non spécifié") return "";
@@ -282,6 +284,17 @@ const OfferCard = memo(function OfferCard({
                 <span>Évaluée</span>
               </span>
             ) : null}
+
+            {(() => {
+              // Niveau du score de pertinence hybride, sans pourcentage ; rien sans score.
+              const level = getRelevanceLevelOption(offer.relevance_level);
+              if (!level) return null;
+              return (
+                <span className={`px-2 py-0.5 text-[11px] font-medium rounded-md border ${level.className}`}>
+                  {level.label}
+                </span>
+              );
+            })()}
 
             {(() => {
               const badge = getContractBadgeStyles(offer.type_contrat);
@@ -564,6 +577,7 @@ function OffersPageContent() {
   const [sortFilter, setSortFilter] = useState<"recent" | "relevance">("recent");
   const [sectorFilter, setSectorFilter] = useState<string[]>([]);
   const [companySizeFilter, setCompanySizeFilter] = useState<string[]>([]);
+  const [relevanceLevelFilter, setRelevanceLevelFilter] = useState<string[]>([]);
   const [profileRoles, setProfileRoles] = useState<string[]>([]);
   const [profileLocations, setProfileLocations] = useState<string[]>([]);
   const [profileContracts, setProfileContracts] = useState<string[]>([]);
@@ -611,6 +625,7 @@ function OffersPageContent() {
     if (sortFilter !== "recent") f.sort = sortFilter;
     if (sectorFilter.length > 0) f.sector = sectorFilter;
     if (companySizeFilter.length > 0) f.company_size = companySizeFilter;
+    if (relevanceLevelFilter.length > 0) f.relevance_level = relevanceLevelFilter;
     return f;
   }, [
     searchTerm,
@@ -627,6 +642,7 @@ function OffersPageContent() {
     sortFilter,
     sectorFilter,
     companySizeFilter,
+    relevanceLevelFilter,
   ]);
 
   // Fonction pour charger le nombre total d'offres
@@ -874,6 +890,7 @@ function OffersPageContent() {
     sortFilter,
     sectorFilter,
     companySizeFilter,
+    relevanceLevelFilter,
   ]);
 
   // Synchroniser la page courante dans l'URL (retour arrière / rafraîchissement la préservent)
@@ -1372,6 +1389,11 @@ function OffersPageContent() {
                     </select>
                   </div>
 
+                  <RelevanceLevelFilter
+                    values={relevanceLevelFilter}
+                    onChange={setRelevanceLevelFilter}
+                  />
+
                   <CompanyFilters
                     sectorValues={sectorFilter}
                     onSectorChange={setSectorFilter}
@@ -1416,7 +1438,8 @@ function OffersPageContent() {
                 minScoreFilter !== undefined ||
                 sortFilter !== "recent" ||
                 sectorFilter.length > 0 ||
-                companySizeFilter.length > 0) && (
+                companySizeFilter.length > 0 ||
+                relevanceLevelFilter.length > 0) && (
                 <button
                   onClick={() => {
                     setSearchTerm("");
@@ -1431,6 +1454,7 @@ function OffersPageContent() {
                     setSortFilter("recent");
                     setSectorFilter([]);
                     setCompanySizeFilter([]);
+                    setRelevanceLevelFilter([]);
                   }}
                   className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
                 >

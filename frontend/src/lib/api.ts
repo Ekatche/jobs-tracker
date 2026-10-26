@@ -370,6 +370,7 @@ export interface JobOffer {
   user_interaction?: "saved" | "hidden" | "applied" | "dismissed" | null;
   seen?: boolean;
   failed_conditions?: string[];
+  relevance_level?: "strong" | "medium" | "weak" | null;
   sector?: string | null;
   company_size?: string | null;
 }
@@ -402,6 +403,7 @@ export interface JobOfferFilter {
   sort?: "relevance" | "recent";
   sector?: string[];
   company_size?: string[];
+  relevance_level?: string[];
 }
 
 export interface JobOfferStats {
@@ -639,6 +641,7 @@ export const jobOffersApi = {
     if (filters.sort) params.append("sort", filters.sort);
     filters.sector?.forEach((s) => params.append("sector", s));
     filters.company_size?.forEach((s) => params.append("company_size", s));
+    filters.relevance_level?.forEach((l) => params.append("relevance_level", l));
     if (filters.limit) params.append("limit", filters.limit.toString());
     if (filters.skip) params.append("skip", filters.skip.toString());
 
@@ -749,6 +752,7 @@ export const jobOffersApi = {
     }
     filters.sector?.forEach((s) => params.append("sector", s));
     filters.company_size?.forEach((s) => params.append("company_size", s));
+    filters.relevance_level?.forEach((l) => params.append("relevance_level", l));
 
     const endpoint = `/job-offers/count/?${params.toString()}`;
     return fetchApi<{ total: number }>(endpoint, "GET");
