@@ -39,7 +39,7 @@
 - [ ] Vérif : simulation lint 3.12 sur l'arbre committé (`git archive HEAD` dans le scratchpad `lintsim`, puis `uvx --python 3.12 black`, `isort --profile black --check`, `flake8 backend/`) → 0 erreur ; YAML parsé par `python -c 'import yaml,sys; yaml.safe_load(open(...))'`.
 - Ruling M1 : `Literal[*SECTORS]` reste (valide dès 3.11, prod 3.12). C'est la CI qui s'aligne.
 
-### Task A: routeur des offres — M2, M3, M4, M21 (API)
+### Task 1: routeur des offres — M2, M3, M4, M21 (API)
 
 **Files:** `backend/app/routers/job_offers.py` (`get_job_offers` ~397-560, `get_job_offer` ~605-643, `get_job_offers_count` ~1038-1130), tests dans le fichier de tests existant de la liste ou du tri par pertinence (pas un fichier interdit).
 
@@ -53,7 +53,7 @@
   - preuve du `$unset` : le pipeline construit se termine par `$unset` de `_relevance`, `_oid_str` et `_score_sort`, assertion sur le pipeline et non sur la réponse ;
   - les fixtures qui seedent la base le font dans le `try`/`finally` qui nettoie.
 
-### Task B: matcher — M5, M6, M7
+### Task 2: matcher — M5, M6, M7
 
 **Files:** `backend/app/services/offer_profile_matcher.py`, `backend/scripts/rematch_all_users.py` (renommage du champ), tests du matcher existants.
 
@@ -76,7 +76,7 @@
   - la même offre avec interaction `saved` reste rattachée ;
   - une offre rattachée sans cosinus (panne) reste rattachée.
 
-### Task B2: verrou de rematch — M20
+### Task 3: verrou de rematch — M20
 
 **Files:** `backend/app/routers/cover_letters.py` (`_safe_rematch_user`), test dédié.
 
@@ -86,7 +86,7 @@
   - deux appels concurrents donnent 2 exécutions de `rematch_user`, pas 3 et jamais en parallèle ;
   - une exception au premier tour laisse l'utilisateur libre, et un appel suivant s'exécute.
 
-### Task C: geo — M9, M10, M11
+### Task 4: geo — M9, M10, M11
 
 **Files:** `backend/app/services/offer_scoring/geo.py`, `backend/scripts/build_communes_index.py`, `backend/app/services/offer_scoring/communes_departements.json` (régénéré), tests geo existants.
 
@@ -101,7 +101,7 @@
   - « Lyon (100) » donne `{"69"}` ;
   - « Fort-de-France (972) » donne `{"972"}`.
 
-### Task D: embeddings, score, acronymes — M12, M15, M16, M17
+### Task 5: embeddings, score, acronymes — M12, M15, M16, M17
 
 **Files:** `backend/app/services/offer_scoring/embeddings.py`, `backend/app/services/evaluation/domain_relevance.py`, `backend/app/services/offer_scoring/score.py`, `backend/tests/test_domain_relevance.py` (ou le test existant de `domain_relevance`, pas `test_offer_sources.py`).
 
@@ -110,7 +110,7 @@
 - [ ] M16 : un seul `_extract_embedding`, sans évaluation anticipée du défaut, partagé par `embeddings.py` et `domain_relevance.py`. `embeddings.py` l'importe depuis `domain_relevance`, ou les deux depuis un helper commun. Test : objet avec attribut `embedding` mais sans `__getitem__`.
 - [ ] M17 : `score.py`, dans `skill_points.matches` : `frozenset({skill})` sort de la boucle sur les phrases. Branche morte : prouver qu'elle est inatteignable (aucun appelant ne peut produire la condition), puis la retirer. Sinon, la garder et ledger le ruling.
 
-### Task E: index, purge, démarrage — M13, M14, M21 (index)
+### Task 6: index, purge, démarrage — M13, M14, M21 (index)
 
 **Files:** `backend/app/database.py:111-123`, `backend/main.py:65-68`, `backend/app/services/offer_profile_matcher.py` (appel d'index dans `tag_new_offers`), nouveau `backend/app/services/offer_scoring/cleanup.py`, `airflow/dags/clean_job_offers.py`, tests.
 
@@ -120,7 +120,7 @@
 
   Test : seed d'une offre existante, d'une offre `is_deleted` et d'un `offer_id` absent. Seuls les docs de l'absent sont supprimés.
 
-### Task F: scripts — M8, M18
+### Task 7: scripts — M8, M18
 
 **Files:** `backend/scripts/rematch_all_users.py`, `backend/scripts/matching_bench.py:~905-910`.
 
@@ -129,7 +129,7 @@
   Test : `embed` espion jamais appelé sans flag.
 - [ ] M18 : corriger le dénominateur du log de `report()` pour qu'il corresponde à l'ensemble réellement calculé.
 
-### Task G: frontend — M19
+### Task 8: frontend — M19
 
 **Files:** `frontend/src/app/offers/page.tsx`, nouveau composant de filtres sous `frontend/src/components/` (ou à côté de la page selon la convention existante).
 
