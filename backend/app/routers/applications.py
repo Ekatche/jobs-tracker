@@ -23,7 +23,8 @@ from ..llm.provider_errors import classify_llm_error, llm_http_exception
 from ..llm.utils import fetch_documents, split_documents, summarize_chunks
 from ..services.evaluation.evaluator import evaluate_offer_two_pass
 from ..services.usage_tracker import record_api_usage, require_user_quota
-from ..services.normalization import compute_unique_key
+from ..services.normalization import clean_job_title_syntax, compute_unique_key
+from ..services.offer_dedup import find_company_variant_duplicate, find_offer_by_identity
 
 logger = logging.getLogger(__name__)
 
@@ -737,30 +738,31 @@ async def _ensure_offer_for_application(application_id: str, app_doc: dict, db) 
         existing_offer = await db["job_offers"].find_one({"_id": ObjectId(offer_id)})
 
     app_url = app_doc.get("url")
+    position = app_doc.get("position")
+    poste = clean_job_title_syntax(position) if position else "Poste non spécifié"
+    company = (app_doc.get("company") or "").strip()
+    entreprise = company or "Non spécifié"
+    localisation = app_doc.get("location") or None
+    # Sans entreprise, pas de clé (l'index unique_key est sparse) : une telle candidature ne fusionne jamais
+    computed_key = compute_unique_key(company=company, position=poste, location=localisation) if company else None
+    probe = {
+        "entreprise": entreprise,
+        "poste": poste,
+        "localisation": localisation,
+        "url": str(app_url) if app_url else None,
+        "description": app_doc.get("description"),
+    }
+    if computed_key:
+        probe["unique_key"] = computed_key
 
-    # 2. Si non trouvée, chercher par URL si renseignée
-    if not existing_offer and app_url:
-        existing_offer = await db["job_offers"].find_one({"url": app_url})
-        if existing_offer:
-            offer_id = str(existing_offer["_id"])
-            await db["applications"].update_one(
-                {"_id": ObjectId(application_id)},
-                {"$set": {"offer_id": offer_id, "updated_at": now}}
-            )
-
-    # 3. Si toujours non trouvée, chercher par clé d'unicité sémantique
-    poste = app_doc.get("position") or "Poste non spécifié"
-    entreprise = app_doc.get("company") or "Entreprise"
-    localisation = app_doc.get("location") or "France"
-    computed_key = compute_unique_key(
-        company=entreprise,
-        position=poste,
-        location=localisation,
-        url=app_url,
-    )
-
+    # 2-3. Si non trouvée, chercher comme l'insertion : même clé ou même URL (principale ou alternative),
+    # puis même poste sous un nom d'entreprise compatible
     if not existing_offer:
-        existing_offer = await db["job_offers"].find_one({"unique_key": computed_key})
+        existing_offer = await find_offer_by_identity(db["job_offers"], probe)
+        if not existing_offer and company:
+            existing_offer = await find_company_variant_duplicate(
+                db["job_offers"], probe, await db["job_offers"].distinct("entreprise")
+            )
         if existing_offer:
             offer_id = str(existing_offer["_id"])
             await db["applications"].update_one(
@@ -785,23 +787,19 @@ async def _ensure_offer_for_application(application_id: str, app_doc: dict, db) 
             "localisation": localisation,
             "description": app_doc.get("description") or "Description non disponible",
             "url": str(app_url) if app_url else f"https://placeholder.local/{application_id}",
-            "unique_key": computed_key,
             "pipeline_stage": "discovered",
             "created_at": now,
             "updated_at": now,
             "is_deleted": False,
         }
+        if computed_key:
+            new_offer_doc["unique_key"] = computed_key
         try:
             res = await db["job_offers"].insert_one(new_offer_doc)
             offer_id = str(res.inserted_id)
         except pymongo.errors.DuplicateKeyError:
             # En cas de collision d'index unique (url ou unique_key), récupérer le document existant
-            match_query = []
-            if app_url:
-                match_query.append({"url": str(app_url)})
-            if computed_key:
-                match_query.append({"unique_key": computed_key})
-            fallback = await db["job_offers"].find_one({"$or": match_query}) if match_query else None
+            fallback = await find_offer_by_identity(db["job_offers"], new_offer_doc)
             if fallback:
                 offer_id = str(fallback["_id"])
             else:

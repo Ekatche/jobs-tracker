@@ -9,8 +9,8 @@ from app.services.normalization import (
     extract_domain,
     normalize_city,
     normalize_company,
-    normalize_position,
 )
+from app.services.offer_dedup import merge_duplicate_offers
 
 logger = logging.getLogger(__name__)
 
@@ -458,14 +458,11 @@ async def cleanup_workflow(
         logger.info("🔍 Étape 2: Suppression des doublons exacts")
         results["steps"]["exact_duplicates"] = await remove_exact_duplicates()
 
-        # ✨ Étape 3: PRIORITÉ au nettoyage global renforcé
+        # ✨ Étape 3: fusion des doublons avec la règle de l'insertion (même ville, URL du doublon conservée)
         if enable_global_similarity:
-            logger.info("🌍 Étape 3: Nettoyage par similarité GLOBAL RENFORCÉ")
-            results["steps"]["global_similarity"] = (
-                await remove_similarity_duplicates_global(
-                    company_similarity_threshold=company_similarity_threshold,
-                    position_similarity_threshold=position_similarity_threshold,
-                )
+            logger.info("🌍 Étape 3: Fusion des doublons (règle de l'insertion)")
+            results["steps"]["global_similarity"] = await merge_duplicate_offers(
+                await get_database(), apply=True
             )
         elif enable_similarity_cleanup:
             logger.info("🎯 Étape 3: Nettoyage par similarité (mode standard)")
@@ -506,19 +503,9 @@ async def cleanup_workflow(
 
         # ✅ Adaptation aux nouvelles métriques
         if enable_global_similarity:
-            similarity_deleted = (
-                results["steps"]
-                .get("global_similarity", {})
-                .get("deleted_similarity_duplicates", 0)
-            )
-            kept_active = (
-                results["steps"].get("global_similarity", {}).get("kept_active", 0)
-            )
-            kept_deleted = (
-                results["steps"].get("global_similarity", {}).get("kept_deleted", 0)
-            )
-            groups_processed = (
-                results["steps"].get("global_similarity", {}).get("groups_processed", 0)
+            similarity_deleted = results["steps"].get("global_similarity", {}).get("merged", 0)
+            skipped_referenced = (
+                results["steps"].get("global_similarity", {}).get("skipped_referenced", 0)
             )
         else:
             similarity_deleted = (
@@ -526,9 +513,7 @@ async def cleanup_workflow(
                 .get("similarity_duplicates", {})
                 .get("deleted_similarity_duplicates", 0)
             )
-            kept_active = 0
-            kept_deleted = 0
-            groups_processed = 0
+            skipped_referenced = 0
 
         total_deleted = sum(
             [
@@ -551,11 +536,11 @@ async def cleanup_workflow(
 
         if enable_global_similarity:
             logger.info(
-                f"  🌍 Doublons similaires supprimés (global): {similarity_deleted}"
+                f"  🌍 Doublons similaires fusionnés (global): {similarity_deleted}"
             )
-            logger.info(f"  🗂️ Groupes de similarité traités: {groups_processed}")
-            logger.info(f"  ✅ Offres actives conservées: {kept_active}")
-            logger.info(f"  📂 Offres supprimées conservées: {kept_deleted}")
+            logger.info(
+                f"  ⏭️ Paires sautées (deux offres référencées): {skipped_referenced}"
+            )
         elif enable_similarity_cleanup:
             logger.info(
                 f"  🎯 Doublons similaires supprimés (standard): {similarity_deleted}"
@@ -577,9 +562,7 @@ async def cleanup_workflow(
             .get("exact_duplicates", {})
             .get("deleted_exact_duplicates", 0),
             "similarity_duplicates_deleted": similarity_deleted,
-            "kept_active": kept_active,
-            "kept_deleted": kept_deleted,
-            "groups_processed": groups_processed,
+            "skipped_referenced": skipped_referenced,
             "invalid_deleted": results["steps"]
             .get("invalid", {})
             .get("deleted_invalid", 0),
@@ -617,304 +600,6 @@ def cleanup_workflow_sync(
             enable_old_offers_cleanup=enable_old_offers_cleanup,
         )
     )
-
-
-async def remove_similarity_duplicates_global(
-    company_similarity_threshold: float = 0.75,
-    position_similarity_threshold: float = 0.80,
-    batch_size: int = 1000,
-):
-    """✨ AMÉLIORÉ: Nettoyage par similarité avec détection renforcée"""
-    logger.info(
-        f"🎯 Début du nettoyage par similarité GLOBAL RENFORCÉ (seuils: entreprise={company_similarity_threshold}, poste={position_similarity_threshold})"
-    )
-
-    db = await get_database()
-    collection = db["job_offers"]
-
-    # ✅ Récupérer TOUTES les offres (supprimées et non supprimées)
-    all_offers = await collection.find({}).to_list(length=None)
-    logger.info(f"📊 {len(all_offers)} offres TOTALES à analyser")
-
-    if len(all_offers) <= 1:
-        logger.info("✅ Pas assez d'offres pour détecter des similarités")
-        return {"deleted_similarity_duplicates": 0, "kept_active": 0, "kept_deleted": 0}
-
-    try:
-        # ✅ FONCTION UTILITAIRE: Formater la date pour l'affichage
-        def format_date_for_display(date_value):
-            """Formate une date pour l'affichage en évitant les erreurs de type"""
-            if not date_value:
-                return "Inconnue"
-
-            if isinstance(date_value, datetime):
-                return date_value.strftime("%Y-%m-%d")
-            elif isinstance(date_value, str):
-                try:
-                    # Essayer de parser la chaîne ISO
-                    if "T" in date_value:
-                        return date_value.split("T")[0]
-                    else:
-                        return date_value[:10]
-                except Exception:
-                    return date_value
-            else:
-                return str(date_value)
-
-        # ✅ AMÉLIORATION 1: Préparation des données avec normalisation renforcée
-        processed_offers = []
-        for offer in all_offers:
-            company = str(offer.get("entreprise", "")).strip()
-            position = str(offer.get("poste", "")).strip()
-
-            if not company or not position:
-                continue
-
-            # ✅ AMÉLIORATION: Normalisation renforcée
-            normalized_company = normalize_company(company)
-            normalized_position = normalize_position(position)  # ✅ NOUVELLE fonction
-
-            # Normaliser aussi la localisation pour une meilleure comparaison
-            location = str(offer.get("localisation", "")).strip()
-            normalized_location = normalize_city(location)
-
-            # ✅ AMÉLIORATION: Clé de recherche plus robuste
-            search_key = (
-                f"{normalized_company}|||{normalized_position}|||{normalized_location}"
-            )
-
-            processed_offers.append(
-                {
-                    "original": offer,
-                    "company": company,
-                    "position": position,
-                    "location": location,
-                    "normalized_company": normalized_company,
-                    "normalized_position": normalized_position,
-                    "normalized_location": normalized_location,
-                    "search_key": search_key,
-                    "is_deleted": offer.get("is_deleted", False),
-                    "created_at": offer.get("created_at", ""),
-                    "url": offer.get("url", ""),
-                }
-            )
-
-        logger.info(f"📊 {len(processed_offers)} offres valides à analyser")
-
-        # ✅ AMÉLIORATION 2: Groupement par similarité avancée
-        similarity_groups = []
-        processed_count = 0
-
-        for i, current in enumerate(processed_offers):
-            if processed_count % 100 == 0:
-                logger.info(
-                    f"📈 Progression: {processed_count}/{len(processed_offers)} offres analysées"
-                )
-
-            processed_count += 1
-            group_found = False
-
-            # Chercher dans les groupes existants
-            for group in similarity_groups:
-                representative = group[0]  # Premier élément du groupe comme référence
-
-                # ✅ AMÉLIORATION 3: Détection multi-critères renforcée
-                is_similar = False
-                similarity_reason = ""
-
-                # Critère 1: URL identique
-                if (
-                    current["url"]
-                    and representative["url"]
-                    and current["url"] == representative["url"]
-                ):
-                    is_similar = True
-                    similarity_reason = "URL identique"
-
-                # ✅ Critère 2: Clé de recherche identique (entreprise + poste + lieu normalisés)
-                elif current["search_key"] == representative["search_key"]:
-                    is_similar = True
-                    similarity_reason = "Clé de recherche identique"
-
-                # ✅ Critère 3: Même entreprise ET poste très similaire
-                elif (
-                    current["normalized_company"]
-                    == representative["normalized_company"]
-                ):
-                    from app.services.job_offers import fast_similarity_check
-
-                    # Pour la même entreprise, être plus strict sur la similarité du poste
-                    position_similar = fast_similarity_check(
-                        current["normalized_position"],
-                        representative["normalized_position"],
-                        0.85,  # ✅ Seuil plus élevé pour même entreprise
-                    )
-
-                    if position_similar:
-                        is_similar = True
-                        similarity_reason = "Même entreprise + poste similaire"
-
-                # Critère 4: Similarité textuelle générale (pour d'autres cas)
-                else:
-                    from app.services.job_offers import fast_similarity_check
-
-                    # Vérifier la similarité de l'entreprise
-                    company_similar = fast_similarity_check(
-                        current["normalized_company"],
-                        representative["normalized_company"],
-                        company_similarity_threshold,
-                    )
-
-                    if company_similar:
-                        # Vérifier la similarité du poste
-                        position_similar = fast_similarity_check(
-                            current["normalized_position"],
-                            representative["normalized_position"],
-                            position_similarity_threshold,
-                        )
-
-                        if position_similar:
-                            is_similar = True
-                            similarity_reason = "Similarité textuelle générale"
-
-                if is_similar:
-                    group.append(current)
-                    group_found = True
-                    logger.debug(
-                        f"🎯 Doublon détecté ({similarity_reason}): "
-                        f"{current['company']} - {current['position'][:40]}"
-                    )
-                    break
-
-            # Si aucun groupe trouvé, créer un nouveau groupe
-            if not group_found:
-                similarity_groups.append([current])
-
-        logger.info(f"🗂️ {len(similarity_groups)} groupes de similarité créés")
-
-        # ✅ AMÉLIORATION 4: Traitement intelligent des groupes avec logs détaillés
-        deleted_count = 0
-        kept_active_count = 0
-        kept_deleted_count = 0
-
-        for group_index, group in enumerate(similarity_groups):
-            if len(group) <= 1:
-                # Pas de doublons dans ce groupe
-                offer = group[0]
-                if not offer["is_deleted"]:
-                    kept_active_count += 1
-                else:
-                    kept_deleted_count += 1
-                continue
-
-            # ✅ LOG DÉTAILLÉ pour les groupes avec doublons
-            logger.info(f"🔍 GROUPE {group_index + 1} avec {len(group)} doublons:")
-            for idx, offer in enumerate(group):
-                logger.info(
-                    f"  {idx + 1}. {offer['company']} | {offer['position']} | "
-                    f"Active: {not offer['is_deleted']} | Lieu: {offer['location']} | "
-                    f"Date: {format_date_for_display(offer['created_at'])}"
-                )
-
-            # ✅ AMÉLIORATION 5: Logique de priorité - Les tombstones gagnent toujours
-            def priority_sort_key(offer):
-                is_tombstone = bool(offer.get("is_deleted"))
-                # Gérer les dates correctement
-                created_date = offer.get("created_at")
-                if isinstance(created_date, datetime):
-                    created_date_str = created_date.isoformat()
-                elif isinstance(created_date, str):
-                    created_date_str = created_date
-                else:
-                    created_date_str = "0000-01-01T00:00:00"
-
-                has_good_url = bool(offer.get("url") and str(offer["url"]).startswith("http"))
-
-                return (is_tombstone, has_good_url, created_date_str)
-
-            sorted_group = sorted(group, key=priority_sort_key, reverse=True)
-
-            # Garder la première (priorité la plus haute)
-            to_keep = sorted_group[0]
-            to_delete = sorted_group[1:]
-
-            keep_date_display = format_date_for_display(to_keep["created_at"])
-            is_group_tombstone = bool(to_keep.get("is_deleted"))
-
-            logger.info(
-                f"✅ GARDÉ: {to_keep['company']} | {to_keep['position']} | "
-                f"Tombstone: {is_group_tombstone} | Date: {keep_date_display}"
-            )
-
-            # Supprimer ou propager le soft-delete aux autres
-            for offer_to_delete in to_delete:
-                try:
-                    if is_group_tombstone:
-                        await collection.update_one(
-                            {"_id": offer_to_delete["original"]["_id"]},
-                            {
-                                "$set": {
-                                    "is_deleted": True,
-                                    "pipeline_stage": "expired",
-                                    "deleted_date": datetime.now(timezone.utc),
-                                    "updated_at": datetime.now(timezone.utc),
-                                }
-                            },
-                        )
-                    else:
-                        await safe_delete_or_expire_offer(
-                            offer_to_delete["original"]["_id"], collection, db
-                        )
-                    deleted_count += 1
-
-                    delete_date_display = format_date_for_display(
-                        offer_to_delete["created_at"]
-                    )
-
-                    logger.info(
-                        f"🗑️ NETTOYÉ: {offer_to_delete['company']} | {offer_to_delete['position']} | "
-                        f"Tombstone propagée: {is_group_tombstone} | Date: {delete_date_display}"
-                    )
-                except Exception as e:
-                    logger.error(f"💥 Erreur suppression/soft-delete: {e}")
-
-            # Compter ce qui est gardé
-            if not to_keep["is_deleted"]:
-                kept_active_count += 1
-            else:
-                kept_deleted_count += 1
-
-            logger.info(
-                f"  ⭐ Résultat groupe: 1 gardée, {len(to_delete)} supprimées\n"
-            )
-
-        logger.info(
-            f"✅ Nettoyage par similarité GLOBAL RENFORCÉ terminé:\n"
-            f"  🗑️ {deleted_count} doublons supprimés\n"
-            f"  ✅ {kept_active_count} offres actives conservées\n"
-            f"  📂 {kept_deleted_count} offres supprimées conservées\n"
-            f"  📊 {len(similarity_groups)} groupes traités"
-        )
-
-        return {
-            "deleted_similarity_duplicates": deleted_count,
-            "kept_active": kept_active_count,
-            "kept_deleted": kept_deleted_count,
-            "groups_processed": len(similarity_groups),
-        }
-
-    except Exception as e:
-        logger.error(f"💥 Erreur lors du nettoyage par similarité global: {e}")
-        import traceback
-
-        logger.error(f"💥 Stack trace: {traceback.format_exc()}")
-
-        return {
-            "deleted_similarity_duplicates": 0,
-            "kept_active": 0,
-            "kept_deleted": 0,
-            "error": str(e),
-        }
 
 
 # ✅ NOUVELLE FONCTION: Nettoyage préventif avant insertion (pour le crawler)

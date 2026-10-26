@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from app.tasks.clean_job_offers import (
     cleanup_invalid_offers,
     cleanup_old_offers,
+    cleanup_workflow,
     is_offer_referenced_by_application,
     normalize_existing_data,
     safe_delete_or_expire_offer,
@@ -179,6 +180,26 @@ async def test_normalize_existing_data_synchronizes_pipeline_stage():
     assert calls[1][0][1]["$set"]["pipeline_stage"] == "evaluated"
     # doc3 has neither -> pipeline_stage: discovered
     assert calls[2][0][1]["$set"]["pipeline_stage"] == "discovered"
+
+
+@pytest.mark.asyncio
+async def test_cleanup_workflow_global_step_uses_insertion_rule():
+    """L'étape 3 du nettoyage nocturne fusionne avec la règle de l'insertion, en écriture."""
+    db = object()
+    merge = AsyncMock(return_value={"merged": 2, "skipped_referenced": 1, "stale_keys": 0})
+    with (
+        patch("app.tasks.clean_job_offers.normalize_existing_data", AsyncMock(return_value={})),
+        patch("app.tasks.clean_job_offers.remove_exact_duplicates", AsyncMock(return_value={})),
+        patch("app.tasks.clean_job_offers.cleanup_invalid_offers", AsyncMock(return_value={})),
+        patch("app.tasks.clean_job_offers.get_database", AsyncMock(return_value=db)),
+        patch("app.tasks.clean_job_offers.merge_duplicate_offers", merge),
+    ):
+        results = await cleanup_workflow(enable_global_similarity=True)
+
+    merge.assert_awaited_once_with(db, apply=True)
+    assert results["summary"]["similarity_duplicates_deleted"] == 2
+    assert results["summary"]["skipped_referenced"] == 1
+    assert results["summary"]["success"] is True
 
 
 @pytest.mark.asyncio

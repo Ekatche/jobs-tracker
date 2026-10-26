@@ -136,6 +136,7 @@ Lookup sur `url` + `alternative_urls`, soft-deleted inclus.
   - Règle faible : les jetons d'un nom sont le début de l'autre (« JEMS » / « Jems Group »). La fusion exige en plus des descriptions proches (Jaccard ≥ 0.5).
 - **Ville** : comparée sous forme repliée, sur le segment avant la première virgule. « Champagne-Au-Mont-D'Or » / « D’Or » et « Lyon, Auvergne-Rhône-Alpes, France » / « Lyon » sont donc compatibles. Une ville générique (Non spécifié, France, Télétravail, Remote) l'est avec toutes.
 - **Doublons déjà en base** : `backend/retroactive_dedup_job_offers.py` liste les paires en simulation, sans écrire. `--apply` les fusionne. L'offre liée à une candidature, une évaluation ou un kit d'entretien survit. Une paire dont les deux offres sont liées est sautée et signalée. Les interactions du doublon sont rattachées au survivant.
+- **Même règle partout** : chaque nuit, l'étape 3 du nettoyage `cleanup_job_offers` applique en écriture la fusion du script (`merge_duplicate_offers`, dans `app/services/offer_dedup.py`). L'offre créée depuis une candidature passe par la même recherche que l'insertion : clé unique, URL principale ou alternative, puis variante du nom d'entreprise.
 
 ---
 
