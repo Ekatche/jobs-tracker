@@ -482,9 +482,22 @@ async def verify_single_offer(
             "url": url,
         }
 
+    host_labels = (urlparse(url).hostname or "").split(".")
+
+    # HelloWork rend la clôture côté serveur (« n'est plus disponible », typePage DO-Expiree) :
+    # un 200 sans texte de clôture suffit, alors que le headless y expire souvent (networkidle 60 s)
+    if "hellowork" in host_labels and fast_result.get("status_code") == 200:
+        return {
+            "offer_id": offer_id,
+            "status": "valid",
+            "is_valid": True,
+            "reason": "static_render_domain_ok",
+            "url": url,
+        }
+
     # Indeed: 401 Cloudflare au niveau 1 puis timeout headless (~60 s) -> jamais concluant,
     # on garde les clôtures détectées en HTTP ci-dessus et on saute le navigateur
-    if "indeed" in (urlparse(url).hostname or "").split("."):
+    if "indeed" in host_labels:
         return {
             "offer_id": offer_id,
             "status": "unknown",

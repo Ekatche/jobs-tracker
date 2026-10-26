@@ -584,6 +584,42 @@ async def test_verify_single_offer_indeed_skips_headless():
     assert res["reason"] == "headless_skipped_antibot_domain"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "status_code, expected_js_calls",
+    [(200, 0), (403, 1)],
+)
+async def test_verify_single_offer_hellowork_trusts_static_html(status_code, expected_js_calls):
+    """HelloWork rend la clôture côté serveur : un 200 sans texte de clôture suffit, sans headless."""
+    sem = asyncio.Semaphore(5)
+    url = "https://www.hellowork.com/fr-fr/emplois/83490007.html"
+    offer = {"_id": "offer-hw", "url": url}
+
+    with patch(
+        "app.tasks.verify_job_offers.check_url_http_fast",
+        new_callable=AsyncMock,
+    ) as mock_http, patch(
+        "app.tasks.verify_job_offers.check_url_headless_js",
+        new_callable=AsyncMock,
+    ) as mock_js:
+        mock_http.return_value = {
+            "status": "valid",
+            "valid": True,
+            "status_code": status_code,
+            "final_url": url,
+            "reason": "http_200_ok",
+            "requires_js_check": True,
+        }
+        mock_js.return_value = {"status": "unknown", "valid": None, "reason": "headless_timeout"}
+        res = await verify_single_offer(offer, sem)
+
+    assert mock_js.await_count == expected_js_calls
+    if status_code == 200:
+        assert res["status"] == "valid"
+        assert res["is_valid"] is True
+        assert res["reason"] == "static_render_domain_ok"
+
+
 @pytest.fixture
 async def offers_db():
     """Base Mongo temporaire : la sélection dépend de toute la collection, la base partagée la fausserait."""
