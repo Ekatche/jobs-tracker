@@ -603,14 +603,45 @@ async def update_candidate_profile(
         raise HTTPException(status_code=502, detail="La mise à jour du profil a échoué")
 
 
+# Coalescence des rematchs concurrents : uvicorn tourne en un seul process,
+# donc ces deux `set` au niveau module suffisent comme verrou par utilisateur
+# (pas besoin d'un lock Mongo ou d'un sémaphore externe).
+_rematch_running: set[str] = set()
+_rematch_rerun: set[str] = set()
+
+
 async def _safe_rematch_user(user_id: str, db) -> None:
     """Enveloppe rematch_user pour tâche de fond : une erreur de matching ne doit
     jamais faire échouer ou logguer de traceback bruyant après que la réponse
-    HTTP a déjà été envoyée."""
+    HTTP a déjà été envoyée.
+
+    Coalesce aussi les rematchs concurrents du même utilisateur : si un tour
+    est déjà en cours pour `user_id`, cet appel se contente de marquer
+    `_rematch_rerun` et rend la main sans lancer de second `rematch_user` en
+    parallèle. Le tour en cours boucle alors au lieu de retourner : avant de
+    sortir, il vérifie s'il a été remarqué entre-temps et, si oui, relance un
+    tour avec l'état le plus récent (dernier écrit gagne). Ainsi N appels
+    reçus pendant un tour fusionnent en au plus un tour supplémentaire. Le
+    test d'appartenance et l'ajout à `_rematch_running` ne sont séparés par
+    aucun `await` : asyncio étant coopératif sur un seul process, c'est
+    atomique vis-à-vis des autres tâches. Le `finally` libère toujours
+    l'utilisateur, même si `rematch_user` lève une exception."""
+    if user_id in _rematch_running:
+        _rematch_rerun.add(user_id)
+        return
+    _rematch_running.add(user_id)
     try:
-        await rematch_user(user_id, db)
-    except Exception:
-        logger.exception("Échec du rematch en tâche de fond pour %s", user_id)
+        while True:
+            _rematch_rerun.discard(user_id)
+            try:
+                await rematch_user(user_id, db)
+            except Exception:
+                logger.exception("Échec du rematch en tâche de fond pour %s", user_id)
+            if user_id not in _rematch_rerun:
+                break
+    finally:
+        _rematch_running.discard(user_id)
+        _rematch_rerun.discard(user_id)
 
 
 @cover_letters_router.put("/profile/candidate/preferences")
