@@ -38,10 +38,13 @@ def verify_active_offers_task():
         from app.tasks.verify_job_offers import verify_job_offers_sync
 
         logger.info("🚀 Lancement de la vérification de validité des offres (HTTP + JS)...")
+        # Pas de plafond en nombre : toutes les offres passent, par ordre de priorité, tant que
+        # le budget dure. 20 min reste sous execution_timeout (25 min) : le run finit proprement.
         result = verify_job_offers_sync(
-            limit=200,
+            limit=None,
             max_concurrency=5,
             dry_run=False,
+            time_budget_seconds=20 * 60,
         )
         logger.info(f"✅ Résultat de la vérification: {result.get('summary', '')}")
         return result

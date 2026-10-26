@@ -193,12 +193,10 @@ async def test_verify_job_offers_sets_pipeline_stage_expired():
     }
 
     cursor = MagicMock()
-    cursor.sort.return_value = cursor
-    cursor.limit.return_value = cursor
     cursor.to_list = AsyncMock(return_value=[offer_doc])
 
     collection = MagicMock()
-    collection.find.return_value = cursor
+    collection.aggregate.return_value = cursor
     collection.update_one = AsyncMock(return_value=MagicMock(modified_count=1))
     db.__getitem__.side_effect = lambda name: collection
 

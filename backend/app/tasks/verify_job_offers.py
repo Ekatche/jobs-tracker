@@ -4,6 +4,7 @@ import json
 import logging
 import re
 from datetime import datetime, timezone
+from time import monotonic
 from typing import Any, Dict, Iterator, List, Optional
 from urllib.parse import parse_qs, urlparse
 
@@ -517,12 +518,15 @@ async def verify_job_offers_workflow(
     limit: Optional[int] = 100,
     max_concurrency: int = 5,
     dry_run: bool = False,
+    time_budget_seconds: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Workflow principal :
-    1. Récupère les offres actives (non supprimées) ayant une url ou source_url,
-       jamais vérifiées d'abord puis par last_verified_at le plus ancien (rotation).
-    2. Vérifie la validité des liens en parallèle avec contrôle de concurrence.
+    1. Récupère les offres actives (non supprimées) ayant une url ou source_url :
+       celles affichées à un utilisateur (matched_user_ids non vide) d'abord, puis les autres ;
+       dans chaque groupe, jamais vérifiées d'abord puis last_verified_at le plus ancien (rotation).
+    2. Vérifie les liens dans cet ordre, max_concurrency à la fois. Passé time_budget_seconds,
+       plus aucune offre n'est lancée : les restantes, non tamponnées, passent en tête au run suivant.
     3. Écrit au fil de l'eau last_verified_at sur chaque offre vérifiée, et un soft delete
        UNIQUEMENT sur les offres closes confirmées (is_valid is False).
        Les offres avec statut 'unknown' (erreurs transitoires) ne sont JAMAIS supprimées.
@@ -540,15 +544,29 @@ async def verify_job_offers_workflow(
         ],
     }
 
-    cursor = collection.find(query).sort([("last_verified_at", 1), ("created_at", -1)])
+    # Offres affichées à au moins un utilisateur d'abord : sans cette priorité, le lot quotidien
+    # se dilue sur toute la base et une offre close reste visible des jours.
+    is_visible = {"$and": [{"$isArray": "$matched_user_ids"}, {"$gt": [{"$size": "$matched_user_ids"}, 0]}]}
+    pipeline: List[Dict[str, Any]] = [
+        {"$match": query},
+        # Seuls les champs du tri et de la vérification : sans plafond, le tri porte sur toute la base.
+        {"$project": {
+            "url": 1,
+            "source_url": 1,
+            "last_verified_at": 1,
+            "created_at": 1,
+            "_visible": {"$cond": [is_visible, 1, 0]},
+        }},
+        {"$sort": {"_visible": -1, "last_verified_at": 1, "created_at": -1}},
+    ]
     if limit:
-        cursor = cursor.limit(limit)
+        pipeline.append({"$limit": limit})
 
-    offers = await cursor.to_list(length=limit)
-    total = len(offers)
-    logger.info(f"📊 {total} offres actives trouvées pour vérification.")
+    offers = await collection.aggregate(pipeline).to_list(length=limit)
+    found = len(offers)
+    logger.info(f"📊 {found} offres actives trouvées pour vérification.")
 
-    if total == 0:
+    if found == 0:
         return {
             "total_checked": 0,
             "valid_count": 0,
@@ -601,14 +619,28 @@ async def verify_job_offers_workflow(
             logger.error(f"💥 Erreur lors de l'écriture de l'offre {result['offer_id']}: {e}")
         return result
 
+    deadline = monotonic() + time_budget_seconds if time_budget_seconds else None
+    pending = iter(offers)
+    processed_results: List[Dict[str, Any]] = []
+
+    async def worker(http_client: httpx.AsyncClient) -> None:
+        # Itérateur partagé : les workers prennent les offres dans l'ordre de priorité.
+        for offer in pending:
+            if deadline is not None and monotonic() >= deadline:
+                return
+            processed_results.append(await verify_and_persist(offer, http_client))
+
     async with httpx.AsyncClient(
         headers=DEFAULT_HEADERS,
         follow_redirects=True,
         timeout=10.0,
     ) as http_client:
-        processed_results: List[Dict[str, Any]] = await asyncio.gather(
-            *(verify_and_persist(offer, http_client) for offer in offers)
-        )
+        await asyncio.gather(*(worker(http_client) for _ in range(max_concurrency)))
+
+    total = len(processed_results)
+    deferred_count = found - total
+    if deferred_count:
+        logger.info(f"⏱️ Budget de temps atteint : {deferred_count} offres reportées au prochain run.")
 
     valid_count = sum(1 for r in processed_results if r.get("is_valid") is True)
     closed_offers = [r for r in processed_results if r.get("is_valid") is False]
@@ -629,12 +661,13 @@ async def verify_job_offers_workflow(
         "closed_count": closed_count,
         "unknown_count": unknown_count,
         "updated_db_count": updated_db_count,
+        "deferred_count": deferred_count,
         "dry_run": dry_run,
         "closed_details": closed_offers[:20],
         "summary": (
             f"Vérification terminée: {total} testées, {valid_count} valides, "
             f"{closed_count} closes, {unknown_count} inconnues/transitoires "
-            f"({updated_db_count} marquées supprimées)"
+            f"({updated_db_count} marquées supprimées, {deferred_count} reportées)"
         ),
     }
 
@@ -643,6 +676,7 @@ def verify_job_offers_sync(
     limit: Optional[int] = 100,
     max_concurrency: int = 5,
     dry_run: bool = False,
+    time_budget_seconds: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Point d'entrée synchrone pour Airflow PythonOperator."""
     return asyncio.run(
@@ -650,6 +684,7 @@ def verify_job_offers_sync(
             limit=limit,
             max_concurrency=max_concurrency,
             dry_run=dry_run,
+            time_budget_seconds=time_budget_seconds,
         )
     )
 

@@ -411,10 +411,8 @@ async def test_verify_job_offers_workflow_dry_run_and_execution():
     mock_db.__getitem__.return_value = mock_collection
 
     mock_cursor = MagicMock()
-    mock_cursor.sort.return_value = mock_cursor
-    mock_cursor.limit.return_value = mock_cursor
     mock_cursor.to_list = AsyncMock(return_value=sample_offers)
-    mock_collection.find.return_value = mock_cursor
+    mock_collection.aggregate.return_value = mock_cursor
 
     mock_update_res = MagicMock()
     mock_update_res.modified_count = 1
@@ -464,10 +462,8 @@ def _mock_offers_collection(offers):
     mock_db.__getitem__.return_value = mock_collection
 
     mock_cursor = MagicMock()
-    mock_cursor.sort.return_value = mock_cursor
-    mock_cursor.limit.return_value = mock_cursor
     mock_cursor.to_list = AsyncMock(return_value=offers)
-    mock_collection.find.return_value = mock_cursor
+    mock_collection.aggregate.return_value = mock_cursor
 
     mock_update_res = MagicMock()
     mock_update_res.modified_count = 1
@@ -476,8 +472,8 @@ def _mock_offers_collection(offers):
 
 
 @pytest.mark.asyncio
-async def test_verify_job_offers_workflow_rotates_by_last_verified_at():
-    """Never/least recently verified offers come first, and every checked offer is stamped."""
+async def test_verify_job_offers_workflow_stamps_every_checked_offer():
+    """Every checked offer gets last_verified_at, whatever its result, so the rotation moves on."""
     from bson import ObjectId
 
     offers = [
@@ -485,7 +481,7 @@ async def test_verify_job_offers_workflow_rotates_by_last_verified_at():
         {"_id": ObjectId(), "url": "https://example.com/closed-404"},
         {"_id": ObjectId(), "url": "https://example.com/transient-500"},
     ]
-    mock_db, mock_collection, mock_cursor = _mock_offers_collection(offers)
+    mock_db, mock_collection, _ = _mock_offers_collection(offers)
     statuses = {"valid": True, "closed": False, "transient": None}
 
     async def fake_verify_single_offer(offer, sem, http_client=None):
@@ -497,7 +493,6 @@ async def test_verify_job_offers_workflow_rotates_by_last_verified_at():
     ):
         await verify_job_offers_workflow(limit=200)
 
-    mock_cursor.sort.assert_called_once_with([("last_verified_at", 1), ("created_at", -1)])
     stamped = {c.args[0]["_id"] for c in mock_collection.update_one.call_args_list
                if "last_verified_at" in c.args[1]["$set"]}
     assert stamped == {o["_id"] for o in offers}
@@ -533,6 +528,33 @@ async def test_verify_job_offers_workflow_persists_closed_before_batch_ends():
 
 
 @pytest.mark.asyncio
+async def test_verify_job_offers_workflow_stops_at_time_budget_without_stamping_the_rest():
+    """Past the time budget no new offer is checked; unchecked offers keep their place for the next run."""
+    from bson import ObjectId
+
+    offers = [{"_id": ObjectId(), "url": f"https://example.com/{i}"} for i in range(5)]
+    mock_db, mock_collection, _ = _mock_offers_collection(offers)
+    clock = {"now": 0.0}
+    checked = []
+
+    async def fake_verify_single_offer(offer, sem, http_client=None):
+        checked.append(offer["_id"])
+        clock["now"] += 10
+        return {"offer_id": str(offer["_id"]), "status": "valid", "is_valid": True, "reason": "r"}
+
+    with patch("app.tasks.verify_job_offers.get_database", AsyncMock(return_value=mock_db)), patch(
+        "app.tasks.verify_job_offers.verify_single_offer", side_effect=fake_verify_single_offer
+    ), patch("app.tasks.verify_job_offers.monotonic", lambda: clock["now"]):
+        result = await verify_job_offers_workflow(limit=None, max_concurrency=1, time_budget_seconds=25)
+
+    assert checked == [o["_id"] for o in offers[:3]]
+    stamped = {c.args[0]["_id"] for c in mock_collection.update_one.call_args_list}
+    assert stamped == set(checked)
+    assert result["total_checked"] == 3
+    assert result["deferred_count"] == 2
+
+
+@pytest.mark.asyncio
 async def test_verify_single_offer_indeed_skips_headless():
     """Indeed answers 401 (Cloudflare) then times out headless: skip tier 2, never archive on it."""
     sem = asyncio.Semaphore(5)
@@ -560,3 +582,55 @@ async def test_verify_single_offer_indeed_skips_headless():
     assert res["status"] == "unknown"
     assert res["is_valid"] is None
     assert res["reason"] == "headless_skipped_antibot_domain"
+
+
+@pytest.fixture
+async def offers_db():
+    """Base Mongo temporaire : la sélection dépend de toute la collection, la base partagée la fausserait."""
+    import uuid
+
+    import motor.motor_asyncio
+    from conftest import DATABASE_NAME, MONGO_URI
+
+    client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
+    name = f"{DATABASE_NAME}_verify_{uuid.uuid4().hex[:8]}"
+    try:
+        yield client[name]
+    finally:
+        await client.drop_database(name)
+        client.close()
+
+
+async def test_verify_job_offers_workflow_checks_visible_offers_first(offers_db):
+    """Offres affichées à un utilisateur (matched_user_ids non vide) d'abord, chacune dans l'ordre
+    de rotation ; les offres invisibles ne complètent le lot qu'ensuite."""
+    from datetime import datetime, timedelta, timezone
+
+    old = datetime(2026, 10, 1, tzinfo=timezone.utc)
+    await offers_db.job_offers.insert_many(
+        [
+            {"_id": "hidden-never", "url": "https://example.com/h0", "matched_user_ids": []},
+            {"_id": "hidden-missing", "url": "https://example.com/h1"},
+            {"_id": "visible-recent", "url": "https://example.com/v2", "matched_user_ids": ["u1"],
+             "last_verified_at": old + timedelta(days=20)},
+            {"_id": "visible-old", "url": "https://example.com/v1", "matched_user_ids": ["u2", "u1"],
+             "last_verified_at": old},
+            {"_id": "visible-never", "url": "https://example.com/v0", "matched_user_ids": ["u1"]},
+            {"_id": "visible-deleted", "url": "https://example.com/vd", "matched_user_ids": ["u1"],
+             "is_deleted": True},
+        ]
+    )
+    checked = []
+
+    async def fake_verify_single_offer(offer, sem, http_client=None):
+        checked.append(offer["_id"])
+        return {"offer_id": offer["_id"], "status": "valid", "is_valid": True, "reason": "ok"}
+
+    with patch("app.tasks.verify_job_offers.get_database", AsyncMock(return_value=offers_db)), patch(
+        "app.tasks.verify_job_offers.verify_single_offer", side_effect=fake_verify_single_offer
+    ):
+        result = await verify_job_offers_workflow(limit=4, max_concurrency=1)
+
+    assert checked[:3] == ["visible-never", "visible-old", "visible-recent"]
+    assert checked[3] in {"hidden-never", "hidden-missing"}
+    assert result["total_checked"] == 4
