@@ -117,7 +117,8 @@ def skill_points(
     def matches(skill: str) -> bool:
         if skill in candidate_skills:
             return True
-        return any(contains_keyword(phrase, frozenset({skill})) for phrase in candidate_skills)
+        skill_set = frozenset({skill})
+        return any(contains_keyword(phrase, skill_set) for phrase in candidate_skills)
 
     matched = sum(idf.weight(skill) for skill in normalized_offer_skills if matches(skill))
     return ComponentPoints(max(W_SKILLS / 2, W_SKILLS * matched / total), W_SKILLS, True)

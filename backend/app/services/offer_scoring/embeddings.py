@@ -20,7 +20,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
-from app.services.evaluation.domain_relevance import expand_title_acronyms
+from app.services.evaluation.domain_relevance import _extract_embedding, expand_title_acronyms
 from app.services.offer_scoring.constants import DESCRIPTION_CHARS, EMBED_BATCH, EMBEDDING_MODEL
 
 logger = logging.getLogger(__name__)
@@ -44,10 +44,6 @@ def offer_embedding_text(offer: dict) -> Optional[str]:
 
 def text_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def _extract_embedding(item):
-    return item.get("embedding") if isinstance(item, dict) else getattr(item, "embedding", item["embedding"])
 
 
 async def embed_texts(texts: List[str]) -> List[List[float]]:
@@ -120,6 +116,11 @@ async def get_offer_vectors(
     missing_texts = [offer_texts[offer_id] for offer_id in missing_ids]
     try:
         embedded_vectors = await embed(missing_texts)
+        # Un nombre de vecteurs différent du nombre de textes envoyés est une
+        # erreur d'embedding comme une autre (réponse tronquée/désalignée) :
+        # même traitement fail-open que l'exception ci-dessous, rien n'est
+        # mis en cache pour ce lot.
+        pairs = list(zip(missing_ids, embedded_vectors, strict=True))
     except Exception as e:
         logger.warning(
             "⚠️ Erreur d'embedding des offres (%d offre(s) manquante(s)), "
@@ -130,7 +131,7 @@ async def get_offer_vectors(
         return vectors
 
     now = datetime.now(timezone.utc)
-    for offer_id, vector in zip(missing_ids, embedded_vectors):
+    for offer_id, vector in pairs:
         vectors[offer_id] = vector
         if cache:
             await collection.update_one(

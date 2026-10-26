@@ -1,5 +1,6 @@
 import pytest
 
+from app.services.evaluation.domain_relevance import _extract_embedding
 from app.services.offer_scoring.constants import EMBEDDING_MODEL
 from app.services.offer_scoring.embeddings import (
     embed_texts,
@@ -204,6 +205,36 @@ async def test_get_offer_vectors_fail_open():
 
 
 @pytest.mark.asyncio
+async def test_get_offer_vectors_vector_count_mismatch_is_fail_open():
+    """`embed` qui renvoie moins de vecteurs que de textes envoyés (réponse
+    tronquée/désalignée) est traité comme une erreur d'embedding : rien n'est
+    mis en cache pour ce lot, aucune exception ne remonte, seuls les vecteurs
+    déjà en cache sont renvoyés (même chemin que l'échec d'embedding complet)."""
+    offer_cached = {"_id": "cached-1", "poste": "Data Engineer", "description": "Desc A"}
+    offer_missing_1 = {"_id": "missing-1", "poste": "Data Analyst", "description": "Desc B"}
+    offer_missing_2 = {"_id": "missing-2", "poste": "Data Scientist", "description": "Desc C"}
+    cached_doc = {
+        "offer_id": "cached-1",
+        "model": EMBEDDING_MODEL,
+        "text_hash": text_hash(offer_embedding_text(offer_cached)),
+        "vector": [0.5, 0.5],
+    }
+    db, collection = make_fake_db([cached_doc])
+
+    async def short_embed(texts):
+        # Un seul vecteur renvoyé pour deux textes envoyés.
+        return [[9.0, 9.0]]
+
+    vectors = await get_offer_vectors(
+        [offer_cached, offer_missing_1, offer_missing_2], db, embed=short_embed
+    )
+
+    assert vectors == {"cached-1": [0.5, 0.5]}
+    # Rien de nouveau n'a été écrit dans le cache pour le lot en échec.
+    assert {d["offer_id"] for d in collection.docs} == {"cached-1"}
+
+
+@pytest.mark.asyncio
 async def test_get_offer_vectors_no_cache_write_when_cache_false():
     offer = {"_id": "1", "poste": "Data Engineer", "description": "Desc"}
     db, collection = make_fake_db()
@@ -291,3 +322,20 @@ async def test_embed_texts_raises_after_three_failed_attempts(monkeypatch):
 
     assert len(calls) == 3
     assert sleep_calls == [1, 2]
+
+
+# ---------- _extract_embedding (M16 : définition unique, partagée avec domain_relevance) ----------
+
+
+def test_extract_embedding_object_with_attribute_but_no_getitem():
+    """Un objet exposant `.embedding` mais pas `__getitem__` (cas réel d'une réponse
+    litellm non dict) doit renvoyer l'attribut sans lever — sans évaluation
+    anticipée de `item["embedding"]` comme ancien défaut de `getattr`."""
+
+    class EmbeddingOnly:
+        def __init__(self, embedding):
+            self.embedding = embedding
+
+    item = EmbeddingOnly([1.0, 2.0])
+
+    assert _extract_embedding(item) == [1.0, 2.0]

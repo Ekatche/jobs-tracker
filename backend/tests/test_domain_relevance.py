@@ -8,6 +8,11 @@ from app.services.evaluation.domain_relevance import (
     expand_title_acronyms,
 )
 
+# Import seul : keep_relevant_titles vit dans app.services.sources (fichier
+# interdit en écriture pour ce chantier), on fige ici son comportement actuel
+# vis-à-vis des acronymes sensibles à la casse (M12, test de caractérisation).
+from app.services.sources import keep_relevant_titles
+
 
 def test_build_candidate_identity_joins_headline_and_roles():
     assert build_candidate_identity("Animatrice 2D", ["Animatrice 2D", "Motion designer"]) == \
@@ -103,3 +108,32 @@ async def test_compute_domain_relevance_embeds_expanded_title():
         await compute_domain_relevance("AI Engineer", "Développeur Confirmé Ia")
 
     assert embed.call_args.kwargs["input"][1] == "Développeur Confirmé intelligence artificielle"
+
+
+# ---------- keep_relevant_titles (M12, import seul depuis app.services.sources) ----------
+
+
+@pytest.mark.asyncio
+async def test_keep_relevant_titles_expands_acronym_case_sensitively():
+    """Caractérisation : `keep_relevant_titles` développe l'acronyme en casse
+    exacte ("PM", cf. CASE_SENSITIVE_ACRONYMS) avant l'appel d'embedding, mais
+    pas sa variante minuscule ("pm") — comportement actuel figé tel quel, pas
+    de RED attendu."""
+    offers = [
+        {"poste": "PM Senior", "url": "http://a"},
+        {"poste": "pm senior", "url": "http://b"},
+    ]
+    fake_resp = MagicMock()
+    fake_resp.data = [
+        {"embedding": [1.0, 0.0]},  # rôle
+        {"embedding": [1.0, 0.0]},  # "PM Senior" développé, proche du rôle
+        {"embedding": [0.0, 1.0]},  # "pm senior" pas développé, loin du rôle
+    ]
+    embed = AsyncMock(return_value=fake_resp)
+
+    with patch("litellm.aembedding", embed):
+        kept = await keep_relevant_titles("Product Manager", offers)
+
+    sent_titles = embed.call_args.kwargs["input"]
+    assert sent_titles == ["Product Manager", "Product Manager Senior", "pm senior"]
+    assert [o["poste"] for o in kept] == ["PM Senior"]

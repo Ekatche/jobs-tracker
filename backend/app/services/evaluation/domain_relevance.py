@@ -41,6 +41,21 @@ CASE_SENSITIVE_ACRONYMS = [
 ]
 
 
+def _extract_embedding(item):
+    """Extrait le vecteur d'un item de réponse `aembedding` (dict ou objet litellm).
+
+    Pas d'évaluation anticipée du défaut : `item["embedding"]` ne doit être
+    tenté que si `item` n'a pas l'attribut `embedding`, sinon un objet sans
+    `__getitem__` (cas réel des réponses litellm) lèverait un `TypeError`
+    même quand l'attribut existe.
+    """
+    if isinstance(item, dict):
+        return item.get("embedding")
+    if hasattr(item, "embedding"):
+        return item.embedding
+    return item["embedding"]
+
+
 def expand_title_acronyms(title: str) -> str:
     # Un intitulé tout en majuscules ("CHEF DE PROJET DA") ne permet pas de
     # distinguer un acronyme d'un mot ordinaire en capitales : on ne tente
@@ -82,11 +97,8 @@ async def compute_domain_relevance(candidate_identity: str, offer_title: str) ->
         )
         data = resp.data if hasattr(resp, "data") else resp["data"]
 
-        def _extract(item):
-            return item.get("embedding") if isinstance(item, dict) else getattr(item, "embedding", item["embedding"])
-
-        emb_candidate = _extract(data[0])
-        emb_offer = _extract(data[1])
+        emb_candidate = _extract_embedding(data[0])
+        emb_offer = _extract_embedding(data[1])
         return cosine_similarity(emb_candidate, emb_offer)
     except Exception as e:
         logger.warning(
