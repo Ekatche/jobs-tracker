@@ -5,8 +5,10 @@ import httpx
 import pytest
 
 from app.tasks.verify_job_offers import (
+    check_indeed_jobs,
     check_url_http_fast,
     detect_closure_in_text,
+    extract_indeed_job_key,
     extract_json_ld_valid_through,
     extract_visible_text,
     is_redirected_to_generic_listing,
@@ -618,6 +620,112 @@ async def test_verify_single_offer_hellowork_trusts_static_html(status_code, exp
         assert res["status"] == "valid"
         assert res["is_valid"] is True
         assert res["reason"] == "static_render_domain_ok"
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("https://fr.indeed.com/viewjob?jk=530833c11152a027", "530833c11152a027"),
+        ("https://fr.indeed.com/m/viewjob?jk=530833c11152a027&from=serp", "530833c11152a027"),
+        ("https://www.indeed.com/rc/clk?jk=E612AEAA22FC5B07&fccid=x", "e612aeaa22fc5b07"),
+        ("https://fr.indeed.com/viewjob?jk=not-a-key", None),
+        ("https://www.linkedin.com/jobs/view/4480433924?jk=530833c11152a027", None),
+        ("", None),
+    ],
+)
+def test_extract_indeed_job_key(url, expected):
+    assert extract_indeed_job_key(url) == expected
+
+
+def _indeed_api(handler):
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+@pytest.mark.asyncio
+async def test_check_indeed_jobs_maps_expired_flag_and_missing_jobs():
+    """expired true = close, false = active ; une offre absente de la réponse reste inconnue."""
+    seen = {}
+
+    def handler(request):
+        seen["query"] = request.content.decode()
+        seen["api_key"] = request.headers.get("indeed-api-key")
+        return httpx.Response(200, json={"data": {"jobData": {"results": [
+            {"job": {"key": "aaaaaaaaaaaaaaaa", "expired": False}},
+            {"job": {"key": "bbbbbbbbbbbbbbbb", "expired": True}},
+        ]}}})
+
+    async with _indeed_api(handler) as client:
+        res = await check_indeed_jobs(["aaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbb", "cccccccccccccccc"], client)
+
+    assert "cccccccccccccccc" in seen["query"]
+    assert seen["api_key"]
+    assert res["aaaaaaaaaaaaaaaa"]["is_valid"] is True
+    assert res["bbbbbbbbbbbbbbbb"]["is_valid"] is False
+    assert res["bbbbbbbbbbbbbbbb"]["reason"] == "indeed_api_expired"
+    assert res["cccccccccccccccc"]["is_valid"] is None
+    assert res["cccccccccccccccc"]["reason"] == "indeed_api_job_not_found"
+
+
+@pytest.mark.asyncio
+async def test_check_indeed_jobs_batches_and_drops_failed_batch():
+    """Lots de batch_size clés ; un lot en échec ne produit aucun verdict (pas même « introuvable »)."""
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if len(calls) == 2:
+            return httpx.Response(500)
+        return httpx.Response(200, json={"data": {"jobData": {"results": [
+            {"job": {"key": "aaaaaaaaaaaaaaaa", "expired": False}},
+        ]}}})
+
+    async with _indeed_api(handler) as client:
+        res = await check_indeed_jobs(
+            ["aaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbb", "cccccccccccccccc"], client, batch_size=2
+        )
+        assert await check_indeed_jobs([], client) == {}
+
+    assert len(calls) == 2
+    assert set(res) == {"aaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbb"}
+    assert res["bbbbbbbbbbbbbbbb"]["reason"] == "indeed_api_job_not_found"
+
+
+@pytest.mark.asyncio
+async def test_verify_job_offers_workflow_uses_indeed_api_verdicts_and_counts_unknown_reasons():
+    """Une offre Indeed tranchée par l'API ne passe pas par le check HTTP ; les inconnues sont
+    décomptées par site et par raison dans le résumé."""
+    from bson import ObjectId
+
+    indeed_closed = ObjectId()
+    offers = [
+        {"_id": indeed_closed, "url": "https://fr.indeed.com/viewjob?jk=bbbbbbbbbbbbbbbb"},
+        {"_id": ObjectId(), "url": "https://fr.linkedin.com/jobs/view/1"},
+        {"_id": ObjectId(), "url": "https://www.linkedin.com/jobs/view/2"},
+    ]
+    mock_db, mock_collection, _ = _mock_offers_collection(offers)
+    checked = []
+
+    async def fake_verify_single_offer(offer, sem, http_client=None):
+        checked.append(offer["_id"])
+        return {"offer_id": str(offer["_id"]), "status": "unknown", "is_valid": None,
+                "reason": "js_crawl_failed: Timeout 60000ms exceeded", "url": offer["url"]}
+
+    fake_indeed = AsyncMock(return_value={
+        "bbbbbbbbbbbbbbbb": {"status": "closed", "is_valid": False, "reason": "indeed_api_expired"}
+    })
+    with patch("app.tasks.verify_job_offers.get_database", AsyncMock(return_value=mock_db)), patch(
+        "app.tasks.verify_job_offers.verify_single_offer", side_effect=fake_verify_single_offer
+    ), patch("app.tasks.verify_job_offers.check_indeed_jobs", fake_indeed):
+        result = await verify_job_offers_workflow(limit=None)
+
+    assert fake_indeed.await_args.args[0] == ["bbbbbbbbbbbbbbbb"]
+    assert indeed_closed not in checked
+    closed_set = [c.args[1]["$set"] for c in mock_collection.update_one.call_args_list
+                  if c.args[0] == {"_id": indeed_closed}]
+    assert closed_set[0]["is_deleted"] is True
+    assert closed_set[0]["deletion_reason"] == "indeed_api_expired"
+    assert result["closed_count"] == 1
+    assert result["unknown_reasons"] == {"linkedin.com js_crawl_failed": 2}
 
 
 @pytest.fixture

@@ -3,6 +3,7 @@ from html.parser import HTMLParser
 import json
 import logging
 import re
+from collections import Counter
 from datetime import datetime, timezone
 from time import monotonic
 from typing import Any, Dict, Iterator, List, Optional
@@ -435,6 +436,68 @@ async def check_url_headless_js(url: str) -> Dict[str, Any]:
         }
 
 
+INDEED_GRAPHQL_URL = "https://apis.indeed.com/graphql"
+INDEED_JOB_KEY_RE = re.compile(r"^[0-9a-f]{16}$")
+
+
+def extract_indeed_job_key(url: str) -> Optional[str]:
+    """Clé d'offre Indeed (paramètre jk) d'une URL indeed.*, ou None."""
+    parsed = urlparse(url or "")
+    if "indeed" not in (parsed.hostname or "").split("."):
+        return None
+    jk = (parse_qs(parsed.query).get("jk") or [""])[0].lower()
+    return jk if INDEED_JOB_KEY_RE.match(jk) else None
+
+
+async def check_indeed_jobs(
+    job_keys: List[str], client: httpx.AsyncClient, batch_size: int = 50
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Statut des offres Indeed via l'API GraphQL de l'app mobile (celle de jobspy) : la page web
+    répond 401 Cloudflare au VPS. Par lots, pour ne pas faire bloquer l'IP qui sert aussi à la collecte.
+    Une clé absente d'une réponse valide reste inconnue ; un lot en échec ne donne aucun verdict.
+    """
+    if not job_keys:
+        return {}
+    try:
+        from jobspy.indeed.constant import headers as indeed_api_headers
+    except ImportError:
+        logger.warning("jobspy introuvable : vérification Indeed par l'API ignorée.")
+        return {}
+
+    results: Dict[str, Dict[str, Any]] = {}
+    for start in range(0, len(job_keys), batch_size):
+        batch = job_keys[start:start + batch_size]
+        query = (
+            f"query {{ jobData(jobKeys: {json.dumps(batch)}) "
+            "{ results { job { key expired } } } }"
+        )
+        try:
+            response = await client.post(
+                INDEED_GRAPHQL_URL, json={"query": query}, headers=indeed_api_headers
+            )
+            payload = response.json() if response.status_code == 200 else {}
+            if payload.get("errors") or "data" not in payload:
+                raise ValueError(f"HTTP {response.status_code}, errors={payload.get('errors')}")
+            jobs = {
+                item["job"]["key"]: item["job"]
+                for item in payload["data"]["jobData"]["results"]
+                if item.get("job")
+            }
+        except Exception as e:
+            logger.warning(f"⚠️ API Indeed en échec sur un lot de {len(batch)} offres : {e}")
+            continue
+        for key in batch:
+            job = jobs.get(key)
+            if job is None:
+                results[key] = {"status": "unknown", "is_valid": None, "reason": "indeed_api_job_not_found"}
+            elif job.get("expired"):
+                results[key] = {"status": "closed", "is_valid": False, "reason": "indeed_api_expired"}
+            else:
+                results[key] = {"status": "valid", "is_valid": True, "reason": "indeed_api_active"}
+    return results
+
+
 async def verify_single_offer(
     offer: Dict[str, Any],
     semaphore: asyncio.Semaphore,
@@ -527,6 +590,13 @@ async def verify_single_offer(
     }
 
 
+def _unknown_reason_key(result: Dict[str, Any]) -> str:
+    """« linkedin.com js_crawl_failed » : domaine sans sous-domaine, raison sans son détail."""
+    host = urlparse(result.get("url") or "").hostname or "?"
+    reason = str(result.get("reason") or "unknown").split(":")[0].strip()
+    return f"{'.'.join(host.split('.')[-2:])} {reason}"
+
+
 async def verify_job_offers_workflow(
     limit: Optional[int] = 100,
     max_concurrency: int = 5,
@@ -591,13 +661,19 @@ async def verify_job_offers_workflow(
 
     semaphore = asyncio.Semaphore(max_concurrency)
     updated_db_count = 0
+    indeed_verdicts: Dict[str, Dict[str, Any]] = {}
 
     async def verify_and_persist(
         offer: Dict[str, Any], http_client: httpx.AsyncClient
     ) -> Dict[str, Any]:
         nonlocal updated_db_count
+        url = offer.get("url") or offer.get("source_url")
         try:
-            result = await verify_single_offer(offer, semaphore, http_client=http_client)
+            verdict = indeed_verdicts.get(extract_indeed_job_key(url))
+            if verdict and verdict["is_valid"] is not None:
+                result = {"offer_id": str(offer.get("_id", "")), **verdict, "url": url}
+            else:
+                result = await verify_single_offer(offer, semaphore, http_client=http_client)
         except Exception as e:
             logger.error(f"💥 Exception non interceptée sur l'offre {offer.get('_id')}: {e}")
             result = {
@@ -605,7 +681,7 @@ async def verify_job_offers_workflow(
                 "status": "unknown",
                 "is_valid": None,
                 "reason": f"gather_exception: {str(e)}",
-                "url": offer.get("url") or offer.get("source_url"),
+                "url": url,
             }
 
         if dry_run:
@@ -648,6 +724,16 @@ async def verify_job_offers_workflow(
         follow_redirects=True,
         timeout=10.0,
     ) as http_client:
+        # Indeed en une passe par lots avant les workers : les offres tranchées par l'API
+        # ne passent ni par le check HTTP (401) ni par le headless
+        indeed_keys = list(dict.fromkeys(
+            key for o in offers
+            if (key := extract_indeed_job_key(o.get("url") or o.get("source_url")))
+        ))
+        indeed_verdicts = await check_indeed_jobs(indeed_keys, http_client)
+        if indeed_keys:
+            decided = sum(1 for v in indeed_verdicts.values() if v["is_valid"] is not None)
+            logger.info(f"🔎 API Indeed : {decided}/{len(indeed_keys)} offres tranchées.")
         await asyncio.gather(*(worker(http_client) for _ in range(max_concurrency)))
 
     total = len(processed_results)
@@ -659,11 +745,17 @@ async def verify_job_offers_workflow(
     closed_offers = [r for r in processed_results if r.get("is_valid") is False]
     closed_count = len(closed_offers)
     unknown_count = sum(1 for r in processed_results if r.get("is_valid") is None)
+    # « site raison » -> nombre, pour savoir quelles offres restent sans verdict et pourquoi
+    unknown_reasons = dict(Counter(
+        _unknown_reason_key(r) for r in processed_results if r.get("is_valid") is None
+    ).most_common())
 
     logger.info(
         f"📊 Résultat vérification: {valid_count} actives, {closed_count} closes confirmées, "
         f"{unknown_count} inconnues (ignorées)"
     )
+    if unknown_reasons:
+        logger.info(f"❔ Inconnues par site et raison : {unknown_reasons}")
 
     if not dry_run and closed_offers:
         logger.info(f"🗑️ Soft-delete appliqué à {updated_db_count} offres closes confirmées.")
@@ -675,6 +767,7 @@ async def verify_job_offers_workflow(
         "unknown_count": unknown_count,
         "updated_db_count": updated_db_count,
         "deferred_count": deferred_count,
+        "unknown_reasons": unknown_reasons,
         "dry_run": dry_run,
         "closed_details": closed_offers[:20],
         "summary": (
