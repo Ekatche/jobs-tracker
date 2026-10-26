@@ -10,6 +10,8 @@ import logging
 import os
 from typing import List, Optional
 
+from app.services.profile.urls import validate_public_url_async
+
 # Configuration du logging
 logger = logging.getLogger(__name__)
 
@@ -33,8 +35,11 @@ async def fetch_documents(url: str):
     Récupère le contenu rendu de la page via Crawl4ai.
     Renvoie markdown filtré au préalable.
     """
-    if not url or not url.startswith(("http://", "https://")):
-        logger.warning(f"URL invalide: {url}")
+    # URL saisie par l'utilisateur (candidature) : jamais d'hôte interne (SSRF)
+    try:
+        url = await validate_public_url_async(url or "")
+    except ValueError as e:
+        logger.warning(f"URL refusée: {e}")
         return []
 
     try:

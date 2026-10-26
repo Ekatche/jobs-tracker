@@ -122,7 +122,10 @@ async def test_fetch_documents_intercepts_pdf_url():
     ]
     pdf_bytes = create_in_memory_pdf(sample_lines)
 
-    with patch("app.services.pdf_job_offer.download_pdf_bytes", return_value=pdf_bytes):
+    # Garde SSRF neutralisée : pas de résolution DNS réelle dans ce test
+    with patch("app.services.pdf_job_offer.download_pdf_bytes", return_value=pdf_bytes), patch(
+        "app.llm.utils.validate_public_url_async", AsyncMock(side_effect=lambda u: u)
+    ):
         docs = await fetch_documents("https://startup.com/jobs/fullstack.pdf")
         assert len(docs) == 1
         doc = docs[0]

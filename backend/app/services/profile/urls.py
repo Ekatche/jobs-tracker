@@ -111,3 +111,51 @@ async def validate_public_url_async(
         )
     except asyncio.TimeoutError as exc:
         raise ValueError(f"Résolution DNS trop lente pour : {raw}") from exc
+
+
+async def reject_non_public_request(request) -> None:
+    """Hook httpx (`event_hooks={"request": [...]}`) : chaque requête, sauts de
+    redirection compris, doit viser une adresse publique. Lève `ValueError` sinon."""
+    await validate_public_url_async(str(request.url))
+
+
+async def block_non_public_browser_requests(page, **kwargs):
+    """Hook crawl4ai `on_page_context_created` : le navigateur n'émet aucune
+    requête vers un hôte non public — page, ressources, navigation JS.
+
+    Playwright ne présente pas au routeur les sauts d'une redirection HTTP :
+    l'URL finale se contrôle à part, avec `landed_on_public_host`.
+    """
+    verdicts: dict[str, bool] = {}  # une résolution DNS par hôte, pas par ressource
+
+    async def guard(route):
+        url = route.request.url
+        host = urlparse(url).hostname or ""
+        if host not in verdicts:
+            try:
+                await validate_public_url_async(url)
+                verdicts[host] = True
+            except ValueError:
+                verdicts[host] = False
+        if verdicts[host]:
+            await route.fallback()
+        else:
+            await route.abort()
+
+    await page.route("**/*", guard)
+    return page
+
+
+async def landed_on_public_host(result) -> bool:
+    """Vrai sauf si crawl4ai a été redirigé vers un hôte non public.
+
+    `result.url` est l'URL demandée ; l'URL finale est `result.redirected_url`.
+    """
+    final_url = getattr(result, "redirected_url", None)
+    if not isinstance(final_url, str) or not final_url or final_url == getattr(result, "url", None):
+        return True
+    try:
+        await validate_public_url_async(final_url)
+    except ValueError:
+        return False
+    return True

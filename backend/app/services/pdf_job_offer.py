@@ -13,6 +13,8 @@ except ImportError:
 
 import httpx
 
+from app.services.profile.urls import reject_non_public_request
+
 logger = logging.getLogger(__name__)
 
 # Maximum file size to download (25 MB) to avoid memory exhaustion
@@ -61,7 +63,7 @@ async def check_is_pdf_content(url: str, timeout: float = 5.0) -> bool:
             timeout=timeout,
             follow_redirects=True,
             headers=DEFAULT_HEADERS,
-            verify=False,
+            event_hooks={"request": [reject_non_public_request]},
         ) as client:
             resp = await client.head(url)
             content_type = resp.headers.get("content-type", "").lower()
@@ -86,7 +88,7 @@ async def download_pdf_bytes(
             timeout=timeout,
             follow_redirects=True,
             headers=DEFAULT_HEADERS,
-            verify=False,
+            event_hooks={"request": [reject_non_public_request]},
         ) as client:
             resp = await client.get(url)
             if resp.status_code != 200:

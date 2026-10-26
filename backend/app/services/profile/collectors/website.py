@@ -24,7 +24,11 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from litellm import acompletion
 
-from app.services.profile.urls import validate_public_url_async
+from app.services.profile.urls import (
+    block_non_public_browser_requests,
+    landed_on_public_host,
+    validate_public_url_async,
+)
 
 # `letter_llm` vit dans job_trackers/src/job_trackers, hors du package `app` :
 # comme les autres consommateurs du monorepo (routers/applications.py,
@@ -252,6 +256,7 @@ async def collect_website(
         from crawl4ai import AsyncWebCrawler
 
         async with AsyncWebCrawler(verbose=False) as instance:
+            instance.crawler_strategy.set_hook("on_page_context_created", block_non_public_browser_requests)
             results = await instance.arun_many(pages)
     else:
         results = await crawler.arun_many(pages)
@@ -292,6 +297,9 @@ async def collect_website(
             url = await validate_public_url_async(url)
         except ValueError as exc:
             logger.info("page crawlée rejetée (URL finale non publique) %s : %s", url, exc)
+            continue
+        if not await landed_on_public_host(result):
+            logger.info("page crawlée rejetée (redirigée vers un hôte non public) %s", url)
             continue
         markdown_by_url[url] = str(markdown)
 

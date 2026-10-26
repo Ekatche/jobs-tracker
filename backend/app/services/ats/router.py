@@ -7,6 +7,8 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 
+from app.services.profile.urls import reject_non_public_request
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 10.0
@@ -437,7 +439,12 @@ async def extract_ats_or_jsonld_offer(
 
     close_client = False
     if client is None:
-        client = httpx.AsyncClient(follow_redirects=True, timeout=DEFAULT_TIMEOUT)
+        # URL éventuellement saisie par l'utilisateur : chaque saut doit rester public (SSRF)
+        client = httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=DEFAULT_TIMEOUT,
+            event_hooks={"request": [reject_non_public_request]},
+        )
         close_client = True
 
     try:

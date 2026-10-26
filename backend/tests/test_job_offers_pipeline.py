@@ -312,6 +312,7 @@ async def test_crawler_preserves_user_facing_urls_with_optimization():
     )
 
     mock_crawler = AsyncMock()
+    mock_crawler.crawler_strategy = MagicMock()
     mock_crawler.arun_many.return_value = [mock_result]
     mock_crawler_context = AsyncMock()
     mock_crawler_context.__aenter__.return_value = mock_crawler
@@ -349,10 +350,11 @@ def _crawl_result(url, markdown, extracted_content, html="", success=True):
 
 async def _run_crawler_on(results):
     """Lance le crawler sur des résultats crawl4ai simulés (aucun navigateur, aucun appel LLM)."""
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import AsyncMock, MagicMock, patch
     from job_crawler.crawler1 import crawl_and_extract_jobs_optimized
 
     mock_crawler = AsyncMock()
+    mock_crawler.crawler_strategy = MagicMock()
     mock_crawler.arun_many.return_value = results
     mock_crawler_context = AsyncMock()
     mock_crawler_context.__aenter__.return_value = mock_crawler

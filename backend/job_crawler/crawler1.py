@@ -21,6 +21,7 @@ from app.services.normalization import (
     optimize_crawl_url,
     restore_canonical_job_url,
 )
+from app.services.profile.urls import block_non_public_browser_requests, landed_on_public_host
 from app.services.relevance import normalize_text
 
 logger = logging.getLogger(__name__)
@@ -388,8 +389,18 @@ async def get_filtered_markdown(
         # 🔍 Lancement du crawl
         async with AsyncWebCrawler(config=browser_config) as crawler:
             logger.debug("📱 Crawler initialisé pour extraction markdown")
+            crawler.crawler_strategy.set_hook("on_page_context_created", block_non_public_browser_requests)
             result = await crawler.arun(url=url, config=crawl_config)
             logger.info(f"📊 Crawl terminé - Success: {result.success}")
+
+            if result.success and not await landed_on_public_host(result):
+                logger.warning(f"🛑 Redirection vers un hôte non public refusée: {url}")
+                return {
+                    "status": "failed",
+                    "url": url,
+                    "error": "Redirection vers un hôte non public refusée",
+                    "filtered_markdown": None,
+                }
 
             if result.success:
                 # ✅ Récupération du markdown : fit_markdown en priorité, sinon raw_markdown
@@ -546,6 +557,7 @@ async def crawl_and_extract_jobs_optimized(
 
         # ✅ Utilisation directe d'arun_many selon la doc
         async with AsyncWebCrawler(config=browser_config) as crawler:
+            crawler.crawler_strategy.set_hook("on_page_context_created", block_non_public_browser_requests)
             pending = list(non_pdf_crawl_urls)
             attempt = 0
             empty_counts: Dict[str, int] = {}
@@ -570,6 +582,19 @@ async def crawl_and_extract_jobs_optimized(
                     orig_url = _resolve_original_url(result.url)
                     domain = urlparse(orig_url).netloc.lower().removeprefix("www.")
                     logger.info(f"📊 Résultat reçu pour: {result.url} (original: {orig_url})")
+
+                    if not await landed_on_public_host(result):
+                        logger.warning(f"🛑 Redirection vers un hôte non public refusée pour {orig_url}")
+                        processed_results.append(
+                            {
+                                "url": orig_url,
+                                "domain": domain,
+                                "status": "failed",
+                                "error": "Redirection vers un hôte non public refusée",
+                                "attempts": attempt + 1,
+                            }
+                        )
+                        continue
 
                     page_text = _get_page_text(result)
 
