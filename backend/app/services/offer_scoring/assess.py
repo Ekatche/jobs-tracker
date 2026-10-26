@@ -2,9 +2,10 @@
 
 Trois couches, dans l'ordre où `assess_offer` les applique :
 1. `hard_filter_reason` : l'offre est écartée entièrement (mot-clé exclu,
-   stage/alternance non souhaité) — aucun score ne lui est jamais rattaché.
+   stage/alternance non souhaité, hors zone géographique) — aucun score ne
+   lui est jamais rattaché.
 2. `failed_conditions` : l'offre est conservée mais plafonnée (`CAP_SCORE`)
-   si une condition bloquante (géographie, type de contrat) échoue.
+   si le type de contrat ne correspond pas.
 3. `combine` (Task 1) assemble les composantes en un `ScoreResult`.
 """
 
@@ -59,6 +60,12 @@ def hard_filter_reason(offer: dict, features: ProfileFeatures) -> Optional[str]:
             if offer_contract not in wanted:
                 return "contract"
 
+    # Hors zone = exclusion, comme l'ancienne règle de rattachement : un simple
+    # plafond laissait passer les offres d'autres villes ramenées par les
+    # recherches des autres utilisateurs.
+    if not _geo_condition_ok(offer, features):
+        return "geo"
+
     return None
 
 
@@ -101,10 +108,9 @@ def _contract_condition_ok(offer: dict, features: ProfileFeatures) -> bool:
 
 
 def failed_conditions(offer: dict, features: ProfileFeatures) -> list[str]:
-    """Conditions bloquantes échouées, sous-ensemble ordonné de ["geo", "contract"]."""
+    """Conditions bloquantes échouées : ["contract"] ou []. La géographie est
+    un filtre dur (`hard_filter_reason`), plus une condition plafonnante."""
     conditions: list[str] = []
-    if not _geo_condition_ok(offer, features):
-        conditions.append("geo")
     if not _contract_condition_ok(offer, features):
         conditions.append("contract")
     return conditions

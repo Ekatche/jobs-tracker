@@ -62,6 +62,11 @@ def features_with(**pref_overrides) -> ProfileFeatures:
         # Un nom de département, lui, fusionne avec la commune homonyme :
         # Vienne (Isère) ne doit pas être éclipsée par le département 86.
         ("Vienne", {"38", "86"}),
+        # Libellés LinkedIn anglais : l'enrobage « Greater … Area / Metropolitan
+        # Region » est retiré ; la région parisienne couvre toute l'IDF.
+        ("Greater Paris Metropolitan Region", ILE_DE_FRANCE_DEPARTMENTS),
+        ("Greater Lyon Area", {"69"}),
+        ("Greater Bordeaux Metropolitan Area", {"33"}),
     ],
 )
 def test_departments_for_location(location, expected):
@@ -139,55 +144,63 @@ def test_hard_filter_internship_without_wish(contract_types, expected):
     assert hard_filter_reason(offer, features) == expected
 
 
-# ---------- failed_conditions : geo ----------
+# ---------- hard_filter_reason : geo ----------
+# Hors zone = filtre dur (offre détachée), comme l'ancienne règle de
+# rattachement ; seul le télétravail total y échappe.
 
 
 def test_geo_same_department_passes():
     offer = {"localisation": "Villeurbanne", "type_contrat": "CDI"}
+    assert hard_filter_reason(offer, features_with()) is None
+
+
+def test_geo_other_department_is_hard_filtered():
+    offer = {"localisation": "Nantes", "type_contrat": "CDI"}
+    assert hard_filter_reason(offer, features_with()) == "geo"
     assert failed_conditions(offer, features_with()) == []
 
-
-def test_geo_other_department_fails():
-    offer = {"localisation": "Nantes", "type_contrat": "CDI"}
-    assert failed_conditions(offer, features_with()) == ["geo"]
-
     offer_marseille = {"localisation": "Marseille", "type_contrat": "CDI"}
-    assert failed_conditions(offer_marseille, features_with(locations=["Lyon", "Paris"])) == ["geo"]
+    assert hard_filter_reason(offer_marseille, features_with(locations=["Lyon", "Paris"])) == "geo"
+
+
+def test_geo_linkedin_paris_region_is_out_of_zone_for_lyon():
+    offer = {"localisation": "Greater Paris Metropolitan Region", "type_contrat": "CDI"}
+    assert hard_filter_reason(offer, features_with()) == "geo"
+    assert hard_filter_reason(offer, features_with(locations=["Nanterre"])) is None
 
 
 def test_geo_full_remote_offer_passes_unless_on_site():
     offer = {"localisation": "Nantes", "mode_travail": "Télétravail total", "type_contrat": "CDI"}
-    assert failed_conditions(offer, features_with()) == []
-    assert failed_conditions(offer, features_with(remote_policy="on_site")) == ["geo"]
+    assert hard_filter_reason(offer, features_with()) is None
+    assert hard_filter_reason(offer, features_with(remote_policy="on_site")) == "geo"
 
 
 def test_geo_full_remote_candidate():
     features = features_with(remote_policy="full_remote")
 
     offer_on_site = {"localisation": "Lyon", "mode_travail": "Présentiel", "type_contrat": "CDI"}
-    assert failed_conditions(offer_on_site, features) == ["geo"]
+    assert hard_filter_reason(offer_on_site, features) == "geo"
 
     offer_remote = {"localisation": "Lyon", "mode_travail": "Télétravail total", "type_contrat": "CDI"}
-    assert failed_conditions(offer_remote, features) == []
+    assert hard_filter_reason(offer_remote, features) is None
 
     offer_unknown_mode = {"localisation": "Lyon", "type_contrat": "CDI"}
-    assert failed_conditions(offer_unknown_mode, features) == []
+    assert hard_filter_reason(offer_unknown_mode, features) is None
 
 
-def test_geo_unresolved_location_never_fails():
+def test_geo_unresolved_location_never_filters():
     offer_unresolved = {"localisation": "La Défense", "type_contrat": "CDI"}
-    assert failed_conditions(offer_unresolved, features_with()) == []
+    assert hard_filter_reason(offer_unresolved, features_with()) is None
 
     offer_nantes = {"localisation": "Nantes", "type_contrat": "CDI"}
-    assert failed_conditions(offer_nantes, features_with(locations=["St.-Denis"])) == []
+    assert hard_filter_reason(offer_nantes, features_with(locations=["St.-Denis"])) is None
 
-    assert failed_conditions(offer_nantes, features_with(locations=[])) == []
+    assert hard_filter_reason(offer_nantes, features_with(locations=[])) is None
 
 
-def test_geo_mixed_resolved_and_unresolved_locations_never_fails():
+def test_geo_mixed_resolved_and_unresolved_locations_never_filters():
     offer_nanterre = {"localisation": "Nanterre", "type_contrat": "CDI"}
-    result = failed_conditions(offer_nanterre, features_with(locations=["Lyon", "La Défense"]))
-    assert "geo" not in result
+    assert hard_filter_reason(offer_nanterre, features_with(locations=["Lyon", "La Défense"])) is None
 
 
 # ---------- failed_conditions : contract ----------
@@ -216,8 +229,8 @@ def test_assess_offer_capped_offer_keeps_raw_score():
         preferences=DEFAULT_PREFERENCES,
     )
     offer = {
-        "localisation": "Nantes",
-        "type_contrat": "CDI",
+        "localisation": "Lyon",
+        "type_contrat": "CDD",
         "competences_cles": ["Python"],
         "seniority_level": "senior",
         "sector": "tech",
@@ -228,9 +241,24 @@ def test_assess_offer_capped_offer_keeps_raw_score():
     reason, result = assess_offer(offer, features, cos=0.83, idf=idf)
 
     assert reason is None
-    assert result.failed_conditions == ["geo"]
+    assert result.failed_conditions == ["contract"]
     assert result.score == CAP_SCORE
     assert result.breakdown["raw_score"] > CAP_SCORE
+
+
+def test_assess_offer_out_of_zone_is_filtered_even_with_top_score():
+    features = make_features(
+        identity="Data Engineer",
+        skills=frozenset({"python"}),
+        preferences=DEFAULT_PREFERENCES,
+    )
+    offer = {"localisation": "Nantes", "type_contrat": "CDI", "competences_cles": ["Python"]}
+    idf = build_skill_idf([["Python"]])
+
+    reason, result = assess_offer(offer, features, cos=0.83, idf=idf)
+
+    assert reason == "geo"
+    assert result is None
 
 
 def test_assess_offer_filtered_returns_reason():

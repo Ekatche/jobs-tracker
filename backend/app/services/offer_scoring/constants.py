@@ -27,9 +27,11 @@ W_SECTOR = 10
 W_SIZE = 5
 
 # Seuils de niveau et plafond appliqué quand une condition bloquante échoue
-# (géographie, type de contrat...).
+# (type de contrat ; la géographie est un filtre dur, cf. assess.py).
 STRONG_THRESHOLD = 75
 MEDIUM_THRESHOLD = 60
+# Niveaux renvoyés par `score.level_for`, exposés et filtrables par l'API.
+RELEVANCE_LEVELS = ("strong", "medium", "weak")
 # Décision de la porte de fiabilité du 2026-10-25 (20 au départ).
 FLOOR = 35
 CAP_SCORE = MEDIUM_THRESHOLD - 1

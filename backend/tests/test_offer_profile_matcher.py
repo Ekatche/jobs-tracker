@@ -313,15 +313,46 @@ async def test_rematch_user_attaches_by_score_and_writes_relevance():
 
 
 @pytest.mark.asyncio
-async def test_rematch_user_capped_offer_stays_attached():
+async def test_rematch_user_out_of_zone_offer_is_detached_despite_top_score():
     profile = make_profile(preferences={"locations": ["Lyon"]})
-    capped_offer = {
-        "_id": oid("30"),
+    paris_offer = {
+        "_id": oid("31"),
         "poste": "Data Engineer",
         "description": "Poste data engineer parisien.",
         "competences_cles": ["Python"],
-        "localisation": "Paris 15e",
+        "localisation": "Greater Paris Metropolitan Region",
         "type_contrat": "CDI",
+        "matched_user_ids": [str(profile["user_id"])],
+    }
+    vector_by_text = {
+        identity_for(profile): PROFILE_VECTOR,
+        offer_embedding_text(paris_offer): vector_for_cosine(0.95),
+    }
+    fake_embed, _calls = make_fake_embed(vector_by_text)
+    db, offer_relevance = make_db(profiles=[profile], offers=[paris_offer])
+
+    summary = await rematch_user(str(profile["user_id"]), db, embed=fake_embed)
+
+    assert db["job_offers"].update_many_calls == [
+        (
+            {"_id": {"$in": [paris_offer["_id"]]}},
+            {"$pull": {"matched_user_ids": str(profile["user_id"])}},
+        )
+    ]
+    assert summary.detached == 1
+    assert offer_relevance.docs == []
+
+
+@pytest.mark.asyncio
+async def test_rematch_user_capped_offer_stays_attached():
+    profile = make_profile(preferences={"locations": ["Lyon"], "contract_types": ["CDI"]})
+    capped_offer = {
+        "_id": oid("30"),
+        "poste": "Data Engineer",
+        "description": "Poste data engineer lyonnais.",
+        "competences_cles": ["Python"],
+        "localisation": "Lyon",
+        "type_contrat": "CDD",
     }
     vector_by_text = {
         identity_for(profile): PROFILE_VECTOR,
@@ -344,7 +375,7 @@ async def test_rematch_user_capped_offer_stays_attached():
 
     doc = offer_relevance.docs[0]
     assert doc["level"] == "weak"
-    assert doc["failed_conditions"] == ["geo"]
+    assert doc["failed_conditions"] == ["contract"]
 
 
 @pytest.mark.asyncio

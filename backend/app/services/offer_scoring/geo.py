@@ -31,6 +31,12 @@ _DEPT_CODE = re.compile(r"^(0[1-9]|[1-8][0-9]|9[0-5])$")
 # DOM : 971 (Guadeloupe) à 976 (Mayotte). 977/978 (Saint-Barthélemy,
 # Saint-Martin) ne sont pas des départements et sont donc rejetés ici.
 _DOM_CODE = re.compile(r"^97[1-6]$")
+# Libellés LinkedIn anglais (« Greater Lyon Area », « Greater Paris
+# Metropolitan Region ») sur une clé déjà passée par `normalize_text`.
+_LINKEDIN_AREA = re.compile(r"^(?:greater )?(.+?) (?:metropolitan (?:region|area)|area)$")
+# La métropole parisienne de LinkedIn couvre toute l'Île-de-France, pas le
+# seul département 75 (sens permissif, cf. build_communes_index.py).
+_LINKEDIN_AREA_ALIASES = {"paris": "ile de france"}
 
 
 @lru_cache(maxsize=1)
@@ -107,4 +113,10 @@ def departments_for_location(text: Optional[str]) -> frozenset[str]:
 
     first_segment = text.split(",", 1)[0]
     key = normalize_text(normalize_city(first_segment))
-    return frozenset(_load_index().get(key, []))
+    index = _load_index()
+    if key not in index:
+        area_match = _LINKEDIN_AREA.match(key)
+        if area_match:
+            city = area_match.group(1)
+            key = _LINKEDIN_AREA_ALIASES.get(city, city)
+    return frozenset(index.get(key, []))
