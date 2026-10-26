@@ -106,10 +106,15 @@ async def rematch_all_users(apply: bool) -> int:
             f"kept_by_guard={summary.kept_by_guard} semantic_unknown={summary.semantic_unknown} "
             f"levels={summary.levels}"
         )
-        if summary.applied_below_floor:
+        if summary.kept_below_floor:
             logger.info(
                 f"    ⚠️ offres sous FLOOR conservées (garde interaction) pour {truncated}… : "
-                f"{summary.applied_below_floor}"
+                f"{summary.kept_below_floor}"
+            )
+        if summary.kept_hard_filtered:
+            logger.info(
+                f"    ⚠️ offres filtrées dur mais conservées (garde interaction) pour {truncated}… : "
+                f"{summary.kept_hard_filtered}"
             )
 
     if total_semantic_unknown:

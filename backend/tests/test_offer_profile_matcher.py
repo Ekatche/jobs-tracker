@@ -349,7 +349,11 @@ async def test_rematch_user_capped_offer_stays_attached():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("guard_kind", ["applications", "interaction"])
-async def test_rematch_user_keeps_applied_offer_below_floor(guard_kind, caplog):
+async def test_rematch_user_keeps_applied_offer_below_floor(guard_kind):
+    """Une offre DÉJÀ rattachée qui tombe sous FLOOR mais que le candidat a
+    gardée/postulée n'est pas détachée : `kept_by_guard` compte le maintien,
+    `kept_below_floor` liste l'offre. Une offre jamais rattachée n'aurait
+    rien à « garder » (cf. test_rematch_user_empty_profile_attaches_nothing)."""
     profile = make_profile()
     offer = {
         "_id": oid("40"),
@@ -358,6 +362,7 @@ async def test_rematch_user_keeps_applied_offer_below_floor(guard_kind, caplog):
         "competences_cles": [],
         "localisation": "Lyon",
         "type_contrat": "CDI",
+        "matched_user_ids": [str(profile["user_id"])],
     }
     offer_id_str = str(offer["_id"])
     vector_by_text = {
@@ -377,14 +382,13 @@ async def test_rematch_user_keeps_applied_offer_below_floor(guard_kind, caplog):
         profiles=[profile], offers=[offer], interactions=interactions, applications=applications
     )
 
-    with caplog.at_level(logging.WARNING):
-        summary = await rematch_user(str(profile["user_id"]), db, embed=fake_embed)
+    summary = await rematch_user(str(profile["user_id"]), db, embed=fake_embed)
 
     offers_collection = db["job_offers"]
     assert not any("$pull" in update for _filter, update in offers_collection.update_many_calls)
     assert summary.kept_by_guard == 1
-    assert summary.applied_below_floor == [offer_id_str]
-    assert any("FLOOR" in record.message for record in caplog.records)
+    assert summary.kept_below_floor == [offer_id_str]
+    assert summary.kept_hard_filtered == []
     # l'offre reste scorée (sous FLOOR), même si non rattachée.
     assert offer_relevance.docs[0]["offer_id"] == offer_id_str
 
@@ -465,6 +469,44 @@ async def test_rematch_user_hard_filtered_offer_detached():
 
 
 @pytest.mark.asyncio
+async def test_rematch_user_keeps_hard_filtered_offer_when_guarded(caplog):
+    """Même offre que ci-dessus (devenue filtrée dur), mais protégée par une
+    interaction `saved` : gardée (pas de $pull), comptée dans
+    `kept_hard_filtered` (pas `kept_below_floor`, elle n'a pas de score), avec
+    un warning qui cite la raison du filtre dur."""
+    profile = make_profile(preferences={"contract_types": ["CDI"]})
+    offer = {
+        "_id": oid("51"),
+        "poste": "Data Analyst",
+        "description": "Stage de 6 mois en data, Python au quotidien.",
+        "type_contrat": "Stage",
+        "localisation": "Lyon",
+        "competences_cles": [],
+        "matched_user_ids": [str(profile["user_id"])],
+    }
+    offer_id_str = str(offer["_id"])
+    vector_by_text = {
+        identity_for(profile): PROFILE_VECTOR,
+        offer_embedding_text(offer): vector_for_cosine(0.9),
+    }
+    fake_embed, _calls = make_fake_embed(vector_by_text)
+    interactions = [{"user_id": str(profile["user_id"]), "offer_id": offer_id_str, "status": "saved"}]
+    db, offer_relevance = make_db(profiles=[profile], offers=[offer], interactions=interactions)
+
+    with caplog.at_level(logging.WARNING):
+        summary = await rematch_user(str(profile["user_id"]), db, embed=fake_embed)
+
+    offers_collection = db["job_offers"]
+    assert offers_collection.update_many_calls == []
+    assert offer_relevance.docs == []
+    assert summary.detached == 0
+    assert summary.kept_by_guard == 1
+    assert summary.kept_hard_filtered == [offer_id_str]
+    assert summary.kept_below_floor == []
+    assert any("filtrée dur" in record.message for record in caplog.records)
+
+
+@pytest.mark.asyncio
 async def test_rematch_user_embedding_down_detaches_nothing_new():
     """Panne d'embedding (profil non vide, cos indisponible) : les offres non
     filtrées dur ne sont pas évaluées ce tour-ci — ni $addToSet, ni $pull, ni
@@ -535,6 +577,10 @@ async def test_rematch_user_dry_run_writes_nothing():
 
 @pytest.mark.asyncio
 async def test_rematch_user_empty_profile_attaches_nothing():
+    """Garde sur une offre NON rattachée (ni avant ni après ce rematch) :
+    `kept_by_guard` ne doit rien compter — il n'y a rien à « garder », l'offre
+    n'a jamais été attachée. Seule une offre déjà rattachée peut être gardée
+    ou détachée (cf. test_rematch_user_keeps_applied_offer_below_floor)."""
     profile = make_profile(headline="", skills={}, preferences={"target_roles": []})
     offer = {
         "_id": oid("80"),
@@ -557,8 +603,9 @@ async def test_rematch_user_empty_profile_attaches_nothing():
     assert db["job_offers"].update_many_calls == []
     assert offer_relevance.docs == []
     assert summary.attached == 0
-    assert summary.kept_by_guard == 1
-    assert summary.applied_below_floor == []
+    assert summary.kept_by_guard == 0
+    assert summary.kept_below_floor == []
+    assert summary.kept_hard_filtered == []
 
 
 @pytest.mark.asyncio
@@ -775,4 +822,99 @@ async def test_tag_new_offers_empty_list_does_nothing():
 
     offers_collection = db["job_offers"]
     assert offers_collection.update_many_calls == []
+    assert offer_relevance.docs == []
+
+
+@pytest.mark.asyncio
+async def test_tag_new_offers_detaches_offer_that_becomes_hard_filtered():
+    """`tag_new_offers` applique la même décision que `rematch_user` (M7) :
+    une offre déjà rattachée qui devient filtrée dur (ex. contract_types
+    restreint après coup) est détachée, pas seulement laissée telle quelle."""
+    profile = make_profile(preferences={"contract_types": ["CDI"]})
+    offer = {
+        "_id": oid("96"),
+        "poste": "Data Analyst",
+        "description": "Stage de 6 mois en data, Python au quotidien.",
+        "type_contrat": "Stage",
+        "localisation": "Lyon",
+        "competences_cles": [],
+        "matched_user_ids": [str(profile["user_id"])],
+    }
+    vector_by_text = {
+        identity_for(profile): PROFILE_VECTOR,
+        offer_embedding_text(offer): vector_for_cosine(0.9),
+    }
+    fake_embed, _calls = make_fake_embed(vector_by_text)
+    db, offer_relevance = make_db(profiles=[profile], offers=[offer])
+    offer_relevance.docs.append(
+        {"user_id": str(profile["user_id"]), "offer_id": str(offer["_id"]), "score": 80, "level": "strong"}
+    )
+
+    await tag_new_offers([offer["_id"]], db, embed=fake_embed)
+
+    offers_collection = db["job_offers"]
+    assert offers_collection.update_many_calls == [
+        ({"_id": {"$in": [offer["_id"]]}}, {"$pull": {"matched_user_ids": str(profile["user_id"])}})
+    ]
+    assert offer_relevance.docs == []
+
+
+@pytest.mark.asyncio
+async def test_tag_new_offers_keeps_hard_filtered_offer_with_saved_interaction():
+    """La même offre devenue filtrée dur mais avec une interaction `saved`
+    reste rattachée (garde d'interaction, `interacted_offer_ids` par
+    profil)."""
+    profile = make_profile(preferences={"contract_types": ["CDI"]})
+    offer = {
+        "_id": oid("97"),
+        "poste": "Data Analyst",
+        "description": "Stage de 6 mois en data, Python au quotidien.",
+        "type_contrat": "Stage",
+        "localisation": "Lyon",
+        "competences_cles": [],
+        "matched_user_ids": [str(profile["user_id"])],
+    }
+    offer_id_str = str(offer["_id"])
+    vector_by_text = {
+        identity_for(profile): PROFILE_VECTOR,
+        offer_embedding_text(offer): vector_for_cosine(0.9),
+    }
+    fake_embed, _calls = make_fake_embed(vector_by_text)
+    interactions = [{"user_id": str(profile["user_id"]), "offer_id": offer_id_str, "status": "saved"}]
+    db, offer_relevance = make_db(profiles=[profile], offers=[offer], interactions=interactions)
+
+    await tag_new_offers([offer["_id"]], db, embed=fake_embed)
+
+    offers_collection = db["job_offers"]
+    assert not any("$pull" in update for _filter, update in offers_collection.update_many_calls)
+    assert str(profile["user_id"]) in offer["matched_user_ids"]
+
+
+@pytest.mark.asyncio
+async def test_tag_new_offers_embedding_down_keeps_attached_offer():
+    """Offre déjà rattachée non évaluée ce tour faute de cosinus (panne
+    d'embedding) : jamais détachée, comme dans `rematch_user`. Elle est
+    marquée `scoring_pending` pour être rejouée."""
+    profile = make_profile()
+    offer = {
+        "_id": oid("98"),
+        "poste": "Data Engineer",
+        "description": "Poste data engineer.",
+        "competences_cles": ["Python"],
+        "localisation": "Lyon",
+        "type_contrat": "CDI",
+        "matched_user_ids": [str(profile["user_id"])],
+    }
+
+    async def failing_embed(texts):
+        raise RuntimeError("quota exceeded")
+
+    db, offer_relevance = make_db(profiles=[profile], offers=[offer])
+
+    await tag_new_offers([offer["_id"]], db, embed=failing_embed)
+
+    offers_collection = db["job_offers"]
+    assert not any("$pull" in update for _filter, update in offers_collection.update_many_calls)
+    assert str(profile["user_id"]) in offer["matched_user_ids"]
+    assert offer.get("scoring_pending") is True
     assert offer_relevance.docs == []

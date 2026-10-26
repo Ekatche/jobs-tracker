@@ -12,7 +12,7 @@ de chaque offre évaluée (hors filtre dur) est persisté dans offer_relevance.
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Literal, Optional
 
 from bson import ObjectId
 from pymongo import DeleteOne, UpdateOne
@@ -25,7 +25,12 @@ from app.services.offer_scoring.embeddings import (
     get_profile_vector,
     offer_embedding_text,
 )
-from app.services.offer_scoring.score import SkillIdf, build_skill_idf, profile_features
+from app.services.offer_scoring.score import (
+    ScoreResult,
+    SkillIdf,
+    build_skill_idf,
+    profile_features,
+)
 from app.services.role_normalizer import cosine_similarity
 
 logger = logging.getLogger(__name__)
@@ -82,8 +87,34 @@ class RematchSummary:
     detached: int = 0
     kept_by_guard: int = 0
     semantic_unknown: int = 0
-    applied_below_floor: list = field(default_factory=list)
+    kept_below_floor: list = field(default_factory=list)
+    kept_hard_filtered: list = field(default_factory=list)
     levels: dict = field(default_factory=dict)
+
+
+def _attachment_action(
+    reason: Optional[str],
+    result: Optional[ScoreResult],
+    already_attached: bool,
+    guarded: bool,
+) -> Literal["attach", "detach", "keep", "none"]:
+    """Décision pure de rattachement, partagée par `rematch_user` et
+    `tag_new_offers` : ne dépend que de l'état déjà connu de l'offre (filtre
+    dur ou non, score éventuel, déjà rattachée ou non, protégée par une
+    interaction ou non) — aucun accès base de données.
+
+    Une offre qui mérite d'être rattachée (pas de filtre dur, score au moins
+    FLOOR) l'est si elle ne l'est pas déjà, sinon rien à faire. Sinon : si
+    elle est déjà rattachée, la garde d'interaction décide entre la garder
+    (`keep`) ou la détacher (`detach`) ; si elle ne l'est pas, rien à faire
+    (`none`) qu'elle soit gardée ou non — on ne rattache jamais une offre sous
+    FLOOR ou filtrée dur au seul motif d'une interaction passée."""
+    should_attach = reason is None and result is not None and result.score >= FLOOR
+    if should_attach:
+        return "none" if already_attached else "attach"
+    if not already_attached:
+        return "none"
+    return "keep" if guarded else "detach"
 
 
 def _relevance_delete(user_id: str, offer_id_str: str) -> DeleteOne:
@@ -164,27 +195,29 @@ async def rematch_user(user_id: str, db, *, apply: bool = True, embed=embed_text
             summary.levels[result.level] = summary.levels.get(result.level, 0) + 1
             relevance_ops.append(_relevance_update(user_id, offer_id_str, result, now))
 
-        should_attach = reason is None and result is not None and result.score >= FLOOR
-        if should_attach:
-            if not already_attached:
-                attach_ids.append(offer_id)
-                summary.attached += 1
-            continue
+        guarded = offer_id_str in guarded_ids
+        action = _attachment_action(reason, result, already_attached, guarded)
 
-        if offer_id_str in guarded_ids:
-            summary.kept_by_guard += 1
-            if reason is None and result is not None:
-                summary.applied_below_floor.append(offer_id_str)
-                logger.warning(
-                    "Offre %s sous FLOOR mais conservée (garde interaction) pour user %s",
-                    offer_id_str,
-                    user_id[:8],
-                )
-            continue
-
-        if already_attached:
+        if action == "attach":
+            attach_ids.append(offer_id)
+            summary.attached += 1
+        elif action == "detach":
             detach_ids.append(offer_id)
             summary.detached += 1
+        elif action == "keep":
+            summary.kept_by_guard += 1
+            if reason is not None:
+                summary.kept_hard_filtered.append(offer_id_str)
+                logger.warning(
+                    "Offre %s filtrée dur (%s) mais conservée (garde interaction) pour user %s",
+                    offer_id_str,
+                    reason,
+                    user_id[:8],
+                )
+            elif result is not None:
+                summary.kept_below_floor.append(offer_id_str)
+        # action == "none" : offre non rattachée que la garde ne doit pas
+        # faire rattacher — rien à compter, rien à écrire.
 
     if apply:
         if attach_ids:
@@ -207,15 +240,19 @@ async def tag_new_offers(offer_ids: list, db, *, embed=embed_texts) -> None:
     (`scoring_pending`, laissées de côté par une panne d'embedding lors d'un
     appel précédent). Utilisé en fin de cycle de collecte : `offer_ids`
     mélange des offres neuves et des offres existantes mises à jour par la
-    collecte ; ce lot ne détache jamais une offre déjà rattachée (le
-    détachement n'est fait que par `rematch_user`).
+    collecte ; applique la même décision de rattachement que `rematch_user`
+    (`_attachment_action`) — une offre déjà rattachée qui devient filtrée
+    dur, sans score ou sous FLOOR est détachée, sauf garde d'interaction
+    (`interacted_offer_ids`, un appel par profil).
 
     Une offre non évaluée pour un profil faute de cosinus (panne d'embedding
     sur un profil à l'identité non vide, et offre non filtrée dur) est
     marquée `scoring_pending` pour être rejouée au prochain appel — sauf si
     elle n'a ni intitulé ni description, auquel cas elle ne pourra jamais
     être embarquée et n'est donc jamais mise en attente. Une offre en attente
-    qui a pu être évaluée ce tour perd son marqueur `scoring_pending`.
+    qui a pu être évaluée ce tour perd son marqueur `scoring_pending`. Une
+    offre non évaluée faute de cosinus n'est, comme dans `rematch_user`,
+    jamais détachée (ni rattachée).
     """
     if offer_ids:
         query = {
@@ -244,14 +281,17 @@ async def tag_new_offers(offer_ids: list, db, *, embed=embed_texts) -> None:
         user_id = str(profile["user_id"])
         features = profile_features(profile)
         profile_vector = await get_profile_vector(features.identity, embed=embed)
+        guarded_ids = await interacted_offer_ids(user_id, db)
 
         attach_ids = []
+        detach_ids = []
         relevance_ops: List[UpdateOne] = []
         profile_has_unscored = False
 
         for offer in offers:
             offer_id = offer["_id"]
             offer_id_str = str(offer_id)
+            already_attached = user_id in (offer.get("matched_user_ids") or [])
 
             cos = None
             if profile_vector is not None:
@@ -274,8 +314,12 @@ async def tag_new_offers(offer_ids: list, db, *, embed=embed_texts) -> None:
             elif result is not None:
                 relevance_ops.append(_relevance_update(user_id, offer_id_str, result, now))
 
-            if reason is None and result is not None and result.score >= FLOOR:
+            guarded = offer_id_str in guarded_ids
+            action = _attachment_action(reason, result, already_attached, guarded)
+            if action == "attach":
                 attach_ids.append(offer_id)
+            elif action == "detach":
+                detach_ids.append(offer_id)
 
         if profile_has_unscored:
             affected_profile_count += 1
@@ -283,6 +327,10 @@ async def tag_new_offers(offer_ids: list, db, *, embed=embed_texts) -> None:
         if attach_ids:
             await db["job_offers"].update_many(
                 {"_id": {"$in": attach_ids}}, {"$addToSet": {"matched_user_ids": user_id}}
+            )
+        if detach_ids:
+            await db["job_offers"].update_many(
+                {"_id": {"$in": detach_ids}}, {"$pull": {"matched_user_ids": user_id}}
             )
         if relevance_ops:
             await db["offer_relevance"].bulk_write(relevance_ops)
