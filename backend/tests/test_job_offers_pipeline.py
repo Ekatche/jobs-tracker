@@ -39,39 +39,6 @@ def test_clean_job_offer_duplicates_deduplication():
     assert "TotalEnergies" in companies
 
 
-def test_tombstone_priority_sorting():
-    # Verify that in a duplicate group, a tombstone (is_deleted = True) wins
-    group = [
-        {
-            "company": "SNCF",
-            "position": "Data Analyst",
-            "is_deleted": False,
-            "created_at": datetime(2026, 9, 1, 12, 0, 0, tzinfo=timezone.utc),
-            "url": "https://sncf.com/jobs/1",
-        },
-        {
-            "company": "SNCF",
-            "position": "Data Analyst",
-            "is_deleted": True,
-            "created_at": datetime(2026, 8, 20, 10, 0, 0, tzinfo=timezone.utc),
-            "url": "https://sncf.com/jobs/1",
-        },
-    ]
-
-    def priority_sort_key(offer):
-        is_tombstone = bool(offer.get("is_deleted"))
-        created_date = offer.get("created_at")
-        if isinstance(created_date, datetime):
-            created_date_str = created_date.isoformat()
-        else:
-            created_date_str = str(created_date or "")
-        has_good_url = bool(offer.get("url") and str(offer["url"]).startswith("http"))
-        return (is_tombstone, has_good_url, created_date_str)
-
-    sorted_group = sorted(group, key=priority_sort_key, reverse=True)
-    assert sorted_group[0]["is_deleted"] is True
-
-
 def test_defensive_date_sorting_exact_duplicates():
     # Group with missing or string dates should sort safely without throwing
     docs = [

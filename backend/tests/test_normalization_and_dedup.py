@@ -1,6 +1,9 @@
 import sys
 import os
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -17,7 +20,7 @@ from app.services.normalization import (
     detect_contract_type,
 )
 from app.models import JobOfferCreate, JobOfferResponse
-from retroactive_dedup_job_offers import find_duplicate_pairs, pick_survivor
+from app.services.offer_dedup import find_duplicate_pairs, merge_duplicate_offers, pick_survivor
 
 
 class TestLayer1SyntaxCleanup:
@@ -493,3 +496,44 @@ class TestRetroactiveDedupSafety:
         ]
         pairs = find_duplicate_pairs(offers)
         assert [(a["_id"], b["_id"]) for a, b in pairs] == [(1, 2)]
+
+    @pytest.mark.asyncio
+    async def test_merge_duplicate_offers_keeps_loser_url_and_city_split(self):
+        """Le nettoyage nocturne fusionne comme l'insertion : même ville seulement, URL du doublon conservée."""
+        from bson import ObjectId
+
+        wttj = "https://www.welcometothejungle.com/fr/companies/capgemini/jobs/data-scientist_lyon"
+        linkedin = "https://www.linkedin.com/jobs/view/4100000001"
+        a = {"_id": ObjectId(), "entreprise": "Capgemini", "poste": "Data Scientist", "localisation": "Lyon", "url": wttj}
+        b = {"_id": ObjectId(), "entreprise": "Capgemini", "poste": "Data Scientist", "localisation": "Lyon", "url": linkedin}
+        c = {"_id": ObjectId(), "entreprise": "Capgemini", "poste": "Data Scientist", "localisation": "Paris",
+             "url": "https://fr.indeed.com/viewjob?jk=4100000002"}
+
+        offers = MagicMock()
+        offers.find.return_value.to_list = AsyncMock(return_value=[a, b, c])
+        offers.delete_one = AsyncMock()
+        offers.update_one = AsyncMock()
+        applications = MagicMock()
+        applications.distinct = AsyncMock(return_value=[str(b["_id"])])
+        unreferenced = MagicMock()
+        unreferenced.distinct = AsyncMock(return_value=[])
+        interactions = MagicMock()
+        interactions.find.return_value.to_list = AsyncMock(return_value=[])
+        db = {
+            "job_offers": offers,
+            "applications": applications,
+            "offer_evaluations": unreferenced,
+            "interview_preps": unreferenced,
+            "user_offer_interactions": interactions,
+        }
+
+        result = await merge_duplicate_offers(db, apply=True)
+
+        # B, liée à une candidature, survit ; C (Paris) n'est jamais fusionnée avec les offres de Lyon
+        offers.delete_one.assert_awaited_once_with({"_id": a["_id"]})
+        survivor_sets = [
+            call.args[1]["$set"] for call in offers.update_one.await_args_list if call.args[0] == {"_id": b["_id"]}
+        ]
+        assert len(survivor_sets) == 1
+        assert {survivor_sets[0]["url"], *survivor_sets[0]["alternative_urls"]} == {wttj, linkedin}
+        assert result == {"merged": 1, "skipped_referenced": 0, "stale_keys": 1}

@@ -44,17 +44,17 @@ const FAQ_ITEMS: FaqItem[] = [
     id: "airflow-sources",
     category: "airflow",
     question: "D'où proviennent exactement les offres d'emploi collectées ?",
-    summary: "Airflow interroge chaque jour France Travail, Indeed, LinkedIn et les sites carrières via Tavily AI.",
+    summary: "Airflow interroge chaque jour Indeed, LinkedIn, HelloWork, les job boards spécialisés et les sites carrières via Tavily AI.",
     content: (
       <div className="space-y-2 text-slate-300 text-sm">
         <p>Les pipelines automatisés (DAGs) regroupent 4 sources complémentaires :</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
           <div className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
-            <span className="font-semibold text-blue-400 block mb-0.5">🏛️ API France Travail</span>
-            Flux officiel des offres certifiées en France, actualisé en temps réel.
+            <span className="font-semibold text-blue-400 block mb-0.5">🧭 Job boards spécialisés</span>
+            Welcome to the Jungle, Apec, Cadremploi et Free-Work, interrogés chaque matin en semaine.
           </div>
           <div className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
-            <span className="font-semibold text-indigo-400 block mb-0.5">💼 Indeed & LinkedIn</span>
+            <span className="font-semibold text-indigo-400 block mb-0.5">💼 Indeed, LinkedIn & HelloWork</span>
             Collecte et normalisation des offres des principales plateformes pro.
           </div>
           <div className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
@@ -235,7 +235,7 @@ export default function GuidePage() {
                 Nouvelles Offres au Réveil
               </h3>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Recherche exhaustive sur France Travail, Indeed, LinkedIn et sites carrières. Vos nouvelles opportunités sont prêtes pour votre café du matin.
+                Recherche exhaustive sur Indeed, LinkedIn, HelloWork et sites carrières. Vos nouvelles opportunités sont prêtes pour votre café du matin.
               </p>
             </div>
 

@@ -112,15 +112,14 @@ class TavilyJobBoardSearchTool(BaseTool):
 
         # Palier 1 : Job boards nationaux, un appel par groupe (site, max résultats). Un appel
         # unique était saturé par HelloWork et France Travail : WTTJ et Indeed n'apparaissaient plus.
-        # Indeed, LinkedIn et HelloWork sont collectés par python-jobspy, France Travail par son API
-        # quand elle est configurée : les chercher ici coûterait des crédits Tavily pour rien.
+        # Indeed, LinkedIn et HelloWork sont collectés par python-jobspy : les chercher ici coûterait
+        # des crédits Tavily pour rien. France Travail n'est plus une source (API fermée au libre-service
+        # le 2026-10-20).
         job_board_groups = [
             (["welcometothejungle.com"], 8),
             (["apec.fr", "cadremploi.fr"], 6),
             (["free-work.com", "lesjeudis.com"], 6),
         ]
-        if not (os.environ.get("FRANCE_TRAVAIL_CLIENT_ID") and os.environ.get("FRANCE_TRAVAIL_CLIENT_SECRET")):
-            job_board_groups.append((["francetravail.fr"], 6))
 
         # Palier 2 : Portails carrières directs & ATS d'entreprises (Zero-Token extraction directe)
         company_ats_domains = [

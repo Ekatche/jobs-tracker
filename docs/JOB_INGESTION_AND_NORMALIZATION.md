@@ -10,7 +10,7 @@ Le pipeline de collecte s'exécute via une tâche Airflow (`collect_and_save_off
 candidate_profile → generate_search_queries
      ↓  (N requêtes « Rôle Ville »)
 collect_and_save_offers(query)
-     ├─ Stage 1 (parallel): Tavily search (URLs) ‖ Sources structurées (France Travail + jobspy)
+     ├─ Stage 1 (parallel): Tavily search (URLs) ‖ Sources structurées (jobspy)
      ├─ Stage 2: drop_known_urls → filtre URLs Tavily déjà en base ou couvertes par offres structurées
      ├─ Stage 3 (parallel): crawl URLs Tavily restantes ‖ résumé LLM offres structurées
      └─ Stage 4: merge → enrich → dedup → save → tag_new_offers
@@ -20,22 +20,12 @@ collect_and_save_offers(query)
 
 ## Sources
 
-### 1. API France Travail (officielle)
+France Travail n'est plus une source depuis le 2026-10-25. L'API « Offres d'emploi v2 » est passée en
+accès restreint vers le 2026-10-20 (accès sur demande via francetravail.io), et le domaine n'est pas
+cherché par Tavily. Les offres France Travail déjà en base restent traitées comme les autres
+(vérification de clôture, priorité de source).
 
-| Champ | Valeur |
-|---|---|
-| Module | `app/services/sources/france_travail.py` |
-| Couverture | `francetravail.fr` (offres de l'opérateur public) |
-| Filtre | commune + rayon 30 km + contrat + date (30 j) |
-| Auth | `FRANCE_TRAVAIL_CLIENT_ID` / `FRANCE_TRAVAIL_CLIENT_SECRET` (env) |
-| Fallback | Si clés absentes → source ignorée, `francetravail.fr` reste couvert via Tavily |
-
-**Note codes communes** : Paris/Lyon/Marseille doivent utiliser le code d'arrondissement central :
-- Paris (`75056`) → `75101`
-- Lyon (`69123`) → `69381`
-- Marseille (`13055`) → `13201`
-
-### 2. jobspy (Indeed + LinkedIn + HelloWork)
+### 1. jobspy (Indeed + LinkedIn + HelloWork)
 
 | Champ | Valeur |
 |---|---|
@@ -46,15 +36,15 @@ collect_and_save_offers(query)
 | Dépendance | `python-jobspy>=1.4.1` (override numpy conservé, voir ci-dessous) |
 | Risque | Scraping public ; un blocage (429 LinkedIn, Cloudflare) ne lève pas d'exception : jobspy le range dans `attrs["errors"]` du DataFrame, loggé en warning `⚠️ <site> en échec`. Les lignes déjà reçues sont gardées, les autres sites ne sont pas touchés |
 
-### 3. Tavily (complément)
+### 2. Tavily (complément)
 
 | Champ | Valeur |
 |---|---|
 | Module | `app/tasks/job_offers_collectors.py` + `custom_tool.py` |
-| Passe 1 | WTTJ (8 résultats) · APEC+Cadremploi (6) · Free-Work+LesJeudis (6) · francetravail.fr si API absente (6) |
+| Passe 1 | WTTJ (8 résultats) · APEC+Cadremploi (6) · Free-Work+LesJeudis (6) |
 | Passe 2 | ATS : Greenhouse, Lever, Workday, SmartRecruiters, Recruitee, BambooHR, Ashby, Notion |
-| Coût | 4 appels « advanced » (2 crédits chacun) par requête, 5 avec le repli francetravail.fr |
-| Fréquence | Au seul run de 07:00 UTC (`is_web_search_run`, seuil `WEB_SEARCH_MAX_HOUR_UTC = 12`) ; jobspy et France Travail tournent aux deux runs. Un déclenchement manuel après 12:00 UTC ne lance pas Tavily |
+| Coût | 4 appels « advanced » (2 crédits chacun) par requête |
+| Fréquence | Au seul run de 07:00 UTC (`is_web_search_run`, seuil `WEB_SEARCH_MAX_HOUR_UTC = 12`) ; jobspy tourne aux deux runs. Un déclenchement manuel après 12:00 UTC ne lance pas Tavily |
 | Indeed, LinkedIn, HelloWork | Retirés de Tavily (couverts par jobspy) |
 
 Garde-fous du crew CrewAI :
@@ -136,6 +126,7 @@ Lookup sur `url` + `alternative_urls`, soft-deleted inclus.
   - Règle faible : les jetons d'un nom sont le début de l'autre (« JEMS » / « Jems Group »). La fusion exige en plus des descriptions proches (Jaccard ≥ 0.5).
 - **Ville** : comparée sous forme repliée, sur le segment avant la première virgule. « Champagne-Au-Mont-D'Or » / « D’Or » et « Lyon, Auvergne-Rhône-Alpes, France » / « Lyon » sont donc compatibles. Une ville générique (Non spécifié, France, Télétravail, Remote) l'est avec toutes.
 - **Doublons déjà en base** : `backend/retroactive_dedup_job_offers.py` liste les paires en simulation, sans écrire. `--apply` les fusionne. L'offre liée à une candidature, une évaluation ou un kit d'entretien survit. Une paire dont les deux offres sont liées est sautée et signalée. Les interactions du doublon sont rattachées au survivant.
+- **Même règle partout** : chaque nuit, l'étape 3 du nettoyage `cleanup_job_offers` applique en écriture la fusion du script (`merge_duplicate_offers`, dans `app/services/offer_dedup.py`). L'offre créée depuis une candidature passe par la même recherche que l'insertion : clé unique, URL principale ou alternative, puis variante du nom d'entreprise.
 
 ---
 
@@ -204,13 +195,6 @@ exclude-newer-package = { python-jobspy = false }
 
 L'installeur uv est épinglé dans les deux images (`ADD https://astral.sh/uv/0.13.1/install.sh` dans `backend/Dockerfile` et `backend/Dockerfile.airflow`) : un rebuild n'embarque pas une nouvelle version d'uv sans changement explicite.
 
-### Variables d'environnement requises
-
-| Variable | Service(s) | Obligatoire |
-|---|---|---|
-| `FRANCE_TRAVAIL_CLIENT_ID` | backend, airflow | Non (source ignorée si absent) |
-| `FRANCE_TRAVAIL_CLIENT_SECRET` | backend, airflow | Non |
-
 ---
 
 ## Normalisation des offres entrantes
@@ -272,7 +256,7 @@ ainsi ré-extraire un champ plus tard (niveau, salaire chiffré, secteur…) san
 - Chaque mapper ou extracteur ajoute une clé `source_record` au dict de l'offre :
   - ligne jobspy (`map_jobboard_row`) : cellules vides retirées, dates en ISO, car BSON n'encode pas
     `datetime.date` ;
-  - item France Travail ;
+  - item France Travail (offres collectées avant le retrait de la source) ;
   - payload Greenhouse, Lever, Workable, SmartRecruiters ou Indeed GraphQL ;
   - objet JobPosting (JSON-LD).
 - `enrich_offers` range cet enregistrement sous la clé de sa source, `{ats_platform: source_record}`
@@ -344,4 +328,4 @@ Bandeaux plateformes couverts par `CLOSED_TEXT_PATTERNS` (liste non exhaustive) 
 - **jobspy** scrape les pages publiques d'Indeed, LinkedIn et HelloWork sans API officielle. Blocages 429 possibles, signalés par `attrs["errors"]` et loggés en warning. Tavily ne cherche plus sur ces trois sites : un blocage n'y est pas compensé.
 - **Tavily** : plafond d'appels "advanced" par mois (surveiller la facturation).
 - **Liveness Indeed** : `viewjob` répond 401 Cloudflare en HTTP, et le rendu headless expirait (60 s, `networkidle`) : il est désormais sauté (`headless_skipped_antibot_domain`). Seules les clôtures visibles en HTTP (404/410, JSON-LD, redirection, bandeau) archivent une offre Indeed ; les autres restent `unknown`. La purge par âge `cleanup_old_offers` reste désactivée par choix (`enable_old_offers_cleanup=False` dans le DAG `clean_job_offers`) : la date seule n'est pas un signal de clôture.
-- **France Travail API** : nécessite une application inscrite sur [francetravail.io](https://francetravail.io) abonnée à « Offres d'emploi v2 ».
+- **France Travail** : source retirée le 2026-10-25. L'API « Offres d'emploi v2 » n'est plus en libre-service ; la réactiver demande un accès accordé sur demande via [francetravail.io](https://francetravail.io/contact).

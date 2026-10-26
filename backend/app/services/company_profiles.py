@@ -124,8 +124,8 @@ def map_indeed_size(label: Optional[str]) -> Optional[str]:
 def extract_native_attributes(raw_data: Optional[dict]) -> dict:
     """Secteur et taille lus dans les enregistrements natifs des job boards (jobspy HelloWork et Indeed).
 
-    France Travail (`secteurActiviteLibelle`, `trancheEffectifEtab`) est absent : son API est en panne
-    depuis le 2026-10-04 et son format réel n'a jamais été observé.
+    France Travail (`secteurActiviteLibelle`, `trancheEffectifEtab`) est absent : la source a été retirée
+    le 2026-10-25 et son format réel n'a jamais été observé.
     `sector_label` garde le libellé brut, transmis au LLM quand il ne se mappe pas.
     """
     sector_label = None

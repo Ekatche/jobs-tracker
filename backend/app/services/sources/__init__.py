@@ -5,18 +5,14 @@ localisation, url…) : déjà en base, hors métier ou hors zone sont écartée
 avant tout appel LLM de résumé.
 """
 
-import asyncio
 import logging
 import re
 from typing import Optional
-
-import httpx
 
 from app.services.evaluation.domain_relevance import EMBEDDING_MODEL, expand_title_acronyms
 from app.services.evaluation.offer_fit import normalize_contract
 from app.services.relevance import parse_source_query
 from app.services.role_normalizer import cosine_similarity
-from app.services.sources.france_travail import fetch_france_travail_offers
 from app.services.sources.geo import filter_offers_by_location
 from app.services.sources.jobboards import fetch_jobboard_offers
 
@@ -113,9 +109,9 @@ async def keep_relevant_titles(role: str, offers: list[dict]) -> list[dict]:
 
 
 async def collect_structured_offers(query: str, db) -> list[dict]:
-    """Offres France Travail, Indeed et LinkedIn pour une requête de collecte, filtrées.
+    """Offres des job boards jobspy (Indeed, LinkedIn, HelloWork) pour une requête de collecte, filtrées.
 
-    Ne lève jamais : une source en échec est journalisée et ignorée.
+    Un site en échec est journalisé et ignoré par fetch_jobboard_offers.
     """
     role, city = parse_source_query(query)
     if not role:
@@ -123,18 +119,7 @@ async def collect_structured_offers(query: str, db) -> list[dict]:
         return []
     contract = parse_query_contract(query)
 
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        results = await asyncio.gather(
-            fetch_france_travail_offers(role, city, contract, client),
-            fetch_jobboard_offers(role, city, contract),
-            return_exceptions=True,
-        )
-    offers: list[dict] = []
-    for name, result in zip(("France Travail", "Indeed/LinkedIn"), results):
-        if isinstance(result, Exception):
-            logger.warning(f"⚠️ Source {name} en échec pour '{query}': {result}")
-        else:
-            offers.extend(o for o in result if o.get("poste") and o.get("url"))
+    offers = [o for o in await fetch_jobboard_offers(role, city, contract) if o.get("poste") and o.get("url")]
 
     total = len(offers)
     try:

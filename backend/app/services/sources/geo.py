@@ -42,9 +42,6 @@ _FOREIGN_PATTERN = re.compile(r"\b(?:" + "|".join(re.escape(m) for m in FOREIGN_
 # Segment de locale dans le chemin (Workday : /fr-CA/, /en-US/).
 _URL_LOCALE = re.compile(r"/([a-z]{2})-([A-Z]{2})(?:/|$)")
 
-# Grandes villes : l'API France Travail n'accepte que le code d'arrondissement.
-ARRONDISSEMENT_CODES = {"75056": "75101", "69123": "69381", "13055": "13201"}
-
 _commune_cache: dict[str, Optional[dict]] = {}
 
 

@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from app.services import sources
-from app.services.sources import france_travail, geo, jobboards
+from app.services.sources import geo, jobboards
 
 LYON = {"nom": "Lyon", "code": "69123", "centre": {"type": "Point", "coordinates": [4.8351, 45.758]}}
 VILLEURBANNE = {"nom": "Villeurbanne", "code": "69266", "centre": {"type": "Point", "coordinates": [4.8812, 45.7707]}}
@@ -118,86 +118,6 @@ async def test_location_without_target_city_only_rejects_foreign():
         assert await geo.location_rejection_reason("Paris", None, None, client) is None
         assert await geo.location_rejection_reason("Berlin, Germany", None, None, client)
     assert calls == []
-
-
-# ---------- France Travail ----------
-
-
-def test_map_france_travail_offer():
-    item = {
-        "id": "123ABCD",
-        "intitule": "Data scientist H/F",
-        "description": "Missions...",
-        "dateCreation": "2026-09-20T10:00:00.000Z",
-        "lieuTravail": {"libelle": "69 - Lyon 3e Arrondissement"},
-        "typeContratLibelle": "Contrat à durée indéterminée",
-        "salaire": {"libelle": "Annuel de 45000 Euros à 55000 Euros"},
-        "competences": [{"libelle": "Python"}, {"code": "x"}],
-    }
-    offer = france_travail.map_france_travail_offer(item)
-    assert offer["url"] == "https://candidat.francetravail.fr/offres/recherche/detail/123ABCD"
-    assert offer["entreprise"] == "Entreprise anonyme (France Travail)"
-    assert offer["localisation"] == "Lyon"
-    assert offer["date"] == "2026-09-20"
-    assert offer["competences_cles"] == ["Python"]
-    assert offer["salaire"] == "Annuel de 45000 Euros à 55000 Euros"
-
-
-def test_map_france_travail_offer_keeps_source_record():
-    # L'item API complet reste disponible pour une ré-extraction (qualification, expérience...)
-    item = {"id": "1", "intitule": "Data scientist", "experienceLibelle": "3 An(s)", "qualificationLibelle": "Cadre"}
-    assert france_travail.map_france_travail_offer(item)["source_record"] is item
-
-
-@pytest.mark.asyncio
-async def test_france_travail_skipped_without_credentials(monkeypatch):
-    monkeypatch.delenv("FRANCE_TRAVAIL_CLIENT_ID", raising=False)
-
-    def fail(request):
-        raise AssertionError("aucun appel attendu")
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(fail)) as client:
-        assert await france_travail.fetch_france_travail_offers("Data Scientist", "Lyon", "cdi", client) == []
-
-
-@pytest.mark.asyncio
-async def test_france_travail_search_params(monkeypatch):
-    monkeypatch.setenv("FRANCE_TRAVAIL_CLIENT_ID", "id")
-    monkeypatch.setenv("FRANCE_TRAVAIL_CLIENT_SECRET", "secret")
-    seen = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.host == "geo.api.gouv.fr":
-            return httpx.Response(200, json=[LYON])
-        if request.url.path.endswith("access_token"):
-            return httpx.Response(200, json={"access_token": "tok"})
-        seen["params"] = dict(request.url.params)
-        seen["auth"] = request.headers["Authorization"]
-        return httpx.Response(206, json={"resultats": [{"id": "1", "intitule": "Data Scientist"}]})
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        offers = await france_travail.fetch_france_travail_offers("Data Scientist (IA/ML)", "Lyon", "cdi", client)
-
-    assert [o["poste"] for o in offers] == ["Data Scientist"]
-    assert seen["auth"] == "Bearer tok"
-    assert seen["params"]["commune"] == "69381"  # code d'arrondissement exigé
-    assert seen["params"]["distance"] == "50"
-    assert seen["params"]["typeContrat"] == "CDI"
-    assert seen["params"]["motsCles"] == "Data Scientist  IA/ML"
-
-
-@pytest.mark.asyncio
-async def test_france_travail_no_content(monkeypatch):
-    monkeypatch.setenv("FRANCE_TRAVAIL_CLIENT_ID", "id")
-    monkeypatch.setenv("FRANCE_TRAVAIL_CLIENT_SECRET", "secret")
-
-    def handler(request):
-        if request.url.path.endswith("access_token"):
-            return httpx.Response(200, json={"access_token": "tok"})
-        return httpx.Response(204)
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        assert await france_travail.fetch_france_travail_offers("Data Scientist", None, None, client) == []
 
 
 # ---------- Indeed / LinkedIn (jobspy) ----------
@@ -421,10 +341,9 @@ async def test_keep_relevant_titles_fail_open(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_collect_structured_offers_ignores_failing_source(monkeypatch):
+async def test_collect_structured_offers_drops_untitled_offers(monkeypatch):
     from unittest.mock import AsyncMock
 
-    monkeypatch.setattr(sources, "fetch_france_travail_offers", AsyncMock(side_effect=RuntimeError("401")))
     monkeypatch.setattr(
         sources, "fetch_jobboard_offers",
         AsyncMock(return_value=[{"poste": "Data Scientist", "url": "u1"}, {"poste": "", "url": "u2"}]),

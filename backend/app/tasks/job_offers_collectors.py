@@ -18,9 +18,8 @@ from app.services.normalization import (
     detect_contract_type,
     deduplicate_and_merge_offers,
     merge_multidiffusion_offers,
-    are_offers_duplicates,
-    company_match_strength,
 )
+from app.services.offer_dedup import find_company_variant_duplicate, find_offer_by_identity
 from app.services.role_normalizer import normalize_role
 from app.services.offer_profile_matcher import tag_new_offers
 from app.services.relevance import (
@@ -48,7 +47,7 @@ MAX_TOTAL_QUERIES = 8
 # Appels LLM de résumé simultanés (offres ATS et sources structurées).
 SUMMARY_CONCURRENCY = 8
 # La recherche web (crew + Tavily, payée au crédit) ne tourne qu'au run du matin du DAG
-# (0 7,16 UTC) ; jobspy et France Travail, gratuits, tournent aux deux runs.
+# (0 7,16 UTC) ; jobspy, gratuit, tourne aux deux runs.
 WEB_SEARCH_MAX_HOUR_UTC = 12
 
 DEFAULT_QUERIES: list[str] = [
@@ -479,32 +478,13 @@ async def save_offers_to_database(offers: list) -> dict:
                 offer["unique_key"] = unique_key
 
                 # Recherche directe en base par clé unique ou URL (principale ou alternative)
-                query_conditions = [{"unique_key": unique_key}]
-                if offer_url:
-                    query_conditions.append({"url": offer_url})
-                    query_conditions.append({"alternative_urls": offer_url})
-                if offer.get("alternative_urls"):
-                    query_conditions.append({"url": {"$in": offer["alternative_urls"]}})
+                existing_doc = await find_offer_by_identity(collection, offer)
 
-                existing_doc = await collection.find_one({"$or": query_conditions})
-
-                # Si non trouvé directement, recherche sémantique parmi les offres des entreprises de nom
-                # compatible : un même poste peut être publié sous « BackMarket » et « Back Market »
+                # Si non trouvé directement, recherche sémantique parmi les offres des entreprises de nom compatible
                 if not existing_doc and company:
                     if known_companies is None:
                         known_companies = await collection.distinct("entreprise")
-                    matching_names = [
-                        name for name in known_companies
-                        if isinstance(name, str) and company_match_strength(name, company)
-                    ]
-                    if matching_names:
-                        company_candidates = await collection.find(
-                            {"entreprise": {"$in": matching_names}}
-                        ).to_list(None)
-                        for candidate in company_candidates:
-                            if are_offers_duplicates(candidate, offer):
-                                existing_doc = candidate
-                                break
+                    existing_doc = await find_company_variant_duplicate(collection, offer, known_companies)
 
                 if existing_doc:
                     # Fusion des offres avec conservation de la source prioritaire et des métadonnées
