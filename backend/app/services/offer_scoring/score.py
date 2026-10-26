@@ -111,8 +111,6 @@ def skill_points(
         return ComponentPoints(W_SKILLS / 2, W_SKILLS, False)
 
     total = sum(idf.weight(skill) for skill in normalized_offer_skills)
-    if total == 0:
-        return ComponentPoints(W_SKILLS / 2, W_SKILLS, False)
 
     def matches(skill: str) -> bool:
         if skill in candidate_skills:
