@@ -265,6 +265,144 @@ def relevance_lookup_stages(user_id: str) -> list[dict]:
     ]
 
 
+def _apply_search_filters(
+    match_filter: dict,
+    *,
+    keywords: Optional[str],
+    location: Optional[str],
+    company: Optional[str],
+    contract_type: Optional[str],
+    work_mode: Optional[str],
+    sector: Optional[List[str]],
+    company_size: Optional[List[str]],
+    days_recent: Optional[int],
+    current_user: Optional[UserModel],
+    only_saved: bool,
+    interaction_status: Optional[str],
+) -> dict:
+    """Applique au filtre Mongo les critères de recherche partagés par la liste et
+    le count : mots-clés, localisation, entreprise, contrat, mode de travail,
+    secteur, taille d'entreprise, restriction au profil utilisateur, ancienneté."""
+    if keywords:
+        kw_filter = _build_keywords_filter(keywords)
+        if kw_filter:
+            match_filter["$and"] = match_filter.get("$and", [])
+            match_filter["$and"].append(kw_filter)
+
+    if location:
+        match_filter["localisation"] = {"$regex": location, "$options": "i"}
+
+    if company:
+        match_filter["entreprise"] = {"$regex": company, "$options": "i"}
+
+    if contract_type:
+        cf = _build_contract_type_filter(contract_type)
+        match_filter["$and"] = match_filter.get("$and", [])
+        match_filter["$and"].append(cf)
+
+    if work_mode:
+        match_filter["mode_travail"] = {"$regex": work_mode, "$options": "i"}
+
+    if sector:
+        match_filter["$and"] = match_filter.get("$and", [])
+        match_filter["$and"].append(_build_sector_filter(sector))
+
+    if company_size:
+        match_filter["$and"] = match_filter.get("$and", [])
+        match_filter["$and"].append(_build_company_size_filter(company_size))
+
+    restrict_to_profile_offers(match_filter, current_user, only_saved, interaction_status)
+
+    if days_recent and days_recent > 0:
+        threshold_dt = datetime.now(timezone.utc) - timedelta(days=days_recent)
+        iso_str = threshold_dt.isoformat()
+        match_filter["$and"] = match_filter.get("$and", [])
+        match_filter["$and"].append(
+            {
+                "$or": [
+                    {"created_at": {"$gte": threshold_dt}},
+                    {"created_at": {"$gte": iso_str}},
+                ]
+            }
+        )
+
+    return match_filter
+
+
+def _build_list_pipeline(
+    match_filter: dict,
+    *,
+    sort: str,
+    current_user: Optional[UserModel],
+    skip: int,
+    limit: int,
+) -> list[dict]:
+    """Construit le pipeline d'agrégation de la liste : déduplication, lookup de
+    pertinence, tri, pagination.
+
+    En tri `"relevance"`, `_score_sort` (alimenté par `relevance_lookup_stages`)
+    conditionne l'ordre final : le lookup doit précéder le `$sort`. En tri
+    `"recent"`, l'ordre final ne dépend pas du score : le lookup est reporté après
+    `$skip`/`$limit`, pour ne joindre `offer_relevance` que sur les offres de la
+    page effectivement renvoyée.
+    """
+    pipeline = [
+        {"$match": match_filter},
+        {"$sort": {"created_at": -1, "_id": -1}},
+        {
+            "$addFields": {
+                "dedup_key": {
+                    "$ifNull": [
+                        "$unique_key",
+                        {
+                            "$concat": [
+                                {"$toLower": {"$ifNull": ["$entreprise", ""]}},
+                                "|||",
+                                {"$toLower": {"$ifNull": ["$poste", ""]}},
+                                "|||",
+                                {"$toLower": {"$ifNull": ["$localisation", ""]}},
+                            ]
+                        },
+                    ]
+                }
+            }
+        },
+        {
+            "$group": {
+                "_id": "$dedup_key",
+                "offer": {"$first": "$$ROOT"},
+                "count": {"$sum": 1},
+            }
+        },
+        {"$replaceRoot": {"newRoot": "$offer"}},
+        {"$unset": "dedup_key"},
+    ]
+
+    relevance_sort = bool(current_user) and sort == "relevance"
+    if relevance_sort:
+        pipeline.extend(relevance_lookup_stages(str(current_user.id)))
+        final_sort = {"_score_sort": -1, "created_at": -1, "_id": -1}
+    else:
+        final_sort = {"created_at": -1, "_id": -1}
+
+    pipeline.append({"$sort": final_sort})
+    pipeline.append({"$skip": skip})
+    pipeline.append({"$limit": limit})
+
+    if current_user and not relevance_sort:
+        pipeline.extend(relevance_lookup_stages(str(current_user.id)))
+
+    if current_user:
+        # `failed_conditions` remonte au premier niveau pour JobOfferResponse ;
+        # les champs internes du lookup ne doivent jamais fuiter dans la réponse.
+        pipeline.append(
+            {"$addFields": {"failed_conditions": {"$ifNull": ["$_relevance.failed_conditions", []]}}}
+        )
+        pipeline.append({"$unset": ["_relevance", "_oid_str", "_score_sort"]})
+
+    return pipeline
+
+
 def restrict_to_profile_offers(
     match_filter: dict,
     current_user: Optional[UserModel],
@@ -441,105 +579,27 @@ async def get_job_offers(
         if should_return_empty:
             return []
 
-        # Ajouter les filtres de recherche
-        if keywords:
-            kw_filter = _build_keywords_filter(keywords)
-            if kw_filter:
-                match_filter["$and"] = match_filter.get("$and", [])
-                match_filter["$and"].append(kw_filter)
+        # Ajouter les filtres de recherche (M3 : factorisé avec le count ci-dessous)
+        match_filter = _apply_search_filters(
+            match_filter,
+            keywords=keywords,
+            location=location,
+            company=company,
+            contract_type=contract_type,
+            work_mode=work_mode,
+            sector=sector,
+            company_size=company_size,
+            days_recent=days_recent,
+            current_user=current_user,
+            only_saved=only_saved,
+            interaction_status=interaction_status,
+        )
 
-        if location:
-            match_filter["localisation"] = {"$regex": location, "$options": "i"}
-
-        if company:
-            match_filter["entreprise"] = {"$regex": company, "$options": "i"}
-
-        if contract_type:
-            cf = _build_contract_type_filter(contract_type)
-            match_filter["$and"] = match_filter.get("$and", [])
-            match_filter["$and"].append(cf)
-
-        if work_mode:
-            match_filter["mode_travail"] = {"$regex": work_mode, "$options": "i"}
-
-        if sector:
-            match_filter["$and"] = match_filter.get("$and", [])
-            match_filter["$and"].append(_build_sector_filter(sector))
-
-        if company_size:
-            match_filter["$and"] = match_filter.get("$and", [])
-            match_filter["$and"].append(_build_company_size_filter(company_size))
-
-        restrict_to_profile_offers(match_filter, current_user, only_saved, interaction_status)
-
-        if days_recent and days_recent > 0:
-            threshold_dt = datetime.now(timezone.utc) - timedelta(days=days_recent)
-            iso_str = threshold_dt.isoformat()
-            match_filter["$and"] = match_filter.get("$and", [])
-            match_filter["$and"].append(
-                {
-                    "$or": [
-                        {"created_at": {"$gte": threshold_dt}},
-                        {"created_at": {"$gte": iso_str}},
-                    ]
-                }
-            )
-
-        # ✅ ÉTAPE 2: Pipeline d'agrégation avec déduplication et tri déterministe (tiebreaker _id)
-        pipeline = [
-            {"$match": match_filter},
-            {"$sort": {"created_at": -1, "_id": -1}},
-            {
-                "$addFields": {
-                    "dedup_key": {
-                        "$ifNull": [
-                            "$unique_key",
-                            {
-                                "$concat": [
-                                    {"$toLower": {"$ifNull": ["$entreprise", ""]}},
-                                    "|||",
-                                    {"$toLower": {"$ifNull": ["$poste", ""]}},
-                                    "|||",
-                                    {"$toLower": {"$ifNull": ["$localisation", ""]}},
-                                ]
-                            },
-                        ]
-                    }
-                }
-            },
-            {
-                "$group": {
-                    "_id": "$dedup_key",
-                    "offer": {"$first": "$$ROOT"},
-                    "count": {"$sum": 1},
-                }
-            },
-            {"$replaceRoot": {"newRoot": "$offer"}},
-            {"$unset": "dedup_key"},
-        ]
-
-        # Le lookup de pertinence s'applique pour tout utilisateur connecté, quel que
-        # soit le tri demandé (il alimente aussi `failed_conditions`, exposé même en
-        # tri "recent"). Il se place après la déduplication, avant le tri final.
-        if current_user:
-            pipeline.extend(relevance_lookup_stages(str(current_user.id)))
-
-        if sort == "relevance" and current_user:
-            final_sort = {"_score_sort": -1, "created_at": -1, "_id": -1}
-        else:
-            final_sort = {"created_at": -1, "_id": -1}
-
-        pipeline.append({"$sort": final_sort})
-        pipeline.append({"$skip": skip})
-        pipeline.append({"$limit": limit})
-
-        if current_user:
-            # `failed_conditions` remonte au premier niveau pour JobOfferResponse ;
-            # les champs internes du lookup ne doivent jamais fuiter dans la réponse.
-            pipeline.append(
-                {"$addFields": {"failed_conditions": {"$ifNull": ["$_relevance.failed_conditions", []]}}}
-            )
-            pipeline.append({"$unset": ["_relevance", "_oid_str", "_score_sort"]})
+        # ✅ ÉTAPE 2: Pipeline d'agrégation avec déduplication, lookup de pertinence
+        # et tri déterministe (tiebreaker _id) — cf. `_build_list_pipeline`.
+        pipeline = _build_list_pipeline(
+            match_filter, sort=sort, current_user=current_user, skip=skip, limit=limit
+        )
 
         cursor = collection.aggregate(pipeline)
         offers = await cursor.to_list(length=None)
@@ -635,6 +695,14 @@ async def get_job_offer(
         })
         if evaluation:
             offer["evaluation_score"] = evaluation.get("score")
+
+        # M4 : la vue détail doit exposer les mêmes conditions non remplies que la
+        # liste (Task 6, score de pertinence hybride), jamais masquant.
+        relevance = await db["offer_relevance"].find_one({
+            "user_id": str(current_user.id),
+            "offer_id": str(offer_id),
+        })
+        offer["failed_conditions"] = relevance.get("failed_conditions", []) if relevance else []
     else:
         offer["user_interaction"] = None
         offer["seen"] = False
@@ -1079,49 +1147,21 @@ async def get_job_offers_count(
         if should_return_empty:
             return {"total": 0}
 
-        # Ajouter les filtres de recherche
-        if keywords:
-            kw_filter = _build_keywords_filter(keywords)
-            if kw_filter:
-                match_filter["$and"] = match_filter.get("$and", [])
-                match_filter["$and"].append(kw_filter)
-
-        if location:
-            match_filter["localisation"] = {"$regex": location, "$options": "i"}
-
-        if company:
-            match_filter["entreprise"] = {"$regex": company, "$options": "i"}
-
-        if contract_type:
-            cf = _build_contract_type_filter(contract_type)
-            match_filter["$and"] = match_filter.get("$and", [])
-            match_filter["$and"].append(cf)
-
-        if work_mode:
-            match_filter["mode_travail"] = {"$regex": work_mode, "$options": "i"}
-
-        if sector:
-            match_filter["$and"] = match_filter.get("$and", [])
-            match_filter["$and"].append(_build_sector_filter(sector))
-
-        if company_size:
-            match_filter["$and"] = match_filter.get("$and", [])
-            match_filter["$and"].append(_build_company_size_filter(company_size))
-
-        restrict_to_profile_offers(match_filter, current_user, only_saved, interaction_status)
-
-        if days_recent and days_recent > 0:
-            threshold_dt = datetime.now(timezone.utc) - timedelta(days=days_recent)
-            iso_str = threshold_dt.isoformat()
-            match_filter["$and"] = match_filter.get("$and", [])
-            match_filter["$and"].append(
-                {
-                    "$or": [
-                        {"created_at": {"$gte": threshold_dt}},
-                        {"created_at": {"$gte": iso_str}},
-                    ]
-                }
-            )
+        # Ajouter les filtres de recherche (M3 : factorisé avec la liste ci-dessus)
+        match_filter = _apply_search_filters(
+            match_filter,
+            keywords=keywords,
+            location=location,
+            company=company,
+            contract_type=contract_type,
+            work_mode=work_mode,
+            sector=sector,
+            company_size=company_size,
+            days_recent=days_recent,
+            current_user=current_user,
+            only_saved=only_saved,
+            interaction_status=interaction_status,
+        )
 
         # ✅ PIPELINE pour compter les offres dédupliquées (synchronisé avec get_job_offers)
         count_pipeline = [

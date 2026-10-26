@@ -14,7 +14,7 @@ from bson import ObjectId
 
 from app.auth import get_current_user
 from app.models import UserModel, UserRole
-from app.routers.job_offers import relevance_lookup_stages
+from app.routers.job_offers import _build_list_pipeline, relevance_lookup_stages
 from conftest import DATABASE_NAME, MONGO_URI
 from main import app
 
@@ -39,15 +39,18 @@ USER_A_ID = str(ObjectId())
 USER_B_ID = str(ObjectId())
 
 
-def _override_user(user_id):
-    user = UserModel(
+def _make_user(user_id):
+    return UserModel(
         id=user_id,
         username=f"user_{user_id[:6]}",
         email=f"{user_id[:6]}@test.com",
         hashed_password="x",
         role=UserRole.USER,
     )
-    app.dependency_overrides[get_current_user] = lambda: user
+
+
+def _override_user(user_id):
+    app.dependency_overrides[get_current_user] = lambda: _make_user(user_id)
 
 
 @pytest.fixture
@@ -145,6 +148,41 @@ def test_relevance_lookup_filters_by_current_user():
     assert match_stage["$match"] == {"user_id": "u1"}
 
 
+def test_build_list_pipeline_recent_sort_places_lookup_after_limit():
+    """M2 (structurel) : en tri `recent`, le lookup de pertinence n'est pas requis
+    par le tri final, il peut donc être reporté après `$skip`/`$limit`."""
+    pipeline = _build_list_pipeline(
+        {}, sort="recent", current_user=_make_user(USER_A_ID), skip=0, limit=10
+    )
+    limit_index = next(i for i, stage in enumerate(pipeline) if "$limit" in stage)
+    lookup_index = next(i for i, stage in enumerate(pipeline) if "$lookup" in stage)
+    assert lookup_index > limit_index
+
+
+def test_build_list_pipeline_relevance_sort_places_lookup_before_sort():
+    """M2 : en tri `relevance`, `_score_sort` dépend du lookup, qui doit donc le
+    précéder."""
+    pipeline = _build_list_pipeline(
+        {}, sort="relevance", current_user=_make_user(USER_A_ID), skip=0, limit=10
+    )
+    sort_on_score_index = next(
+        i
+        for i, stage in enumerate(pipeline)
+        if "$sort" in stage and "_score_sort" in stage["$sort"]
+    )
+    lookup_index = next(i for i, stage in enumerate(pipeline) if "$lookup" in stage)
+    assert lookup_index < sort_on_score_index
+
+
+def test_build_list_pipeline_ends_with_unset_of_internal_fields():
+    """M21 : preuve structurelle, sur le pipeline construit et pas sur la réponse,
+    que les champs internes du lookup ne survivent jamais à la construction."""
+    pipeline = _build_list_pipeline(
+        {}, sort="relevance", current_user=_make_user(USER_A_ID), skip=0, limit=10
+    )
+    assert pipeline[-1] == {"$unset": ["_relevance", "_oid_str", "_score_sort"]}
+
+
 @requires_mongo
 def test_list_defaults_to_recent_order(client, db, as_user_a, seeded_offers):
     res = client.get("/job-offers/")
@@ -214,3 +252,84 @@ def test_response_has_no_internal_fields(client, db, as_user_a, seeded_offers):
     assert res.status_code == 200, res.text
     for offer in res.json():
         assert not any(key.startswith("_") for key in offer)
+
+
+@requires_mongo
+def test_get_single_offer_exposes_failed_conditions(client, db, as_user_a, seeded_offers):
+    """M4 : la route détail doit lire `offer_relevance`, pas seulement la liste."""
+    res = client.get(f"/job-offers/{seeded_offers['a3']}")
+
+    assert res.status_code == 200, res.text
+    assert res.json()["failed_conditions"] == ["geo"]
+
+
+@requires_mongo
+def test_get_single_offer_defaults_failed_conditions_to_empty_list(client, db, as_user_a, seeded_offers):
+    """A4 n'a pas de document `offer_relevance` : `failed_conditions` reste `[]`."""
+    res = client.get(f"/job-offers/{seeded_offers['a4']}")
+
+    assert res.status_code == 200, res.text
+    assert res.json()["failed_conditions"] == []
+
+
+@requires_mongo
+def test_recent_sort_with_skip_still_exposes_failed_conditions_same_order(
+    client, db, as_user_a, seeded_offers
+):
+    """M2 : déplacer le lookup après `$skip`/`$limit` en tri `recent` ne doit ni
+    changer l'ordre de la page 2 ni vider `failed_conditions`."""
+    res = client.get("/job-offers/", params={"skip": 1})
+
+    assert res.status_code == 200, res.text
+    postes = [o["poste"] for o in res.json()]
+    assert postes == ["A3", "A2", "A1"]
+    by_poste = {o["poste"]: o for o in res.json()}
+    assert by_poste["A3"]["failed_conditions"] == ["geo"]
+
+
+@requires_mongo
+def test_relevance_sort_tiebreaks_by_recency_on_equal_score(client, db, as_user_a):
+    """M21 : à score égal, le tri `relevance` départage par date décroissante
+    (comportement déjà correct, figé ici)."""
+    base = datetime.now(timezone.utc) - timedelta(days=5)
+    older = _insert_offer(db, poste="TIE-OLD", created_at=base)
+    newer = _insert_offer(db, poste="TIE-NEW", created_at=base + timedelta(days=1))
+    _insert_relevance(db, USER_A_ID, older, 50)
+    _insert_relevance(db, USER_A_ID, newer, 50)
+    try:
+        res = client.get("/job-offers/", params={"sort": "relevance"})
+        assert res.status_code == 200, res.text
+        postes = [o["poste"] for o in res.json() if o["poste"].startswith("TIE-")]
+        assert postes == ["TIE-NEW", "TIE-OLD"]
+    finally:
+        db.job_offers.delete_many({"_id": {"$in": [older, newer]}})
+        db.offer_relevance.delete_many({"offer_id": {"$in": [str(older), str(newer)]}})
+
+
+@requires_mongo
+def test_sector_filter_multi_value_is_union(client, db, as_user_a):
+    """M21 : plusieurs valeurs de `sector` se combinent en `$in` (union), déjà
+    correct via `_build_sector_filter`, figé ici."""
+    o1 = _insert_offer(db, poste="SEC-IT", created_at=datetime.now(timezone.utc), sector="tech_it")
+    o2 = _insert_offer(
+        db, poste="SEC-FIN", created_at=datetime.now(timezone.utc), sector="finance_insurance"
+    )
+    try:
+        res = client.get(
+            "/job-offers/", params=[("sector", "tech_it"), ("sector", "finance_insurance")]
+        )
+        assert res.status_code == 200, res.text
+        postes = {o["poste"] for o in res.json()}
+        assert {"SEC-IT", "SEC-FIN"} <= postes
+    finally:
+        db.job_offers.delete_many({"_id": {"$in": [o1, o2]}})
+
+
+@requires_mongo
+def test_invalid_sector_and_company_size_return_422_on_list_and_count(client, db, as_user_a):
+    """M21 : 422 déjà renvoyé par la validation `Literal[*SECTORS]` / `Literal[*COMPANY_SIZES]`
+    sur la liste ET le count, comportement déjà correct, figé ici."""
+    assert client.get("/job-offers/", params={"sector": "inconnu"}).status_code == 422
+    assert client.get("/job-offers/count/", params={"sector": "inconnu"}).status_code == 422
+    assert client.get("/job-offers/", params={"company_size": "inconnu"}).status_code == 422
+    assert client.get("/job-offers/count/", params={"company_size": "inconnu"}).status_code == 422
