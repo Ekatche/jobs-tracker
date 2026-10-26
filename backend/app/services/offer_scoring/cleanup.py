@@ -19,9 +19,10 @@ lit cette dernière que pour les `_id` déjà vus côté scoring (projection
 import asyncio
 import logging
 
-from app.database import get_database
 from bson import ObjectId
 from bson.errors import InvalidId
+
+from app.database import get_database
 
 logger = logging.getLogger(__name__)
 

@@ -6,8 +6,9 @@ Contre la vraie base de test (127.0.0.1:27018, cf. conftest.py) : `distinct`,
 test nettoie les documents qu'il sème (le reste de la suite partage la même
 base le temps d'une session pytest)."""
 
-from app.services.offer_scoring.cleanup import purge_orphan_scoring_docs
 from bson import ObjectId
+
+from app.services.offer_scoring.cleanup import purge_orphan_scoring_docs
 
 
 def _scoring_docs(offer_id: str):
