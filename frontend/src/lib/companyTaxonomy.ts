@@ -12,6 +12,7 @@ export const SECTOR_OPTIONS: { value: string; label: string; desc: string }[] = 
   { value: "construction_realestate", label: "Immobilier & BTP", desc: "Immobilier, Construction, BTP, Urbanisme" },
   { value: "logistics_transport", label: "Transport & Logistique", desc: "Transport, Logistique, Supply Chain" },
   { value: "agri_food", label: "Agroalimentaire & Agriculture", desc: "Agroalimentaire, Agriculture" },
+  { value: "nonprofit", label: "Associations & ONG", desc: "Associations, Fondations, ONG, Économie sociale et solidaire" },
 ];
 export const COMPANY_SIZE_OPTIONS: { value: string; label: string }[] = [
   { value: "startup_tpe", label: "Startup / TPE (< 20 salariés)" },

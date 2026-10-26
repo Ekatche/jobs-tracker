@@ -54,7 +54,7 @@ En production, un profil candidat accumule rapidement plus de 200 offres collect
 
 ### 3.1. Taxonomie Standardisée
 
-#### Secteurs d'activité (12 catégories normalisées + `other`) :
+#### Secteurs d'activité (13 catégories normalisées + `other`) :
 1. `tech_it` : Éditeurs de logiciels, produits et plateformes numériques, Télécoms
 2. `finance_insurance` : Banque, Finance, Assurance, Fintech
 3. `healthcare_pharma` : Santé, Pharmacie, Biotech, Médical
@@ -67,9 +67,12 @@ En production, un profil candidat accumule rapidement plus de 200 offres collect
 10. `construction_realestate` : Immobilier, Construction, BTP, Urbanisme
 11. `logistics_transport` : Transport, Logistique, Supply Chain
 12. `agri_food` : Agroalimentaire, Agriculture
-13. `other` : aucune des catégories ci-dessus. Valeur de sortie de l'enrichissement uniquement, jamais proposée comme préférence.
+13. `nonprofit` : Associations, Fondations, ONG, Économie sociale et solidaire (ajouté le 2026-10-26)
+14. `other` : aucune des catégories ci-dessus. Valeur de sortie de l'enrichissement uniquement, jamais proposée comme préférence.
 
 **Frontière `tech_it` / `consulting_services`** (choix de rédaction, à confirmer à la relecture) : une ESN ou un cabinet de conseil IT relève de `consulting_services`, même si son code NAF est en 62.0x ; `tech_it` est réservé aux entreprises qui vendent leur propre produit ou plateforme. Cette règle figure telle quelle dans le prompt LLM et dans le mapping natif.
+
+**Frontière `nonprofit`** (ajoutée le 2026-10-26) : une association, une fondation ou une ONG relève de `nonprofit` quel que soit son domaine d'action ; c'est la forme d'employeur que vise la préférence. Le libellé HelloWork mixte « Santé, Social, Association » ne se mappe pas : le LLM tranche entre `healthcare_pharma` et `nonprofit`.
 
 #### Tailles d'entreprise (4 segments normalisés, alignés sur les catégories INSEE) :
 1. `startup_tpe` : Startup / TPE (< 20 salariés)

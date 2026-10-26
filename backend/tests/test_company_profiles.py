@@ -21,8 +21,9 @@ from app.services.company_profiles import (
 
 
 def test_taxonomy_keys():
-    assert len(SECTORS) == 13
+    assert len(SECTORS) == 14
     assert SECTORS[-1] == "other"
+    assert "nonprofit" in PREFERENCE_SECTORS
     assert PREFERENCE_SECTORS == SECTORS[:-1]
     assert COMPANY_SIZES == ("startup_tpe", "pme", "eti", "grand_groupe")
 
@@ -32,7 +33,13 @@ def test_taxonomy_keys():
     [
         ("Services aux Entreprises", "consulting_services"),
         ("Secteur informatique, ESN", None),
-        ("Santé, Social, Association", "healthcare_pharma"),
+        # Libellé HelloWork mixte : clinique ou association, le LLM tranche
+        ("Santé, Social, Association", None),
+        ("Association", "nonprofit"),
+        ("Non-profit Organizations", "nonprofit"),
+        ("Nonprofit & NGO", "nonprofit"),
+        ("Organisation humanitaire", "nonprofit"),
+        ("Économie sociale et solidaire", "nonprofit"),
         ("Service public hospitalier", "healthcare_pharma"),
         ("Industrie Pharmaceutique, Biotechn., Chimie", "healthcare_pharma"),
         ("Immobilier", "construction_realestate"),
@@ -256,6 +263,18 @@ async def test_infer_returns_taxonomy_values():
     assert ESN_RULE in prompt
     assert "Secteur informatique, ESN" in prompt
     assert "Sopra Steria" in prompt
+
+
+NONPROFIT_RULE = "Une association, une fondation ou une ONG relève de `nonprofit`, quel que soit son domaine d'action"
+
+
+async def test_infer_classifies_associations_as_nonprofit():
+    with _patch_llm(json.dumps({"sector": "nonprofit", "company_size": "eti"})) as mock:
+        result = await infer_company_attributes("APF France handicap", sector_label="Santé, Social, Association")
+    assert result == {"sector": "nonprofit", "company_size": "eti"}
+    prompt = mock.call_args.kwargs["messages"][0]["content"]
+    assert NONPROFIT_RULE in prompt
+    assert all(f"- {key} :" in prompt for key in SECTORS)
 
 
 async def test_infer_rejects_values_outside_taxonomy():

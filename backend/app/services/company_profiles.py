@@ -45,6 +45,7 @@ SECTORS: tuple[str, ...] = (
     "construction_realestate",
     "logistics_transport",
     "agri_food",
+    "nonprofit",
     "other",
 )
 # "other" sort de l'enrichissement mais n'est jamais proposé comme préférence
@@ -54,7 +55,24 @@ COMPANY_SIZES: tuple[str, ...] = ("startup_tpe", "pme", "eti", "grand_groupe")
 # Règles ordonnées : la première qui trouve un mot-clé (en début de mot) l'emporte.
 # Santé et finance passent avant l'informatique (« Fintech », « Health tech ») ; l'informatique
 # générique ne tranche pas entre éditeur (tech_it) et ESN (consulting_services) : le LLM décide.
+# Une association relève de nonprofit quel que soit son domaine, sauf le libellé HelloWork mixte
+# « Santé, Social, Association », où cliniques et associations se côtoient : le LLM décide.
 _SECTOR_RULES: tuple[tuple[Optional[str], tuple[str, ...]], ...] = (
+    (None, ("sante, social, association",)),
+    (
+        "nonprofit",
+        (
+            "associati",
+            "non lucratif",
+            "nonprofit",
+            "non-profit",
+            "non profit",
+            "humanitaire",
+            "humanitarian",
+            "philanthrop",
+            "economie sociale",
+        ),
+    ),
     ("healthcare_pharma", ("pharma", "biotech", "sante", "health", "hopital", "hospitalier", "medic")),
     ("finance_insurance", ("banque", "bank", "assurance", "insurance", "financ", "fintech")),
     (None, ("informatique", "information technology")),
@@ -227,6 +245,7 @@ _SECTOR_LABELS = {
     "construction_realestate": "Immobilier, Construction, BTP, Urbanisme",
     "logistics_transport": "Transport, Logistique, Supply Chain",
     "agri_food": "Agroalimentaire, Agriculture",
+    "nonprofit": "Associations, Fondations, ONG, Économie sociale et solidaire",
     "other": "aucune des catégories ci-dessus",
 }
 _SIZE_LABELS = {
@@ -280,6 +299,7 @@ Secteurs possibles :
 {sectors}
 
 Frontière `tech_it` / `consulting_services` : une ESN ou un cabinet de conseil IT relève de `consulting_services`, même si son code NAF est en 62.0x ; `tech_it` est réservé aux entreprises qui vendent leur propre produit ou plateforme.
+Une association, une fondation ou une ONG relève de `nonprofit`, quel que soit son domaine d'action (santé, social, éducation…).
 
 Tailles possibles (taille du groupe) :
 {sizes}
