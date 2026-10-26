@@ -292,7 +292,7 @@ def test_load_tailor_prompt_grounds_summary_in_profile_experiences():
     assert "livrable ou public" in prompt
     assert "Reste général" in prompt
     assert "Scientist spécialisé" not in prompt
-    assert prompt.count("avec une expérience dans") >= 2
+    assert "d'expérience dans" in prompt
     assert "Avec Python" not in prompt
     assert prompt.count("principalement en") >= 2
 
@@ -622,3 +622,82 @@ def test_enforce_logs_each_cut(caplog):
     assert len(result.experiences[0].bullet_points) == 5
     cuts = [r for r in caplog.records if "Page budget: bullet removed from Solo Corp" in r.getMessage()]
     assert len(cuts) == 2
+
+
+def test_cumulative_career_years_merges_overlaps_and_gaps():
+    from app.services.cv_templates import _cumulative_career_years
+
+    # Overlapping stints: should count the union, not double-count
+    profile_overlap = {
+        "experiences": [
+            {"start": "2020-01", "end": "2022-01"},
+            {"start": "2020-06", "end": "2021-06"},
+        ]
+    }
+    assert _cumulative_career_years(profile_overlap) == 2.0
+
+    # Stints with a 2-year gap: should NOT count the gap
+    profile_gap = {
+        "experiences": [
+            {"start": "2018-01", "end": "2020-01"},
+            {"start": "2022-01", "end": "2024-01"},
+        ]
+    }
+    assert _cumulative_career_years(profile_gap) == 4.0
+
+    # Single 8-year stint, exclusive month difference
+    profile_single = {
+        "experiences": [
+            {"start": "09/2018", "end": "09/2026"}
+        ]
+    }
+    assert _cumulative_career_years(profile_single) == 8.0
+
+
+def test_format_career_seniority_phrase_rounds_down():
+    from app.services.cv_tailor import format_career_seniority_phrase
+
+    assert format_career_seniority_phrase(8.0) == "avec 8 ans d'expérience dans"
+    assert format_career_seniority_phrase(8.3) == "avec 8 ans d'expérience dans"
+    # Jamais d'arrondi vers le haut : 7,9 ans ne s'écrit pas « 8 ans »
+    assert format_career_seniority_phrase(7.9) == "avec 7 ans d'expérience dans"
+    assert format_career_seniority_phrase(1.8) == "avec 1 an d'expérience dans"
+    assert format_career_seniority_phrase(1.0) == "avec 1 an d'expérience dans"
+    assert format_career_seniority_phrase(0.6) == "avec une expérience dans"
+    assert format_career_seniority_phrase(0.0) == "avec une expérience dans"
+
+
+def test_load_tailor_prompt_injects_seniority_phrase():
+    from app.services.cv_tailor import load_tailor_prompt, compute_page_budget
+
+    profile_8yrs = {
+        "full_name": "Camille Martin",
+        "experiences": [{"start": "09/2018", "end": "09/2026", "title": "Éducatrice"}]
+    }
+    offer = {"poste": "Éducateur Spécialisé", "entreprise": "Association Horizon"}
+    budget = compute_page_budget(profile_8yrs)
+    prompt = load_tailor_prompt(profile_8yrs, offer, budget=budget)
+
+    assert "avec 8 ans d'expérience dans" in prompt
+
+    profile_junior = {
+        "full_name": "Junior Dev",
+        "experiences": [{"start": "01/2026", "end": "06/2026", "title": "Stagiaire"}]
+    }
+    budget_j = compute_page_budget(profile_junior)
+    prompt_j = load_tailor_prompt(profile_junior, offer, budget=budget_j)
+
+    assert "avec une expérience dans" in prompt_j
+
+
+def test_page_budget_ignores_career_gaps():
+    from app.services.cv_tailor import compute_page_budget
+
+    # Empan 2010-2022 = 12 ans, mais 4 ans travaillés seulement : une page.
+    profile = {
+        "experiences": [
+            {"start": "2010-01", "end": "2012-01"},
+            {"start": "2020-01", "end": "2022-01"},
+        ]
+    }
+    assert compute_page_budget(profile) == PAGE_BUDGETS[1]

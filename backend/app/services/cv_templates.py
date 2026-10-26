@@ -1,3 +1,4 @@
+from datetime import date
 import logging
 import re
 from pathlib import Path
@@ -99,8 +100,56 @@ def _month_year(value: Optional[str]) -> Optional[str]:
     return f"{month:02d}/{year}" if month else str(year)
 
 
+def _format_duration(start: Optional[str], end: Optional[str]) -> Optional[str]:
+    """Formate la durée d'une expérience en français (ex: '8 ans', '1 an 6 mois', '6 mois').
+
+    Calcule la durée déterministe entre start et end. Si end est 'Présent', vide
+    ou en cours, la date courante (année/mois) est utilisée.
+    Retourne None si les dates sont absentes, illisibles ou incohérentes (end < start).
+    """
+    start_year, start_month = _date_key(start)
+    if not start_year:
+        return None
+
+    end_year, end_month = _end_key(end)
+    if end_year == 9999:
+        today = date.today()
+        end_year, end_month = today.year, today.month
+    elif not end_year:
+        return None
+
+    # Si l'un des deux mois est inconnu (mois == 0), calcul sur les années entières
+    if start_month == 0 or end_month == 0:
+        years = end_year - start_year
+        if years <= 0:
+            return None
+        return "1 an" if years == 1 else f"{years} ans"
+
+    # Calcul au mois près
+    total_months = (end_year - start_year) * 12 + (end_month - start_month)
+    if total_months <= 0:
+        return None
+
+    years = total_months // 12
+    months = total_months % 12
+
+    if years == 0:
+        return f"{months} mois"
+    year_str = "1 an" if years == 1 else f"{years} ans"
+    if months == 0:
+        return year_str
+    return f"{year_str} {months} mois"
+
+
 def _with_month_year(exp: Dict[str, Any]) -> Dict[str, Any]:
-    return {**exp, "start_date": _month_year(exp.get("start_date")), "end_date": _month_year(exp.get("end_date"))}
+    start_val = exp.get("start_date") or exp.get("start")
+    end_val = exp.get("end_date") or exp.get("end")
+    return {
+        **exp,
+        "start_date": _month_year(start_val),
+        "end_date": _month_year(end_val),
+        "duration": _format_duration(start_val, end_val),
+    }
 
 
 def _most_recent_first(experiences: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -110,6 +159,43 @@ def _most_recent_first(experiences: List[Dict[str, Any]]) -> List[Dict[str, Any]
         key=lambda exp: (_date_key(exp.get("start_date")), _end_key(exp.get("end_date"))),
         reverse=True,
     )
+
+
+def _cumulative_career_years(profile: Dict[str, Any]) -> float:
+    """Durée cumulée des expériences en années, fusionnant les intervalles qui se chevauchent."""
+    today = date.today()
+    intervals: List[Tuple[int, int]] = []
+
+    for exp in profile.get("experiences") or []:
+        start_year, start_month = _date_key(exp.get("start") or exp.get("start_date"))
+        if not start_year:
+            continue
+        start_val = start_year * 12 + (start_month or 1)
+
+        end_year, end_month = _end_key(exp.get("end") or exp.get("end_date"))
+        if end_year == 9999:
+            end_year, end_month = today.year, today.month
+        elif not end_year:
+            continue
+        end_val = end_year * 12 + (end_month or 12)
+
+        if end_val >= start_val:
+            intervals.append((start_val, end_val))
+
+    if not intervals:
+        return 0.0
+
+    intervals.sort()
+    merged: List[Tuple[int, int]] = [intervals[0]]
+    for current_start, current_end in intervals[1:]:
+        prev_start, prev_end = merged[-1]
+        if current_start <= prev_end:
+            merged[-1] = (prev_start, max(prev_end, current_end))
+        else:
+            merged.append((current_start, current_end))
+
+    total_months = sum(end - start for start, end in merged)
+    return max(0.0, total_months / 12.0)
 
 
 def _accent_css(accent: str) -> str:

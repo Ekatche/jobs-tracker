@@ -477,6 +477,48 @@ def test_undated_experiences_keep_their_order_after_dated_ones():
     assert html.index("Poste daté") < html.index("Sans date A") < html.index("Sans date B")
 
 
+def test_format_duration_unit():
+    from app.services.cv_templates import _format_duration
+
+    # 8 years exact (exclusive month difference)
+    assert _format_duration("09/2018", "09/2026") == "8 ans"
+    assert _format_duration("2018", "2026") == "8 ans"
+
+    # Exact single year
+    assert _format_duration("01/2022", "01/2023") == "1 an"
+    assert _format_duration("2021", "2022") == "1 an"
+
+    # Months only
+    assert _format_duration("01/2023", "07/2023") == "6 mois"
+    assert _format_duration("02/2023", "05/2023") == "3 mois"
+
+    # Combined years and months
+    assert _format_duration("01/2021", "07/2022") == "1 an 6 mois"
+    assert _format_duration("01/2020", "04/2022") == "2 ans 3 mois"
+
+    # Ongoing / open-ended
+    res = _format_duration("2020", "Présent")
+    assert res is not None and "ans" in res
+
+    # Missing or invalid
+    assert _format_duration(None, "2023") is None
+    assert _format_duration("", "") is None
+    assert _format_duration("2024", "2021") is None
+    assert _format_duration("2022", "2022") is None
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_experience_duration_rendered_across_templates(template):
+    cv = SAMPLE_CV.model_copy(update={"experiences": [
+        _dated_job("Poste long", "09/2018", "09/2026"),
+        _dated_job("Stage court", "02/2018", "07/2018"),
+    ]})
+    html = _render(template, cv=cv)
+    assert "09/2018 – 09/2026 · 8 ans" in html
+    assert "02/2018 – 07/2018 · 5 mois" in html
+
+
+
 
 
 

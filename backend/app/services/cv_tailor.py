@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import re
-from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional
 
@@ -10,7 +9,7 @@ from litellm import acompletion
 
 from app.models import TailoredCVSchema, TailoredExperienceItem
 from app.services.cv_guards import verify_cv_honesty
-from app.services.cv_templates import _date_key, _end_key, _most_recent_first
+from app.services.cv_templates import _cumulative_career_years, _most_recent_first
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +86,9 @@ def load_tailor_prompt(
     job_location = offer.get("localisation") or offer.get("location") or "Non spécifié"
     offer_desc = offer.get("description") or offer.get("job_description") or ""
 
+    career_years = _cumulative_career_years(profile)
+    seniority_phrase = format_career_seniority_phrase(career_years)
+
     return template.format(
         candidate_profile=json.dumps(profile_for_prompt, ensure_ascii=False, indent=2, default=str),
         target_company=target_company,
@@ -97,6 +99,7 @@ def load_tailor_prompt(
         page_limit="Deux pages A4" if budget.pages == 2 else "Une page A4",
         bullet_budget=budget.bullets,
         max_projects=budget.projects,
+        career_seniority_phrase=seniority_phrase,
     )
 
 
@@ -110,31 +113,21 @@ PAGE_BUDGETS = {1: PageBudget(1, 10, 2), 2: PageBudget(2, 22, 3)}
 TWO_PAGES_FROM_YEARS = 5
 
 
-def _career_years(profile: Dict[str, Any]) -> float:
-    """Durée du parcours en années, de la première date de début à la dernière date de fin (en cours = aujourd'hui)."""
-    today = date.today()
-    starts: List[int] = []
-    ends: List[int] = []
-    for exp in profile.get("experiences") or []:
-        start_year, start_month = _date_key(exp.get("start") or exp.get("start_date"))
-        if not start_year:
-            continue
-        starts.append(start_year * 12 + (start_month or 1))
-        end_year, end_month = _end_key(exp.get("end") or exp.get("end_date"))
-        if end_year == 9999:
-            end_year, end_month = today.year, today.month
-        if end_year:
-            ends.append(end_year * 12 + (end_month or 12))
-    if not starts or not ends:
-        return 0.0
-    return max(0.0, (max(ends) - min(starts)) / 12)
-
-
 def compute_page_budget(profile: Dict[str, Any]) -> PageBudget:
-    """1 page sous TWO_PAGES_FROM_YEARS ans de parcours, 2 pages au-delà, quel que soit le niveau de l'offre."""
-    if _career_years(profile) >= TWO_PAGES_FROM_YEARS:
+    """1 page sous TWO_PAGES_FROM_YEARS ans d'expérience cumulée, 2 pages au-delà, quel que soit le niveau de l'offre."""
+    if _cumulative_career_years(profile) >= TWO_PAGES_FROM_YEARS:
         return PAGE_BUDGETS[2]
     return PAGE_BUDGETS[1]
+
+
+def format_career_seniority_phrase(years: float) -> str:
+    """Amorce de la première phrase de l'accroche. Arrondi par défaut : 7,9 ans s'écrit « 7 ans », jamais « 8 »."""
+    whole_years = int(years)
+    if whole_years >= 2:
+        return f"avec {whole_years} ans d'expérience dans"
+    if whole_years == 1:
+        return "avec 1 an d'expérience dans"
+    return "avec une expérience dans"
 
 
 MAX_TECHNOLOGIES = 6

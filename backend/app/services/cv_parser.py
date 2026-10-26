@@ -131,16 +131,45 @@ def render_pdf_pages_to_base64_images(pdf_path: str, max_pages: int = 3, dpi: in
         doc.close()
 
 
+def _flatten_contact_value(v: Any) -> Optional[str]:
+    """Flattens nested dict or list into a clean ' · '-separated string."""
+    if v is None:
+        return None
+    if isinstance(v, str):
+        cleaned = v.strip()
+        return cleaned if cleaned else None
+    if isinstance(v, (list, tuple, set)):
+        parts = [_flatten_contact_value(item) for item in v]
+        valid = [p for p in parts if p]
+        return " · ".join(valid) if valid else None
+    if isinstance(v, dict):
+        parts = []
+        for key, val in v.items():
+            flattened = _flatten_contact_value(val)
+            if not flattened:
+                continue
+            # {'permis': ['B']} : la clé porte le sens, « B » seul ne dit rien au recruteur.
+            key_text = str(key).casefold()
+            if ("permis" in key_text or "licen" in key_text) and "permis" not in flattened.casefold():
+                flattened = f"Permis {flattened}"
+            parts.append(flattened)
+        return " · ".join(parts) if parts else None
+    s = str(v).strip()
+    return s if s else None
+
+
 def _clean_parsed_cv(data: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(data, dict):
         return data
 
     raw_contact = data.get("contact")
     if isinstance(raw_contact, dict):
-        data["contact"] = {
-            k: str(v).strip() for k, v in raw_contact.items()
-            if v is not None and str(v).strip()
-        }
+        cleaned_contact: Dict[str, str] = {}
+        for k, v in raw_contact.items():
+            flattened = _flatten_contact_value(v)
+            if flattened:
+                cleaned_contact[k] = flattened
+        data["contact"] = cleaned_contact
     elif "contact" in data:
         data.pop("contact")
 

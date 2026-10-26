@@ -3,7 +3,13 @@ import unicodedata
 from difflib import SequenceMatcher
 from typing import Tuple, List, Dict, Any, Set
 from app.models import TailoredCVSchema
+from app.services.cv_templates import _cumulative_career_years
 
+# « 8 ans d'expérience », « 8+ ans d'expérience », « 8 years of experience »
+SENIORITY_CLAIM_RE = re.compile(
+    r"\b(\d+)\s*\+?\s*(?:ans?\s+d['’]\s?exp[eé]rience|years?\s+of\s+experience)\b",
+    re.IGNORECASE,
+)
 
 STOPWORDS: Set[str] = {
     "de", "d", "des", "du", "le", "la", "les", "un", "une", "et", "en", "pour", "par",
@@ -250,6 +256,17 @@ def verify_cv_honesty(
             violations.append(
                 f"Formation '{edu.degree}' à '{edu.institution}' absente du cursus du profil candidat."
             )
+
+    # 4. Validation of claimed experience seniority in summary
+    if tailored.professional_summary:
+        # Le prompt impose l'arrondi par défaut (7,9 ans → « 7 ans ») : toute valeur au-dessus est une surévaluation.
+        actual_years = _cumulative_career_years(source_profile)
+        for match in SENIORITY_CLAIM_RE.finditer(tailored.professional_summary):
+            claimed_years = int(match.group(1))
+            if claimed_years > int(actual_years):
+                violations.append(
+                    f"Résumé professionnel mentionne {claimed_years} ans d'expérience alors que le profil en totalise {actual_years:.1f} ans."
+                )
 
     is_valid = len(violations) == 0
     return is_valid, violations

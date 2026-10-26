@@ -416,3 +416,63 @@ def test_generate_accepts_classique(client):
     assert insert_one.call_args.args[0]["template"] == "classique"
 
 
+def test_clean_mobility_handles_various_formats():
+    from app.routers.resumes import _clean_mobility
+
+    # Repr Python d'un dict stockée avant l'aplatissement à l'ingestion (cas réel en prod)
+    legacy = "{'permis': ['B (véhiculé)'], 'location': 'Villeurbanne'}"
+    assert _clean_mobility(legacy) == "Permis B (véhiculé) · Villeurbanne"
+
+    # Already clean plain string
+    assert _clean_mobility("Permis B · Véhicule personnel") == "Permis B · Véhicule personnel"
+
+    # Direct dict
+    assert _clean_mobility({"permis": "B", "zone": "Rhône-Alpes"}) == "Permis B · Rhône-Alpes"
+
+    # Direct list
+    assert _clean_mobility(["Permis B", "Véhiculé"]) == "Permis B · Véhiculé"
+
+    # Python repr of list
+    assert _clean_mobility("['Permis B', 'Véhiculé']") == "Permis B · Véhiculé"
+
+    # Edge cases
+    assert _clean_mobility(None) is None
+    assert _clean_mobility("") is None
+    assert _clean_mobility("   ") is None
+    # Texte libre entre accolades mais non évaluable : affiché tel quel
+    assert _clean_mobility("{invalid python syntax") == "{invalid python syntax"
+    assert _clean_mobility("{Permis B}") == "{Permis B}"
+
+
+def test_build_candidate_sanitizes_legacy_mobility():
+    from app.routers.resumes import _build_candidate
+
+    profile = {
+        "full_name": "Camille Martin",
+        "personal_info": {
+            "email": "camille@example.com",
+            "mobility": "{'permis': ['B (véhiculé)'], 'location': 'Villeurbanne'}",
+        }
+    }
+    candidate = _build_candidate(profile, mock_current_user)
+    assert candidate["mobility"] == "Permis B (véhiculé) · Villeurbanne"
+    assert candidate["full_name"] == "Camille Martin"
+
+
+def test_clean_parsed_cv_flattens_nested_contact():
+    from app.services.cv_parser import _clean_parsed_cv, _flatten_contact_value
+
+    assert _flatten_contact_value(["A", ["B", "C"]]) == "A · B · C"
+    assert _flatten_contact_value({"permis": ["B"], "zone": "Lyon"}) == "Permis B · Lyon"
+    # La valeur porte déjà le mot : pas de doublon « Permis Permis B »
+    assert _flatten_contact_value({"permis": "Permis B"}) == "Permis B"
+
+    parsed = {
+        "contact": {
+            "email": "test@example.com",
+            "mobility": {"permis": ["B (véhiculé)"], "location": "Villeurbanne"}
+        }
+    }
+    cleaned = _clean_parsed_cv(parsed)
+    assert cleaned["contact"]["mobility"] == "Permis B (véhiculé) · Villeurbanne"
+    assert cleaned["contact"]["email"] == "test@example.com"

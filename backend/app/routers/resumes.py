@@ -1,3 +1,4 @@
+import ast
 import logging
 import re
 from typing import Any, Dict, List, Literal, Optional
@@ -14,6 +15,7 @@ from app.models import (
     UserModel,
     utcnow_with_timezone,
 )
+from app.services.cv_parser import _flatten_contact_value
 from app.services.cv_pdf_renderer import generate_cv_pdf
 from app.services.cv_tailor import DEFAULT_CV_MODEL, CVHonestyError, generate_tailored_cv_content
 from app.services.cv_templates import (
@@ -66,6 +68,19 @@ def _clean_text(value: Any) -> Optional[str]:
     return None
 
 
+def _clean_mobility(value: Any) -> Optional[str]:
+    """Mobilité lisible, y compris la repr Python stockée avant l'aplatissement à l'ingestion
+    (« {'permis': ['B (véhiculé)'], 'location': 'Lyon'} » → « Permis B (véhiculé) · Lyon »)."""
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith(("{", "[")) and text.endswith(("}", "]")):
+            try:
+                value = ast.literal_eval(text)
+            except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+                pass  # texte libre qui ressemble à une structure : affiché tel quel
+    return _flatten_contact_value(value)
+
+
 def _build_candidate(profile_doc: Dict[str, Any], user: UserModel) -> Dict[str, Any]:
     """Coordonnées et informations annexes du CV, lues dans le profil au moment du rendu."""
     contact_info = profile_doc.get("personal_info") or profile_doc.get("contact") or {}
@@ -82,7 +97,7 @@ def _build_candidate(profile_doc: Dict[str, Any], user: UserModel) -> Dict[str, 
         "linkedin_url": contact_info.get("linkedin_url") or contact_info.get("linkedin") or profile_doc.get("linkedin_url"),
         "github_url": github_url,
         "website_url": website_url,
-        "mobility": _clean_text(contact_info.get("mobility")),
+        "mobility": _clean_mobility(contact_info.get("mobility")),
         "availability": _clean_text(contact_info.get("availability")),
         "interests": [str(i).strip() for i in (profile_doc.get("interests") or []) if str(i).strip()],
     }

@@ -105,7 +105,7 @@
         {% endif %}
         {% if exp.relevant_technologies %}{{ m.tools_line(exp.relevant_technologies) }}{% endif %}
       </div>
-      <div class="exec-when">{{ exp.start_date }} – {{ exp.end_date or 'Présent' }}</div>
+      <div class="exec-when">{{ exp.start_date }} – {{ exp.end_date or 'Présent' }}{% if exp.duration %} · {{ exp.duration }}{% endif %}</div>
     </article>
     {% endfor %}
   </section>

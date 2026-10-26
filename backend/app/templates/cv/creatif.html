@@ -200,7 +200,7 @@
     <div class="cr-timeline">
       {% for exp in cv.experiences %}
       <article class="cr-job page-break-avoid">
-        <span class="cr-date">{{ exp.start_date }} – {{ exp.end_date or 'Présent' }}</span>
+        <span class="cr-date">{{ exp.start_date }} – {{ exp.end_date or 'Présent' }}{% if exp.duration %} · {{ exp.duration }}{% endif %}</span>
         <div class="cr-job-title">{{ exp.title }}</div>
         <div class="cr-company">{{ exp.company }}{% if exp.location %}, {{ exp.location }}{% endif %}</div>
         {% if exp.bullet_points %}

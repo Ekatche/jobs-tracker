@@ -231,3 +231,87 @@ def test_verify_cv_honesty_accepts_skill_grounded_in_education_topics():
     )
     is_valid, violations = verify_cv_honesty(tailored, source_profile)
     assert is_valid is True, violations
+
+
+def test_verify_cv_honesty_accepts_accurate_seniority():
+    source_profile = {
+        "experiences": [
+            {"company": "Association Horizon", "title": "Éducatrice", "start": "09/2018", "end": "09/2026"}
+        ],
+        "skills": ["Accompagnement"],
+    }
+    tailored = TailoredCVSchema(
+        target_role_title="Éducatrice Spécialisée",
+        professional_summary="Éducatrice spécialisée avec 8 ans d'expérience dans le milieu social.",
+        prioritized_skills=[
+            TailoredSkillGroup(category="Social", skills=["Accompagnement"]),
+        ],
+        experiences=[],
+        featured_projects=[],
+        education=[],
+        languages=[],
+    )
+    is_valid, violations = verify_cv_honesty(tailored, source_profile)
+    assert is_valid is True, violations
+
+
+def test_verify_cv_honesty_flags_exaggerated_seniority():
+    source_profile = {
+        "experiences": [
+            {"company": "Startup", "title": "Dev", "start": "2022", "end": "2024"}
+        ],
+        "skills": ["Python"],
+    }
+    tailored = TailoredCVSchema(
+        target_role_title="Lead Developer",
+        professional_summary="Lead Developer avec 10 ans d'expérience dans le cloud.",
+        prioritized_skills=[
+            TailoredSkillGroup(category="Backend", skills=["Python"]),
+        ],
+        experiences=[],
+        featured_projects=[],
+        education=[],
+        languages=[],
+    )
+    is_valid, violations = verify_cv_honesty(tailored, source_profile)
+    assert is_valid is False
+    assert any("10 ans d'expérience" in v for v in violations)
+
+
+def _summary_cv(summary: str) -> TailoredCVSchema:
+    return TailoredCVSchema(
+        target_role_title="Éducatrice Spécialisée",
+        professional_summary=summary,
+        prioritized_skills=[TailoredSkillGroup(category="Social", skills=["Accompagnement"])],
+        experiences=[],
+        featured_projects=[],
+        education=[],
+        languages=[],
+    )
+
+
+# 09/2018 – 07/2026 : 7,8 ans travaillés
+_NEARLY_8_YEARS = {
+    "experiences": [{"company": "Association Horizon", "title": "Éducatrice", "start": "09/2018", "end": "07/2026"}],
+    "skills": ["Accompagnement"],
+}
+
+
+def test_verify_cv_honesty_flags_seniority_rounded_up():
+    is_valid, violations = verify_cv_honesty(_summary_cv("Éducatrice avec 8 ans d'expérience dans le social."), _NEARLY_8_YEARS)
+    assert is_valid is False
+    assert any("8 ans d'expérience" in v for v in violations)
+
+    is_valid, violations = verify_cv_honesty(_summary_cv("Éducatrice avec 7 ans d'expérience dans le social."), _NEARLY_8_YEARS)
+    assert is_valid is True, violations
+
+
+@pytest.mark.parametrize("summary", [
+    "Educator with 10 years of experience in social work.",
+    "Éducatrice avec 10+ ans d'expérience dans le social.",
+    "Éducatrice avec 7 ans d'expérience dans le social, dont 10 ans d'expérience en management.",
+])
+def test_verify_cv_honesty_flags_inflated_seniority_variants(summary):
+    is_valid, violations = verify_cv_honesty(_summary_cv(summary), _NEARLY_8_YEARS)
+    assert is_valid is False
+    assert any("10 ans d'expérience" in v for v in violations)
