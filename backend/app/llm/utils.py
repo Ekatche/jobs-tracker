@@ -67,7 +67,34 @@ async def fetch_documents(url: str):
         except Exception as e:
             logger.debug(f"Extraction ATS non concluante pour {url}: {e}")
 
-        # 2. Optimisation URL (LinkedIn guest API, Indeed mobile) et crawl Crawl4AI
+        # 2. Extraction prioritaire de document PDF direct (PyMuPDF / VLM fallback)
+        try:
+            from app.services.pdf_job_offer import is_pdf_url, extract_pdf_job_offer
+            if is_pdf_url(url):
+                pdf_data = await extract_pdf_job_offer(url)
+                if pdf_data and pdf_data.get("text"):
+                    content = pdf_data["text"]
+                    title = pdf_data.get("title", "")
+                    company = pdf_data.get("company", "")
+                    logger.info(f"📄 Contenu chargé depuis PDF direct ({len(content)} caractères): {title}")
+                    return [
+                        Document(
+                            page_content=content,
+                            metadata={
+                                "source": url,
+                                "title": title,
+                                "company": company,
+                                "location": pdf_data.get("location", ""),
+                                "contract": pdf_data.get("contract", ""),
+                                "word_count": len(content.split()),
+                                "content_type": "pdf",
+                            },
+                        )
+                    ]
+        except Exception as e:
+            logger.debug(f"Extraction PDF direct non concluante pour {url}: {e}")
+
+        # 3. Optimisation URL (LinkedIn guest API, Indeed mobile) et crawl Crawl4AI
         from app.services.normalization import optimize_crawl_url
         from job_crawler.crawler1 import get_filtered_markdown
         crawl_url = optimize_crawl_url(url)
@@ -161,6 +188,29 @@ async def fetch_documents(url: str):
             return [doc]
 
         elif result.get("status") == "failed":
+            # Tentative de secours : l'URL servait peut-être un PDF sans extension .pdf
+            try:
+                from app.services.pdf_job_offer import check_is_pdf_content, extract_pdf_job_offer
+                if await check_is_pdf_content(crawl_url):
+                    pdf_data = await extract_pdf_job_offer(crawl_url)
+                    if pdf_data and pdf_data.get("text"):
+                        content = pdf_data["text"]
+                        logger.info(f"📄 Contenu chargé via repli PDF ({len(content)} caractères)")
+                        return [
+                            Document(
+                                page_content=content,
+                                metadata={
+                                    "source": url,
+                                    "title": pdf_data.get("title", ""),
+                                    "company": pdf_data.get("company", ""),
+                                    "word_count": len(content.split()),
+                                    "content_type": "pdf_fallback",
+                                },
+                            )
+                        ]
+            except Exception as e_pdf_fallback:
+                logger.debug(f"Repli PDF non concluant: {e_pdf_fallback}")
+
             logger.error(f"Échec du crawl: {result.get('error')}")
             return []
         else:

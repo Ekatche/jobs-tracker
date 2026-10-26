@@ -318,6 +318,30 @@ async def get_filtered_markdown(
         raise ValueError("OPENAI_API_KEY manquante")
 
     try:
+        from app.services.pdf_job_offer import is_pdf_url, extract_pdf_job_offer
+        if is_pdf_url(url):
+            logger.info(f"📄 URL PDF détectée dans get_filtered_markdown: {url}")
+            pdf_data = await extract_pdf_job_offer(url)
+            if pdf_data and pdf_data.get("text"):
+                filtered_markdown = pdf_data["text"]
+                return {
+                    "status": "success",
+                    "url": url,
+                    "filtered_markdown": filtered_markdown,
+                    "metadata": {
+                        "url": url,
+                        "title": pdf_data.get("title") or "",
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "word_count": len(filtered_markdown.split()),
+                        "char_count": len(filtered_markdown),
+                        "fallback_used": False,
+                        "content_type": "pdf",
+                    },
+                }
+    except Exception as e:
+        logger.debug(f"Interception PDF dans get_filtered_markdown non concluante pour {url}: {e}")
+
+    try:
         browser_config = get_shared_browser_config()
 
         # 📋 Filtre d'élagage déterministe (0 token)
@@ -485,9 +509,44 @@ async def crawl_and_extract_jobs_optimized(
         processed_results = []
         all_offers = []
 
+        # Extraction préalable des documents PDF (incompatibles avec Chromium arun_many)
+        from app.services.pdf_job_offer import is_pdf_url, extract_pdf_job_offer
+        non_pdf_crawl_urls: List[str] = []
+        for u in crawl_urls:
+            orig = _resolve_original_url(u)
+            if is_pdf_url(u) or is_pdf_url(orig):
+                logger.info(f"📄 Extraction directe PDF pour {orig}")
+                try:
+                    pdf_data = await extract_pdf_job_offer(orig)
+                    if pdf_data and pdf_data.get("text"):
+                        text = pdf_data["text"]
+                        offer = {
+                            "poste": pdf_data.get("title") or "Poste non spécifié",
+                            "entreprise": pdf_data.get("company") or "Entreprise non spécifiée",
+                            "localisation": pdf_data.get("location") or "Non spécifié",
+                            "description": text,
+                            "type_contrat": pdf_data.get("contract") or "Non spécifié",
+                            "source_url": orig,
+                            "url": orig,
+                        }
+                        all_offers.append(offer)
+                        domain = urlparse(orig).netloc.lower().removeprefix("www.")
+                        processed_results.append({
+                            "url": orig,
+                            "domain": domain,
+                            "status": "success",
+                            "offers_count": 1,
+                            "attempts": 1,
+                            "content_type": "pdf",
+                        })
+                        continue
+                except Exception as e_pdf:
+                    logger.warning(f"Échec extraction PDF pour {orig}: {e_pdf}")
+            non_pdf_crawl_urls.append(u)
+
         # ✅ Utilisation directe d'arun_many selon la doc
         async with AsyncWebCrawler(config=browser_config) as crawler:
-            pending = list(crawl_urls)
+            pending = list(non_pdf_crawl_urls)
             attempt = 0
             empty_counts: Dict[str, int] = {}
             actually_retried_urls: set = set()
