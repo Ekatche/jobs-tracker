@@ -59,7 +59,7 @@ def execute_collection_pipeline(validated_queries: list) -> dict:
     total_updated = 0
     query_results = []
 
-    # Tavily (crédits limités) au seul run du matin ; jobspy et France Travail aux deux runs.
+    # Tavily (crédits limités) au seul run du matin ; jobspy aux deux runs.
     use_web_search = is_web_search_run(datetime.now(timezone.utc))
     logger.info(f"🌐 Recherche web (crew + Tavily) pour ce run: {'oui' if use_web_search else 'non'}")
 

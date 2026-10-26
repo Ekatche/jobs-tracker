@@ -47,7 +47,7 @@ MAX_TOTAL_QUERIES = 8
 # Appels LLM de résumé simultanés (offres ATS et sources structurées).
 SUMMARY_CONCURRENCY = 8
 # La recherche web (crew + Tavily, payée au crédit) ne tourne qu'au run du matin du DAG
-# (0 7,16 UTC) ; jobspy et France Travail, gratuits, tournent aux deux runs.
+# (0 7,16 UTC) ; jobspy, gratuit, tourne aux deux runs.
 WEB_SEARCH_MAX_HOUR_UTC = 12
 
 DEFAULT_QUERIES: list[str] = [

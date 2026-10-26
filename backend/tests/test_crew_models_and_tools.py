@@ -64,9 +64,8 @@ class TestTavilyTool:
         result_none = tool._run()
         assert result_none == []
 
-    def test_funnel_two_passes_balanced_and_deduplicated(self, monkeypatch):
+    def test_funnel_two_passes_balanced_and_deduplicated(self):
         from unittest.mock import MagicMock
-        monkeypatch.delenv("FRANCE_TRAVAIL_CLIENT_ID", raising=False)
         tool = TavilyJobBoardSearchTool()
         mock_client = MagicMock()
 
@@ -103,7 +102,8 @@ class TestTavilyTool:
         ]
         # Passe 1 découpée par site : WTTJ n'est plus en concurrence avec HelloWork/France Travail.
         assert ["welcometothejungle.com"] in board_groups
-        assert ["francetravail.fr"] in board_groups
+        # France Travail n'est plus une source, même via Tavily.
+        assert not any("francetravail.fr" in group for group in board_groups)
         # Indeed, HelloWork et LinkedIn sont couverts par jobspy : aucun crédit Tavily dépensé dessus.
         assert not any("indeed.fr" in group for group in board_groups)
         assert ["hellowork.com"] not in board_groups
@@ -138,20 +138,6 @@ class TestTavilyTool:
         results = tool._run(query="DevOps Paris")
         assert len(results) == 1
         assert results[0] == "https://jobs.lever.co/corp/789"
-
-    def test_france_travail_board_skipped_when_api_configured(self, monkeypatch):
-        from unittest.mock import MagicMock
-        monkeypatch.setenv("FRANCE_TRAVAIL_CLIENT_ID", "id")
-        monkeypatch.setenv("FRANCE_TRAVAIL_CLIENT_SECRET", "secret")
-        tool = TavilyJobBoardSearchTool()
-        mock_client = MagicMock()
-        mock_client.search.return_value = {"results": []}
-        tool.client = mock_client
-
-        tool._run(query="Data Engineer Lyon")
-
-        searched = [c.kwargs.get("include_domains") or [] for c in mock_client.search.call_args_list]
-        assert not any("francetravail.fr" in domains for domains in searched)
 
 
 class TestExtractUrlsFromCrew:
