@@ -33,6 +33,26 @@ def cleanup_offers_task():
         raise
 
 
+def purge_orphan_scoring_task():
+    """🧹 Purge les docs `offer_relevance`/`offer_embeddings` orphelins (offre supprimée de job_offers, Task 6 M14)."""
+    logger = logging.getLogger("airflow.task")
+    try:
+        from app.services.offer_scoring.cleanup import purge_orphan_scoring_docs_sync
+
+        logger.info("🚀 Début de la purge des docs de scoring orphelins")
+
+        result = purge_orphan_scoring_docs_sync()
+
+        logger.info(f"✅ Purge terminée: {result}")
+        return result
+
+    except Exception as e:
+        logger.error(
+            f"💥 Erreur lors de la purge des docs de scoring orphelins: {str(e)}"
+        )
+        raise
+
+
 default_args = {
     "owner": "job-tracker",
     "depends_on_past": False,
@@ -56,3 +76,11 @@ cleanup_task = PythonOperator(
     python_callable=cleanup_offers_task,
     dag=dag,
 )
+
+purge_task = PythonOperator(
+    task_id="purge_orphan_scoring_docs",
+    python_callable=purge_orphan_scoring_task,
+    dag=dag,
+)
+
+cleanup_task >> purge_task

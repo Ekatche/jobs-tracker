@@ -918,3 +918,34 @@ async def test_tag_new_offers_embedding_down_keeps_attached_offer():
     assert str(profile["user_id"]) in offer["matched_user_ids"]
     assert offer.get("scoring_pending") is True
     assert offer_relevance.docs == []
+
+
+# ---------- tag_new_offers : (re)création des index de scoring (M21-index) ----------
+
+
+@pytest.mark.asyncio
+async def test_tag_new_offers_creates_scoring_indexes_on_real_db(test_db):
+    """`tag_new_offers` (ré)applique `create_offer_scoring_indexes` en tête
+    d'appel, avant même le early return sur `offer_ids` vide — c'est le seul
+    point d'entrée du chemin de collecte en prod (Airflow), qui ne passe pas
+    par le `lifespan` FastAPI. Contre la vraie base de test : on part d'une
+    collection sans index applicatif, on appelle `tag_new_offers([], ...)`,
+    et les deux index attendus doivent exister à la sortie."""
+    fake_embed, _calls = make_fake_embed({})
+
+    for name in ("offer_relevance", "offer_embeddings"):
+        for index_name in list((await test_db[name].index_information()).keys()):
+            if index_name != "_id_":
+                await test_db[name].drop_index(index_name)
+
+    await tag_new_offers([], test_db, embed=fake_embed)
+
+    relevance_indexes = set(
+        (await test_db["offer_relevance"].index_information()).keys()
+    )
+    embeddings_indexes = set(
+        (await test_db["offer_embeddings"].index_information()).keys()
+    )
+
+    assert "user_id_1_offer_id_1" in relevance_indexes
+    assert "offer_id_1_model_1" in embeddings_indexes

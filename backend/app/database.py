@@ -4,6 +4,7 @@ import pathlib
 
 import motor.motor_asyncio
 from dotenv import load_dotenv
+from pymongo.errors import OperationFailure
 
 # Chargement des variables d'environnement (cherche dans le dossier parent aussi)
 dotenv_path = pathlib.Path(__file__).parent.parent.parent / ".env"
@@ -115,9 +116,19 @@ async def create_offer_scoring_indexes(db) -> None:
     key du cache dans app.services.offer_scoring.embeddings.get_offer_vectors.
     `offer_relevance` : un document par (utilisateur, offre) — upsert key du
     score persisté par `app.services.offer_profile_matcher.rematch_user` /
-    `tag_new_offers`, plus un index de tri pour lister les offres les mieux
-    notées d'un utilisateur.
+    `tag_new_offers`.
+
+    Idempotent : supprime aussi l'ancien index de tri `(user_id, score)`,
+    jamais utilisé par une requête réelle (M13), s'il traîne encore sur une
+    base migrée avant ce correctif.
     """
     await db["offer_embeddings"].create_index([("offer_id", 1), ("model", 1)], unique=True)
     await db["offer_relevance"].create_index([("user_id", 1), ("offer_id", 1)], unique=True)
-    await db["offer_relevance"].create_index([("user_id", 1), ("score", -1)])
+
+    try:
+        await db["offer_relevance"].drop_index("user_id_1_score_-1")
+    except OperationFailure as exc:
+        # IndexNotFound (27) ou NamespaceNotFound (26) : rien à supprimer,
+        # on ignore. Toute autre erreur (droits, etc.) est relevée.
+        if exc.code not in (26, 27):
+            raise

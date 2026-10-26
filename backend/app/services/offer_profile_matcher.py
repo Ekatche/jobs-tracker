@@ -17,6 +17,7 @@ from typing import List, Literal, Optional
 from bson import ObjectId
 from pymongo import DeleteOne, UpdateOne
 
+from app.database import create_offer_scoring_indexes
 from app.services.offer_scoring.assess import assess_offer
 from app.services.offer_scoring.constants import FLOOR, SCORING_VERSION
 from app.services.offer_scoring.embeddings import (
@@ -254,6 +255,18 @@ async def tag_new_offers(offer_ids: list, db, *, embed=embed_texts) -> None:
     offre non évaluée faute de cosinus n'est, comme dans `rematch_user`,
     jamais détachée (ni rattachée).
     """
+    # M21 (index) : seul `tag_new_offers` est appelé sur le chemin de
+    # collecte Airflow, qui ne passe jamais par le `lifespan` FastAPI — on
+    # (ré)applique donc les index ici aussi, idempotent. Fail-open : un
+    # problème d'index (droits, Mongo indisponible) ne doit jamais bloquer
+    # un cycle de scoring.
+    try:
+        await create_offer_scoring_indexes(db)
+    except Exception as exc:
+        logger.warning(
+            "⚠️ Impossible de (re)créer les index offer_scoring, on continue : %s", exc
+        )
+
     if offer_ids:
         query = {
             "$or": [

@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -32,6 +33,8 @@ from app.routers import (
     admin_router,
 )
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app):
@@ -64,8 +67,8 @@ async def lifespan(app):
             print(f"Erreur de création des index company_profiles: {e}")
         try:
             await create_offer_scoring_indexes(db)
-        except Exception as e:
-            print(f"Erreur de création des index offer_scoring: {e}")
+        except Exception:
+            logger.exception("Erreur de création des index offer_scoring")
 
     yield  # L'application s'exécute pendant cette période
 
