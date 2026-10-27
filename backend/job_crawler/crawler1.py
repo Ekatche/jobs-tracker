@@ -16,6 +16,7 @@ from crawl4ai.content_filter_strategy import PruningContentFilter
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 from crawl4ai.utils import extract_xml_data
 
+from app.services.egress_guard import browser_config_behind_proxy, public_only_proxy
 from app.services.normalization import (
     extract_company_from_url,
     optimize_crawl_url,
@@ -386,8 +387,11 @@ async def get_filtered_markdown(
             delay_before_return_html=2.5,
         )
 
-        # 🔍 Lancement du crawl
-        async with AsyncWebCrawler(config=browser_config) as crawler:
+        # 🔍 Lancement du crawl, navigateur derrière le proxy qui ne laisse passer
+        # que des IP publiques validées (SSRF, DNS rebinding)
+        async with public_only_proxy() as proxy_url, AsyncWebCrawler(
+            config=browser_config_behind_proxy(browser_config, proxy_url)
+        ) as crawler:
             logger.debug("📱 Crawler initialisé pour extraction markdown")
             crawler.crawler_strategy.set_hook("on_page_context_created", block_non_public_browser_requests)
             result = await crawler.arun(url=url, config=crawl_config)
@@ -555,8 +559,11 @@ async def crawl_and_extract_jobs_optimized(
                     logger.warning(f"Échec extraction PDF pour {orig}: {e_pdf}")
             non_pdf_crawl_urls.append(u)
 
-        # ✅ Utilisation directe d'arun_many selon la doc
-        async with AsyncWebCrawler(config=browser_config) as crawler:
+        # ✅ Utilisation directe d'arun_many selon la doc, navigateur derrière le
+        # proxy qui ne laisse passer que des IP publiques validées (SSRF)
+        async with public_only_proxy() as proxy_url, AsyncWebCrawler(
+            config=browser_config_behind_proxy(browser_config, proxy_url)
+        ) as crawler:
             crawler.crawler_strategy.set_hook("on_page_context_created", block_non_public_browser_requests)
             pending = list(non_pdf_crawl_urls)
             attempt = 0

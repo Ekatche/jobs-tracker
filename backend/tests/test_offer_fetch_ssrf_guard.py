@@ -4,8 +4,10 @@ L'URL d'une candidature est saisie par l'utilisateur, puis téléchargée par le
 backend (régénération de la description) : une adresse interne ne doit jamais
 être contactée, ni directement, ni au détour d'une redirection.
 """
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
+from urllib.parse import urlsplit
 
 import httpx
 import pytest
@@ -42,6 +44,7 @@ async def test_fetch_documents_never_contacts_internal_host(monkeypatch, url):
 def _mock_client_class(handler):
     class MockClient(httpx.AsyncClient):
         def __init__(self, *args, **kwargs):
+            kwargs.pop("transport", None)
             super().__init__(*args, transport=httpx.MockTransport(handler), **kwargs)
 
     return MockClient
@@ -225,3 +228,95 @@ async def test_collect_website_drops_page_redirected_to_internal_host(monkeypatc
     await website.collect_website("http://93.184.216.34", crawler=Crawler(), extract=extract)
 
     assert captured == {"http://93.184.216.34": "# Accueil"}
+
+
+async def _proxy_listening(proxy_url):
+    if not proxy_url:
+        return False
+    target = urlsplit(proxy_url)
+    try:
+        _, writer = await asyncio.open_connection(target.hostname, target.port)
+    except OSError:
+        return False
+    writer.close()
+    return True
+
+
+def _patch_crawler_class(monkeypatch, target, crawler):
+    """Remplace `AsyncWebCrawler` ; note, à l'ouverture du navigateur, sa config et si son proxy écoute."""
+    opened = []
+
+    def factory(*args, config=None, **kwargs):
+        async def enter():
+            listening = await _proxy_listening(getattr(config, "proxy", None))
+            opened.append(SimpleNamespace(listening=listening, config=config))
+            return crawler
+
+        context = MagicMock()
+        context.__aenter__ = AsyncMock(side_effect=enter)
+        context.__aexit__ = AsyncMock(return_value=None)
+        return context
+
+    monkeypatch.setattr(target, factory)
+    return opened
+
+
+@pytest.mark.asyncio
+async def test_filtered_markdown_browser_runs_behind_public_only_proxy(monkeypatch):
+    from job_crawler.crawler1 import get_filtered_markdown
+
+    crawler = _fake_crawler()
+    crawler.arun.return_value = _crawl_result("http://93.184.216.34/offre", "http://93.184.216.34/offre")
+    opened = _patch_crawler_class(monkeypatch, "job_crawler.crawler1.AsyncWebCrawler", crawler)
+
+    await get_filtered_markdown("http://93.184.216.34/offre", api_key="dummy")
+
+    assert [o.listening for o in opened] == [True]
+    assert opened[0].config.verbose is False  # clone() de crawl4ai 0.6.3 ne recopie pas verbose
+
+
+@pytest.mark.asyncio
+async def test_crawl_and_extract_browser_runs_behind_public_only_proxy(monkeypatch):
+    from job_crawler.crawler1 import crawl_and_extract_jobs_optimized
+
+    crawler = _fake_crawler()
+    crawler.arun_many.return_value = [_crawl_result("http://93.184.216.34/offre", "http://127.0.0.1/admin")]
+    opened = _patch_crawler_class(monkeypatch, "job_crawler.crawler1.AsyncWebCrawler", crawler)
+
+    await crawl_and_extract_jobs_optimized(["http://93.184.216.34/offre"], api_key="dummy")
+
+    assert [o.listening for o in opened] == [True]
+
+
+@pytest.mark.asyncio
+async def test_collect_website_browser_runs_behind_public_only_proxy(monkeypatch):
+    from app.services.profile.collectors import website
+
+    async def no_sitemap(url):
+        return None
+
+    monkeypatch.setattr(website, "_default_fetch", no_sitemap)
+    crawler = _fake_crawler()
+    crawler.arun_many.return_value = [
+        SimpleNamespace(url="http://93.184.216.34", redirected_url="http://93.184.216.34", markdown="# Accueil")
+    ]
+    opened = _patch_crawler_class(monkeypatch, "crawl4ai.AsyncWebCrawler", crawler)
+
+    async def extract(markdown_by_url):
+        return {"projects": [], "experiences": []}
+
+    await website.collect_website("http://93.184.216.34", extract=extract)
+
+    assert [o.listening for o in opened] == [True]
+
+
+@pytest.mark.asyncio
+async def test_offer_verification_browser_runs_behind_public_only_proxy(monkeypatch):
+    from app.tasks.verify_job_offers import check_url_headless_js
+
+    crawler = _fake_crawler()
+    crawler.arun.return_value = SimpleNamespace(success=False, error_message="simulé")
+    opened = _patch_crawler_class(monkeypatch, "crawl4ai.AsyncWebCrawler", crawler)
+
+    assert (await check_url_headless_js("http://93.184.216.34/offre"))["status"] == "unknown"
+    assert [o.listening for o in opened] == [True]

@@ -24,6 +24,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from litellm import acompletion
 
+from app.services.egress_guard import public_only_proxy, public_only_transport
 from app.services.profile.urls import (
     block_non_public_browser_requests,
     landed_on_public_host,
@@ -77,7 +78,7 @@ async def _default_fetch(url: str, total_timeout: float = FETCH_TIMEOUT) -> Opti
     current = url
     deadline = time.monotonic() + total_timeout
     try:
-        async with httpx.AsyncClient(follow_redirects=False) as client:
+        async with httpx.AsyncClient(follow_redirects=False, transport=public_only_transport()) as client:
             for _ in range(MAX_REDIRECTS + 1):
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
@@ -253,9 +254,12 @@ async def collect_website(
     extract = extract or _extract_with_llm
 
     if crawler is None:
-        from crawl4ai import AsyncWebCrawler
+        from crawl4ai import AsyncWebCrawler, BrowserConfig
 
-        async with AsyncWebCrawler(verbose=False) as instance:
+        # Navigateur derrière le proxy qui ne laisse passer que des IP publiques validées
+        async with public_only_proxy() as proxy_url, AsyncWebCrawler(
+            config=BrowserConfig(proxy=proxy_url), verbose=False
+        ) as instance:
             instance.crawler_strategy.set_hook("on_page_context_created", block_non_public_browser_requests)
             results = await instance.arun_many(pages)
     else:

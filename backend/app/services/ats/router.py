@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 
+from app.services.egress_guard import public_only_transport
 from app.services.profile.urls import reject_non_public_request
 
 logger = logging.getLogger(__name__)
@@ -444,6 +445,7 @@ async def extract_ats_or_jsonld_offer(
             follow_redirects=True,
             timeout=DEFAULT_TIMEOUT,
             event_hooks={"request": [reject_non_public_request]},
+            transport=public_only_transport(),
         )
         close_client = True
 

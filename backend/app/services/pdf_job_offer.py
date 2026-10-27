@@ -12,6 +12,7 @@ except ImportError:
 
 import httpx
 
+from app.services.egress_guard import public_only_transport
 from app.services.profile.urls import reject_non_public_request
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,7 @@ async def check_is_pdf_content(url: str, timeout: float = 5.0) -> bool:
             follow_redirects=True,
             headers=DEFAULT_HEADERS,
             event_hooks={"request": [reject_non_public_request]},
+            transport=public_only_transport(),
         ) as client:
             resp = await client.head(url)
             content_type = resp.headers.get("content-type", "").lower()
@@ -88,6 +90,7 @@ async def download_pdf_bytes(
             follow_redirects=True,
             headers=DEFAULT_HEADERS,
             event_hooks={"request": [reject_non_public_request]},
+            transport=public_only_transport(),
         ) as client:
             resp = await client.get(url)
             if resp.status_code != 200:

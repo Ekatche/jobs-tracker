@@ -12,6 +12,11 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 
 from app.database import get_database
+from app.services.egress_guard import (
+    browser_config_behind_proxy,
+    public_only_proxy,
+    public_only_transport,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +225,7 @@ async def check_url_http_fast(
             headers=DEFAULT_HEADERS,
             follow_redirects=True,
             timeout=timeout,
+            transport=public_only_transport(),
         )
         should_close_client = True
 
@@ -372,7 +378,10 @@ async def check_url_headless_js(url: str) -> Dict[str, Any]:
             """,
         )
 
-        async with AsyncWebCrawler(config=browser_config) as crawler:
+        # Navigateur derrière le proxy qui ne laisse passer que des IP publiques validées
+        async with public_only_proxy() as proxy_url, AsyncWebCrawler(
+            config=browser_config_behind_proxy(browser_config, proxy_url)
+        ) as crawler:
             result = await crawler.arun(url=url, config=crawl_config)
 
             if not result.success:
@@ -723,6 +732,7 @@ async def verify_job_offers_workflow(
         headers=DEFAULT_HEADERS,
         follow_redirects=True,
         timeout=10.0,
+        transport=public_only_transport(),
     ) as http_client:
         # Indeed en une passe par lots avant les workers : les offres tranchées par l'API
         # ne passent ni par le check HTTP (401) ni par le headless
