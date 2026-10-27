@@ -1,7 +1,7 @@
 ---
 task: CV adapté — un poste par entrée, intitulés et dates gardés par le profil, mois de fin inclus, accroche neutre sans permis
 description: CV adapté (cv_tailor.py, cv_guards.py, cv_templates.py, tailor_prompt.md) — suppression de _merge_consecutive_stints et de la consigne de fusion des postes consécutifs chez le même employeur (progression interne perdue, intitulé récent collé sur la date de début la plus ancienne) ; verify_cv_honesty vérifie l'intitulé (role/title, _is_fuzzy_match) et les dates (_date_key/_end_key) de chaque expérience contre les postes du profil chez le même employeur ; _format_duration et _cumulative_career_years comptent le mois de fin (convention inclusive, 09/2017–08/2018 = 1 an, ancienneté 9 ans au lieu de 8), mois de fin inconnu = 1 ; accroche phrase 2 neutre (plus de « de la donnée … jusqu'à son usage final », plus de « principalement en ») et permis de conduire jamais dans l'accroche
-status: blocked
+status: done
 created: 2026-10-27
 ---
 
@@ -76,7 +76,7 @@ created: 2026-10-27
 - [x] Le prompt se formate toujours : `cd backend && uv run pytest tests/test_cv_tailor.py -v -k prompt` → 0 failed
 - [x] No dead code: `_merge_consecutive_stints` et ses 2 tests absents (item point 1) ; pas d'import orphelin (flake8 F401)
 - [x] Type check: n/a — pas de vérificateur de types dans le projet backend
-- [ ] Manual check: déploiement sur accord de l'utilisateur (`docker compose -f docker-compose.prod.yml up -d --build backend`, `/docs` 200, mongodb résolu depuis le conteneur), puis l'utilisateur régénère le CV Le Prado (observateur : l'utilisateur). Il doit voir 3 entrées, dont 2 chez Léo Lagrange avec leurs intitulés et dates propres, les durées « 1 an », « 4 ans » et « 4 ans 1 mois », « 9 ans » dans l'accroche, et pas de permis dans l'accroche.
+- [x] Manual check: déploiement sur accord de l'utilisateur (`docker compose -f docker-compose.prod.yml up -d --build backend`, `/docs` 200, mongodb résolu depuis le conteneur), puis l'utilisateur régénère le CV Le Prado (observateur : l'utilisateur). Il doit voir 3 entrées, dont 2 chez Léo Lagrange avec leurs intitulés et dates propres, les durées « 1 an », « 4 ans » et « 4 ans 1 mois », « 9 ans » dans l'accroche, et pas de permis dans l'accroche.
 
 ## Steps
 - [x] Step 1 (point 3) : dans `cv_templates.py`, compter le mois de fin :
@@ -115,7 +115,7 @@ created: 2026-10-27
 - Type errors: n/a — pas de vérificateur de types dans le backend
 - Unintended side effects: frontière de `test_page_budget_by_career_years` décalée d'un mois ; une fin à l'année seule pèse 10 mois de moins dans le cumul ; un intitulé reformulé par le LLM déclenche le retry (un appel de plus). Voir Notes.
 - Security surface touched: no
-- Verdict: ⚠️ BLOCKED (en attente de l'utilisateur) — code et DoD automatiques verts ; l'étape 7 et le Manual check exigent un commit, un push et un déploiement décidés par l'utilisateur
+- Verdict: ✅ DONE — DoD automatiques verts, 9638208 déployé (CI verte), Manual check confirmé par l'utilisateur sur le CV Le Prado régénéré
 
 ## Execution Log
 (append-only, filled by executing-micro-plans)
@@ -135,6 +135,7 @@ created: 2026-10-27
 - 2026-10-27T07:45Z | claude-code | close | blocked | DoD automatiques verts (1435 passed, 128 ciblés, flake8 0, grep prompt conformes) ; étape 7 + Manual check en attente de commit/push/déploiement par l'utilisateur
 - 2026-10-27T07:49Z | claude-code | step 7 | started | accord de l'utilisateur pour commit, push et déploiement
 - 2026-10-27T07:51Z | claude-code | step 7 | done | commit 9638208 poussé ; VPS `git pull` + `docker compose -f docker-compose.prod.yml up -d --build backend` ; /docs 200, mongodb résolu (172.18.0.4), conteneur : `_merge_consecutive_stints` absent, `_dates_agree` présent, d('09/2017','08/2018') = « 1 an » ; régénération du CV Le Prado demandée à l'utilisateur
+- 2026-10-27T09:24Z | claude-code | close | done | Manual check confirmé par l'utilisateur (CV Le Prado régénéré conforme) ; CI GitHub verte sur 9638208 et 2a745c2
 
 ## Notes
 - Fichiers de conventions lus : `CLAUDE.md` à la racine (`AGENTS.md` et `GEMINI.md` identiques, vérifié avec `cmp`). Pas de fichier de conventions sous `backend/`.
@@ -152,7 +153,7 @@ created: 2026-10-27
 - Coût : une violation d'intitulé ou de dates déclenche le retry existant, soit un appel LLM de plus. Les seuils tolérants de l'étape 3 (sous-chaîne et ratio 0,85 sur l'intitulé, dates illisibles ou en cours acceptées) limitent les faux positifs. Le prompt demande désormais explicitement intitulés et dates exacts, ce qui devrait garder le taux de retry bas. À surveiller dans les logs : « CV honesty verification failed ».
 - La convention inclusive (09/2017–08/2018 = 12 mois) est celle de LinkedIn et des CV. La convention exclusive, gardée par erreur à la revue du 26/10, sous-comptait d'un mois chaque poste.
 - Suivi possible, hors périmètre : regrouper visuellement dans les gabarits les postes consécutifs d'un même employeur (un en-tête employeur, deux intitulés datés).
-- Statut `blocked` le 27/10 : rien n'échoue. Étape 7 faite (commit 9638208 déployé en prod). Seul le Manual check reste : l'utilisateur régénère le CV Le Prado et confirme 3 entrées, dont 2 chez Léo Lagrange, « 1 an » / « 4 ans » / « 4 ans 1 mois », « 9 ans » dans l'accroche, pas de permis dans l'accroche. Prochaine action : sur sa confirmation, cocher le Manual check et passer `status: done`.
+- Statut `blocked` le 27/10 : rien n'échoue. Étape 7 faite (commit 9638208 déployé en prod). Seul le Manual check reste : l'utilisateur régénère le CV Le Prado et confirme 3 entrées, dont 2 chez Léo Lagrange, « 1 an » / « 4 ans » / « 4 ans 1 mois », « 9 ans » dans l'accroche, pas de permis dans l'accroche. Confirmé par l'utilisateur le 27/10 (« ça a fonctionné ») : plan passé en `done`.
 - Point 5 (diplôme obligatoire absent : DEES pour Le Prado) différé par l'utilisateur.
 - Étape 3 : un poste du profil sans intitulé reste candidat (intitulé non vérifié, dates vérifiées) ; un poste sans entreprise n'est jamais rattaché (`_is_fuzzy_match` ignore les valeurs vides du profil).
 - Étape 4, écart rattrapé en phase 7 : la consigne commençait par « Une entrée par poste », et l'item DoD `grep -c "une entrée par poste"` (sensible à la casse) renvoyait 0. Reformulée en « Garde une entrée par poste… », sans changer le sens.
