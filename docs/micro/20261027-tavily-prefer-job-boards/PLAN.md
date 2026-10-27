@@ -42,4 +42,9 @@ Coût : 4 appels advanced = 8 crédits par requête.
 - [x] Motif choisirleservicepublic dans `config/tasks.yaml` (filter_urls_task)
 - [x] Suite `uv run pytest tests` (depuis backend/) : 1435 passed
 - [x] Commit 2669bcf, déployé le 2026-10-27 (backend reconstruit, Airflow par volume ; /docs 200, mongodb résolu, tavily-python 0.7.2 dans les deux conteneurs)
-- [ ] Lecture logs collecte 2026-10-28 07:00 UTC : domaines et scores
+- [x] Lecture logs du run manuel 2026-10-27 09:44 UTC (23 min, 24 créées / 4 mises à jour, ~20 crédits) :
+  domaines pertinents en hausse (Animateur Lyon : centres-sociaux.fr 0.86, nostalentsnosemplois 0.83,
+  fr.trabajo.org 0.77), APEC sature 10/20 places sur FP&A et Data Analyst, Finance PM 0 résultat board.
+  Seuil 0.5 envisagé (couperait instagram 0.35, apec 0.30-0.05, disney 0.41) : non décidé.
+- [ ] Problème distinct : l'agent de recherche n'appelle pas Tavily sur 3/8 requêtes (URLs inventées,
+  2 essais gâchés) ; Data Scientist Lyon en échec car 0 offre structurée nouvelle (53/55 connues).
