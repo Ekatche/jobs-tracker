@@ -157,7 +157,7 @@ Une offre est **rejetée uniquement sur preuve** :
 
 | Condition | Action |
 |---|---|
-| Pays étranger cité dans `localisation` | Rejet |
+| Pays étranger cité dans `localisation` | Rejet, sauf ville frontalière connue (`BORDER_CITIES`) dans le rayon de la ville cible |
 | Commune française > 50 km de la cible | Rejet |
 | Localisation inconnue + locale d'URL étrangère (hors `en-*`) | Rejet |
 | Localisation inconnue, URL neutre | **Conservée** (fail-open) |

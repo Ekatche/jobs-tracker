@@ -39,6 +39,28 @@ FOREIGN_MARKERS = (
 )
 _FOREIGN_PATTERN = re.compile(r"\b(?:" + "|".join(re.escape(m) for m in FOREIGN_MARKERS) + r")\b")
 
+# Villes étrangères proches de la frontière (lon, lat), texte normalisé. Une offre étrangère
+# qui en cite une suit la règle du rayon comme une commune française (frontaliers d'Annecy,
+# Mulhouse, Thionville, Lille, Nice...). Consultée seulement si un pays étranger est cité.
+BORDER_CITIES = {
+    "geneve": (6.1432, 46.2044), "geneva": (6.1432, 46.2044), "lausanne": (6.6323, 46.5197),
+    "nyon": (6.2398, 46.3833), "bale": (7.5886, 47.5596), "basel": (7.5886, 47.5596),
+    "neuchatel": (6.9293, 46.9900), "delemont": (7.3445, 47.3649),
+    "luxembourg": (6.1319, 49.6116), "esch sur alzette": (5.9806, 49.4958),
+    "tournai": (3.3878, 50.6056), "courtrai": (3.2649, 50.8279), "kortrijk": (3.2649, 50.8279),
+    "mouscron": (3.2139, 50.7439), "mons": (3.9523, 50.4542), "charleroi": (4.4446, 50.4108),
+    "arlon": (5.8167, 49.6833), "liege": (5.5797, 50.6326),
+    "sarrebruck": (6.9969, 49.2402), "saarbrucken": (6.9969, 49.2402), "karlsruhe": (8.4037, 49.0069),
+    "kehl": (7.8133, 48.5726), "offenburg": (7.9408, 48.4708),
+    "fribourg en brisgau": (7.8421, 47.9990), "freiburg": (7.8421, 47.9990),
+    "vintimille": (7.6077, 43.7907), "ventimiglia": (7.6077, 43.7907), "sanremo": (7.7760, 43.8159),
+    "aoste": (7.3206, 45.7372), "aosta": (7.3206, 45.7372),
+    "saint sebastien": (-1.9812, 43.3183), "san sebastian": (-1.9812, 43.3183),
+    "donostia": (-1.9812, 43.3183), "irun": (-1.7896, 43.3390), "figueres": (2.9617, 42.2667),
+    "girona": (2.8214, 41.9794),
+}
+_BORDER_PATTERN = re.compile(r"\b(" + "|".join(re.escape(c) for c in BORDER_CITIES) + r")\b")
+
 # Segment de locale dans le chemin (Workday : /fr-CA/, /en-US/).
 _URL_LOCALE = re.compile(r"/([a-z]{2})-([A-Z]{2})(?:/|$)")
 
@@ -116,6 +138,13 @@ async def location_rejection_reason(
         locale = foreign_url_locale(url)
         return f"localisation inconnue, URL publiée en {locale}" if locale else None
     if mentions_foreign_country(localisation):
+        border = _BORDER_PATTERN.search(text)
+        if border and target_city:
+            target_commune = await resolve_commune(clean_city_label(target_city), client)
+            if target_commune:
+                distance = haversine_km(BORDER_CITIES[border.group(1)], (target_commune["lon"], target_commune["lat"]))
+                if distance <= radius_km:
+                    return None
         return f"localisation à l'étranger ({localisation})"
     if any(marker in text for marker in REMOTE_MARKERS) or not target_city:
         return None

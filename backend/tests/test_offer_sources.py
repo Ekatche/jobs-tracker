@@ -11,7 +11,8 @@ from app.services.sources import geo, jobboards
 LYON = {"nom": "Lyon", "code": "69123", "centre": {"type": "Point", "coordinates": [4.8351, 45.758]}}
 VILLEURBANNE = {"nom": "Villeurbanne", "code": "69266", "centre": {"type": "Point", "coordinates": [4.8812, 45.7707]}}
 PARIS = {"nom": "Paris", "code": "75056", "centre": {"type": "Point", "coordinates": [2.347, 48.8589]}}
-MONTREAL_AUDE = {"nom": "Montréal", "code": "11254", "centre": {"type": "Point", "coordinates": [2.14, 43.2]}}
+ANNECY = {"nom": "Annecy", "code": "74010", "centre": {"type": "Point", "coordinates": [6.1294, 45.8992]}}
+MONTREAL_AUDE ={"nom": "Montréal", "code": "11254", "centre": {"type": "Point", "coordinates": [2.14, 43.2]}}
 
 
 def geo_transport(communes: dict):
@@ -118,6 +119,24 @@ async def test_location_without_target_city_only_rejects_foreign():
         assert await geo.location_rejection_reason("Paris", None, None, client) is None
         assert await geo.location_rejection_reason("Berlin, Germany", None, None, client)
     assert calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "localisation, target, rejected",
+    [
+        ("Genève, Suisse", "Annecy", False),  # 34 km : frontalier
+        ("Geneva, Switzerland", "Annecy", False),
+        ("Genève, Suisse", "Lyon", True),  # 112 km
+        ("Zurich, Switzerland", "Annecy", True),  # ville étrangère hors table
+        ("Genève, Suisse", None, True),  # pas de ville de référence
+    ],
+)
+async def test_border_city_follows_radius_rule(localisation, target, rejected):
+    transport, _ = geo_transport({"lyon": LYON, "annecy": ANNECY})
+    async with httpx.AsyncClient(transport=transport) as client:
+        reason = await geo.location_rejection_reason(localisation, None, target, client)
+    assert bool(reason) is rejected
 
 
 # ---------- Indeed / LinkedIn (jobspy) ----------
