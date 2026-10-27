@@ -26,6 +26,7 @@ perd les offres de Genève (34 km), un profil à Mulhouse celles de Bâle.
 - [x] Démonstration sur paires réelles, résultat à l'utilisateur
 - [x] Commit a7fab3b, déployé le 2026-10-27 (backend reconstruit, Airflow par volume ; /docs 200, mongodb résolu, `BORDER_CITIES` (36) présent dans les deux conteneurs)
 
-## Ouvert
+## Rayon frontalier élargi (accord utilisateur du 2026-10-27)
 
-- Metz → Luxembourg = 57 km, rejetée avec le rayon de 50 km. Rayon frontalier élargi (60 km ?) non tranché.
+- Metz → Luxembourg = 57 km, rejetée avec 50 km. `BORDER_RADIUS_KM = 60` pour les seules villes frontalières
+  (`max(radius_km, 60)`, un rayon plus grand passé au script de purge reste respecté). Strasbourg → Karlsruhe (68 km) reste rejetée.

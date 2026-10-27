@@ -41,7 +41,9 @@ _FOREIGN_PATTERN = re.compile(r"\b(?:" + "|".join(re.escape(m) for m in FOREIGN_
 
 # Villes étrangères proches de la frontière (lon, lat), texte normalisé. Une offre étrangère
 # qui en cite une suit la règle du rayon comme une commune française (frontaliers d'Annecy,
-# Mulhouse, Thionville, Lille, Nice...). Consultée seulement si un pays étranger est cité.
+# Mulhouse, Metz, Lille, Nice...). Consultée seulement si un pays étranger est cité.
+# Rayon élargi : Metz -> Luxembourg = 56 km, trajet frontalier courant.
+BORDER_RADIUS_KM = 60
 BORDER_CITIES = {
     "geneve": (6.1432, 46.2044), "geneva": (6.1432, 46.2044), "lausanne": (6.6323, 46.5197),
     "nyon": (6.2398, 46.3833), "bale": (7.5886, 47.5596), "basel": (7.5886, 47.5596),
@@ -143,7 +145,7 @@ async def location_rejection_reason(
             target_commune = await resolve_commune(clean_city_label(target_city), client)
             if target_commune:
                 distance = haversine_km(BORDER_CITIES[border.group(1)], (target_commune["lon"], target_commune["lat"]))
-                if distance <= radius_km:
+                if distance <= max(radius_km, BORDER_RADIUS_KM):
                     return None
         return f"localisation à l'étranger ({localisation})"
     if any(marker in text for marker in REMOTE_MARKERS) or not target_city:

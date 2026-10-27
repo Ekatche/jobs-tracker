@@ -12,7 +12,9 @@ LYON = {"nom": "Lyon", "code": "69123", "centre": {"type": "Point", "coordinates
 VILLEURBANNE = {"nom": "Villeurbanne", "code": "69266", "centre": {"type": "Point", "coordinates": [4.8812, 45.7707]}}
 PARIS = {"nom": "Paris", "code": "75056", "centre": {"type": "Point", "coordinates": [2.347, 48.8589]}}
 ANNECY = {"nom": "Annecy", "code": "74010", "centre": {"type": "Point", "coordinates": [6.1294, 45.8992]}}
-MONTREAL_AUDE ={"nom": "Montréal", "code": "11254", "centre": {"type": "Point", "coordinates": [2.14, 43.2]}}
+METZ = {"nom": "Metz", "code": "57463", "centre": {"type": "Point", "coordinates": [6.1957, 49.1081]}}
+STRASBOURG = {"nom": "Strasbourg", "code": "67482", "centre": {"type": "Point", "coordinates": [7.7676, 48.5711]}}
+MONTREAL_AUDE = {"nom": "Montréal", "code": "11254", "centre": {"type": "Point", "coordinates": [2.14, 43.2]}}
 
 
 def geo_transport(communes: dict):
@@ -127,13 +129,15 @@ async def test_location_without_target_city_only_rejects_foreign():
     [
         ("Genève, Suisse", "Annecy", False),  # 34 km : frontalier
         ("Geneva, Switzerland", "Annecy", False),
+        ("Luxembourg", "Metz", False),  # 56 km : rayon frontalier de 60 km
+        ("Karlsruhe, Germany", "Strasbourg", True),  # 67 km
         ("Genève, Suisse", "Lyon", True),  # 112 km
         ("Zurich, Switzerland", "Annecy", True),  # ville étrangère hors table
         ("Genève, Suisse", None, True),  # pas de ville de référence
     ],
 )
 async def test_border_city_follows_radius_rule(localisation, target, rejected):
-    transport, _ = geo_transport({"lyon": LYON, "annecy": ANNECY})
+    transport, _ = geo_transport({"lyon": LYON, "annecy": ANNECY, "metz": METZ, "strasbourg": STRASBOURG})
     async with httpx.AsyncClient(transport=transport) as client:
         reason = await geo.location_rejection_reason(localisation, None, target, client)
     assert bool(reason) is rejected
