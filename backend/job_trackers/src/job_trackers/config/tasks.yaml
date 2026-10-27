@@ -48,6 +48,7 @@ filter_urls_task:
          * APEC : apec.fr/candidat/recherche-emploi.html/offre/<id>
          * France Travail : candidat.francetravail.fr/offres/recherche/detail/<id>
          * Cadremploi : cadremploi.fr/emploi/detail_offre/<id>
+         * Choisir le service public : choisirleservicepublic.gouv.fr/offre-emploi/<slug>-reference-<id>/
          * LinkedIn : linkedin.com/jobs/view/<id>
 
     2. **Adéquation au métier** :

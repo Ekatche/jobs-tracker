@@ -2,6 +2,7 @@ import os
 import logging
 from crewai.tools import BaseTool
 from typing import Type, Any, Optional
+from urllib.parse import urlsplit
 from pydantic import BaseModel, Field
 from tavily import TavilyClient
 from dotenv import load_dotenv
@@ -84,11 +85,25 @@ class TavilyJobBoardSearchTool(BaseTool):
             "optioncarriere.com",
         ]
 
+        # Indeed, LinkedIn et HelloWork sont collectés par python-jobspy : les chercher ici coûterait
+        # des crédits Tavily pour rien. France Travail n'est plus une source (API fermée au libre-service
+        # le 2026-10-20).
+        covered_elsewhere = [
+            "indeed.com",
+            "fr.indeed.com",
+            "linkedin.com",
+            "fr.linkedin.com",
+            "hellowork.com",
+            "francetravail.fr",
+            "candidat.francetravail.fr",
+        ]
+        excluded_domains = spam_aggregators + covered_elsewhere
+
         def _is_valid_job_url(u: str) -> bool:
             if not u or not isinstance(u, str) or not u.startswith("http"):
                 return False
             low = u.lower()
-            if any(spam in low for spam in spam_aggregators):
+            if any(domain in low for domain in excluded_domains):
                 return False
             # Exclure les pages génériques non pertinentes
             excluded_paths = (
@@ -110,15 +125,21 @@ class TavilyJobBoardSearchTool(BaseTool):
                 return False
             return True
 
-        # Palier 1 : Job boards nationaux, un appel par groupe (site, max résultats). Un appel
-        # unique était saturé par HelloWork et France Travail : WTTJ et Indeed n'apparaissaient plus.
-        # Indeed, LinkedIn et HelloWork sont collectés par python-jobspy : les chercher ici coûterait
-        # des crédits Tavily pour rien. France Travail n'est plus une source (API fermée au libre-service
-        # le 2026-10-20).
-        job_board_groups = [
-            (["welcometothejungle.com"], 8),
-            (["apec.fr", "cadremploi.fr"], 6),
-            (["free-work.com", "lesjeudis.com"], 6),
+        # Palier 1 : job boards préférés, en un seul appel `include_domains_mode="prefer"`. En
+        # `restrict` (défaut Tavily), chaque site renvoyait toujours ses pages, même quand aucune
+        # ne correspondait au métier (animation, social, fonction publique) : 100 % de bruit.
+        # `prefer` classe ces sites en tête et laisse remonter le reste du web. L'ancienne
+        # saturation par HelloWork et France Travail est écartée par `excluded_domains`.
+        preferred_job_boards = [
+            "welcometothejungle.com",
+            "apec.fr",
+            "cadremploi.fr",
+            "free-work.com",
+            "lesjeudis.com",
+            # Fonction publique d'État, hospitalière et territoriale (reprend emploi-territorial)
+            "choisirleservicepublic.gouv.fr",
+            # Animation socioculturelle
+            "planetanim.fr",
         ]
 
         # Palier 2 : Portails carrières directs & ATS d'entreprises (Zero-Token extraction directe)
@@ -145,26 +166,31 @@ class TavilyJobBoardSearchTool(BaseTool):
         ]
 
         try:
-            # ✅ PASSE 1: Recherche sur les job boards français qualifiés, par groupe de sites
-            logger.info(f"🇫🇷 Passe 1 - Job boards qualifiés (offres récentes): {clean_query}")
-            for domains, max_results in job_board_groups:
-                try:
-                    response_fr = tavily_client.search(
-                        query=clean_query,
-                        search_depth="advanced",
-                        time_range="month",
-                        max_results=max_results,
-                        include_domains=domains,
-                        exclude_domains=spam_aggregators,
+            # ✅ PASSE 1: Job boards préférés, reste du web français autorisé
+            logger.info(f"🇫🇷 Passe 1 - Job boards préférés (offres récentes): {clean_query}")
+            try:
+                response_fr = tavily_client.search(
+                    query=clean_query,
+                    search_depth="advanced",
+                    time_range="month",
+                    max_results=20,
+                    include_domains=preferred_job_boards,
+                    include_domains_mode="prefer",
+                    country="france",
+                    exclude_domains=excluded_domains,
+                )
+                if response_fr and response_fr.get("results"):
+                    for r in response_fr["results"]:
+                        url = r.get("url")
+                        if url and _is_valid_job_url(url):
+                            all_urls.append(url)
+                    # Score Tavily par résultat, pour calibrer un éventuel seuil sur des runs réels
+                    scored = ", ".join(
+                        f"{r.get('score') or 0:.2f} {urlsplit(r.get('url') or '').hostname}" for r in response_fr["results"]
                     )
-                    if response_fr and response_fr.get("results"):
-                        for r in response_fr["results"]:
-                            url = r.get("url")
-                            if url and _is_valid_job_url(url):
-                                all_urls.append(url)
-                        logger.info(f"📋 {len(response_fr['results'])} résultats trouvés sur {', '.join(domains)}")
-                except Exception as e_fr:
-                    logger.warning(f"⚠️ Erreur Passe 1 ({', '.join(domains)}): {e_fr}")
+                    logger.info(f"📋 {len(response_fr['results'])} résultats job boards (score hôte) : {scored}")
+            except Exception as e_fr:
+                logger.warning(f"⚠️ Erreur Passe 1 (job boards): {e_fr}")
 
             # ✅ PASSE 2: Recherche directe sur les ATS & carrières d'entreprises (max 10)
             logger.info(f"🏢 Passe 2 - ATS & Carrières directs d'entreprises: {clean_query}")

@@ -64,28 +64,29 @@ class TestTavilyTool:
         result_none = tool._run()
         assert result_none == []
 
-    def test_funnel_two_passes_balanced_and_deduplicated(self):
+    def test_board_pass_prefers_listed_sites_without_restricting_the_web(self):
         from unittest.mock import MagicMock
         tool = TavilyJobBoardSearchTool()
         mock_client = MagicMock()
 
-        # Mock 2 passes
         def mock_search(query, **kwargs):
             inc_domains = kwargs.get("include_domains") or []
             if "welcometothejungle.com" in inc_domains:
-                # Pass 1: National Job Boards
+                # Passe 1 : job boards préférés, le reste du web peut remonter
                 return {
                     "results": [
-                        {"url": "https://www.welcometothejungle.com/fr/jobs/1"},
-                        {"url": "https://fr.jooble.org/spam-listing"},
+                        {"url": "https://www.welcometothejungle.com/fr/jobs/1", "score": 0.81},
+                        {"url": "https://fr.jooble.org/spam-listing", "score": 0.5},
+                        {"url": "https://candidat.francetravail.fr/offres/recherche/detail/123", "score": 0.7},
+                        {"url": "https://www.mairie-exemple.fr/offre-animateur-jeunesse", "score": 0.62},
                     ]
                 }
             elif "greenhouse.io" in inc_domains:
-                # Pass 2: Company ATS
+                # Passe 2 : ATS d'entreprises
                 return {
                     "results": [
                         {"url": "https://boards.greenhouse.io/acme/jobs/123"},
-                        {"url": "https://www.welcometothejungle.com/fr/jobs/1"},  # duplicate
+                        {"url": "https://www.welcometothejungle.com/fr/jobs/1"},  # doublon
                     ]
                 }
             return {"results": []}
@@ -93,24 +94,25 @@ class TestTavilyTool:
         mock_client.search.side_effect = mock_search
         tool.client = mock_client
 
-        results = tool._run(query="Data Engineer Lyon")
+        results = tool._run(query="Animateur socioculturel Bourgoin-Jallieu")
 
-        board_groups = [
-            c.kwargs["include_domains"]
-            for c in mock_client.search.call_args_list
-            if c.kwargs.get("include_domains") and "greenhouse.io" not in c.kwargs["include_domains"]
-        ]
-        # Passe 1 découpée par site : WTTJ n'est plus en concurrence avec HelloWork/France Travail.
-        assert ["welcometothejungle.com"] in board_groups
-        # France Travail n'est plus une source, même via Tavily.
-        assert not any("francetravail.fr" in group for group in board_groups)
-        # Indeed, HelloWork et LinkedIn sont couverts par jobspy : aucun crédit Tavily dépensé dessus.
-        assert not any("indeed.fr" in group for group in board_groups)
-        assert ["hellowork.com"] not in board_groups
-        assert mock_client.search.call_count == len(board_groups) + 1
-        # Jooble filtered out, WTTJ deduplicated
+        calls = [c.kwargs for c in mock_client.search.call_args_list]
+        [board] = [c for c in calls if "greenhouse.io" not in c["include_domains"]]
+        [ats] = [c for c in calls if "greenhouse.io" in c["include_domains"]]
+        # Un seul appel job boards : en `restrict`, chaque site renvoyait ses pages même hors sujet.
+        assert board["include_domains_mode"] == "prefer"
+        assert board["country"] == "france"
+        assert "choisirleservicepublic.gouv.fr" in board["include_domains"]
+        # Indeed, LinkedIn, HelloWork (jobspy) et France Travail (abandonné) ne coûtent aucun crédit.
+        for domain in ("indeed.com", "linkedin.com", "hellowork.com", "francetravail.fr"):
+            assert domain in board["exclude_domains"]
+        # Les ATS restent un filtre dur.
+        assert ats.get("include_domains_mode", "restrict") == "restrict"
+        assert mock_client.search.call_count == 2
+        # Jooble et France Travail écartés même si Tavily les renvoie, WTTJ dédoublonné
         assert results == [
             "https://www.welcometothejungle.com/fr/jobs/1",
+            "https://www.mairie-exemple.fr/offre-animateur-jeunesse",
             "https://boards.greenhouse.io/acme/jobs/123",
         ]
 
