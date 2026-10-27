@@ -208,8 +208,25 @@ dict brut
   → enrich_offers                           # source_domain, favicon, score similarité
   → clean_duplicate_offers                  # dedup inter-sources
   → save_to_db                              # upsert sur url + alternative_urls
-  → tag_new_offers                          # marquage `is_new=True`
+  → tag_new_offers                          # score de pertinence du lot contre tous les profils
 ```
+
+### Recalcul du score de pertinence
+
+Le score hybride (offre × profil) n'est recalculé que dans trois cas :
+
+| Déclencheur | Fonction | Périmètre |
+|---|---|---|
+| Fin de chaque requête de collecte | `tag_new_offers` (`app/services/offer_profile_matcher.py`) | Offres du lot, neuves ou mises à jour, et offres `scoring_pending` ; contre tous les profils |
+| Sauvegarde des préférences (`PUT /profile/candidate/preferences`) | `rematch_user`, en tâche de fond | Tout le stock actif, pour cet utilisateur. Seulement si un champ de matching change : `target_roles`, `locations`, `remote_policy`, `excluded_keywords`, `contract_types`, `seniority_levels`, `preferred_industries`, `preferred_company_sizes` |
+| Script manuel `scripts/rematch_all_users.py --apply` | `rematch_user` pour chaque profil | Tout le stock actif, tous les profils (appels d'embedding payants) |
+
+Non couvert : l'édition du profil (`PUT /profile/candidate`) et les imports de source
+(`/profile/candidate/sources/cv`, `github`, `website`) ne relancent aucun calcul. Le score lit
+pourtant le `headline` et les `skills` du profil (`profile_features`,
+`app/services/offer_scoring/score.py`). Après un nouveau CV ou un titre modifié, les offres déjà en
+base gardent leur ancien score ; seules celles que les collectes suivantes ramènent sont
+réévaluées avec le profil à jour.
 
 ### Type de contrat (`detect_contract_type`)
 
