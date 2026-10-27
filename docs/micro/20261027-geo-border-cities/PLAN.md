@@ -24,4 +24,8 @@ perd les offres de Genève (34 km), un profil à Mulhouse celles de Bâle.
 - [x] `docs/JOB_INGESTION_AND_NORMALIZATION.md` ligne 160
 - [x] `uv run pytest tests/test_offer_sources.py` (seulement cette partie, demande utilisateur) : 41 passed
 - [x] Démonstration sur paires réelles, résultat à l'utilisateur
-- [ ] Commit / déploiement : sur accord explicite
+- [x] Commit a7fab3b, déployé le 2026-10-27 (backend reconstruit, Airflow par volume ; /docs 200, mongodb résolu, `BORDER_CITIES` (36) présent dans les deux conteneurs)
+
+## Ouvert
+
+- Metz → Luxembourg = 57 km, rejetée avec le rayon de 50 km. Rayon frontalier élargi (60 km ?) non tranché.
