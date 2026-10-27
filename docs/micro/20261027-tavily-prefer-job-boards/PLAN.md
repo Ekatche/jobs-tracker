@@ -41,5 +41,5 @@ Coût : 4 appels advanced = 8 crédits par requête.
 - [x] Implémentation `job_trackers/src/job_trackers/tools/custom_tool.py`
 - [x] Motif choisirleservicepublic dans `config/tasks.yaml` (filter_urls_task)
 - [x] Suite `uv run pytest tests` (depuis backend/) : 1435 passed
-- [ ] Commit, déploiement backend (`-f docker-compose.prod.yml`)
+- [x] Commit 2669bcf, déployé le 2026-10-27 (backend reconstruit, Airflow par volume ; /docs 200, mongodb résolu, tavily-python 0.7.2 dans les deux conteneurs)
 - [ ] Lecture logs collecte 2026-10-28 07:00 UTC : domaines et scores
