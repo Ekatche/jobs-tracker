@@ -1,7 +1,7 @@
 ---
 task: Garde SSRF au moment de la connexion (DNS rebinding, canaux aveugles du navigateur)
 description: Valider l'adresse IP réellement connectée (httpx via backend réseau httpcore, Chromium via proxy local filtrant) au lieu de valider avant une seconde résolution DNS
-status: in_progress
+status: done
 created: 2026-10-27
 ---
 
@@ -36,7 +36,7 @@ created: 2026-10-27
 - [x] 3. RED/GREEN proxy : CONNECT et GET absolu vers hôte interne/rebindé => 403, serveur non contacté ; hôte public => relayé (origin-form, `Connection: close`).
 - [x] 4. Brancher le proxy dans crawler1 (2 fonctions), website (crawler interne), verify_job_offers (navigateur + client).
 - [x] 5. Smoke Chromium réel (scratch) : rebinding via `--host-resolver-rules`, WebSocket, redirection => 0 hit ; page publique réelle OK ; temps comparé.
-- [ ] 6. Suite complète, flake8 sur copie scratch, semgrep ; commit `fix(security)`, push, CI, déploiement backend + Airflow, vérifs.
+- [x] 6. Suite complète, flake8 sur copie scratch, semgrep ; commit `fix(security)`, push, CI, déploiement backend + Airflow, vérifs.
 
 ## Résiduels (acceptés)
 - WebRTC/UDP depuis le navigateur ; port quelconque sur une IP publique.
@@ -48,3 +48,4 @@ created: 2026-10-27
 - `uv run pytest tests` (depuis backend/) : tout vert.
 - Smoke : 0 hit interne sur rebinding / WebSocket / redirection ; page publique crawlée.
 - Résultat smoke du 27/10 (Chromium réel) : sans proxy 10 hits internes (page rebindée, WebSocket IP et nom rebindé, popup, sendBeacon, fetch no-cors, img, favicon, redirection vers IP et vers nom rebindé) ; avec proxy 0. example.com et python.org/jobs : même contenu (859 / 2246 car.), même temps (4,7 s contre 4,8 s ; 6,1 s contre 6,7 s). `check_url_headless_js` sur nom rebindé : `unknown`, pas de suppression.
+- 27/10 : suite 1433 passed, lint CI rejoué sur copie, CI verte ; `5539aa7` déployé ~07:20 UTC (backend rebuild prod, Airflow par `git pull`) : /docs 200, `mongodb` résolu, 0 erreur d'import Airflow. En prod (conteneurs airflow et backend) : Chromium derrière le proxy vers 127.0.0.1 = 403, 0 hit ; example.com OK.
