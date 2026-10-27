@@ -30,3 +30,4 @@ perd les offres de Genève (34 km), un profil à Mulhouse celles de Bâle.
 
 - Metz → Luxembourg = 57 km, rejetée avec 50 km. `BORDER_RADIUS_KM = 60` pour les seules villes frontalières
   (`max(radius_km, 60)`, un rayon plus grand passé au script de purge reste respecté). Strasbourg → Karlsruhe (68 km) reste rejetée.
+- Commit 6a6c6a8, déployé le 2026-10-27 (/docs 200, mongodb résolu, `BORDER_RADIUS_KM` = 60 dans backend et Airflow).
