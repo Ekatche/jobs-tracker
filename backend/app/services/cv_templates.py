@@ -125,8 +125,8 @@ def _format_duration(start: Optional[str], end: Optional[str]) -> Optional[str]:
             return None
         return "1 an" if years == 1 else f"{years} ans"
 
-    # Calcul au mois près
-    total_months = (end_year - start_year) * 12 + (end_month - start_month)
+    # Calcul au mois près, mois de fin inclus : 09/2017 – 08/2018 = 12 mois
+    total_months = (end_year - start_year) * 12 + (end_month - start_month) + 1
     if total_months <= 0:
         return None
 
@@ -162,7 +162,7 @@ def _most_recent_first(experiences: List[Dict[str, Any]]) -> List[Dict[str, Any]
 
 
 def _cumulative_career_years(profile: Dict[str, Any]) -> float:
-    """Durée cumulée des expériences en années, fusionnant les intervalles qui se chevauchent."""
+    """Durée cumulée des expériences en années, mois de fin inclus, fusionnant les intervalles qui se chevauchent."""
     today = date.today()
     intervals: List[Tuple[int, int]] = []
 
@@ -177,7 +177,8 @@ def _cumulative_career_years(profile: Dict[str, Any]) -> float:
             end_year, end_month = today.year, today.month
         elif not end_year:
             continue
-        end_val = end_year * 12 + (end_month or 12)
+        # Mois de fin inconnu = 1 : « 2020 » – « 2022 » compte 2 ans, comme _format_duration
+        end_val = end_year * 12 + (end_month or 1)
 
         if end_val >= start_val:
             intervals.append((start_val, end_val))
@@ -194,7 +195,7 @@ def _cumulative_career_years(profile: Dict[str, Any]) -> float:
         else:
             merged.append((current_start, current_end))
 
-    total_months = sum(end - start for start, end in merged)
+    total_months = sum(end - start + 1 for start, end in merged)
     return max(0.0, total_months / 12.0)
 
 

@@ -480,21 +480,28 @@ def test_undated_experiences_keep_their_order_after_dated_ones():
 def test_format_duration_unit():
     from app.services.cv_templates import _format_duration
 
-    # 8 years exact (exclusive month difference)
-    assert _format_duration("09/2018", "09/2026") == "8 ans"
+    # End month counted (inclusive): 09/2018 – 09/2026 spans 97 months
+    assert _format_duration("09/2018", "09/2026") == "8 ans 1 mois"
     assert _format_duration("2018", "2026") == "8 ans"
 
     # Exact single year
-    assert _format_duration("01/2022", "01/2023") == "1 an"
+    assert _format_duration("01/2022", "12/2022") == "1 an"
+    assert _format_duration("01/2022", "01/2023") == "1 an 1 mois"
     assert _format_duration("2021", "2022") == "1 an"
 
     # Months only
-    assert _format_duration("01/2023", "07/2023") == "6 mois"
-    assert _format_duration("02/2023", "05/2023") == "3 mois"
+    assert _format_duration("01/2023", "07/2023") == "7 mois"
+    assert _format_duration("02/2023", "05/2023") == "4 mois"
+    assert _format_duration("03/2024", "03/2024") == "1 mois"
 
     # Combined years and months
-    assert _format_duration("01/2021", "07/2022") == "1 an 6 mois"
-    assert _format_duration("01/2020", "04/2022") == "2 ans 3 mois"
+    assert _format_duration("01/2021", "07/2022") == "1 an 7 mois"
+    assert _format_duration("01/2020", "04/2022") == "2 ans 4 mois"
+
+    # Consecutive stints from a real profile: no month lost between them
+    assert _format_duration("09/2017", "08/2018") == "1 an"
+    assert _format_duration("09/2018", "08/2022") == "4 ans"
+    assert _format_duration("09/2022", "09/2026") == "4 ans 1 mois"
 
     # Ongoing / open-ended
     res = _format_duration("2020", "Présent")
@@ -514,8 +521,8 @@ def test_experience_duration_rendered_across_templates(template):
         _dated_job("Stage court", "02/2018", "07/2018"),
     ]})
     html = _render(template, cv=cv)
-    assert "09/2018 – 09/2026 · 8 ans" in html
-    assert "02/2018 – 07/2018 · 5 mois" in html
+    assert "09/2018 – 09/2026 · 8 ans 1 mois" in html
+    assert "02/2018 – 07/2018 · 6 mois" in html
 
 
 

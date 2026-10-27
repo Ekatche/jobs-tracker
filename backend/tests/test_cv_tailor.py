@@ -294,7 +294,8 @@ def test_load_tailor_prompt_grounds_summary_in_profile_experiences():
     assert "Scientist spécialisé" not in prompt
     assert "d'expérience dans" in prompt
     assert "Avec Python" not in prompt
-    assert prompt.count("principalement en") >= 2
+    assert prompt.count("principalement en") == 0
+    assert "Ne cite jamais le permis de conduire dans l'accroche" in prompt
 
 
 def test_load_tailor_prompt_without_evaluation_judges_relevance_from_offer():
@@ -335,8 +336,8 @@ async def test_generate_tailored_cv_content_retries_with_violation_feedback():
     "experiences, pages",
     [
         ([{"start": "2018-01", "end": "2022-01"}], 1),
-        ([{"start": "2017-02", "end": "2022-01"}], 1),
-        ([{"start": "2017-01", "end": "2022-01"}], 2),
+        ([{"start": "2017-03", "end": "2022-01"}], 1),
+        ([{"start": "2017-02", "end": "2022-01"}], 2),
         ([{"start": "2010-01", "end": "2015-06"}, {"start_date": "2015-07", "end_date": "2021-01"}], 2),
         ([{"start": None, "end": None}], 1),
     ],
@@ -399,72 +400,31 @@ def test_enforce_sorts_like_renderer():
     assert [e.company for e in result.experiences] == ["Current Corp", "Mid Corp", "Old Corp"]
 
 
-def test_enforce_merges_consecutive_same_employer():
-    stint_recent = TailoredExperienceItem(
-        title="Engineering Lead",
-        company="Tech Corp",
-        location="Lyon",
-        start_date="2022",
-        end_date="Présent",
-        bullet_points=["Led team of 8.", "Designed cloud architecture."],
-        relevant_technologies=["Python", "FastAPI"],
-    )
+def test_enforce_keeps_consecutive_same_employer_stints_separate():
+    # Internal promotion stays visible: one entry per stint, own title and dates
     stint_previous = TailoredExperienceItem(
-        title="Senior Developer",
-        company="tech corp  ",
-        location="Paris",
-        start_date="2020",
-        end_date="2022",
-        bullet_points=["Built microservices."],
-        relevant_technologies=["python", "Docker", "PostgreSQL"],
+        title="Animatrice Permanente 3-11 ans",
+        company="Leo Lagrange",
+        start_date="2018-09",
+        end_date="2022-08",
+        bullet_points=["Animation d'ateliers."],
+    )
+    stint_recent = TailoredExperienceItem(
+        title="Responsable Hub Leo 11-13 ans",
+        company="Leo Lagrange",
+        start_date="2022-09",
+        end_date="2026-09",
+        bullet_points=["Pilotage du hub."],
         relevance="principale",
     )
-    cv = _make_sample_cv(experiences=[stint_recent, stint_previous])
+    cv = _make_sample_cv(experiences=[stint_previous, stint_recent])
     result = enforce_page_budget(cv, PAGE_BUDGETS[1])
 
-    assert len(result.experiences) == 1
-    merged = result.experiences[0]
-    assert merged.company == "Tech Corp"
-    assert merged.title == "Engineering Lead"
-    assert merged.location == "Lyon"
-    assert merged.end_date == "Présent"
-    assert merged.start_date == "2020"
-    assert merged.bullet_points == [
-        "Led team of 8.",
-        "Designed cloud architecture.",
-        "Built microservices.",
+    assert [(e.title, e.start_date, e.end_date) for e in result.experiences] == [
+        ("Responsable Hub Leo 11-13 ans", "2022-09", "2026-09"),
+        ("Animatrice Permanente 3-11 ans", "2018-09", "2022-08"),
     ]
-    assert merged.relevant_technologies == ["Python", "FastAPI", "Docker", "PostgreSQL"]
-    assert merged.relevance == "principale"
-
-
-def test_enforce_keeps_non_consecutive_same_employer():
-    stint_1 = TailoredExperienceItem(
-        title="Lead Dev",
-        company="Acme Corp",
-        start_date="2024",
-        end_date="Présent",
-        bullet_points=["Leadership."],
-    )
-    stint_2 = TailoredExperienceItem(
-        title="Consultant",
-        company="Other Agency",
-        start_date="2022",
-        end_date="2024",
-        bullet_points=["Consulting."],
-    )
-    stint_3 = TailoredExperienceItem(
-        title="Junior Dev",
-        company="Acme Corp",
-        start_date="2020",
-        end_date="2022",
-        bullet_points=["Junior tasks."],
-    )
-    cv = _make_sample_cv(experiences=[stint_1, stint_2, stint_3])
-    result = enforce_page_budget(cv, PAGE_BUDGETS[1])
-
-    assert len(result.experiences) == 3
-    assert [e.company for e in result.experiences] == ["Acme Corp", "Other Agency", "Acme Corp"]
+    assert [e.bullet_points for e in result.experiences] == [["Pilotage du hub."], ["Animation d'ateliers."]]
 
 
 def test_enforce_caps_projects_skills_technologies():
@@ -634,7 +594,7 @@ def test_cumulative_career_years_merges_overlaps_and_gaps():
             {"start": "2020-06", "end": "2021-06"},
         ]
     }
-    assert _cumulative_career_years(profile_overlap) == 2.0
+    assert _cumulative_career_years(profile_overlap) == 25 / 12
 
     # Stints with a 2-year gap: should NOT count the gap
     profile_gap = {
@@ -643,15 +603,28 @@ def test_cumulative_career_years_merges_overlaps_and_gaps():
             {"start": "2022-01", "end": "2024-01"},
         ]
     }
-    assert _cumulative_career_years(profile_gap) == 4.0
+    assert _cumulative_career_years(profile_gap) == 50 / 12
 
-    # Single 8-year stint, exclusive month difference
+    # Single stint, end month counted: 97 months
     profile_single = {
         "experiences": [
             {"start": "09/2018", "end": "09/2026"}
         ]
     }
-    assert _cumulative_career_years(profile_single) == 8.0
+    assert _cumulative_career_years(profile_single) == 97 / 12
+
+    # Consecutive stints from a real profile: 12 + 48 + 49 months, 9 whole years
+    profile_consecutive = {
+        "experiences": [
+            {"start": "2017-09", "end": "2018-08"},
+            {"start": "2018-09", "end": "2022-08"},
+            {"start": "2022-09", "end": "2026-09"},
+        ]
+    }
+    assert int(_cumulative_career_years(profile_consecutive)) == 9
+
+    # Year-only dates count whole years, like _format_duration
+    assert int(_cumulative_career_years({"experiences": [{"start": "2020", "end": "2022"}]})) == 2
 
 
 def test_format_career_seniority_phrase_rounds_down():

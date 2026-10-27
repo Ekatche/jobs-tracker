@@ -315,3 +315,45 @@ def test_verify_cv_honesty_flags_inflated_seniority_variants(summary):
     is_valid, violations = verify_cv_honesty(_summary_cv(summary), _NEARLY_8_YEARS)
     assert is_valid is False
     assert any("10 ans d'expérience" in v for v in violations)
+
+
+_TWO_STINTS_SAME_EMPLOYER = {
+    "experiences": [
+        {"company": "Leo Lagrange", "role": "Animatrice Permanente 3-11 ans", "start": "2018-09", "end": "2022-08"},
+        {"company": "Leo Lagrange", "role": "Responsable Hub", "start": "2022-09", "end": "2026-09"},
+    ],
+    "skills": ["Animation"],
+}
+
+
+def _stint_cv(title: str, start: str, end: str) -> TailoredCVSchema:
+    return TailoredCVSchema(
+        target_role_title="Coordinatrice",
+        professional_summary="...",
+        prioritized_skills=[TailoredSkillGroup(category="Animation", skills=["Animation"])],
+        experiences=[
+            TailoredExperienceItem(title=title, company="Leo Lagrange", start_date=start, end_date=end, bullet_points=["Anime."])
+        ],
+    )
+
+
+def test_verify_cv_honesty_flags_invented_title_at_known_employer():
+    is_valid, violations = verify_cv_honesty(_stint_cv("Directrice Générale", "2022-09", "2026-09"), _TWO_STINTS_SAME_EMPLOYER)
+    assert is_valid is False
+    assert any("Intitulé 'Directrice Générale'" in v and "Responsable Hub" in v for v in violations)
+
+
+def test_verify_cv_honesty_flags_merged_stint_dates():
+    # Fusion des deux postes sous le dernier intitulé : 2018-09 → 2026-09 n'existe pas dans le profil
+    is_valid, violations = verify_cv_honesty(_stint_cv("Responsable Hub", "2018-09", "2026-09"), _TWO_STINTS_SAME_EMPLOYER)
+    assert is_valid is False
+    assert any("Dates 2018-09 → 2026-09" in v and "Animatrice Permanente 3-11 ans" in v for v in violations)
+
+    is_valid, violations = verify_cv_honesty(_stint_cv("Responsable Hub", "09/2022", "Présent"), _TWO_STINTS_SAME_EMPLOYER)
+    assert is_valid is True, violations
+
+
+def test_verify_cv_honesty_accepts_shortened_title_without_profile_dates():
+    profile = {"experiences": [{"company": "Leo Lagrange", "role": "Animatrice Permanente 3-11 ans"}], "skills": ["Animation"]}
+    is_valid, violations = verify_cv_honesty(_stint_cv("Animatrice", "2018", "2022"), profile)
+    assert is_valid is True, violations

@@ -1,9 +1,9 @@
 import re
 import unicodedata
 from difflib import SequenceMatcher
-from typing import Tuple, List, Dict, Any, Set
+from typing import Tuple, List, Dict, Any, Optional, Set
 from app.models import TailoredCVSchema
-from app.services.cv_templates import _cumulative_career_years
+from app.services.cv_templates import _cumulative_career_years, _date_key, _end_key
 
 # « 8 ans d'expérience », « 8+ ans d'expérience », « 8 years of experience »
 SENIORITY_CLAIM_RE = re.compile(
@@ -127,6 +127,19 @@ def _is_skill_supported(
     return False
 
 
+def _profile_title(exp: Dict[str, Any]) -> str:
+    return str(exp.get("role") or exp.get("title") or "").strip()
+
+
+def _dates_agree(tailored: Optional[str], known: Optional[str], is_end: bool) -> bool:
+    """Une date illisible ou une fin en cours, d'un côté ou de l'autre, concorde ; sinon même année, et même mois si les deux sont connus."""
+    key = _end_key if is_end else _date_key
+    (tailored_year, tailored_month), (known_year, known_month) = key(tailored), key(known)
+    if not tailored_year or not known_year or 9999 in (tailored_year, known_year):
+        return True
+    return tailored_year == known_year and (not tailored_month or not known_month or tailored_month == known_month)
+
+
 def verify_cv_honesty(
     tailored: TailoredCVSchema,
     source_profile: Dict[str, Any],
@@ -148,6 +161,35 @@ def verify_cv_honesty(
         if not _is_fuzzy_match(exp.company, known_companies):
             violations.append(
                 f"Entreprise '{exp.company}' non trouvée dans les expériences du profil candidat."
+            )
+            continue
+
+        # Intitulé et dates : chaque entrée doit reprendre un poste du profil chez le même employeur
+        same_employer = [
+            p for p in source_profile.get("experiences", [])
+            if _is_fuzzy_match(exp.company, {str(p.get("company") or p.get("entreprise") or "")})
+        ]
+        known_stints = " ; ".join(
+            f"{_profile_title(p) or '?'} {p.get('start') or p.get('start_date') or '?'} → "
+            f"{p.get('end') or p.get('end_date') or 'Présent'}"
+            for p in same_employer
+        )
+        candidates = [p for p in same_employer if not _profile_title(p) or _is_fuzzy_match(exp.title, {_profile_title(p)})]
+        if not candidates:
+            violations.append(
+                f"Intitulé '{exp.title}' chez '{exp.company}' absent du profil (postes connus : {known_stints}). "
+                "Reprends l'intitulé et les dates du profil, un poste par entrée, sans supprimer le poste."
+            )
+            continue
+        if not any(
+            _dates_agree(exp.start_date, p.get("start") or p.get("start_date"), is_end=False)
+            and _dates_agree(exp.end_date, p.get("end") or p.get("end_date"), is_end=True)
+            for p in candidates
+        ):
+            violations.append(
+                f"Dates {exp.start_date} → {exp.end_date} du poste '{exp.title}' chez '{exp.company}' absentes du profil "
+                f"(postes connus : {known_stints}). "
+                "Reprends l'intitulé et les dates du profil, un poste par entrée, sans supprimer le poste."
             )
 
     # 2. Comprehensive extraction of candidate skills, technologies, missions, and text corpus

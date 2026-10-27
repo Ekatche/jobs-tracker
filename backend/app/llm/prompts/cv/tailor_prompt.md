@@ -29,7 +29,7 @@ Description :
    - Tu ne dois JAMAIS angliciser l'intitulé si l'offre est en français (ex: ne pas changer "Ingénieur IA" en "Software Engineer IA"), ni lui accoler de sous-titres ou de spécialités supplémentaires (ex: INTERDICTION d'ajouter "- Frameworks d'Agents & LLM"). Les spécialités et frameworks ont leur place dans le résumé ou les compétences, JAMAIS dans l'intitulé principal.
 
 2. **RÈGLE D'OR - ANTI-HALLUCINATION ABSOLUE** :
-   - Tu ne dois JAMAIS inventer d'entreprises, de dates, de diplômes, ni de technologies non mentionnées dans le profil candidat.
+   - Tu ne dois JAMAIS inventer d'entreprises, d'intitulés de poste, de dates, de diplômes, ni de technologies non mentionnées dans le profil candidat.
    - Si le candidat ne possède pas une compétence demandée par l'offre, NE L'AJOUTE PAS. Mets plutôt en valeur ses compétences réelles connexes.
    - Chaque entreprise présente dans la section `experiences` doit provenir rigoureusement de la liste des entreprises du profil candidat.
 
@@ -37,9 +37,9 @@ Description :
    - Rédige 3 phrases, 70 mots maximum au total (en français, ou dans la langue de l'offre si l'offre est en anglais).
    - Reste général : présente ce que l'ensemble du parcours apporte, sans détailler une mission, un projet ou une entreprise (la section expériences s'en charge).
    - Phrase 1 : le métier du candidat tel que son profil le décrit (titre du profil ou postes occupés), suivi de « {career_seniority_phrase} » les domaines et les grands types de travaux de son parcours.
-   - Phrase 2 : l'étendue de son intervention, de la donnée ou de la matière de départ jusqu'à son usage final, telle que ses expériences la montrent, puis ses outils principaux en fin de phrase (« principalement en … »).
+   - Phrase 2 : les publics, missions ou activités au cœur de son travail, tels que ses expériences les montrent ; ses outils ou méthodes principaux seulement s'ils servent l'offre.
    - Phrase 3 : ce que son travail apporte aux équipes qui en bénéficient, sans chiffre ni superlatif.
-   - Exemple de forme pour un profil data, à ne pas recopier : « Data Scientist {career_seniority_phrase} la conception de modèles de machine learning, de pipelines de données et de solutions analytiques sur le cloud. J'interviens de l'intégration des données jusqu'à leur exploitation dans des modèles, des tableaux de bord et des applications d'IA, principalement en Python, SQL et PySpark. Mon objectif est de transformer les données en aide à la décision pour les métiers. »
+   - Exemple de forme pour un profil data, à ne pas recopier : « Data Scientist {career_seniority_phrase} la conception de modèles de machine learning, de pipelines de données et de solutions analytiques sur le cloud. J'interviens sur l'intégration, la modélisation et l'exploitation des données dans des tableaux de bord et des applications d'IA, avec Python, SQL et PySpark. Mon objectif est de transformer les données en aide à la décision pour les métiers. »
    - La première phrase est sans sujet ; la première personne est admise ensuite (« j'interviens », « mon objectif »).
    - Rédige l'accroche à partir du seul profil candidat : chaque domaine, type de travaux, outil et public cité doit se retrouver dans le profil. Avant de répondre, relis l'accroche et retire tout terme absent du profil, même s'il figure dans l'offre ou dans l'analyse Bloc B.
    - L'offre et l'analyse Bloc B servent seulement à choisir, parmi les compétences et types de travaux réels du profil, ceux à placer en premier. N'emprunte à l'offre aucun terme (méthode, domaine, technologie, livrable ou public visé) que le profil ne montre pas ; ne reprends pas l'intitulé d'une exigence couverte partiellement ou manquante, même si l'analyse cite une preuve.
@@ -57,7 +57,7 @@ Description :
    - Expérience principale : 5 puces au maximum, en commençant par celles qui prouvent les exigences de l'offre. Une expérience ancienne mais centrale pour l'offre peut recevoir plus de puces qu'une expérience récente.
    - Expérience secondaire : 0 à 2 puces ; sans lien avec l'offre, garde-la en entrée compacte (bullet_points: [] et relevant_technologies: []) avec titre, entreprise, lieu et dates.
    - Ne supprime aucune expérience : un trou dans le parcours pèse plus qu'une ligne de plus.
-   - Fusionne les postes consécutifs chez le même employeur en une seule entrée consolidée (retenant la date de début la plus ancienne, l'intitulé, le lieu et la date de fin les plus récents).
+   - Garde une entrée par poste du profil, même chez un employeur déjà cité, avec l'intitulé et les dates exacts du poste : ne fusionne jamais deux postes, la progression chez un même employeur doit rester visible.
    - Une puce = une ligne, environ 20 mots maximum.
    - Formule les bullet points avec des verbes d'action et, quand le profil les fournit, des résultats quantifiés propres au métier. Exemples par famille :
      - tech : latence, volume de données, disponibilité ;
@@ -83,7 +83,7 @@ Description :
 
 8. **CERTIFICATIONS & HABILITATIONS (certifications)** :
    - Reprends uniquement les certifications et habilitations présentes dans le profil.
-   - Si l'offre exige une habilitation (CACES, permis de conduire, SST, habilitation électrique, FIMO/FCO…) que le candidat possède, cite-la dans l'accroche et place-la en tête de `certifications`.
+   - Si l'offre exige une habilitation (CACES, permis de conduire, SST, habilitation électrique, FIMO/FCO…) que le candidat possède, place-la en tête de `certifications` ; elle peut figurer dans l'accroche. Ne cite jamais le permis de conduire dans l'accroche.
 
 9. **LONGUEUR** :
    - {page_limit} au maximum.

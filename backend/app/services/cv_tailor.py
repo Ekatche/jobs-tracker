@@ -148,39 +148,6 @@ def _is_protected(bullet: str, terms: List[str]) -> bool:
     return any(re.search(rf"(?<!\w){re.escape(term)}(?!\w)", text) for term in terms)
 
 
-def _merge_consecutive_stints(experiences: List[TailoredExperienceItem]) -> List[TailoredExperienceItem]:
-    """Merge consecutive stints at the same employer into a single entry."""
-    if not experiences:
-        return []
-    merged: List[TailoredExperienceItem] = []
-    for exp in experiences:
-        if not merged:
-            merged.append(exp)
-            continue
-        prev = merged[-1]
-        if prev.company.strip().casefold() == exp.company.strip().casefold():
-            combined_bullets = prev.bullet_points + exp.bullet_points
-            seen_tech = set()
-            combined_tech: List[str] = []
-            for t in (prev.relevant_technologies or []) + (exp.relevant_technologies or []):
-                t_str = t.strip()
-                k = t_str.casefold()
-                if k and k not in seen_tech:
-                    seen_tech.add(k)
-                    combined_tech.append(t_str)
-            merged[-1] = prev.model_copy(
-                update={
-                    "start_date": exp.start_date,
-                    "bullet_points": combined_bullets,
-                    "relevant_technologies": combined_tech,
-                    "relevance": "principale" if _is_principal(prev) or _is_principal(exp) else prev.relevance,
-                }
-            )
-        else:
-            merged.append(exp)
-    return merged
-
-
 def enforce_page_budget(
     cv: TailoredCVSchema,
     budget: PageBudget,
@@ -188,7 +155,8 @@ def enforce_page_budget(
 ) -> TailoredCVSchema:
     """Fait tenir le CV adapté dans son budget de pages sans retirer aucune expérience.
 
-    1. Tri antichronologique du rendu (_most_recent_first), puis fusion des postes consécutifs.
+    1. Tri antichronologique du rendu (_most_recent_first) ; chaque poste garde son entrée, même chez un
+       employeur déjà cité, pour que la progression interne reste visible.
     2. Plafonds : MAX_PRINCIPAL_BULLETS par expérience principale, MAX_SECONDARY_BULLETS par secondaire ;
        si le LLM n'a désigné aucune principale, la plus récente l'est.
     3. Au-delà de budget.bullets : coupe la dernière puce des secondaires, de la plus ancienne à la plus
@@ -197,8 +165,7 @@ def enforce_page_budget(
     4. Une entrée sans puce perd ses technologies ; projets plafonnés à budget.projects, compétences à
        MAX_SKILL_GROUPS groupes de MAX_SKILLS_PER_GROUP.
     """
-    sorted_exps = [TailoredExperienceItem(**d) for d in _most_recent_first([e.model_dump() for e in cv.experiences])]
-    experiences = _merge_consecutive_stints(sorted_exps)
+    experiences = [TailoredExperienceItem(**d) for d in _most_recent_first([e.model_dump() for e in cv.experiences])]
 
     principal = [_is_principal(exp) for exp in experiences]
     if experiences and not any(principal):
