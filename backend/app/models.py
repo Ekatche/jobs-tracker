@@ -747,6 +747,26 @@ class TailoredEducationItem(BaseModel):
     details: Optional[str] = None
 
 
+def _format_certification_item(item: Any) -> Optional[str]:
+    """Flatten a certification string or CandidateCertification-like dict into a clean display label."""
+    if isinstance(item, str):
+        return item.strip() or None
+    if isinstance(item, dict):
+        name = str(item.get("name") or item.get("title") or item.get("certification") or "").strip()
+        if not name:
+            return None
+        issuer = str(item.get("issuer") or item.get("organization") or "").strip()
+        year = str(item.get("year") or item.get("date") or "").strip()
+        parts = [name]
+        if issuer and issuer.lower() not in name.lower():
+            parts.append(issuer)
+        label = " — ".join(parts)
+        if year and year not in label:
+            label = f"{label} ({year})"
+        return label
+    return None
+
+
 class TailoredCVSchema(BaseModel):
     target_role_title: str
     professional_summary: str = Field(..., description="Accroche ciblée 3-4 lignes")
@@ -756,6 +776,20 @@ class TailoredCVSchema(BaseModel):
     education: List[TailoredEducationItem] = Field(default_factory=list)
     languages: List[TailoredLanguage] = Field(default_factory=list)
     certifications: List[str] = Field(default_factory=list)
+
+    @field_validator("certifications", mode="before")
+    @classmethod
+    def normalize_certifications(cls, v: Any) -> List[str]:
+        if v is None:
+            return []
+        if not isinstance(v, list):
+            v = [v]
+        result: List[str] = []
+        for item in v:
+            formatted = _format_certification_item(item)
+            if formatted:
+                result.append(formatted)
+        return result
 
 
 class TailoredResumeInDB(BaseModel):

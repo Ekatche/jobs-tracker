@@ -674,3 +674,36 @@ def test_page_budget_ignores_career_gaps():
         ]
     }
     assert compute_page_budget(profile) == PAGE_BUDGETS[1]
+
+
+@pytest.mark.asyncio
+async def test_tailored_cv_schema_flattens_certification_dicts_from_llm():
+    llm_payload = {
+        **VALID_LLM_OUTPUT,
+        "professional_summary": "Lead Python Developer sur FastAPI, Docker et PostgreSQL.",
+        "certifications": [
+            {"name": "Microsoft Certified: Azure Data Scientist", "issuer": "Microsoft", "year": None, "topics": []},
+            {"name": "MLOps — Machine Learning Operations", "issuer": "Coursera", "year": "2024", "topics": []},
+            {"name": "Expertise Big Data — 2021", "issuer": "", "year": "2021", "topics": []},
+            {"name": "Analysis of bulk RNA-seq data", "issuer": "", "year": "2023", "topics": []},
+            {"name": "", "issuer": "Ignored", "year": "2020", "topics": []},
+        ],
+    }
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = json.dumps(llm_payload)
+
+    with patch("app.services.cv_tailor.acompletion", new_callable=AsyncMock) as mock_acompletion:
+        mock_acompletion.return_value = mock_response
+        result = await generate_tailored_cv_content(
+            profile=SAMPLE_PROFILE,
+            offer=SAMPLE_OFFER,
+            evaluation=SAMPLE_EVALUATION,
+        )
+
+    assert result.certifications == [
+        "Microsoft Certified: Azure Data Scientist",
+        "MLOps — Machine Learning Operations — Coursera (2024)",
+        "Expertise Big Data — 2021",
+        "Analysis of bulk RNA-seq data (2023)",
+    ]

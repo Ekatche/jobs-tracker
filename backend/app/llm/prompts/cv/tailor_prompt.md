@@ -82,7 +82,7 @@ Description :
    - Présente les langues avec leur niveau européen CECRL (ex: "Natif", "C1 - Professionnel", "B2 - Intermédiaire").
 
 8. **CERTIFICATIONS & HABILITATIONS (certifications)** :
-   - Reprends uniquement les certifications et habilitations présentes dans le profil.
+   - Reprends uniquement les certifications et habilitations présentes dans le profil, chacune sous la forme d'une chaîne de caractères unique (ex: `"Nom — Organisme (Année)"`), jamais d'un objet JSON.
    - Si l'offre exige une habilitation (CACES, permis de conduire, SST, habilitation électrique, FIMO/FCO…) que le candidat possède, place-la en tête de `certifications` ; elle peut figurer dans l'accroche. Ne cite jamais le permis de conduire dans l'accroche.
 
 9. **LONGUEUR** :
