@@ -57,6 +57,7 @@ backend/.env
 backend/.venv
 backend/ENV/
 backend/.pytest_cache/
+backend/.cache/
 backend/.coverage
 backend/htmlcov/
 backend/.tox/
