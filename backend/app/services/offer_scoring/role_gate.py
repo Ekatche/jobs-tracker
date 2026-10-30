@@ -24,7 +24,7 @@ GENERIC_TITLE_WORDS = frozenset(
     """
     h f hf x e de du des d l la le les un une et ou en a au aux pour par sur avec dans chez
     the of and for in at to
-    responsable chef cheffe charge chargee mission missions projet projets
+    responsable chef cheffe charge chargee mission missions projet projets project projects
     coordinateur coordinatrice coordination directeur directrice direction manager management
     assistant assistante adjoint adjointe senior junior confirme confirmee experimente experimentee
     debutant stagiaire stage alternance alternant alternante apprenti apprentie
@@ -36,6 +36,27 @@ GENERIC_TITLE_WORDS = frozenset(
     developpement
     """.split()
 )
+
+# Familles d'équivalences bilingues FR <-> EN et variantes métier proches dont
+# les racines Snowball FR ne se rejoignent pas (ex: data/données, analyste/
+# analytics/analyse, ai/intelligence artificielle).
+_BILINGUAL_EQUIVALENCE_GROUPS: tuple[frozenset[str], ...] = (
+    frozenset({"data", "donnee", "donnees"}),
+    frozenset({"analyst", "analyste", "analystes", "analytics", "analytical", "analyse", "analyses"}),
+    frozenset({"scientist", "scientifique", "scientifiques"}),
+    frozenset({"ai", "artificielle", "artificial"}),
+    frozenset({"finance", "financier", "financiere", "financiers", "financieres", "financial", "fp", "fpa"}),
+    frozenset({"developer", "developpeur", "developpeuse", "developpeurs", "software"}),
+    frozenset({"research", "recherche", "chercheur", "chercheuse"}),
+    frozenset({"business", "affaires", "commercial", "commerciale"}),
+    frozenset({"marketing", "marche", "marches", "market"}),
+    frozenset({"supply", "logistique", "logistics", "achats", "procurement", "purchasing"}),
+    frozenset({"hr", "rh", "ressources", "humaines", "human", "resources"}),
+)
+
+_EQUIVALENT_TERMS: dict[str, frozenset[str]] = {
+    word: group for group in _BILINGUAL_EQUIVALENCE_GROUPS for word in group
+}
 
 # Sous cette longueur, un terme ne vaut que s'il est égal ou de même racine :
 # « rh » ne doit pas attraper « rhumatologue ».
@@ -54,6 +75,8 @@ def role_terms(roles: Iterable[str]) -> frozenset[str]:
 
 def _related(a: str, b: str) -> bool:
     if a == b or _STEMMER.stemWord(a) == _STEMMER.stemWord(b):
+        return True
+    if b in _EQUIVALENT_TERMS.get(a, frozenset()):
         return True
     short, long_ = sorted((a, b), key=len)
     return len(short) >= _MIN_PREFIX_LENGTH and long_.startswith(short)

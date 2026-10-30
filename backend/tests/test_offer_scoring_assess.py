@@ -150,9 +150,41 @@ def test_hard_filter_internship_without_wish(contract_types, expected):
 # rattachement ; seul le télétravail total y échappe.
 
 
+def test_neighboring_departments_is_symmetric():
+    from app.services.offer_scoring.geo import NEIGHBORING_DEPARTMENTS
+
+    for dept, neighbors in NEIGHBORING_DEPARTMENTS.items():
+        assert dept not in neighbors
+        for neighbor in neighbors:
+            assert dept in NEIGHBORING_DEPARTMENTS.get(neighbor, frozenset()), f"{dept} -> {neighbor} non symétrique"
+
+
 def test_geo_same_department_passes():
     offer = {"localisation": "Villeurbanne", "type_contrat": "CDI"}
     assert hard_filter_reason(offer, features_with()) is None
+
+
+@pytest.mark.parametrize(
+    "candidate_locations,offer_location",
+    [
+        # Paris (75) <-> petite couronne (92, 93, 94)
+        (["Paris"], "Levallois-Perret"),
+        (["Paris"], "Issy-Les-Moulineaux"),
+        (["Paris"], "Pantin"),
+        (["Paris"], "Ivry-Sur-Seine"),
+        # Petite couronne (92) <-> grande couronne limitrophe (78, 91, 95)
+        (["Nanterre"], "Vélizy-Villacoublay"),
+        # Lyon (69) <-> départements limitrophes (01, 38, 42, 71)
+        (["Lyon"], "Bourgoin-Jallieu"),
+        (["Lyon"], "Saint-Étienne"),
+        # Bourgoin-Jallieu (38) <-> Savoie (73) et Ain (01)
+        (["Bourgoin-Jallieu"], "La Motte-Servolex"),
+        (["Bourgoin-Jallieu"], "Talissieu"),
+    ],
+)
+def test_geo_neighboring_department_passes(candidate_locations, offer_location):
+    offer = {"localisation": offer_location, "type_contrat": "CDI"}
+    assert hard_filter_reason(offer, features_with(locations=candidate_locations)) is None
 
 
 def test_geo_other_department_is_hard_filtered():
@@ -162,6 +194,10 @@ def test_geo_other_department_is_hard_filtered():
 
     offer_marseille = {"localisation": "Marseille", "type_contrat": "CDI"}
     assert hard_filter_reason(offer_marseille, features_with(locations=["Lyon", "Paris"])) == "geo"
+
+    # Non-adjacent department (Grenoble 38 is adjacent to 69, but Valence 26 is 2 hops from 69)
+    offer_valence = {"localisation": "Valence", "type_contrat": "CDI"}
+    assert hard_filter_reason(offer_valence, features_with(locations=["Lyon"])) == "geo"
 
 
 def test_geo_linkedin_paris_region_is_out_of_zone_for_lyon():

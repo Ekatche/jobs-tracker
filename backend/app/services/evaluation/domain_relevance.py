@@ -23,7 +23,11 @@ DOMAIN_RELEVANCE_THRESHOLD = 0.30
 
 # L'embedding comprend mal le sigle "IA" (surtout écrit "Ia") : "Développeur Confirmé Ia"
 # tombait à 0.28 face à un profil "AI Engineer", contre 0.43 une fois développé.
-ACRONYM_EXPANSIONS = [(re.compile(r"\bia\b", re.I), "intelligence artificielle")]
+ACRONYM_EXPANSIONS = [
+    (re.compile(r"\bia\b", re.I), "intelligence artificielle"),
+    (re.compile(r"\bfp\s*&\s*a\b", re.I), "financial planning analysis"),
+    (re.compile(r"\bfpa\b", re.I), "financial planning analysis"),
+]
 
 # Acronymes métiers fréquents, développés uniquement si trouvés tels quels
 # (casse exacte, sans re.I) : insensibles à la casse, "PM", "DE", "DS"...

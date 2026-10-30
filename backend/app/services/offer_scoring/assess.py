@@ -15,7 +15,10 @@ from typing import Optional
 from app.services.evaluation.offer_fit import normalize_contract
 from app.services.normalization import detect_contract_type
 from app.services.offer_scoring.constants import W_SECTOR, W_SIZE
-from app.services.offer_scoring.geo import departments_for_location
+from app.services.offer_scoring.geo import (
+    departments_for_location,
+    expand_with_neighboring_departments,
+)
 from app.services.offer_scoring.role_gate import title_matches_roles
 from app.services.offer_scoring.score import (
     ProfileFeatures,
@@ -96,7 +99,8 @@ def _geo_condition_ok(offer: dict, features: ProfileFeatures) -> bool:
     for location in locations:
         candidate_departments |= departments_for_location(location)
 
-    return bool(offer_departments & candidate_departments)
+    allowed_departments = expand_with_neighboring_departments(candidate_departments)
+    return bool(offer_departments & allowed_departments)
 
 
 def _contract_condition_ok(offer: dict, features: ProfileFeatures) -> bool:

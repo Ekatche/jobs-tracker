@@ -78,3 +78,27 @@ def test_short_terms_need_exact_match():
     """Un terme court (« rh ») ne doit pas attraper tout mot qui commence pareil."""
     assert title_matches_roles("Chargée RH", role_terms(["Responsable RH"]))
     assert not title_matches_roles("Rhumatologue", role_terms(["Responsable RH"]))
+
+
+@pytest.mark.parametrize(
+    "roles,title,expected",
+    [
+        # data <-> données / donnée
+        (["Data Scientist", "Ingénieur Data"], "Analyste données web", True),
+        (["Data Scientist", "Ingénieur Data"], "Ingénieur Eau, Données et Outils Numériques", True),
+        (["Ingénieur de données"], "Data Engineer Senior", True),
+        # analyste / analyst <-> analytics / analytical / analyse
+        (["Data analyste"], "Analytics Engineer - Power BI", True),
+        (["Data analyste"], "Analytical Performance Lead (English, French)", True),
+        (["Contrôle de gestion FP&A"], "Responsable Reporting et Analyse Financière Groupe", True),
+        # FP&A <-> FPA / Financial Planning and Analysis
+        (["Contrôle de gestion FP&A"], "FPA Manager", True),
+        (["Contrôle de gestion FP&A"], "Financial Planning and Analysis Manager", True),
+        # Generic English words (project, management) should NOT make "Finance project manager" match unrelated "Chef de Projet"
+        (["Contrôle de gestion FP&A", "Data analyste", "Finance project manager"], "Chef de Projet Monétique", False),
+        (["Contrôle de gestion FP&A", "Data analyste", "Finance project manager"], "Project Manager IT", False),
+        (["Contrôle de gestion FP&A", "Data analyste", "Finance project manager"], "Finance Project Manager", True),
+    ],
+)
+def test_bilingual_and_synonym_role_matching(roles, title, expected):
+    assert title_matches_roles(title, role_terms(roles)) is expected
