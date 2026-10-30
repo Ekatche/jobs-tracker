@@ -18,11 +18,6 @@ warnings.filterwarnings("ignore", category=SyntaxWarning, module="pysbd")
 logger = logging.getLogger(__name__)
 
 
-def search_tool_was_called(crew=None) -> bool:
-    """Vérification de rétrocompatibilité : la recherche est désormais déterministe en Python."""
-    return True
-
-
 def run_crew(user_query: str) -> FilteredJobOffersResult:
     """Exécute la recherche et le filtrage d'offres d'emploi de façon déterministe.
 
