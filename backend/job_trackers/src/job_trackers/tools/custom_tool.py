@@ -73,7 +73,7 @@ class TavilyJobBoardSearchTool(BaseTool):
         all_urls = []
         logger.info(f"🔍 Exécution de la recherche Tavily optimisée pour: '{clean_query}'")
 
-        # Domaines exclus (fermes à clics, agrégateurs spammant des redirections mortes)
+        # Domaines exclus (fermes à clics, agrégateurs spammant des redirections mortes, réseaux sociaux)
         spam_aggregators = [
             "jooble.org",
             "fr.jooble.org",
@@ -83,11 +83,17 @@ class TavilyJobBoardSearchTool(BaseTool):
             "jobrapido.com",
             "fr.jobrapido.com",
             "optioncarriere.com",
+            "jobijoba.com",
+            "jobintree.com",
+            "trabajo.org",
+            "fr.trabajo.org",
+            "facebook.com",
+            "instagram.com",
         ]
 
         # Indeed, LinkedIn et HelloWork sont collectés par python-jobspy : les chercher ici coûterait
         # des crédits Tavily pour rien. France Travail n'est plus une source (API fermée au libre-service
-        # le 2026-10-20).
+        # le 2026-10-20). APEC est protégé par DataDome et bloque les IP de datacenter/VPS avec HTTP 403.
         covered_elsewhere = [
             "indeed.com",
             "fr.indeed.com",
@@ -96,6 +102,8 @@ class TavilyJobBoardSearchTool(BaseTool):
             "hellowork.com",
             "francetravail.fr",
             "candidat.francetravail.fr",
+            "apec.fr",
+            "www.apec.fr",
         ]
         excluded_domains = spam_aggregators + covered_elsewhere
 
@@ -132,7 +140,6 @@ class TavilyJobBoardSearchTool(BaseTool):
         # saturation par HelloWork et France Travail est écartée par `excluded_domains`.
         preferred_job_boards = [
             "welcometothejungle.com",
-            "apec.fr",
             "cadremploi.fr",
             "free-work.com",
             "lesjeudis.com",

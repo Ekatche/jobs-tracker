@@ -104,7 +104,20 @@ class TestTavilyTool:
         assert board["country"] == "france"
         assert "choisirleservicepublic.gouv.fr" in board["include_domains"]
         # Indeed, LinkedIn, HelloWork (jobspy) et France Travail (abandonné) ne coûtent aucun crédit.
-        for domain in ("indeed.com", "linkedin.com", "hellowork.com", "francetravail.fr"):
+        # APEC est exclu car DataDome bloque les IPs de datacenter/VPS en 403.
+        # Les agrégateurs de redirections et réseaux sociaux sont exclus.
+        for domain in (
+            "indeed.com",
+            "linkedin.com",
+            "hellowork.com",
+            "francetravail.fr",
+            "apec.fr",
+            "jobijoba.com",
+            "jobintree.com",
+            "trabajo.org",
+            "facebook.com",
+            "instagram.com",
+        ):
             assert domain in board["exclude_domains"]
         # Les ATS restent un filtre dur.
         assert ats.get("include_domains_mode", "restrict") == "restrict"
@@ -254,49 +267,84 @@ class TestJobTrackerLLM:
         assert "stop" in params_std
 
 
-class TestRunCrewSearchToolGuard:
-    def _fake_crews(self, tool_calls_per_attempt):
-        from unittest.mock import MagicMock
-        from crew import tavily_search
-
-        crews = []
-        for called in tool_calls_per_attempt:
-            agent = MagicMock()
-            agent.tools_results = [{"tool_name": tavily_search.name, "result": []}] if called else []
-            crew = MagicMock()
-            crew.agents = [agent]
-            crew.kickoff.return_value = f"result-{len(crews)}"
-            crews.append(crew)
-        return crews
-
-    def test_tool_result_is_the_search_task_answer(self):
-        from crew import tavily_search
-
-        assert tavily_search.result_as_answer is True
-
-    def test_retries_when_search_tool_not_called(self, monkeypatch):
+class TestRunCrewDeterministicExecution:
+    def test_run_crew_executes_tavily_and_filters_urls(self, monkeypatch):
         import job_trackers.src.job_trackers.main as main
+        from models import OptimizedQueries, FilteredJobOffersResult, JobUrlItem
         from unittest.mock import MagicMock
 
-        crews = self._fake_crews([False, True])
-        factory = MagicMock()
-        factory.return_value.crew.side_effect = crews
-        monkeypatch.setattr(main, "JobTrackers", factory)
+        mock_tracker = MagicMock()
+        mock_tracker.optimize_query.return_value = OptimizedQueries(
+            primary_query="offres emploi Data Scientist Lyon CDI",
+            alternative_queries=["recrutement Data Scientist Lyon"],
+            extracted_job_title="Data Scientist",
+            extracted_location="Lyon",
+        )
+        mock_tracker.filter_urls.return_value = FilteredJobOffersResult(
+            urls=["https://www.welcometothejungle.com/fr/jobs/1"],
+            items=[JobUrlItem(url="https://www.welcometothejungle.com/fr/jobs/1", source_platform="WTTJ")],
+        )
+        monkeypatch.setattr(main, "JobTrackers", lambda: mock_tracker)
 
-        assert main.run_crew("data engineer lyon") == "result-1"
-        assert factory.return_value.crew.call_count == 2
+        mock_search = MagicMock(return_value=["https://www.welcometothejungle.com/fr/jobs/1"])
+        monkeypatch.setattr(main.tavily_search, "_run", mock_search)
 
-    def test_fails_when_search_tool_never_called(self, monkeypatch):
+        res = main.run_crew("data scientist lyon")
+        mock_search.assert_called_once_with(query="offres emploi Data Scientist Lyon CDI")
+        mock_tracker.filter_urls.assert_called_once_with(
+            original_query="data scientist lyon",
+            urls=["https://www.welcometothejungle.com/fr/jobs/1"],
+        )
+        assert res.urls == ["https://www.welcometothejungle.com/fr/jobs/1"]
+
+    def test_run_crew_empty_search_returns_empty_without_filtering(self, monkeypatch):
         import job_trackers.src.job_trackers.main as main
-        import pytest
+        from models import OptimizedQueries
         from unittest.mock import MagicMock
 
-        factory = MagicMock()
-        factory.return_value.crew.side_effect = self._fake_crews([False, False])
-        monkeypatch.setattr(main, "JobTrackers", factory)
+        mock_tracker = MagicMock()
+        mock_tracker.optimize_query.return_value = OptimizedQueries(
+            primary_query="poste introuvable",
+            alternative_queries=[],
+            extracted_job_title="Poste",
+            extracted_location="",
+        )
+        monkeypatch.setattr(main, "JobTrackers", lambda: mock_tracker)
 
-        with pytest.raises(Exception, match="n'a pas appelé l'outil Tavily"):
-            main.run_crew("data engineer lyon")
+        mock_search = MagicMock(return_value=[])
+        monkeypatch.setattr(main.tavily_search, "_run", mock_search)
+
+        res = main.run_crew("poste introuvable")
+        assert res.urls == []
+        mock_tracker.filter_urls.assert_not_called()
+
+    def test_run_crew_falls_back_to_alternative_query(self, monkeypatch):
+        import job_trackers.src.job_trackers.main as main
+        from models import OptimizedQueries, FilteredJobOffersResult
+        from unittest.mock import MagicMock
+
+        mock_tracker = MagicMock()
+        mock_tracker.optimize_query.return_value = OptimizedQueries(
+            primary_query="query 1",
+            alternative_queries=["query 2 fallback"],
+            extracted_job_title="Poste",
+            extracted_location="",
+        )
+        mock_tracker.filter_urls.return_value = FilteredJobOffersResult(
+            urls=["https://boards.greenhouse.io/acme/jobs/10"],
+            items=[],
+        )
+        monkeypatch.setattr(main, "JobTrackers", lambda: mock_tracker)
+
+        # Première requête donne vide, la deuxième donne une URL
+        mock_search = MagicMock(side_effect=[[], ["https://boards.greenhouse.io/acme/jobs/10"]])
+        monkeypatch.setattr(main.tavily_search, "_run", mock_search)
+
+        res = main.run_crew("query 1")
+        assert mock_search.call_count == 2
+        assert mock_search.call_args_list[0].kwargs == {"query": "query 1"}
+        assert mock_search.call_args_list[1].kwargs == {"query": "query 2 fallback"}
+        assert res.urls == ["https://boards.greenhouse.io/acme/jobs/10"]
 
 
 class TestAirflowCollectionPipeline:

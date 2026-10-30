@@ -1,3 +1,4 @@
+import asyncio
 import html
 import json
 import logging
@@ -6,6 +7,11 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
 import httpx
+
+try:
+    from curl_cffi import requests as curl_requests
+except ImportError:
+    curl_requests = None
 
 from app.services.egress_guard import public_only_transport
 from app.services.profile.urls import reject_non_public_request
@@ -301,7 +307,13 @@ async def extract_indeed_job(
     if not job_key or not re.fullmatch(r"[a-f0-9]+", job_key):
         return None
 
-    from jobspy.indeed.constant import headers as api_headers
+    try:
+        from jobspy.indeed.constant import api_headers
+    except ImportError:
+        try:
+            from jobspy.indeed.constant import headers as api_headers
+        except ImportError:
+            api_headers = {}
 
     headers = dict(api_headers)
     subdomain = parsed.netloc.lower().split(".")[0]
@@ -340,6 +352,107 @@ async def extract_indeed_job(
         }
     except Exception as e:
         logger.debug(f"Échec parsing Indeed GraphQL pour {url}: {e}")
+        return None
+
+
+async def extract_wttj_job(
+    url: str, client: httpx.AsyncClient
+) -> Optional[Dict[str, Any]]:
+    """Extrait une offre Welcome to the Jungle via son API publique REST api.welcometothejungle.com.
+
+    Les pages HTML WTTJ bloquent les navigateurs headless avec un challenge AWS WAF (HTTP 202).
+    L'API JSON publique fournit directement le titre, l'entreprise, le descriptif et le contrat.
+    """
+    match = re.search(
+        r"welcometothejungle\.(?:com|fr)/(?:[a-z]{2}/)?companies/([^/]+)/jobs/([^/?#]+)",
+        url,
+    )
+    if not match:
+        return None
+
+    org_slug = match.group(1)
+    job_slug = match.group(2)
+    api_url = f"https://api.welcometothejungle.com/api/v1/organizations/{org_slug}/jobs/{job_slug}"
+
+    try:
+        resp = await client.get(
+            api_url,
+            headers={
+                "User-Agent": DEFAULT_HEADERS["User-Agent"],
+                "Accept": "application/json",
+            },
+            timeout=DEFAULT_TIMEOUT,
+        )
+        if resp.status_code in (404, 410):
+            # L'offre a été retirée ou expirée sur Welcome to the Jungle
+            raise ExpiredOfferError(url)
+        if resp.status_code != 200:
+            return None
+
+        data = resp.json()
+        job = data.get("job") or data
+        title = job.get("name")
+        if not title:
+            return None
+
+        org_data = job.get("organization") or {}
+        company = org_data.get("name") or org_slug.replace("-", " ").title()
+
+        # Localisation : city, district ou adresse complète
+        office = job.get("office") or {}
+        location = (
+            office.get("city")
+            or office.get("district")
+            or office.get("local_city")
+            or office.get("address")
+            or "Non spécifié"
+        )
+
+        # Description + Profil recherché
+        desc_parts = []
+        if job.get("description"):
+            desc_parts.append(clean_html_to_text(job["description"]))
+        if job.get("profile"):
+            desc_parts.append("### Profil recherché\n" + clean_html_to_text(job["profile"]))
+        description = "\n\n".join(desc_parts) or "Description non disponible"
+
+        contract = normalize_employment_type(job.get("contract_type"))
+
+        return {
+            "poste": str(title).strip(),
+            "entreprise": str(company).strip(),
+            "description": description,
+            "localisation": str(location).strip(),
+            "type_contrat": contract,
+            "url": url,
+            "ats_platform": "wttj",
+            "source_record": job,
+        }
+    except ExpiredOfferError:
+        raise
+    except Exception as e:
+        logger.debug(f"Échec parsing Welcome to the Jungle API pour {url}: {e}")
+        return None
+
+
+def _fetch_with_curl_cffi(url: str, timeout: float = DEFAULT_TIMEOUT) -> Optional[tuple[int, str]]:
+    """Fetch direct avec curl_cffi pour contourner les protections Cloudflare (ex: Cadremploi)."""
+    if curl_requests is None:
+        return None
+    try:
+        r = curl_requests.get(
+            url,
+            headers={
+                "User-Agent": DEFAULT_HEADERS["User-Agent"],
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
+            },
+            impersonate="chrome124",
+            timeout=timeout,
+        )
+        return r.status_code, r.text
+    except Exception as e:
+        logger.debug(f"curl_cffi fetch error for {url}: {e}")
         return None
 
 
@@ -480,15 +593,36 @@ async def extract_ats_or_jsonld_offer(
                 logger.info(f"⚡ Extraction Zero-Token réussie (SmartRecruiters): {sr_result['poste']} - {sr_result['entreprise']}")
                 return sr_result
 
-        # 4. Indeed : API GraphQL mobile, la page web bloque les navigateurs headless
+        # 5. Indeed : API GraphQL mobile, la page web bloque les navigateurs headless
         if "indeed." in domain:
             indeed_result = await extract_indeed_job(url, client)
             if indeed_result:
                 logger.info(f"⚡ Extraction Zero-Token réussie (Indeed): {indeed_result['poste']} - {indeed_result['entreprise']}")
                 return indeed_result
 
-        # 5. Universal Schema.org JSON-LD fetch
-        # Pour les job boards comme HelloWork, Cadremploi, Meteojob, JobTeaser, Ashby, etc.
+        # 6. Welcome to the Jungle direct REST API
+        if "welcometothejungle." in domain:
+            wttj_result = await extract_wttj_job(url, client)
+            if wttj_result:
+                logger.info(f"⚡ Extraction Zero-Token réussie (WTTJ): {wttj_result['poste']} - {wttj_result['entreprise']}")
+                return wttj_result
+
+        # 7. Cadremploi : protégé par Cloudflare (HTTP 403 sur client standard)
+        if "cadremploi.fr" in domain:
+            curl_res = await asyncio.to_thread(_fetch_with_curl_cffi, url)
+            if curl_res:
+                c_status, c_html = curl_res
+                if c_status in (404, 410) or "cette offre est expirée" in c_html.lower() or "plus disponible" in c_html.lower():
+                    raise ExpiredOfferError(url)
+                if c_status == 200:
+                    jsonld_result = parse_jsonld_job_posting(c_html, url)
+                    if jsonld_result:
+                        jsonld_result["ats_platform"] = "cadremploi"
+                        logger.info(f"⚡ Extraction Zero-Token réussie (Cadremploi): {jsonld_result['poste']} - {jsonld_result['entreprise']}")
+                        return jsonld_result
+
+        # 8. Universal Schema.org JSON-LD fetch
+        # Pour les job boards comme HelloWork, Meteojob, JobTeaser, Ashby, etc.
         resp = await client.get(url, headers=DEFAULT_HEADERS, timeout=DEFAULT_TIMEOUT)
         if resp.status_code == 200:
             jsonld_result = parse_jsonld_job_posting(resp.text, url)
@@ -505,6 +639,18 @@ async def extract_ats_or_jsonld_offer(
 
                 logger.info(f"⚡ Extraction Zero-Token réussie (JSON-LD/{jsonld_result.get('ats_platform', 'web')}): {jsonld_result['poste']} - {jsonld_result['entreprise']}")
                 return jsonld_result
+        elif resp.status_code in (403, 503):
+            # Tentative de repli via curl_cffi pour les sites protégés par Cloudflare
+            curl_res = await asyncio.to_thread(_fetch_with_curl_cffi, url)
+            if curl_res:
+                c_status, c_html = curl_res
+                if c_status in (404, 410) or "cette offre est expirée" in c_html.lower() or "plus disponible" in c_html.lower():
+                    raise ExpiredOfferError(url)
+                if c_status == 200:
+                    jsonld_result = parse_jsonld_job_posting(c_html, url)
+                    if jsonld_result:
+                        logger.info(f"⚡ Extraction Zero-Token réussie (JSON-LD via curl_cffi): {jsonld_result['poste']} - {jsonld_result['entreprise']}")
+                        return jsonld_result
 
     except ExpiredOfferError:
         raise

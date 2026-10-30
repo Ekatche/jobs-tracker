@@ -9,6 +9,7 @@ from app.services.ats.router import (
     extract_lever_job,
     extract_smartrecruiters_job,
     extract_workable_job,
+    extract_wttj_job,
     normalize_employment_type,
     parse_jsonld_job_posting,
 )
@@ -426,3 +427,101 @@ async def test_extract_ats_or_jsonld_offer_routes_smartrecruiters():
     assert res["poste"] == "Lead IA"
     assert res["entreprise"] == "Tech Corp"
     assert res["ats_platform"] == "smartrecruiters"
+
+
+@pytest.mark.asyncio
+async def test_extract_wttj_job_success():
+    client = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "job": {
+            "name": "Data Scientist Junior",
+            "organization": {"name": "Clasquin"},
+            "office": {
+                "city": "Lyon",
+                "district": "Rhône",
+                "address": "235 Cours Lafayette, 69006 Lyon",
+            },
+            "contract_type": "full_time",
+            "description": "<p>Nous recrutons un Data Scientist.</p>",
+            "profile": "<p>De formation Bac+5 avec compétences Python et SQL.</p>",
+        }
+    }
+    client.get = AsyncMock(return_value=mock_resp)
+
+    url = "https://www.welcometothejungle.com/fr/companies/clasquin/jobs/data-scientist-junior"
+    result = await extract_wttj_job(url, client)
+
+    assert result is not None
+    assert result["poste"] == "Data Scientist Junior"
+    assert result["entreprise"] == "Clasquin"
+    assert result["localisation"] == "Lyon"
+    assert result["type_contrat"] == "CDI"
+    assert result["ats_platform"] == "wttj"
+    assert "Nous recrutons un Data Scientist." in result["description"]
+    assert "### Profil recherché" in result["description"]
+    assert "compétences Python" in result["description"]
+    client.get.assert_called_once()
+    assert (
+        client.get.call_args[0][0]
+        == "https://api.welcometothejungle.com/api/v1/organizations/clasquin/jobs/data-scientist-junior"
+    )
+
+
+@pytest.mark.asyncio
+async def test_extract_wttj_job_expired_404():
+    client = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.status_code = 404
+    client.get = AsyncMock(return_value=mock_resp)
+
+    url = "https://www.welcometothejungle.com/fr/companies/alan/jobs/old-expired-job"
+    with pytest.raises(ExpiredOfferError):
+        await extract_wttj_job(url, client)
+
+    with pytest.raises(ExpiredOfferError):
+        await extract_ats_or_jsonld_offer(url, client=client)
+
+
+@pytest.mark.asyncio
+async def test_cadremploi_expired_detection(monkeypatch):
+    import app.services.ats.router as router_mod
+
+    html_expired = "<html><body><div class='job-expired'>Désolé, cette offre est expirée</div></body></html>"
+    monkeypatch.setattr(router_mod, "_fetch_with_curl_cffi", lambda url, timeout=10.0: (200, html_expired))
+
+    url = "https://www.cadremploi.fr/emploi/detail_offre/data-analyst-12345.html"
+    with pytest.raises(ExpiredOfferError):
+        await extract_ats_or_jsonld_offer(url)
+
+
+@pytest.mark.asyncio
+async def test_cadremploi_jsonld_success(monkeypatch):
+    import app.services.ats.router as router_mod
+
+    html_active = """<html><head>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "JobPosting",
+        "title": "Lead Data Analyst",
+        "hiringOrganization": {"@type": "Organization", "name": "Capgemini"},
+        "jobLocation": {"@type": "Place", "address": {"@type": "PostalAddress", "addressLocality": "Paris"}},
+        "employmentType": "FULL_TIME",
+        "description": "<p>Super mission Data à Paris.</p>"
+    }
+    </script>
+    </head><body>Offre active</body></html>"""
+    monkeypatch.setattr(router_mod, "_fetch_with_curl_cffi", lambda url, timeout=10.0: (200, html_active))
+
+    url = "https://www.cadremploi.fr/emploi/detail_offre/lead-data-analyst-99999.html"
+    res = await extract_ats_or_jsonld_offer(url)
+
+    assert res is not None
+    assert res["poste"] == "Lead Data Analyst"
+    assert res["entreprise"] == "Capgemini"
+    assert res["localisation"] == "Paris"
+    assert res["type_contrat"] == "CDI"
+    assert res["ats_platform"] == "cadremploi"
+

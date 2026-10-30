@@ -14,22 +14,11 @@ convert_query_task:
   input_variables:
     user_query: ${inputs.user_query}
 
-execute_search_task:
-  description: >
-    À partir de la requête optimisée générée par la tâche précédente, utilise l'outil "Recherche d'offres d'emploi sur job boards".
-    
-    Tu DOIS appeler l'outil exactement une fois, en lui passant la requête principale sous forme de chaîne de caractères simple.
-    N'écris JAMAIS d'URL toi-même : seules les URLs renvoyées par l'outil sont valides.
-
-  expected_output: >
-    Une liste d'URLs d'offres d'emploi issues des résultats de recherche.
-  agent: search_executor
-  input_variables:
-    query: ${convert_query_task.output}
-
 filter_urls_task:
   description: >
-    Examine attentivement l'ensemble des URLs collectées par la tâche de recherche et sélectionne UNIQUEMENT les liens les plus qualifiés, fiables et pertinents.
+    Examine attentivement l'ensemble des URLs collectées : {urls}
+    pour la demande originale : '{original_query}'.
+    Sélectionne UNIQUEMENT les liens les plus qualifiés, fiables et pertinents.
     
     Règles de qualification et de sélection :
     1. **Priorité absolue aux offres directes d'entreprises et fiches individuelles (Top Score 9-10)** :
@@ -45,7 +34,6 @@ filter_urls_task:
        - **Fiches directes des job boards qualifiés** :
          * Welcome to the Jungle : welcometothejungle.com/fr/companies/<entreprise>/jobs/<slug>
          * HelloWork : hellowork.com/fr-fr/emplois/<id>.html
-         * APEC : apec.fr/candidat/recherche-emploi.html/offre/<id>
          * France Travail : candidat.francetravail.fr/offres/recherche/detail/<id>
          * Cadremploi : cadremploi.fr/emploi/detail_offre/<id>
          * Choisir le service public : choisirleservicepublic.gouv.fr/offre-emploi/<slug>-reference-<id>/
@@ -58,16 +46,16 @@ filter_urls_task:
     3. **Exclusions obligatoires** :
        - Exclure les pages de connexion, formulaires de candidature génériques, flux RSS ou blogs.
        - Exclure les agrégateurs spam (Jooble, Neuvoo, Talent.com, Jobrapido, OptionCarriere, Adzuna).
-       - Exclure TOUTE page de résultats (listing, recherche, page SEO « emploi-<métier>-<ville> », linkedin.com/jobs/search, /jobs/<métier>-jobs), même si son slug correspond au poste : elle ne décrit aucune offre précise. Exemples réels : welcometothejungle.com/fr/pages/emploi-data-engineer-lyon-69001, candidat.francetravail.fr/offres/emploi/ingenieur-structures/lyon/...
+       - Exclure TOUTE page de résultats (listing, recherche, page SEO « emploi-<métier>-<ville> », linkedin.com/jobs/search, /jobs/<métier>-jobs), même si son slug correspond au poste : elle ne décrit aucune offre précise.
        - Éliminer tous les doublons d'URL.
 
     4. **Sélection finale** :
        - Retenir TOUTES les fiches individuelles qui respectent les règles ci-dessus, sans plafond ; si aucune ne convient, retourner une liste vide.
-       - Attribuer à chaque URL une note de pertinence (1 à 10) et la plateforme source identifiée (ex: "Greenhouse", "Lever", "Workable", "Ashby", "HelloWork", "Welcome to the Jungle", "Apec", "France Travail", "LinkedIn").
+       - Attribuer à chaque URL une note de pertinence (1 à 10) et la plateforme source identifiée.
 
   expected_output: >
     Un objet structuré conforme au schéma FilteredJobOffersResult listant les URLs finales retenues et le détail de chaque offre qualifiée.
   agent: url_filter
   input_variables:
-    urls: ${execute_search_task.output}
-    original_query: ${convert_query_task.output}
+    urls: ${inputs.urls}
+    original_query: ${inputs.original_query}

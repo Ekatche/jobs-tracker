@@ -1,13 +1,15 @@
+import json
+import logging
+import os
 from functools import lru_cache
 from typing import List, Optional
-import os
-import logging
+
 from crewai import Agent, Crew, Process, Task, LLM
 from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
 
 from tools.custom_tool import TavilyJobBoardSearchTool
-from models import OptimizedQueries, FilteredJobOffersResult
+from models import OptimizedQueries, FilteredJobOffersResult, JobUrlItem
 
 # Configurer le logging
 logging.basicConfig(
@@ -111,23 +113,6 @@ def get_crew_llm() -> LLM:
     raise ValueError("Aucune clé API LLM (OPENAI_API_KEY ou GEMINI_API_KEY) trouvée.")
 
 
-@lru_cache(maxsize=1)
-def get_search_executor_llm() -> LLM:
-    """LLM dédié à search_executor (boucle sur les résultats Tavily).
-
-    Priorité coût explicite sur ce rôle : gpt-5-nano bat gemini-3.8-flash sur le
-    prix ($0.50/$1.50 vs $0.75/$3.75 par M tokens) tout en gardant le tool-calling
-    natif OpenAI, plus mature que l'adaptateur LiteLLM pour Gemini. Indépendant de
-    PREFER_GEMINI, qui ne pilote que query_converter/url_filter.
-    """
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY requise pour search_executor (CREW_LLM_MODEL_SEARCH).")
-    model = os.getenv("CREW_LLM_MODEL_SEARCH", "gpt-5-nano")
-    temperature = _get_openai_temperature(model)
-    return JobTrackerLLM(model=model, api_key=api_key, temperature=temperature)
-
-
 @CrewBase
 class JobTrackers:
     """JobTrackers crew pour la recherche et le filtrage d'offres d'emploi."""
@@ -141,15 +126,6 @@ class JobTrackers:
             config=self.agents_config["query_converter"],
             llm=get_crew_llm(),
             verbose=False,
-        )
-
-    @agent
-    def search_executor(self) -> Agent:
-        return Agent(
-            config=self.agents_config["search_executor"],
-            llm=get_search_executor_llm(),
-            verbose=False,
-            tools=[tavily_search],
         )
 
     @agent
@@ -168,16 +144,24 @@ class JobTrackers:
         )
 
     @task
-    def execute_search_task(self) -> Task:
-        return Task(
-            config=self.tasks_config["execute_search_task"],
-        )
-
-    @task
     def filter_urls_task(self) -> Task:
         return Task(
             config=self.tasks_config["filter_urls_task"],
             output_pydantic=FilteredJobOffersResult,
+        )
+
+    def query_crew(self) -> Crew:
+        return Crew(
+            agents=[self.query_converter()],
+            tasks=[self.convert_query_task()],
+            verbose=False,
+        )
+
+    def filter_crew(self) -> Crew:
+        return Crew(
+            agents=[self.url_filter()],
+            tasks=[self.filter_urls_task()],
+            verbose=False,
         )
 
     @crew
@@ -188,4 +172,53 @@ class JobTrackers:
             tasks=self.tasks,
             process=Process.sequential,
             verbose=True,
+        )
+
+    def optimize_query(self, user_query: str) -> OptimizedQueries:
+        """Exécute la conversion de la requête utilisateur en requêtes ciblées."""
+        result = self.query_crew().kickoff(inputs={"user_query": user_query})
+        pyd = getattr(result, "pydantic", None)
+        if isinstance(pyd, OptimizedQueries):
+            return pyd
+        if isinstance(result, dict) and "primary_query" in result:
+            return OptimizedQueries(**result)
+        raw = getattr(result, "raw", str(result))
+        if isinstance(raw, str):
+            try:
+                data = json.loads(raw.strip().replace("```json", "").replace("```", "").strip())
+                if isinstance(data, dict) and "primary_query" in data:
+                    return OptimizedQueries(**data)
+            except Exception:
+                pass
+        return OptimizedQueries(
+            primary_query=user_query,
+            alternative_queries=[],
+            extracted_job_title=user_query,
+            extracted_location="",
+        )
+
+    def filter_urls(self, original_query: str, urls: List[str]) -> FilteredJobOffersResult:
+        """Filtre et score les URLs trouvées via l'agent url_filter."""
+        if not urls:
+            return FilteredJobOffersResult(urls=[], items=[])
+        result = self.filter_crew().kickoff(inputs={
+            "original_query": original_query,
+            "urls": urls,
+        })
+        pyd = getattr(result, "pydantic", None)
+        if isinstance(pyd, FilteredJobOffersResult):
+            return pyd
+        if isinstance(result, dict) and "urls" in result:
+            return FilteredJobOffersResult(**result)
+        raw = getattr(result, "raw", str(result))
+        if isinstance(raw, str):
+            try:
+                data = json.loads(raw.strip().replace("```json", "").replace("```", "").strip())
+                if isinstance(data, dict) and "urls" in data:
+                    return FilteredJobOffersResult(**data)
+            except Exception:
+                pass
+        return FilteredJobOffersResult(
+            urls=urls,
+            items=[JobUrlItem(url=u, source_platform="Web", relevance_score=7) for u in urls],
         )
