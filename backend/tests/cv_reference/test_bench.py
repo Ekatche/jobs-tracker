@@ -6,7 +6,7 @@ import pytest
 
 from scripts import llm_budget
 from app.services.cv_parser import DEFAULT_CV_PARSER_MODEL, DEFAULT_VLM_MODEL
-from scripts.cv_reference_bench import compute_metrics, estimate_case_usd, run_bench
+from scripts.cv_reference_bench import PRICES_USD_PER_M, compute_metrics, estimate_case_usd, run_bench
 from tests.cv_reference.fixtures import (INVENTED_EXPERIENCE, INVENTED_ROLE_EXPERIENCE, inventing_oracle,
                                          llm_response, refusing_acompletion)
 
@@ -21,6 +21,7 @@ FACTS = [
     {"fait": "Société Générale Fictive", "champ": "experiences.company", "page": 1, "critique": True},
     {"fait": "Data Engineer", "champ": "experiences.role", "page": 1, "critique": True},
 ]
+EMAIL_FACT = {"fait": "a@example.com", "champ": "contact.email", "page": 1, "critique": True}
 
 
 @pytest.fixture
@@ -38,146 +39,107 @@ def by_id(report):
     return {r["case_id"]: r for r in report["results"]}
 
 
-@pytest.mark.parametrize("extracted, recall, missed, invented", [
-    ([{"company": "ACME", "role": "Data Engineer", "start": "2021-09", "end": None}], 0.5, ["Société Générale Fictive"], 0),
-    ([{"company": "societe generale fictive", "role": "Analyste", "start": "2019", "end": "2021"}], 0.5, ["Acme"], 0),
-    ([{"company": "Acme"}, {"company": "Société Générale Fictive"}], 1.0, [], 0),
-    ([{"company": "Acme"}, {"company": "Inventée SA"}], 0.5, ["Société Générale Fictive"], 1),
-    ([{"company": "Acme", "role": "Directrice"}], 0.5, ["Société Générale Fictive"], 1),
-    ([], 0.0, ["Acme", "Société Générale Fictive"], 0),
+@pytest.mark.parametrize("facts, extracted, extra, recall, missed, invented, fields", [
+    (FACTS, [{"company": "ACME"}], {}, 0.5, ["Société Générale Fictive"], 0, 2),
+    (FACTS, [{"company": "societe generale fictive"}], {}, 0.5, ["Acme"], 0, 2),
+    (FACTS, [{"company": "Acme"}, {"company": "Inventée SA"}], {}, 0.5, ["Société Générale Fictive"], 1, 2),
+    (FACTS, [{"company": "Acme", "role": "Directrice"}], {}, 0.5, ["Société Générale Fictive"], 1, 2),
+    (FACTS, [], {}, 0.0, ["Acme", "Société Générale Fictive"], 0, 1),
+    (FACTS + [EMAIL_FACT], [{"company": "Acme"}], {"contact": {"email": "b@example.com"}, "skills": {}}, 0.5,
+     ["Société Générale Fictive"], 1, 3),
 ])
-def test_compute_metrics(extracted, recall, missed, invented):
-    metrics = compute_metrics(FACTS, TRUTH, {"experiences": extracted, "headline": "x"})
-    assert metrics["experience_recall"] == recall
-    assert metrics["missed_experiences"] == missed
-    assert len(metrics["invented_facts"]) == invented
-
-
-def test_compute_metrics_counts_non_empty_sections_and_wrong_critical_email():
-    facts = FACTS + [{"fait": "a@example.com", "champ": "contact.email", "page": 1, "critique": True}]
-    result = {"headline": "x", "summary": "", "experiences": [{"company": "Acme"}], "skills": {}, "contact": {"email": "b@example.com"}}
+def test_compute_metrics(facts, extracted, extra, recall, missed, invented, fields):
+    result = {"headline": "x", "summary": "", "experiences": extracted, **extra}
     metrics = compute_metrics(facts, TRUTH, result)
-    assert metrics["fields_extracted"] == 3
-    assert any("email" in f for f in metrics["invented_facts"])
+    assert metrics["experience_recall"] == recall and metrics["missed_experiences"] == missed
+    assert len(metrics["invented_facts"]) == invented and metrics["fields_extracted"] == fields
 
 
-async def test_long_case_recovers_everything_and_uses_text_for_late_pages(run):
-    report = await run(["lg_p04"])
-    r = by_id(report)["lg_p04"]
-    assert r["experience_recall"] == 1.0 and r["invented_facts"] == []
-    assert r["pages_by_method"]["vlm"] == [1, 2, 3] and r["pages_by_method"]["text"] == [4]
-    assert r["pages_covered"] == 1.0 and r["all_pages_handled"] and r["cost_usd"] > 0
-
-
-async def test_scanned_long_case_reports_its_skipped_pages(run):
-    r = by_id(await run(["sc_p04"]))["sc_p04"]
-    assert r["skipped_pages"] == [4] and r["pages_covered"] == 0.75
-    assert r["all_pages_handled"] and r["experience_recall"] < 1.0
-
-
-@pytest.mark.parametrize("factory", [
-    inventing_oracle(INVENTED_EXPERIENCE),
-    inventing_oracle(INVENTED_ROLE_EXPERIENCE, replace_role=True),
+@pytest.mark.parametrize("case_id, factory, vlm, text, skipped, complete, invented", [
+    ("lg_p04", None, [1, 2, 3], [4], [], True, False),
+    ("sc_p04", None, [1, 2, 3], [], [4], False, False),
+    ("oc_p01", inventing_oracle(INVENTED_EXPERIENCE), [1, 2], [], [], True, True),
+    ("oc_p01", inventing_oracle(INVENTED_ROLE_EXPERIENCE, replace_role=True), [1, 2], [], [], True, True),
 ])
-async def test_invented_facts_are_detected(run, factory):
-    r = by_id(await run(["oc_p01"], oracle_factory=factory))["oc_p01"]
-    assert len(r["invented_facts"]) > 0
+async def test_pipeline_coverage_and_invented_facts(run, case_id, factory, vlm, text, skipped, complete, invented):
+    kwargs = {"oracle_factory": factory} if factory else {}
+    r = by_id(await run([case_id], **kwargs))[case_id]
+    assert (r["pages_by_method"]["vlm"], r["pages_by_method"]["text"], r["skipped_pages"]) == (vlm, text, skipped)
+    assert (r["experience_recall"] == 1.0) == complete and bool(r["invented_facts"]) == invented
+    assert r["all_pages_handled"] and r["cost_usd"] > 0
+    assert r["pages_covered"] == 1 - len(skipped) / r["total_pages"]
 
 
-async def test_simulated_mode_never_touches_the_budget_ledger(run):
-    await run(["oc_p01", "lg_p04", "pr_p02"])
-    assert not llm_budget.LEDGER_PATH.exists()
-
-
-async def test_protected_pdf_is_rejected_with_a_readable_message(run):
-    r = by_id(await run(["pr_p02"]))["pr_p02"]
+@pytest.mark.parametrize("case_id", ["pr_p02", "un_corrupt", "em_blank"])
+async def test_expected_rejections_are_evaluated_on_the_rejection(run, case_id):
+    r = by_id(await run([case_id]))[case_id]
     assert r["expected_rejection"] and r["expectation_met"]
-    assert "mot de passe" in r["rejected"] and r["errors"] == [r["rejected"]]
     assert r["experience_recall"] is None and r["missed_experiences"] == [] and r["n_company_facts"] == 0
-    assert r["n_calls"] == 0 and r["cost_usd"] == 0
+    assert r["errors"] and all(isinstance(e, str) and e for e in r["errors"])
+    if case_id == "pr_p02":
+        assert "mot de passe" in r["rejected"] and r["n_calls"] == 0 and r["cost_usd"] == 0
+    elif case_id == "un_corrupt":
+        assert not r["completed"] and any("FileDataError" in e for e in r["errors"])
+    else:
+        assert r["completed"] and r["fields_extracted"] == 0
 
 
-async def test_unreadable_pdf_error_is_captured_and_names_its_type(run):
-    r = by_id(await run(["un_corrupt"]))["un_corrupt"]
-    assert r["expected_rejection"] and r["expectation_met"] and not r["completed"]
-    assert any("FileDataError" in e and "Failed to open" in e for e in r["errors"])
-
-
-async def test_blank_pdf_gives_an_empty_result(run):
-    r = by_id(await run(["em_blank"]))["em_blank"]
-    assert r["expected_rejection"] and r["expectation_met"] and r["completed"]
-    assert r["fields_extracted"] == 0 and r["errors"]
-
-
-async def test_protected_category_is_outside_the_recall_denominator(run):
-    report = await run(["oc_p01", "pr_p02"])
-    g = report["aggregates"]["global"]
-    assert g["experience_recall"] == 1.0 and g["missed_experiences"] == 0
-    assert report["aggregates"]["by_category"]["protected"]["experience_recall"] is None
-
-
-def test_price_table_knows_the_default_models():
-    from app.services.cv_parser import DEFAULT_CV_PARSER_MODEL, DEFAULT_VLM_MODEL
-    from scripts.cv_reference_bench import PRICES_USD_PER_M
-
-    assert DEFAULT_VLM_MODEL in PRICES_USD_PER_M and DEFAULT_CV_PARSER_MODEL in PRICES_USD_PER_M
-
-
-async def test_aggregates_group_by_category(run):
-    report = await run(["oc_p01", "oc_p02", "lg_p04"])
-    assert report["aggregates"]["by_category"]["one_column"]["n_cases"] == 2
-    assert report["aggregates"]["global"]["n_cases"] == 3
+async def test_aggregates_by_category_exclude_rejections_from_recall(run):
+    report = await run(["oc_p01", "oc_p02", "lg_p04", "pr_p02"])
+    agg = report["aggregates"]
+    assert agg["by_category"]["one_column"]["n_cases"] == 2 and agg["global"]["n_cases"] == 4
+    assert agg["global"]["experience_recall"] == 1.0 and agg["global"]["missed_experiences"] == 0
+    assert agg["by_category"]["protected"]["experience_recall"] is None
     assert "mode simulé" in report["summary"]
 
 
-async def test_real_mode_with_exhausted_budget_makes_no_call(run):
-    llm_budget.record_call("parser", "preload", "m", 0.25, "estimated")
-    fake = refusing_acompletion()
-    with patch("app.services.cv_parser.acompletion", fake):
-        with pytest.raises(llm_budget.BudgetExceeded):
-            await run(["lg_p04"], mode="real", confirm=True)
-    fake.assert_not_called()
+def test_price_table_knows_the_default_models():
+    assert DEFAULT_VLM_MODEL in PRICES_USD_PER_M and DEFAULT_CV_PARSER_MODEL in PRICES_USD_PER_M
 
 
-async def test_real_without_confirm_only_estimates(run):
+@pytest.mark.parametrize("mode, confirm", [("simulated", False), ("real", False)])
+async def test_ledger_untouched_and_no_call_without_confirmation(run, mode, confirm):
     fake = refusing_acompletion()
     with patch("app.services.cv_parser.acompletion", fake):
-        report = await run(["lg_p04", "oc_p01"], mode="real", confirm=False)
-    fake.assert_not_called()
-    assert report["estimate_usd"] > 0 and report["results"] == []
+        report = await run(["lg_p04", "oc_p01"], mode=mode, confirm=confirm) if mode == "real" else None
+    if mode == "real":
+        fake.assert_not_called()
+        assert report["estimate_usd"] > 0 and report["results"] == []
+    else:
+        await run(["oc_p01", "lg_p04", "pr_p02"])
     assert not llm_budget.LEDGER_PATH.exists()
 
 
-async def test_real_mode_records_the_cost_of_a_completed_import(run, monkeypatch):
+@pytest.mark.parametrize("mid_loop", [False, True])
+async def test_exhausted_budget_makes_no_call_and_keeps_partial_results(run, generated, monkeypatch, mid_loop):
     monkeypatch.setenv("MISTRAL_API_KEY", "dummy")
-    payload = {"headline": "Data", "experiences": [{"company": "X", "role": "Y"}]}
-    with patch("app.services.cv_parser.acompletion", AsyncMock(return_value=llm_response(payload))):
-        report = await run(["oc_p02"], mode="real", confirm=True)
-    rows = [json.loads(line) for line in llm_budget.LEDGER_PATH.read_text().splitlines()]
-    assert len(rows) == 1 and rows[0]["plan"] == "parser" and rows[0]["case_id"] == "oc_p02"
-    assert rows[0]["cost_usd"] == pytest.approx(by_id(report)["oc_p02"]["cost_usd"])
-    assert rows[0]["cost_usd"] > 0
-
-
-async def test_real_mode_records_nothing_for_a_total_failure(run, monkeypatch):
-    monkeypatch.setenv("MISTRAL_API_KEY", "dummy")
-    broken = AsyncMock(return_value=llm_response({}, 100, 50))
-    broken.return_value.choices[0].message.content = "pas du json"
-    with patch("app.services.cv_parser.acompletion", broken):
-        report = await run(["oc_p02"], mode="real", confirm=True)
-    r = by_id(report)["oc_p02"]
-    assert r["cost_usd"] > 0 and not r["cost_recorded"]
-    assert not llm_budget.LEDGER_PATH.exists()
-
-
-async def test_budget_exceeded_mid_loop_writes_partial_results_first(run, generated, monkeypatch):
-    monkeypatch.setenv("MISTRAL_API_KEY", "dummy")
-    payload = {"headline": "Data", "experiences": [{"company": "X", "role": "Y"}]}
     est = {e["case_id"]: estimate_case_usd(e, DEFAULT_VLM_MODEL, DEFAULT_CV_PARSER_MODEL) for e in generated["manifest"]}
-    # Laisse la place du premier cas seulement : le second dépasse la part parser.
-    llm_budget.record_call("parser", "preload", "m", 0.25 - est["oc_p02"] - est["lg_p04"] / 2, "estimated")
-    with patch("app.services.cv_parser.acompletion", AsyncMock(return_value=llm_response(payload, 10, 5))):
+    spent = 0.25 - est["oc_p02"] - est["lg_p04"] / 2 if mid_loop else 0.25
+    llm_budget.record_call("parser", "preload", "m", spent, "estimated")
+    fake = AsyncMock(return_value=llm_response({"headline": "Data", "experiences": [{"company": "X", "role": "Y"}]}, 10, 5))
+    with patch("app.services.cv_parser.acompletion", fake):
         with pytest.raises(llm_budget.BudgetExceeded):
             await run(["oc_p02", "lg_p04"], mode="real", confirm=True)
+    if not mid_loop:
+        fake.assert_not_called()
+        return
     saved = json.loads((generated["out_dir"] / "bench_results_real.json").read_text())
     assert saved["partial"] and [r["case_id"] for r in saved["results"]] == ["oc_p02"]
+
+
+@pytest.mark.parametrize("content, recorded", [(None, True), ("pas du json", False)])
+async def test_real_mode_records_completed_imports_only(run, monkeypatch, content, recorded):
+    monkeypatch.setenv("MISTRAL_API_KEY", "dummy")
+    response = llm_response({"headline": "Data", "experiences": [{"company": "X", "role": "Y"}]})
+    if content:
+        response.choices[0].message.content = content
+    with patch("app.services.cv_parser.acompletion", AsyncMock(return_value=response)):
+        report = await run(["oc_p02"], mode="real", confirm=True)
+    r = by_id(report)["oc_p02"]
+    assert r["cost_usd"] > 0 and r["cost_recorded"] == recorded
+    if recorded:
+        rows = [json.loads(line) for line in llm_budget.LEDGER_PATH.read_text().splitlines()]
+        assert len(rows) == 1 and rows[0]["case_id"] == "oc_p02" and rows[0]["plan"] == "parser"
+        assert rows[0]["cost_usd"] == pytest.approx(r["cost_usd"])
+    else:
+        assert not llm_budget.LEDGER_PATH.exists()
