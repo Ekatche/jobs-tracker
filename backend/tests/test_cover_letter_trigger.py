@@ -54,9 +54,11 @@ async def test_cover_letter_bg_idempotency(status):
 
     mock_db["cover_letters"].find_one = AsyncMock(return_value={"_id": ObjectId(), "status": status})
     mock_db["cover_letters"].insert_one = AsyncMock()
+    mock_db["cover_letters"].update_one = AsyncMock()
 
     await _generate_cover_letter_bg(app_id, user_id, mock_db)
     mock_db["cover_letters"].insert_one.assert_not_called()
+    mock_db["cover_letters"].update_one.assert_not_called()
 
 
 @pytest.mark.asyncio

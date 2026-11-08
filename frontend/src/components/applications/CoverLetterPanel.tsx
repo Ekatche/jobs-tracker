@@ -124,6 +124,7 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
 
   const handleRegenerate = async () => {
     setGenerating(true);
+    setExportError(null);
     setProposal(null);
     setSelection(null);
     // Mise à jour optimiste immédiate pour afficher le spinner
@@ -154,6 +155,7 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
     setCustomInstruction("");
     setRewriteError(null);
     setConfirmingExport(false);
+    setExportError(null);
     try {
       const updated = await coverLetterApi.edit(applicationId, textBody);
       setLetterData(updated);
@@ -180,8 +182,12 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
       console.error("Erreur téléchargement PDF:", err);
       if ((err as { status?: number }).status === 409) {
         // La lettre a été réévaluée ailleurs : on recharge puis on demande confirmation
-        await fetchLetter();
-        setConfirmingExport(true);
+        const reloaded = await fetchLetter();
+        if (reloaded?.status === "needs_review") {
+          setConfirmingExport(true);
+        } else {
+          setExportError("La lettre a changé : rechargez-la puis réessayez l'export.");
+        }
       } else {
         setExportError("Le téléchargement du PDF a échoué. Réessayez dans un instant.");
       }
@@ -529,6 +535,7 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
                 type="button"
                 onClick={() => {
                   setConfirmingExport(false);
+                  setExportError(null);
                   setViewMode("edit");
                 }}
                 className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors"

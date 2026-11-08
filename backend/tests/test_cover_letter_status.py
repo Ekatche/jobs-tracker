@@ -108,6 +108,7 @@ async def test_edit_reevaluates_guards_without_llm(
 
     assert res.status_code == 200
     data = res.json()
+    assert "guard_context" not in data
     assert data["status"] == expected_status
     latest = data["versions"][-1]
     assert latest["origin"] == "edited"
