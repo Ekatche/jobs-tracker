@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 from main import app
 from app.database import get_database
+from app.auth import get_current_user
+from app.models import UserModel
+from bson import ObjectId
 
 dotenv_path = pathlib.Path(__file__).parent.parent.parent / ".env"
 load_dotenv(dotenv_path=dotenv_path)
@@ -121,3 +124,57 @@ def auth_headers(client, registered_user):
     assert login_response.status_code == 200
     access_token = login_response.json()["access_token"]
     return {"Authorization": f"Bearer {access_token}"}
+
+
+USER_ID = "60c72b2f9b1d8b2bad7f1234"
+
+
+class _StoredProfile(dict):
+    """Dict de secours pour candidate_profile, avec les docs role_aliases
+    attachés en attribut pour que les tests puissent les préremplir."""
+
+    role_aliases: list
+
+
+@pytest.fixture
+def profile_db(monkeypatch):
+    """Base en mémoire pour les collections candidate_profile et role_aliases."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    stored = _StoredProfile()
+    stored.role_aliases = []
+
+    async def find_one(_query):
+        return dict(stored) if stored else None
+
+    async def update_one(_filter, update, upsert=False):
+        stored.update(update["$set"])
+        stored.setdefault("_id", ObjectId())
+        return MagicMock()
+
+    profile_collection = MagicMock()
+    profile_collection.find_one = AsyncMock(side_effect=find_one)
+    profile_collection.update_one = AsyncMock(side_effect=update_one)
+
+    def fake_aliases_find(query):
+        canonicals = set(query.get("canonical", {}).get("$in", []))
+        matched = [doc for doc in stored.role_aliases if doc.get("canonical") in canonicals]
+        cursor = MagicMock()
+        cursor.to_list = AsyncMock(return_value=matched)
+        return cursor
+
+    aliases_collection = MagicMock()
+    aliases_collection.find = MagicMock(side_effect=fake_aliases_find)
+
+    def get_collection(name):
+        return aliases_collection if name == "role_aliases" else profile_collection
+
+    db = MagicMock()
+    db.__getitem__.side_effect = get_collection
+
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: UserModel(
+        id=USER_ID, username="tester", email="t@example.com", hashed_password="x"
+    )
+    yield stored
+    app.dependency_overrides.clear()

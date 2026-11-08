@@ -14,12 +14,20 @@ VLM_OK = {
 }
 
 
-def _make_pdf(tmp_path, pages: int):
+def _make_pdf(tmp_path, pages: int, scanned: frozenset = frozenset()):
+    """PDF de test ; les pages de `scanned` sont une image sans couche texte."""
     import fitz
 
     doc = fitz.open()
     for i in range(1, pages + 1):
-        doc.new_page(width=300, height=300).insert_text((20, 50), f"MARQUEUR_PAGE_{i}", fontsize=14)
+        page = doc.new_page(width=300, height=300)
+        if i in scanned:
+            source = fitz.open()
+            source.new_page(width=300, height=300).insert_text((20, 50), f"SCAN_{i}", fontsize=14)
+            page.insert_image(page.rect, pixmap=source[0].get_pixmap(dpi=72))
+            source.close()
+        else:
+            page.insert_text((20, 50), f"MARQUEUR_PAGE_{i}", fontsize=14)
     path = tmp_path / "cv.pdf"
     doc.save(str(path))
     doc.close()
@@ -152,3 +160,96 @@ def test_merge_cv_complement_never_overwrites(base, extra, expected):
     merged = _merge_cv_complement(base, extra)
     for key, value in expected.items():
         assert merged[key] == value
+
+
+COMPLEMENT_JSON = '{"headline": "", "experiences": [], "skills": {}, "summary": "Suite"}'
+
+
+def _assert_report_partitions_pages(report):
+    """Invariant : vlm U text U skipped = toutes les pages, sans recouvrement."""
+    vlm, text = report["pages_by_method"]["vlm"], report["pages_by_method"]["text"]
+    everything = vlm + text + report["skipped_pages"]
+    assert sorted(everything) == list(range(1, report["total_pages"] + 1))
+    assert len(everything) == len(set(everything))
+
+
+@pytest.mark.asyncio
+async def test_report_vlm_pages_text_complement_and_scanned_skip(tmp_path, mistral_key):
+    from app.services.cv_parser import parse_cv_with_llm
+
+    pdf = _make_pdf(tmp_path, 6, scanned=frozenset({2, 6}))  # 2 : vue par le VLM ; 6 : scannée au-delà
+    with patch("app.services.cv_parser.parse_cv_with_vlm", new_callable=AsyncMock, return_value=_vlm_payload()):
+        with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock,
+                   return_value=_llm_response(COMPLEMENT_JSON)):
+            result = await parse_cv_with_llm(cv_text="texte", pdf_path=pdf)
+
+    report = result["_import_report"]
+    assert report == {
+        "total_pages": 6,
+        "pages_by_method": {"vlm": [1, 2, 3], "text": [4, 5]},
+        "skipped_pages": [6],
+        "fallback_used": False,
+        "errors": [],
+    }
+    _assert_report_partitions_pages(report)
+
+
+@pytest.mark.asyncio
+async def test_report_full_text_fallback_skips_scanned_pages(tmp_path, mistral_key):
+    from app.services.cv_parser import parse_cv_with_llm
+
+    pdf = _make_pdf(tmp_path, 4, scanned=frozenset({2}))
+    fallback = _llm_response('{"headline": "Repli", "experiences": [], "skills": {}}')
+    with patch("app.services.cv_parser.parse_cv_with_vlm", new_callable=AsyncMock,
+               side_effect=RuntimeError("secret technique")):
+        with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock, return_value=fallback):
+            result = await parse_cv_with_llm(cv_text="texte du CV", pdf_path=pdf)
+
+    report = result["_import_report"]
+    assert report["fallback_used"] is True
+    assert report["pages_by_method"] == {"vlm": [], "text": [1, 3, 4]}
+    assert report["skipped_pages"] == [2]
+    assert len(report["errors"]) == 1 and "secret technique" not in report["errors"][0]
+    _assert_report_partitions_pages(report)
+
+
+@pytest.mark.asyncio
+async def test_report_complement_failure_skips_pages_beyond_limit(tmp_path, mistral_key):
+    from app.services.cv_parser import parse_cv_with_llm
+
+    pdf = _make_pdf(tmp_path, 5)
+    with patch("app.services.cv_parser.parse_cv_with_vlm", new_callable=AsyncMock, return_value=_vlm_payload()):
+        with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock, side_effect=RuntimeError("boom")):
+            result = await parse_cv_with_llm(cv_text="texte", pdf_path=pdf)
+
+    report = result["_import_report"]
+    assert report["pages_by_method"] == {"vlm": [1, 2, 3], "text": []}
+    assert report["skipped_pages"] == [4, 5]
+    assert report["fallback_used"] is False
+    assert len(report["errors"]) == 1 and "boom" not in report["errors"][0]
+    _assert_report_partitions_pages(report)
+
+
+@pytest.mark.asyncio
+async def test_report_without_mistral_key_marks_fallback(tmp_path, monkeypatch):
+    from app.services.cv_parser import parse_cv_with_llm
+
+    monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
+    pdf = _make_pdf(tmp_path, 2)
+    fallback = _llm_response('{"headline": "Repli", "experiences": [], "skills": {}}')
+    with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock, return_value=fallback):
+        result = await parse_cv_with_llm(cv_text="texte du CV", pdf_path=pdf)
+
+    assert result["_import_report"]["fallback_used"] is True
+    assert result["_import_report"]["pages_by_method"] == {"vlm": [], "text": [1, 2]}
+
+
+@pytest.mark.asyncio
+async def test_no_report_without_pdf():
+    from app.services.cv_parser import parse_cv_with_llm
+
+    fallback = _llm_response('{"headline": "Texte", "experiences": [], "skills": {}}')
+    with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock, return_value=fallback):
+        result = await parse_cv_with_llm(cv_text="texte du CV")
+
+    assert "_import_report" not in result

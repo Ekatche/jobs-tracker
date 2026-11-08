@@ -20,60 +20,6 @@ def test_app_imports_without_pymupdf(monkeypatch):
     assert hasattr(module, "extract_text_from_pdf")
 
 
-USER_ID = "60c72b2f9b1d8b2bad7f1234"
-
-
-class _StoredProfile(dict):
-    """Dict de secours pour candidate_profile, avec les docs role_aliases
-    attachés en attribut pour que les tests puissent les préremplir."""
-
-    role_aliases: list
-
-
-@pytest.fixture
-def profile_db(monkeypatch):
-    """Base en mémoire pour les collections candidate_profile et role_aliases."""
-    from unittest.mock import AsyncMock, MagicMock
-
-    stored = _StoredProfile()
-    stored.role_aliases = []
-
-    async def find_one(_query):
-        return dict(stored) if stored else None
-
-    async def update_one(_filter, update, upsert=False):
-        stored.update(update["$set"])
-        stored.setdefault("_id", ObjectId())
-        return MagicMock()
-
-    profile_collection = MagicMock()
-    profile_collection.find_one = AsyncMock(side_effect=find_one)
-    profile_collection.update_one = AsyncMock(side_effect=update_one)
-
-    def fake_aliases_find(query):
-        canonicals = set(query.get("canonical", {}).get("$in", []))
-        matched = [doc for doc in stored.role_aliases if doc.get("canonical") in canonicals]
-        cursor = MagicMock()
-        cursor.to_list = AsyncMock(return_value=matched)
-        return cursor
-
-    aliases_collection = MagicMock()
-    aliases_collection.find = MagicMock(side_effect=fake_aliases_find)
-
-    def get_collection(name):
-        return aliases_collection if name == "role_aliases" else profile_collection
-
-    db = MagicMock()
-    db.__getitem__.side_effect = get_collection
-
-    app.dependency_overrides[get_database] = lambda: db
-    app.dependency_overrides[get_current_user] = lambda: UserModel(
-        id=USER_ID, username="tester", email="t@example.com", hashed_password="x"
-    )
-    yield stored
-    app.dependency_overrides.clear()
-
-
 def test_non_pdf_upload_is_rejected(client, profile_db):
     res = client.post(
         "/profile/candidate/sources/cv",
@@ -389,3 +335,55 @@ def test_cv_import_records_a_single_usage_entry(
     assert recorded[0]["input_tokens"] == expected_in
     assert recorded[0]["output_tokens"] == expected_out
     assert recorded[0]["estimated_cost_usd"] >= 0
+
+
+IMPORT_REPORT = {
+    "total_pages": 5,
+    "pages_by_method": {"vlm": [1, 2, 3], "text": [4]},
+    "skipped_pages": [5],
+    "fallback_used": False,
+    "errors": ["Message lisible"],
+}
+
+
+def test_cv_import_returns_report_but_never_persists_it(client, profile_db, monkeypatch, tmp_path):
+    import app.routers.cover_letters as router
+
+    monkeypatch.setattr(router, "UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(router, "extract_text_from_pdf", lambda path: "texte du CV")
+
+    async def fake_parse(_text, pdf_path=None):
+        return {"headline": "Ingénieur Data", "experiences": [], "_import_report": dict(IMPORT_REPORT)}
+
+    monkeypatch.setattr(router, "parse_cv_with_llm", fake_parse)
+
+    res = client.post(
+        "/profile/candidate/sources/cv",
+        files={"file": ("cv.pdf", io.BytesIO(b"%PDF-1.7 contenu"), "application/pdf")},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["import_report"] == IMPORT_REPORT
+    assert body["headline"] == "Ingénieur Data"
+    assert "_import_report" not in body
+    stored_cv = profile_db["sources"]["cv"]
+    assert "_import_report" not in stored_cv and "import_report" not in stored_cv
+    assert "import_report" not in profile_db and "_import_report" not in profile_db
+
+
+def test_cv_import_without_report_keeps_legacy_response(client, profile_db, monkeypatch, tmp_path):
+    import app.routers.cover_letters as router
+
+    monkeypatch.setattr(router, "UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(router, "extract_text_from_pdf", lambda path: "texte du CV")
+
+    async def fake_parse(_text, pdf_path=None):
+        return {"headline": "Ingénieur Data", "experiences": []}
+
+    monkeypatch.setattr(router, "parse_cv_with_llm", fake_parse)
+    res = client.post(
+        "/profile/candidate/sources/cv",
+        files={"file": ("cv.pdf", io.BytesIO(b"%PDF-1.7 contenu"), "application/pdf")},
+    )
+    assert res.status_code == 200
+    assert "import_report" not in res.json()

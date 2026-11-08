@@ -16,7 +16,7 @@ import {
   setRememberMe,
 } from "./auth";
 import { Task } from "@/types/tasks";
-import { CoverLetter, CandidateProfile, CandidatePreferences } from "@/types/coverLetter";
+import { CoverLetter, CandidateProfile, CandidatePreferences, CvImportResult } from "@/types/coverLetter";
 import { TailoredResume, GenerateResumeRequest, UpdateResumeRequest, PdfOptions } from "@/types/resume";
 import {
   InterviewPrep,
@@ -808,10 +808,10 @@ export const coverLetterApi = {
   updateCandidatePreferences: async (preferences: CandidatePreferences): Promise<CandidateProfile> => {
     return fetchApi<CandidateProfile, CandidatePreferences>("/profile/candidate/preferences", "PUT", preferences);
   },
-  importCv: async (file: File): Promise<CandidateProfile> => {
+  importCv: async (file: File): Promise<CvImportResult> => {
     const formData = new FormData();
     formData.append("file", file);
-    return fetchApi<CandidateProfile, FormData>("/profile/candidate/sources/cv", "POST", formData);
+    return fetchApi<CvImportResult, FormData>("/profile/candidate/sources/cv", "POST", formData);
   },
   importGithub: async (url: string): Promise<CandidateProfile> =>
     fetchApi<CandidateProfile>("/profile/candidate/sources/github", "POST", { url }),

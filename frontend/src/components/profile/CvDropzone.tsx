@@ -10,7 +10,8 @@ import {
   FiCpu,
 } from "react-icons/fi";
 import { coverLetterApi } from "@/lib/api";
-import { CandidateProfile } from "@/types/coverLetter";
+import { CandidateProfile, CvImportReport } from "@/types/coverLetter";
+import CvImportReportNotice, { hasImportLimits } from "./CvImportReportNotice";
 
 interface CvDropzoneProps {
   onProfileUpdated: (updatedProfile: CandidateProfile) => void;
@@ -26,6 +27,7 @@ export default function CvDropzone({
   const [uploadStep, setUploadStep] = useState<string>("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [importReport, setImportReport] = useState<CvImportReport | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
@@ -56,6 +58,7 @@ export default function CvDropzone({
     setIsUploading(true);
     setUploadError(null);
     setUploadSuccess(null);
+    setImportReport(null);
     setUploadStep("Lecture et extraction du texte du PDF...");
 
     try {
@@ -63,7 +66,7 @@ export default function CvDropzone({
         setUploadStep("Analyse et structuration des expériences par l'IA...");
       }, 1200);
 
-      const updatedProfile = await coverLetterApi.importCv(file);
+      const { import_report: report, ...updatedProfile } = await coverLetterApi.importCv(file);
 
       const expCount = updatedProfile.experiences?.length || 0;
       const skillsCount = updatedProfile.skills
@@ -71,11 +74,17 @@ export default function CvDropzone({
         : 0;
 
       setUploadStep("");
+      onProfileUpdated(updatedProfile);
+
+      if (hasImportLimits(report)) {
+        // Import partiel : avertissement persistant, jamais de « succès » sans réserve.
+        setImportReport(report ?? null);
+        return;
+      }
+
       setUploadSuccess(
         `CV « ${file.name} » analysé avec succès ! ${expCount} expérience(s) et ${skillsCount} compétence(s) extraites.`
       );
-      onProfileUpdated(updatedProfile);
-
       setTimeout(() => {
         setUploadSuccess(null);
       }, 6000);
@@ -217,6 +226,10 @@ export default function CvDropzone({
           <FiCheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
           <span className="flex-1">{uploadSuccess}</span>
         </div>
+      )}
+
+      {importReport && (
+        <CvImportReportNotice report={importReport} onDismiss={() => setImportReport(null)} />
       )}
 
       {uploadError && (

@@ -58,6 +58,17 @@ export interface CandidatePreferences {
   search_active?: boolean;
 }
 
+/** Couverture page par page d'un import de CV (pages numérotées à partir de 1). */
+export interface CvImportReport {
+  total_pages: number;
+  pages_by_method: { vlm: number[]; text: number[] };
+  skipped_pages: number[];
+  fallback_used: boolean;
+  errors: string[];
+}
+
+export type CvImportResult = CandidateProfile & { import_report?: CvImportReport };
+
 export interface CandidateProfile {
   _id?: string;
   id?: string;

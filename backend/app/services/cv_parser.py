@@ -101,15 +101,20 @@ PROFILE_JSON_SCHEMA = {
 VLM_MAX_PAGES = 3
 
 
-def extract_text_from_pdf(pdf_path: str, start_page: int = 0) -> str:
-    """Extrait le texte brut d'un PDF (à partir de la page d'index start_page)."""
+def extract_page_texts(pdf_path: str) -> List[str]:
+    """Texte brut de chaque page d'un PDF (chaîne vide pour une page sans couche texte)."""
     import fitz  # PyMuPDF
 
     doc = fitz.open(pdf_path)
     try:
-        return "\n\n".join(page.get_text() for i, page in enumerate(doc) if i >= start_page)
+        return [page.get_text() for page in doc]
     finally:
         doc.close()
+
+
+def extract_text_from_pdf(pdf_path: str, start_page: int = 0) -> str:
+    """Extrait le texte brut d'un PDF (à partir de la page d'index start_page)."""
+    return "\n\n".join(extract_page_texts(pdf_path)[start_page:])
 
 
 def is_pdf_password_protected(pdf_path: str) -> bool:
@@ -444,6 +449,29 @@ Schéma JSON attendu :
     return _clean_parsed_cv(data)
 
 
+def _build_import_report(
+    total_pages: int,
+    vlm_pages: List[int],
+    text_pages: List[int],
+    fallback_used: bool,
+    errors: List[str],
+) -> Dict[str, Any]:
+    """Rapport de couverture d'un import (pages numérotées à partir de 1)."""
+    covered = set(vlm_pages) | set(text_pages)
+    return {
+        "total_pages": total_pages,
+        "pages_by_method": {"vlm": sorted(vlm_pages), "text": sorted(text_pages)},
+        "skipped_pages": [n for n in range(1, total_pages + 1) if n not in covered],
+        "fallback_used": fallback_used,
+        "errors": errors,
+    }
+
+
+def _pages_with_text(page_texts: List[str], first_page: int = 1) -> List[int]:
+    """Numéros (base 1) des pages dont le texte extrait est non vide, à partir de first_page."""
+    return [n for n, text in enumerate(page_texts, start=1) if n >= first_page and text.strip()]
+
+
 async def parse_cv_with_llm(
     cv_text: str = "",
     pdf_path: Optional[str] = None,
@@ -457,12 +485,26 @@ async def parse_cv_with_llm(
     VLM sont complétées par le LLM texte. Bascule sur l'extraction textuelle LLM en
     cas d'indisponibilité, d'erreur ou de réponse VLM vide.
 
-    La clé `_usage` du résultat liste l'usage de chaque appel facturable.
+    La clé `_usage` du résultat liste l'usage de chaque appel facturable ; la clé
+    `_import_report` (si un PDF est fourni) décrit la couverture par page.
     """
     usages: List[Dict[str, Any]] = []
+    errors: List[str] = []
+    has_pdf = bool(pdf_path and os.path.exists(pdf_path))
+    page_texts: Optional[List[str]] = None
+    if has_pdf:
+        try:
+            page_texts = await asyncio.to_thread(extract_page_texts, pdf_path)
+        except Exception as exc:
+            logger.warning("Lecture page par page du PDF impossible, rapport de couverture omis : %s", exc)
+
+    def report(vlm_pages: List[int], text_pages: List[int], fallback: bool) -> Optional[Dict[str, Any]]:
+        if page_texts is None:
+            return None
+        return _build_import_report(len(page_texts), vlm_pages, text_pages, fallback, errors)
 
     # 1. Tentative VLM si PDF présent
-    if pdf_path and os.path.exists(pdf_path):
+    if has_pdf:
         try:
             images = await asyncio.to_thread(render_pdf_pages_to_base64_images, pdf_path)
             if images and os.environ.get("MISTRAL_API_KEY"):
@@ -472,16 +514,23 @@ async def parse_cv_with_llm(
                     usages.extend(vlm_payload.pop("_usage", None) or [])
                 if _has_usable_content(vlm_payload):
                     logger.info("Succès de l'extraction VLM pour le CV")
-                    await _complete_with_remaining_pages(vlm_payload, pdf_path, model, usages)
+                    text_pages = await _complete_with_remaining_pages(
+                        vlm_payload, page_texts, model, usages, errors
+                    )
                     vlm_payload["_usage"] = usages
+                    built = report(list(range(1, len(images) + 1)), text_pages, False)
+                    if built is not None:
+                        vlm_payload["_import_report"] = built
                     return vlm_payload
                 logger.warning("Réponse VLM vide pour le CV, bascule vers le LLM texte")
+                errors.append("L'analyse visuelle n'a rien renvoyé : le texte extrait du PDF a été utilisé à la place.")
         except Exception as exc:
             usages.extend(getattr(exc, "usage", None) or [])
             logger.warning("Échec de l'extraction VLM du CV, bascule vers le LLM texte : %s", exc)
+            errors.append("L'analyse visuelle a échoué : le texte extrait du PDF a été utilisé à la place.")
 
     # 2. Fallback textuel classique
-    if not cv_text and pdf_path and os.path.exists(pdf_path):
+    if not cv_text and has_pdf:
         cv_text = await asyncio.to_thread(extract_text_from_pdf, pdf_path)
 
     # Si cv_text est vide, renvoyer un profil minimal par défaut
@@ -497,6 +546,9 @@ async def parse_cv_with_llm(
         }
         if usages:
             empty["_usage"] = usages
+        built = report([], [], has_pdf)
+        if built is not None:
+            empty["_import_report"] = built
         return empty
 
     try:
@@ -505,24 +557,40 @@ async def parse_cv_with_llm(
         exc.usage = usages + exc.usage
         raise
     data["_usage"] = usages + data.get("_usage", [])
+    built = report([], _pages_with_text(page_texts or []), has_pdf)
+    if built is not None:
+        data["_import_report"] = built
     return data
 
 
 async def _complete_with_remaining_pages(
-    vlm_payload: Dict[str, Any], pdf_path: str, model: str, usages: List[Dict[str, Any]]
-) -> None:
+    vlm_payload: Dict[str, Any],
+    page_texts: Optional[List[str]],
+    model: str,
+    usages: List[Dict[str, Any]],
+    errors: List[str],
+) -> List[int]:
     """Complète le résultat VLM avec le texte des pages que le VLM n'a pas vues.
 
-    Best effort : un échec ici ne fait jamais perdre le résultat VLM.
+    Best effort : un échec ici ne fait jamais perdre le résultat VLM. Renvoie les
+    pages (base 1) effectivement complétées par le texte.
     """
+    if page_texts is None:
+        return []
+    text_pages = _pages_with_text(page_texts, VLM_MAX_PAGES + 1)
+    if not text_pages:
+        return []
     try:
-        remaining_text = await asyncio.to_thread(extract_text_from_pdf, pdf_path, VLM_MAX_PAGES)
-        if not remaining_text.strip():
-            return
         logger.info("Complément texte du CV pour les pages au-delà de %d", VLM_MAX_PAGES)
-        extra = await _parse_cv_text(remaining_text, model)
+        extra = await _parse_cv_text("\n\n".join(page_texts[VLM_MAX_PAGES:]), model)
         usages.extend(extra.pop("_usage", None) or [])
         _merge_cv_complement(vlm_payload, extra)
+        return text_pages
     except Exception as exc:
         usages.extend(getattr(exc, "usage", None) or [])
         logger.warning("Échec du complément texte des pages restantes du CV : %s", exc)
+        errors.append(
+            f"Les pages au-delà de la page {VLM_MAX_PAGES} n'ont pas pu être analysées : "
+            "leur contenu n'est pas dans le profil importé."
+        )
+        return []

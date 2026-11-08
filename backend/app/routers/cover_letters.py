@@ -553,7 +553,10 @@ async def import_cv_source(
         except TypeError:
             payload = await parse_cv_with_llm(text)
         await _record_cv_parsing_usage(db, current_user.id, payload.pop("_usage", None))
-        return await _store_source(db, str(current_user.id), "cv", payload)
+        # Le rapport accompagne la réponse mais n'est jamais persisté dans sources.cv.
+        import_report = payload.pop("_import_report", None)
+        stored = await _store_source(db, str(current_user.id), "cv", payload)
+        return {**stored, "import_report": import_report} if import_report else stored
     except HTTPException:
         raise
     except Exception as exc:
