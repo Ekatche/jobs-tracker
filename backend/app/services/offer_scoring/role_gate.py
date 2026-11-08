@@ -52,8 +52,9 @@ _BILINGUAL_EQUIVALENCE_GROUPS: tuple[frozenset[str], ...] = (
     frozenset({"marketing", "marche", "marches", "market"}),
     frozenset({"supply", "logistique", "logistics", "achats", "procurement", "purchasing"}),
     frozenset({"hr", "rh", "ressources", "humaines", "human", "resources"}),
-    # Pas « avocat » (profession réglementée distincte) ni « droit » (polysémique).
-    frozenset({"juriste", "juristes", "juridique", "juridiques", "legal", "counsel", "lawyer"}),
+    # Pas « avocat » (profession réglementée distincte), pas « droit » (polysémique), pas
+    # « juridique » (adjectif : « Conseiller Commercial Protection Juridique » est une vente).
+    frozenset({"juriste", "juristes", "legal", "counsel", "lawyer"}),
 )
 
 _EQUIVALENT_TERMS: dict[str, frozenset[str]] = {

@@ -103,7 +103,8 @@ def test_short_terms_need_exact_match():
         (["SRE"], "sre platform", True),
         # famille juridique FR <-> EN
         (["juriste", "juriste contrats"], "Legal Counsel", True),
-        (["Juriste junior en droit des affaires"], "Assistant Juridique", True),
+        # « juridique » seul est un adjectif : une vente d'assurance n'est pas un poste de juriste
+        (["juriste", "juriste contrats"], "Conseiller Commercial Protection Juridique", False),
     ],
 )
 def test_bilingual_and_synonym_role_matching(roles, title, expected):
