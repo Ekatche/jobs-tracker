@@ -1,4 +1,5 @@
 """Banc de couverture hors réseau : métriques, mode simulé, garde-fous du mode réel."""
+# ruff: noqa: F811  (les fixtures importées sont redéclarées en paramètres des tests)
 import json
 from unittest.mock import AsyncMock, patch
 

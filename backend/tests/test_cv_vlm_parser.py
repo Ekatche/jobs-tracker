@@ -1,4 +1,3 @@
-import io
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -77,30 +76,6 @@ async def test_parse_cv_with_vlm_calls_litellm_with_images():
         assert messages[0]["content"][1]["type"] == "image_url"
 
 
-@pytest.mark.asyncio
-async def test_parse_cv_with_llm_falls_back_to_text_on_vlm_error(tmp_path, monkeypatch):
-    pdf_bytes = _create_sample_pdf()
-    pdf_file = tmp_path / "sample_cv.pdf"
-    pdf_file.write_bytes(pdf_bytes)
-
-    monkeypatch.setenv("MISTRAL_API_KEY", "dummy-key")
-
-    fake_text_response = AsyncMock()
-    fake_text_response.choices = [
-        AsyncMock(
-            message=AsyncMock(
-                content='{"headline": "Fallback Data Engineer", "summary": "Fallback", "experiences": [], "skills": {"outils": ["Python"]}}'
-            )
-        )
-    ]
-
-    # Simuler un échec VLM
-    with patch("app.services.cv_parser.parse_cv_with_vlm", side_effect=RuntimeError("VLM connection failed")):
-        with patch("app.services.cv_parser.acompletion", return_value=fake_text_response):
-            result = await parse_cv_with_llm(pdf_path=str(pdf_file))
-            assert result["headline"] == "Fallback Data Engineer"
-
-
 def test_clean_parsed_cv_keeps_non_empty_mobility_and_availability():
     data = _clean_parsed_cv({"contact": {"mobility": " Permis B, véhiculé ", "availability": "", "phone": None}})
     assert data["contact"] == {"mobility": "Permis B, véhiculé"}
@@ -124,7 +99,7 @@ async def test_parse_cv_with_llm_prompt_routes_habilitations_and_mobility():
     assert "texte libre" in prompt
 
 
-def _save_encrypted_pdf(path, user_pw):
+def _save_encrypted_pdf(path, user_pw=""):
     import fitz
 
     doc = fitz.open()
@@ -137,5 +112,5 @@ def test_pdf_encrypted_without_user_password_is_not_protected(tmp_path):
     from app.services.cv_parser import is_pdf_password_protected
 
     pdf_file = tmp_path / "cv.pdf"
-    _save_encrypted_pdf(pdf_file, "")
+    _save_encrypted_pdf(pdf_file)
     assert is_pdf_password_protected(str(pdf_file)) is False

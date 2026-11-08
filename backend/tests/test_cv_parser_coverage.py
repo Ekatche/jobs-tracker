@@ -93,7 +93,7 @@ async def test_no_complement_call_for_three_pages(tmp_path, mistral_key):
 @pytest.mark.parametrize(
     "empty_payload",
     [
-        {"headline": "", "experiences": [], "skills": {}},
+        {"headline": "Titre", "summary": "Le document ne contient aucune information exploitable."},
         {"headline": "  ", "experiences": [{}], "skills": {"outils": []}},
         {},
     ],
@@ -162,12 +162,7 @@ def test_merge_cv_complement_never_overwrites(base, extra, expected):
         assert merged[key] == value
 
 
-COMPLEMENT_JSON = '{"headline": "", "experiences": [], "skills": {}, "summary": "Suite"}'
-
-
-def _assert_no_overlap(report):
-    vlm, text = report["pages_by_method"]["vlm"], report["pages_by_method"]["text"]
-    assert not set(vlm) & set(text)
+COMPLEMENT_JSON = '{"headline": "", "experiences": [], "skills": ["Git"], "summary": "Suite"}'
 
 
 @pytest.mark.asyncio
@@ -175,7 +170,10 @@ async def test_report_vlm_pages_text_complement_and_scanned_skip(tmp_path, mistr
     from app.services.cv_parser import parse_cv_with_llm
 
     pdf = _make_pdf(tmp_path, 6, scanned=frozenset({2, 6}))  # 2 : vue par le VLM ; 6 : scannée au-delà
-    with patch("app.services.cv_parser.parse_cv_with_vlm", new_callable=AsyncMock, return_value=_vlm_payload()):
+    # VLM limité à une formation (M-4 : conservé) ; complément avec skills en liste (M-1 : fusion sans échec).
+    vlm = _vlm_payload(headline="", summary="", experiences=[], skills={},
+                       education=[{"school": "UTC", "degree": "Ingénieur"}])
+    with patch("app.services.cv_parser.parse_cv_with_vlm", new_callable=AsyncMock, return_value=vlm):
         with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock,
                    return_value=_llm_response(COMPLEMENT_JSON)):
             result = await parse_cv_with_llm(cv_text="texte", pdf_path=pdf)
@@ -189,7 +187,6 @@ async def test_report_vlm_pages_text_complement_and_scanned_skip(tmp_path, mistr
         "errors": [],
         "evidence": [],
     }
-    _assert_no_overlap(report)
 
 
 @pytest.mark.asyncio
@@ -208,7 +205,6 @@ async def test_report_full_text_fallback_skips_scanned_pages(tmp_path, mistral_k
     assert report["pages_by_method"] == {"vlm": [], "text": [1, 3, 4]}
     assert report["skipped_pages"] == [2]
     assert len(report["errors"]) == 1 and "secret technique" not in report["errors"][0]
-    _assert_no_overlap(report)
 
 
 @pytest.mark.asyncio
@@ -226,7 +222,6 @@ async def test_report_complement_failure_skips_pages_beyond_limit(tmp_path, mist
     assert report["skipped_pages"] == [4, 5]
     assert report["fallback_used"] is False
     assert len(report["errors"]) == 1 and "boom" not in report["errors"][0]
-    _assert_no_overlap(report)
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,5 @@
 """Générateur de PDF synthétiques annotés : données, pages cibles, scans, déterminisme."""
+# ruff: noqa: F811  (les fixtures importées sont redéclarées en paramètres des tests)
 import pymupdf
 import pytest
 
