@@ -280,7 +280,7 @@ def relevance_lookup_stages(user_id: str) -> list[dict]:
                 "foreignField": "offer_id",
                 "pipeline": [
                     {"$match": {"user_id": user_id}},
-                    {"$project": {"_id": 0, "score": 1, "level": 1, "failed_conditions": 1}},
+                    {"$project": {"_id": 0, "score": 1, "level": 1, "failed_conditions": 1, "unknown_components": 1}},
                 ],
                 "as": "_relevance",
             }
@@ -433,12 +433,13 @@ def _build_list_pipeline(
         pipeline.extend(relevance_lookup_stages(str(current_user.id)))
 
     if current_user:
-        # `failed_conditions` remonte au premier niveau pour JobOfferResponse ;
+        # `failed_conditions` et `unknown_components` remontent au premier niveau pour JobOfferResponse ;
         # les champs internes du lookup ne doivent jamais fuiter dans la réponse.
         pipeline.append(
             {
                 "$addFields": {
                     "failed_conditions": {"$ifNull": ["$_relevance.failed_conditions", []]},
+                    "unknown_components": {"$ifNull": ["$_relevance.unknown_components", []]},
                     "relevance_level": "$_relevance.level",
                 }
             }
@@ -754,6 +755,7 @@ async def get_job_offer(
             "offer_id": str(offer_id),
         })
         offer["failed_conditions"] = relevance.get("failed_conditions", []) if relevance else []
+        offer["unknown_components"] = relevance.get("unknown_components", []) if relevance else []
         offer["relevance_level"] = relevance.get("level") if relevance else None
     else:
         offer["user_interaction"] = None

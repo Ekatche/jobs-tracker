@@ -370,6 +370,7 @@ export interface JobOffer {
   user_interaction?: "saved" | "hidden" | "applied" | "dismissed" | null;
   seen?: boolean;
   failed_conditions?: string[];
+  unknown_components?: string[];
   relevance_level?: "strong" | "medium" | "weak" | null;
   sector?: string | null;
   company_size?: string | null;

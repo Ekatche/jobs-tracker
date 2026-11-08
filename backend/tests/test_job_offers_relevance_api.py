@@ -15,7 +15,8 @@ from bson import ObjectId
 from app.auth import get_current_user
 from app.models import UserModel, UserRole
 from app.routers.job_offers import _build_list_pipeline, relevance_lookup_stages
-from app.services.offer_scoring.score import level_for
+from app.services.offer_scoring.assess import assess_offer
+from app.services.offer_scoring.score import ProfileFeatures, build_skill_idf, level_for
 from conftest import DATABASE_NAME, MONGO_URI
 from main import app
 
@@ -96,7 +97,7 @@ def _insert_offer(db, *, poste, created_at, sector=None, company_size=None, loca
     return db.job_offers.insert_one(doc).inserted_id
 
 
-def _insert_relevance(db, user_id, offer_id, score, failed_conditions=None):
+def _insert_relevance(db, user_id, offer_id, score, failed_conditions=None, unknown_components=None):
     db.offer_relevance.insert_one(
         {
             "user_id": user_id,
@@ -105,7 +106,7 @@ def _insert_relevance(db, user_id, offer_id, score, failed_conditions=None):
             "level": level_for(score),
             "failed_conditions": failed_conditions or [],
             "breakdown": {},
-            "unknown_components": [],
+            "unknown_components": unknown_components or [],
             "updated_at": datetime.now(timezone.utc),
         }
     )
@@ -130,7 +131,7 @@ def seeded_offers(db):
 
     _insert_relevance(db, USER_A_ID, a1, 82)
     _insert_relevance(db, USER_A_ID, a2, 65)
-    _insert_relevance(db, USER_A_ID, a3, 30, failed_conditions=["contract"])
+    _insert_relevance(db, USER_A_ID, a3, 30, failed_conditions=["contract"], unknown_components=["sector"])
     # A4 : pas de document offer_relevance (garde d'interaction / avant premier rematch).
 
     offer_ids = [a1, a2, a3, a4]
@@ -212,6 +213,8 @@ def test_failed_conditions_exposed(client, db, as_user_a, seeded_offers):
     by_poste = {o["poste"]: o for o in res.json()}
     assert by_poste["A3"]["failed_conditions"] == ["contract"]
     assert by_poste["A4"]["failed_conditions"] == []
+    assert by_poste["A3"]["unknown_components"] == ["sector"]
+    assert by_poste["A4"]["unknown_components"] == []
 
 
 @requires_mongo
@@ -264,6 +267,7 @@ def test_get_single_offer_exposes_failed_conditions(client, db, as_user_a, seede
 
     assert res.status_code == 200, res.text
     assert res.json()["failed_conditions"] == ["contract"]
+    assert res.json()["unknown_components"] == ["sector"]
 
 
 @requires_mongo
@@ -273,6 +277,31 @@ def test_get_single_offer_defaults_failed_conditions_to_empty_list(client, db, a
 
     assert res.status_code == 200, res.text
     assert res.json()["failed_conditions"] == []
+    assert res.json()["unknown_components"] == []
+
+
+@requires_mongo
+def test_unknown_components_from_real_scoring_reach_the_api(client, db, as_user_a):
+    """Le document `offer_relevance` vient du vrai calcul (assess_offer puis combine) :
+    une offre sans secteur face à un profil qui en vise un a un secteur inconnu, et
+    l'API restitue exactement `result.unknown_components`, sans exposer `breakdown`."""
+    features = ProfileFeatures(
+        identity="data scientist", skills=frozenset(), seniority_levels=(),
+        preferred_industries=("tech_it",), preferred_company_sizes=(), preferences={},
+    )
+    offer_id = _insert_offer(db, poste="Sans secteur", created_at=datetime.now(timezone.utc))
+    try:
+        reason, result = assess_offer({"poste": "Sans secteur"}, features, cos=0.8, idf=build_skill_idf([[]]))
+        assert reason is None and "sector" in result.unknown_components
+        _insert_relevance(db, USER_A_ID, offer_id, result.score, unknown_components=result.unknown_components)
+
+        res = client.get(f"/job-offers/{offer_id}")
+
+        assert res.status_code == 200, res.text
+        assert res.json()["unknown_components"] == result.unknown_components
+        assert "breakdown" not in res.json()
+    finally:
+        db.job_offers.delete_many({"_id": offer_id})
 
 
 @requires_mongo
