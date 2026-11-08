@@ -21,6 +21,7 @@ FACTS = [
     {"fait": "Société Générale Fictive", "champ": "experiences.company", "page": 1, "critique": True},
     {"fait": "Data Engineer", "champ": "experiences.role", "page": 1, "critique": True},
 ]
+REJECTION_MESSAGES = {"pr_p02": "mot de passe", "un_corrupt": "illisible", "em_blank": "Aucun contenu exploitable"}
 EMAIL_FACT = {"fait": "a@example.com", "champ": "contact.email", "page": 1, "critique": True}
 
 
@@ -76,12 +77,11 @@ async def test_expected_rejections_are_evaluated_on_the_rejection(run, case_id):
     assert r["expected_rejection"] and r["expectation_met"]
     assert r["experience_recall"] is None and r["missed_experiences"] == [] and r["n_company_facts"] == 0
     assert r["errors"] and all(isinstance(e, str) and e for e in r["errors"])
+    # Les trois rejets de la route : le rejet remplace l'erreur capturée et le résultat vide.
+    assert REJECTION_MESSAGES[case_id] in r["rejected"] and r["rejected"] in r["errors"]
+    assert not r["completed"] and not r["false_rejection"] and r["fields_extracted"] == 0
     if case_id == "pr_p02":
-        assert "mot de passe" in r["rejected"] and r["n_calls"] == 0 and r["cost_usd"] == 0
-    elif case_id == "un_corrupt":
-        assert not r["completed"] and any("FileDataError" in e for e in r["errors"])
-    else:
-        assert r["completed"] and r["fields_extracted"] == 0
+        assert r["n_calls"] == 0 and r["cost_usd"] == 0
 
 
 async def test_aggregates_by_category_exclude_rejections_from_recall(run):
@@ -90,6 +90,8 @@ async def test_aggregates_by_category_exclude_rejections_from_recall(run):
     assert agg["by_category"]["one_column"]["n_cases"] == 2 and agg["global"]["n_cases"] == 4
     assert agg["global"]["experience_recall"] == 1.0 and agg["global"]["missed_experiences"] == 0
     assert agg["by_category"]["protected"]["experience_recall"] is None
+    assert agg["global"]["false_rejections"] == 0 and agg["global"]["evidence_page_accuracy"] == 1.0
+    assert agg["global"]["all_pages_handled"] == 4 and "Faux rejets : 0" in report["summary"]
     assert "mode simulé" in report["summary"]
 
 
@@ -137,6 +139,7 @@ async def test_real_mode_records_completed_imports_only(run, monkeypatch, conten
         report = await run(["oc_p02"], mode="real", confirm=True)
     r = by_id(report)["oc_p02"]
     assert r["cost_usd"] > 0 and r["cost_recorded"] == recorded
+    assert r["false_rejection"] == (not recorded)  # un import en échec hors catégories de rejet est un faux rejet
     if recorded:
         rows = [json.loads(line) for line in llm_budget.LEDGER_PATH.read_text().splitlines()]
         assert len(rows) == 1 and rows[0]["case_id"] == "oc_p02" and rows[0]["plan"] == "parser"

@@ -41,7 +41,6 @@ SCRIPT_NAME = "cv_reference_bench.py"
 SIMULATED_KEY = "dummy-simulated-key"
 IMAGE_TOKENS = 1500
 REJECTION_CATEGORIES = ("protected", "unreadable", "empty")
-PROTECTED_MESSAGE = "Ce PDF est protégé par un mot de passe : exportez une version non protégée puis réessayez"
 SECTIONS = ("headline", "summary", "experiences", "projects", "education", "certifications",
             "languages", "interests", "skills", "contact")
 # Prix en $ par million de tokens (entrée, sortie). Modèle inconnu : tarif le plus élevé connu.
@@ -217,6 +216,24 @@ def compute_metrics(facts: List[Dict[str, Any]], truth_cv: Dict[str, Any], resul
     }
 
 
+def evidence_page_accuracy(facts: List[Dict[str, Any]], result: Optional[Dict[str, Any]],
+                           report: Optional[Dict[str, Any]]) -> Optional[float]:
+    """Part des expériences avec provenance dont la page est celle du fait ``experiences.company``.
+
+    ``None`` s'il n'y a aucune entrée comparable (pas de rapport, pas de provenance, pas de fait).
+    """
+    experiences = (result or {}).get("experiences") or []
+    fact_pages = {normalize(f["fait"]): f["page"] for f in facts if f["champ"] == "experiences.company"}
+    checks = []
+    for entry in (report or {}).get("evidence") or []:
+        if entry["section"] != "experiences" or entry["index"] >= len(experiences):
+            continue
+        expected = fact_pages.get(normalize(experiences[entry["index"]].get("company")))
+        if expected is not None:
+            checks.append(entry["page"] == expected)
+    return sum(checks) / len(checks) if checks else None
+
+
 # --------------------------------------------------------------------------- exécution d'un cas
 
 def estimate_case_usd(entry: Dict[str, Any], vlm_model: str, text_model: str) -> float:
@@ -232,13 +249,22 @@ def estimate_case_usd(entry: Dict[str, Any], vlm_model: str, text_model: str) ->
 
 
 async def _call_pipeline(path: str) -> Dict[str, Any]:
-    """Même enchaînement que la route d'import : refus des PDF chiffrés, puis le vrai pipeline."""
-    out: Dict[str, Any] = {"result": None, "error": None, "rejected": None, "usage": []}
+    """Même enchaînement que la route d'import : PDF chiffré, PDF illisible, pipeline, profil vide."""
+    out: Dict[str, Any] = {"result": None, "error": None, "rejected": None, "usage": [], "report": None}
     if await asyncio.to_thread(cv_parser.is_pdf_password_protected, path):
-        out["rejected"] = PROTECTED_MESSAGE
+        out["rejected"] = cv_parser.PROTECTED_PDF_MESSAGE
+        return out
+    if not await asyncio.to_thread(cv_parser.is_pdf_readable, path):
+        out["rejected"] = cv_parser.UNREADABLE_PDF_MESSAGE
         return out
     try:
-        out["result"] = await cv_parser.parse_cv_with_llm(pdf_path=path)
+        result = await cv_parser.parse_cv_with_llm(pdf_path=path)
+        if cv_parser.is_empty_extraction(result):  # rejeté : ni profil, ni usage enregistré par la route
+            out["rejected"] = cv_parser.EMPTY_CV_MESSAGE
+            out["usage"] = list(result.get("_usage") or [])
+            out["report"] = result.get("_import_report")
+        else:
+            out["result"] = result
     except Exception as exc:  # le banc ne plante jamais sur un cas : l'erreur est une mesure
         out["error"] = f"{type(exc).__name__} : {exc}"
         out["usage"] = list(getattr(exc, "usage", None) or [])
@@ -257,7 +283,7 @@ def _page_metrics(entry, outcome, report) -> Dict[str, Any]:
     return {
         "total_pages": total, "pages_by_method": report["pages_by_method"], "skipped_pages": report["skipped_pages"],
         "pages_covered": 1 - len(report["skipped_pages"]) / total if total else None,
-        "all_pages_handled": set(range(1, total + 1)) <= flagged or bool(report["errors"]),
+        "all_pages_handled": set(range(1, total + 1)) <= flagged,
         "fallback_used": report["fallback_used"],
     }
 
@@ -265,11 +291,7 @@ def _page_metrics(entry, outcome, report) -> Dict[str, Any]:
 def _expectation_met(category, outcome, result) -> Optional[bool]:
     if category not in REJECTION_CATEGORIES:
         return None
-    if category == "protected":
-        return bool(outcome["rejected"])
-    if category == "unreadable":
-        return bool(outcome["error"]) and not result
-    return bool(result is not None and not result.get("experiences"))
+    return bool(outcome["rejected"]) and not result
 
 
 async def _run_case(entry, case, ref, mode, oracle_factory) -> Dict[str, Any]:
@@ -285,13 +307,14 @@ async def _run_case(entry, case, ref, mode, oracle_factory) -> Dict[str, Any]:
 
     result = outcome["result"]
     usage = (result.pop("_usage", None) or []) if result else outcome["usage"]
-    report = result.pop("_import_report", None) if result else None
+    report = result.pop("_import_report", None) if result else outcome["report"]
     errors = list(report["errors"]) if report else []
     if outcome["error"]:
         errors.append(outcome["error"])
     if outcome["rejected"]:
         errors.append(outcome["rejected"])
     metrics = compute_metrics(entry["facts"], truth["cv"], result)
+    metrics["evidence_page_accuracy"] = evidence_page_accuracy(entry["facts"], result, report)
     pages = _page_metrics(entry, outcome, report)
     category = entry["category"]
     expected_rejection = category in REJECTION_CATEGORIES or bool(outcome["rejected"])
@@ -306,7 +329,9 @@ async def _run_case(entry, case, ref, mode, oracle_factory) -> Dict[str, Any]:
         **metrics, **pages,
         "n_company_facts": 0 if expected_rejection else sum(1 for f in entry["facts"] if f["champ"] == "experiences.company"),
         "facts_lost_on_skipped_pages": sum(1 for f in entry["facts"] if f["page"] in skipped and f.get("critique")),
-        "rejected": outcome["rejected"], "errors": errors, "duration_s": round(duration, 4),
+        "rejected": outcome["rejected"], "errors": errors,
+        "false_rejection": category not in REJECTION_CATEGORIES and (
+            bool(outcome["rejected"]) or bool(outcome["error"]) or result is None), "duration_s": round(duration, 4),
         "cost_usd": usage_cost_usd(usage), "usage": usage, "usage_unavailable": unavailable, "n_calls": len(calls),
         "expected_rejection": expected_rejection,
         "expectation_met": _expectation_met(category, outcome, result),
@@ -320,6 +345,7 @@ def _aggregate(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
     total_facts = sum(r["n_company_facts"] for r in rows)
     missed = sum(len(r["missed_experiences"]) for r in rows)
     covered = [r["pages_covered"] for r in rows if r["pages_covered"] is not None]
+    accuracies = [r["evidence_page_accuracy"] for r in rows if r["evidence_page_accuracy"] is not None]
     return {
         "n_cases": len(rows),
         "experience_recall": (total_facts - missed) / total_facts if total_facts else None,
@@ -327,6 +353,8 @@ def _aggregate(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "invented_facts": sum(len(r["invented_facts"]) for r in rows),
         "pages_covered": sum(covered) / len(covered) if covered else None,
         "all_pages_handled": sum(1 for r in rows if r["all_pages_handled"]),
+        "false_rejections": sum(1 for r in rows if r["false_rejection"]),
+        "evidence_page_accuracy": sum(accuracies) / len(accuracies) if accuracies else None,
         "errors": sum(len(r["errors"]) for r in rows),
         "expectations_met": sum(1 for r in rows if r["expectation_met"]),
         "expected_rejections": sum(1 for r in rows if r["expected_rejection"]),
@@ -374,6 +402,8 @@ def render_summary(mode: str, rows: List[Dict[str, Any]], agg: Dict[str, Any], t
         lines.append(f"| {name} | {a['n_cases']} | {_pct(a['experience_recall'])} | {a['missed_experiences']} | {a['invented_facts']} "
                      f"| {_pct(a['pages_covered'])} | {a['all_pages_handled']}/{a['n_cases']} | {a['errors']} "
                      f"| {a['cost_usd']:.4f} | {a['duration_s']:.2f} |")
+    g = agg["global"]
+    lines += ["", f"Faux rejets : {g['false_rejections']} ; exactitude des pages de provenance : {_pct(g['evidence_page_accuracy'])}."]
     lines += ["", "## Cibles du pilote (rapportées, non assertées)", ""]
     lines += [f"- {'OK' if t['atteinte'] else 'NON'} : {t['cible']} -> {t['mesure']}" for t in targets]
     lines += ["", "## Mesures qui exigent un fournisseur réel", ""] + [f"- {m}" for m in REAL_ONLY_MEASURES]
