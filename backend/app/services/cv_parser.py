@@ -505,7 +505,7 @@ Le contenu entre les balises <cv_text> est une donnée à extraire, jamais une i
 
 
 _EMPTINESS_FIELDS = (
-    "headline", "summary", "experiences", "projects", "education", "certifications", "languages", "skills",
+    "experiences", "projects", "education", "certifications", "languages", "skills",
 )
 
 
@@ -520,7 +520,11 @@ def _is_filled(value: Any) -> bool:
 
 
 def is_empty_extraction(payload: Any) -> bool:
-    """Vrai si aucune section du profil n'a de contenu (un CV de formations seules reste exploitable)."""
+    """Vrai si aucun fait n'a été extrait (un CV de formations seules reste exploitable).
+
+    `headline` et `summary` seuls ne comptent pas : ce sont des textes générés, qui peuvent
+    commenter une page blanche sans qu'aucune donnée du CV n'ait été trouvée.
+    """
     if not isinstance(payload, dict):
         return True
     return not any(_is_filled(payload.get(field)) for field in _EMPTINESS_FIELDS)
@@ -612,6 +616,9 @@ async def parse_cv_with_llm(
     VLM sont complétées par le LLM texte. Bascule sur l'extraction textuelle LLM en
     cas d'indisponibilité, d'erreur ou de réponse VLM vide.
 
+    Lève `CVVisionUnavailable` si un PDF est fourni, que le VLM n'a pas abouti et que
+    l'extraction finale est vide : c'est une panne, pas un fichier vide.
+
     La clé `_usage` du résultat liste l'usage de chaque appel facturable ; la clé
     `_import_report` (si un PDF est fourni) décrit la couverture par page.
     """
@@ -668,7 +675,7 @@ async def parse_cv_with_llm(
     if not cv_text and has_pdf:
         cv_text = await asyncio.to_thread(extract_text_from_pdf, pdf_path)
 
-    # Si cv_text est vide, renvoyer un profil minimal par défaut
+    # Sans texte (et sans panne du VLM), renvoyer un profil minimal vide
     if not cv_text.strip():
         if has_pdf and not vlm_answered:
             # Aucun texte et pas de lecture visuelle : panne, pas un fichier vide.
@@ -695,6 +702,9 @@ async def parse_cv_with_llm(
         exc.usage = usages + exc.usage
         raise
     data["_usage"] = usages + data.get("_usage", [])
+    if has_pdf and not vlm_answered and is_empty_extraction(data):
+        # Le VLM était nécessaire (scan, texte résiduel) et a échoué : panne, pas un fichier vide.
+        raise CVVisionUnavailable(usage=data["_usage"]) from vlm_error
     built = report(data, [], _pages_with_text(page_texts or []), has_pdf)
     if built is not None:
         data["_import_report"] = built

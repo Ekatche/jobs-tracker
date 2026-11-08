@@ -89,7 +89,7 @@ async def test_parse_cv_with_llm_falls_back_to_text_on_vlm_error(tmp_path, monke
     fake_text_response.choices = [
         AsyncMock(
             message=AsyncMock(
-                content='{"headline": "Fallback Data Engineer", "summary": "Fallback", "experiences": [], "skills": {}}'
+                content='{"headline": "Fallback Data Engineer", "summary": "Fallback", "experiences": [], "skills": {"outils": ["Python"]}}'
             )
         )
     ]

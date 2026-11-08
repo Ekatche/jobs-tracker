@@ -12,7 +12,7 @@ def test_uploaded_file_is_deleted_after_parsing(client, profile_db, monkeypatch,
     monkeypatch.setattr(router, "extract_text_from_pdf", lambda path: "texte du CV")
 
     async def fake_parse(_text):
-        return {"headline": "Ingénieur Data", "experiences": []}
+        return {"headline": "Ingénieur Data", "skills": {"outils": ["Python"]}}
 
     monkeypatch.setattr(router, "parse_cv_with_llm", fake_parse)
 
@@ -85,7 +85,7 @@ def test_cv_import_records_a_single_usage_entry(
         recorded.append(kwargs)
 
     async def fake_parse(_text, pdf_path=None):
-        return {"headline": "Ingénieur Data", "experiences": [], "_usage": usage}
+        return {"headline": "Ingénieur Data", "skills": {"outils": ["Python"]}, "_usage": usage}
 
     monkeypatch.setattr(router, "record_api_usage", fake_record)
     monkeypatch.setattr(router, "parse_cv_with_llm", fake_parse)
@@ -118,7 +118,7 @@ def test_cv_import_returns_report_but_never_persists_it(client, profile_db, monk
     monkeypatch.setattr(router, "extract_text_from_pdf", lambda path: "texte du CV")
 
     async def fake_parse(_text, pdf_path=None):
-        return {"headline": "Ingénieur Data", "experiences": [], "_import_report": dict(IMPORT_REPORT)}
+        return {"headline": "Ingénieur Data", "skills": {"outils": ["Python"]}, "_import_report": dict(IMPORT_REPORT)}
 
     monkeypatch.setattr(router, "parse_cv_with_llm", fake_parse)
 

@@ -104,7 +104,7 @@ async def test_empty_vlm_response_falls_back_to_text_and_keeps_usage(tmp_path, m
 
     pdf = _make_pdf(tmp_path, 1)
     payload = {**empty_payload, "_usage": list(VLM_OK["_usage"])}
-    fallback = _llm_response('{"headline": "Repli texte", "experiences": [], "skills": {}}')
+    fallback = _llm_response('{"headline": "Repli texte", "experiences": [], "skills": {"outils": ["Python"]}}')
     with patch("app.services.cv_parser.parse_cv_with_vlm", new_callable=AsyncMock, return_value=payload):
         with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock, return_value=fallback):
             result = await parse_cv_with_llm(cv_text="texte du CV", pdf_path=pdf)
@@ -119,7 +119,7 @@ async def test_invalid_vlm_json_still_reports_billed_usage(tmp_path, mistral_key
 
     pdf = _make_pdf(tmp_path, 1)
     invalid = _llm_response("ceci n'est pas du JSON", prompt_tokens=700, completion_tokens=20)
-    fallback = _llm_response('{"headline": "Repli texte", "experiences": [], "skills": {}}')
+    fallback = _llm_response('{"headline": "Repli texte", "experiences": [], "skills": {"outils": ["Python"]}}')
     with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock, side_effect=[invalid, fallback]):
         result = await parse_cv_with_llm(cv_text="texte du CV", pdf_path=pdf)
 
@@ -197,7 +197,7 @@ async def test_report_full_text_fallback_skips_scanned_pages(tmp_path, mistral_k
     from app.services.cv_parser import parse_cv_with_llm
 
     pdf = _make_pdf(tmp_path, 4, scanned=frozenset({2}))
-    fallback = _llm_response('{"headline": "Repli", "experiences": [], "skills": {}}')
+    fallback = _llm_response('{"headline": "Repli", "experiences": [], "skills": {"outils": ["Python"]}}')
     with patch("app.services.cv_parser.parse_cv_with_vlm", new_callable=AsyncMock,
                side_effect=RuntimeError("secret technique")):
         with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock, return_value=fallback):
@@ -235,7 +235,7 @@ async def test_report_without_mistral_key_marks_fallback(tmp_path, monkeypatch):
 
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
     pdf = _make_pdf(tmp_path, 2)
-    fallback = _llm_response('{"headline": "Repli", "experiences": [], "skills": {}}')
+    fallback = _llm_response('{"headline": "Repli", "experiences": [], "skills": {"outils": ["Python"]}}')
     with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock, return_value=fallback):
         result = await parse_cv_with_llm(cv_text="texte du CV", pdf_path=pdf)
 
@@ -247,7 +247,7 @@ async def test_report_without_mistral_key_marks_fallback(tmp_path, monkeypatch):
 async def test_no_report_without_pdf():
     from app.services.cv_parser import parse_cv_with_llm
 
-    fallback = _llm_response('{"headline": "Texte", "experiences": [], "skills": {}}')
+    fallback = _llm_response('{"headline": "Texte", "experiences": [], "skills": {"outils": ["Python"]}}')
     with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock, return_value=fallback):
         result = await parse_cv_with_llm(cv_text="texte du CV")
 
