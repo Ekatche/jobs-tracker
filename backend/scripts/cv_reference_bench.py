@@ -44,10 +44,11 @@ REJECTION_CATEGORIES = ("protected", "unreadable", "empty")
 SECTIONS = ("headline", "summary", "experiences", "projects", "education", "certifications",
             "languages", "interests", "skills", "contact")
 # Prix en $ par million de tokens (entrée, sortie). Modèle inconnu : tarif le plus élevé connu.
-# Hypothèses (pixtral-12b, gpt-4o-mini) : à confirmer avant --real --confirm.
+# Prix vérifiés le 2026-11-08 : ministral-14b-2512 (docs.mistral.ai/models/ministral-3-14b-25-12 ; LiteLLM 2e-07/2e-07),
+# gpt-4o-mini (0,15 / 0,60).
 PRICES_USD_PER_M = {
     "mistral/pixtral-large-latest": (2.0, 6.0),
-    "mistral/pixtral-12b-2409": (0.15, 0.15),
+    "mistral/ministral-14b-2512": (0.20, 0.20),
     "openai/gpt-4o-mini": (0.15, 0.60),
 }
 FALLBACK_PRICE = (2.0, 6.0)

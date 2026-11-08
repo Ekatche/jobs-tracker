@@ -73,11 +73,9 @@ MODEL_COST_PER_1K_TOKENS: Dict[str, Dict[str, float]] = {
     "gemini-1.5-pro": {"input": 0.00125, "output": 0.005},
     "gemini-1.5-flash": {"input": 0.000075, "output": 0.0003},
     # Mistral
-    # pixtral-12b-2409 déprécié par Mistral le 2/12/2025 (docs.mistral.ai/models/pixtral-12b-24-09).
-    # Son remplacement officiel (ministral-14b-2512) n'a pas de preuve chiffrée de parité
-    # vision/OCR publiée ; pixtral-large-2411 (alternative envisagée) est lui-même déprécié
-    # depuis le 27/2/2026. cv_parser.py::parse_cv_with_vlm utilise donc désormais
-    # mistral-medium-3-5-26-04 (déjà dans cette table), remplacement officiel de Pixtral Large.
+    # pixtral-12b-2409 retiré par Mistral le 31/12/2025 ; défaut VLM du parseur = ministral-14b-2512
+    # (0,20 $/M entrée et sortie, vision ; docs.mistral.ai/models/ministral-3-14b-25-12, vérifié le 2026-11-08).
+    "ministral-14b-2512": {"input": 0.0002, "output": 0.0002},
     "mistral-large-2407": {"input": 0.002, "output": 0.006},
     "mistral-large-3-25-12": {"input": 0.0005, "output": 0.0015},
     "mistral-medium-3-5-26-04": {"input": 0.0015, "output": 0.0075},

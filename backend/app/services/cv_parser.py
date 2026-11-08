@@ -248,7 +248,7 @@ def _clean_parsed_cv(data: Dict[str, Any]) -> Dict[str, Any]:
     return data
 
 
-DEFAULT_VLM_MODEL = os.getenv("MISTRAL_VLM_MODEL", "mistral/pixtral-12b-2409")
+DEFAULT_VLM_MODEL = os.getenv("MISTRAL_VLM_MODEL", "mistral/ministral-14b-2512")
 DEFAULT_CV_PARSER_MODEL = os.getenv("CV_PARSER_MODEL", "openai/gpt-4o-mini")
 
 
@@ -368,8 +368,8 @@ async def parse_cv_with_vlm(
 ) -> Dict[str, Any]:
     """Extrait les informations structurées d'un CV via un Vision Language Model.
 
-    Utilise Pixtral Large (ou le modèle VLM configuré) pour l'analyse visuelle
-    multimodale du CV.
+    Utilise le modèle VLM configuré (`model`, par défaut DEFAULT_VLM_MODEL) pour
+    l'analyse visuelle multimodale du CV.
     """
     if not base64_images:
         raise ValueError("Aucune image de page PDF fournie pour l'analyse VLM")
