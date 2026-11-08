@@ -122,3 +122,29 @@ async def test_parse_cv_with_llm_prompt_routes_habilitations_and_mobility():
     assert "CACES" in prompt
     assert "mobility" in prompt and "availability" in prompt
     assert "texte libre" in prompt
+
+
+def _save_encrypted_pdf(path, user_pw):
+    import fitz
+
+    doc = fitz.open()
+    doc.new_page(width=300, height=300).insert_text((20, 50), "CV protégé", fontsize=14)
+    doc.save(str(path), encryption=fitz.PDF_ENCRYPT_AES_256, user_pw=user_pw, owner_pw="proprietaire")
+    doc.close()
+
+
+@pytest.mark.parametrize("user_pw,expected", [("secret", True), ("", False)])
+def test_is_pdf_password_protected(tmp_path, user_pw, expected):
+    from app.services.cv_parser import is_pdf_password_protected
+
+    pdf_file = tmp_path / "cv.pdf"
+    _save_encrypted_pdf(pdf_file, user_pw)
+    assert is_pdf_password_protected(str(pdf_file)) is expected
+
+
+def test_is_pdf_password_protected_ignores_unreadable_file(tmp_path):
+    from app.services.cv_parser import is_pdf_password_protected
+
+    pdf_file = tmp_path / "cv.pdf"
+    pdf_file.write_bytes(b"%PDF-1.7 contenu")
+    assert is_pdf_password_protected(str(pdf_file)) is False

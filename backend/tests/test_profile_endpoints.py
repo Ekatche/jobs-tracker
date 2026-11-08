@@ -326,3 +326,66 @@ def test_suggested_roles_empty_when_profile_missing(client, profile_db, monkeypa
     res = client.get("/profile/candidate/suggested-roles")
     assert res.status_code == 200
     assert res.json()["roles"] == []
+
+
+def test_password_protected_pdf_is_rejected_without_profile(client, profile_db, monkeypatch, tmp_path):
+    import fitz
+
+    import app.routers.cover_letters as router
+
+    monkeypatch.setattr(router, "UPLOAD_DIR", str(tmp_path / "up"))
+    doc = fitz.open()
+    doc.new_page()
+    pdf_bytes = doc.tobytes(encryption=fitz.PDF_ENCRYPT_AES_256, user_pw="secret", owner_pw="owner")
+    doc.close()
+
+    async def must_not_parse(*_args, **_kwargs):
+        raise AssertionError("aucun appel LLM pour un PDF protégé")
+
+    monkeypatch.setattr(router, "parse_cv_with_llm", must_not_parse)
+    res = client.post(
+        "/profile/candidate/sources/cv",
+        files={"file": ("cv.pdf", io.BytesIO(pdf_bytes), "application/pdf")},
+    )
+    assert res.status_code == 400
+    assert "mot de passe" in res.json()["detail"]
+    assert profile_db == {}
+
+
+@pytest.mark.parametrize(
+    "usage,expected_models,expected_in,expected_out",
+    [
+        ([{"model": "m1", "input_tokens": 10, "output_tokens": 1},
+          {"model": "m2", "input_tokens": 20, "output_tokens": 2},
+          {"model": "m1", "input_tokens": 5, "output_tokens": 1}], ["m1", "m2"], 35, 4),
+        ({"model": "m1", "input_tokens": 7, "output_tokens": 3}, ["m1"], 7, 3),
+    ],
+)
+def test_cv_import_records_a_single_usage_entry(
+    client, profile_db, monkeypatch, tmp_path, usage, expected_models, expected_in, expected_out
+):
+    import app.routers.cover_letters as router
+
+    monkeypatch.setattr(router, "UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(router, "extract_text_from_pdf", lambda path: "texte du CV")
+    recorded = []
+
+    async def fake_record(**kwargs):
+        recorded.append(kwargs)
+
+    async def fake_parse(_text, pdf_path=None):
+        return {"headline": "Ingénieur Data", "experiences": [], "_usage": usage}
+
+    monkeypatch.setattr(router, "record_api_usage", fake_record)
+    monkeypatch.setattr(router, "parse_cv_with_llm", fake_parse)
+
+    res = client.post(
+        "/profile/candidate/sources/cv",
+        files={"file": ("cv.pdf", io.BytesIO(b"%PDF-1.7 contenu"), "application/pdf")},
+    )
+    assert res.status_code == 200
+    assert len(recorded) == 1
+    assert recorded[0]["models_used"] == expected_models
+    assert recorded[0]["input_tokens"] == expected_in
+    assert recorded[0]["output_tokens"] == expected_out
+    assert recorded[0]["estimated_cost_usd"] >= 0

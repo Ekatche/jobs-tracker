@@ -19,7 +19,7 @@ from app.llm.provider_errors import llm_http_exception
 from app.models import ApiUsageAction, CandidateProfile, UserModel
 from app.utils import serialize_mongodb_doc
 from app.routers.applications import _generate_cover_letter_bg
-from app.services.cv_parser import extract_text_from_pdf, parse_cv_with_llm
+from app.services.cv_parser import extract_text_from_pdf, is_pdf_password_protected, parse_cv_with_llm
 from app.services.cv_pdf_renderer import generate_cv_pdf
 from app.services.letter_pdf import render_letter_html, build_candidate_info, slugify
 from app.services.profile.collectors.github import collect_github
@@ -28,7 +28,7 @@ from app.services.normalization import clean_job_title_syntax
 from app.services.profile.merge import build_profile_from_sources
 from app.services.profile.urls import validate_public_url_async
 from app.services.role_normalizer import match_taxonomy_role, suggest_role_titles_from_profile
-from app.services.usage_tracker import record_api_usage, require_user_quota
+from app.services.usage_tracker import estimate_llm_cost, record_api_usage, require_user_quota
 from app.services.offer_profile_matcher import rematch_user
 
 MAX_SUGGESTED_ROLES = 8
@@ -503,6 +503,29 @@ async def _store_source(db, user_id: str, name: str, payload: dict) -> dict:
     return serialize_mongodb_doc(stored)
 
 
+async def _record_cv_parsing_usage(db, user_id, usage) -> None:
+    """Enregistre en une seule entrée l'usage des appels facturables d'un import de CV.
+
+    Une seule entrée par import : le quota CV_PARSING compte les enregistrements.
+    """
+    calls = [usage] if isinstance(usage, dict) else list(usage or [])
+    calls = [c for c in calls if isinstance(c, dict) and c.get("model")]
+    if not calls:
+        return
+    await record_api_usage(
+        db=db,
+        user_id=user_id,
+        action=ApiUsageAction.CV_PARSING,
+        models_used=list(dict.fromkeys(c["model"] for c in calls)),
+        input_tokens=sum(c.get("input_tokens", 0) for c in calls),
+        output_tokens=sum(c.get("output_tokens", 0) for c in calls),
+        estimated_cost_usd=sum(
+            estimate_llm_cost(c["model"], c.get("input_tokens", 0), c.get("output_tokens", 0))
+            for c in calls
+        ),
+    )
+
+
 @cover_letters_router.post("/profile/candidate/sources/cv")
 async def import_cv_source(
     background_tasks: BackgroundTasks,
@@ -519,21 +542,17 @@ async def import_cv_source(
     try:
         with open(file_path, "wb") as buffer:
             buffer.write(content)
+        if await asyncio.to_thread(is_pdf_password_protected, file_path):
+            raise HTTPException(
+                status_code=400,
+                detail="Ce PDF est protégé par un mot de passe : exportez une version non protégée puis réessayez",
+            )
         text = await asyncio.to_thread(extract_text_from_pdf, file_path)
         try:
             payload = await parse_cv_with_llm(text, pdf_path=file_path)
         except TypeError:
             payload = await parse_cv_with_llm(text)
-        usage = payload.pop("_usage", None)
-        if usage:
-            await record_api_usage(
-                db=db,
-                user_id=current_user.id,
-                action=ApiUsageAction.CV_PARSING,
-                models_used=[usage["model"]],
-                input_tokens=usage["input_tokens"],
-                output_tokens=usage["output_tokens"],
-            )
+        await _record_cv_parsing_usage(db, current_user.id, payload.pop("_usage", None))
         return await _store_source(db, str(current_user.id), "cv", payload)
     except HTTPException:
         raise

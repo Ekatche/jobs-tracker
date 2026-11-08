@@ -97,18 +97,38 @@ PROFILE_JSON_SCHEMA = {
 }
 
 
-def extract_text_from_pdf(pdf_path: str) -> str:
-    """Extrait le texte brut d'un PDF en conservant la structure basique."""
+# Nombre de pages envoyées au VLM (coût) ; les suivantes passent par le repli texte.
+VLM_MAX_PAGES = 3
+
+
+def extract_text_from_pdf(pdf_path: str, start_page: int = 0) -> str:
+    """Extrait le texte brut d'un PDF (à partir de la page d'index start_page)."""
     import fitz  # PyMuPDF
 
     doc = fitz.open(pdf_path)
     try:
-        return "\n\n".join(page.get_text() for page in doc)
+        return "\n\n".join(page.get_text() for i, page in enumerate(doc) if i >= start_page)
     finally:
         doc.close()
 
 
-def render_pdf_pages_to_base64_images(pdf_path: str, max_pages: int = 3, dpi: int = 150) -> List[str]:
+def is_pdf_password_protected(pdf_path: str) -> bool:
+    """Vrai si le PDF exige un mot de passe d'ouverture (un mot de passe propriétaire seul ne compte pas)."""
+    import fitz  # PyMuPDF
+
+    try:
+        doc = fitz.open(pdf_path)
+    except Exception:
+        return False  # fichier illisible : l'erreur sera remontée par l'extraction
+    try:
+        return bool(doc.needs_pass)
+    finally:
+        doc.close()
+
+
+def render_pdf_pages_to_base64_images(
+    pdf_path: str, max_pages: int = VLM_MAX_PAGES, dpi: int = 150
+) -> List[str]:
     """Rend les pages du PDF sous forme d'images PNG encodées en base64 pour analyse VLM.
     
     Permet au modèle visuel de capturer fidèlement la mise en page (colonnes,
@@ -204,6 +224,105 @@ DEFAULT_VLM_MODEL = os.getenv("MISTRAL_VLM_MODEL", "mistral/pixtral-12b-2409")
 DEFAULT_CV_PARSER_MODEL = os.getenv("CV_PARSER_MODEL", "openai/gpt-4o-mini")
 
 
+class CVResponseError(ValueError):
+    """Réponse de modèle inexploitable ; porte l'usage déjà facturé pour le suivi."""
+
+    def __init__(self, message: str, usage: Optional[List[Dict[str, Any]]] = None):
+        super().__init__(message)
+        self.usage = usage or []
+
+
+def _read_json_response(response: Any, model: str) -> tuple:
+    """Décode la réponse JSON d'un modèle et renvoie (données, usage facturé).
+
+    L'usage est capturé avant le décodage : une réponse invalide reste facturée.
+    """
+    usage_obj = getattr(response, "usage", None)
+    usage = {
+        "model": model,
+        "input_tokens": getattr(usage_obj, "prompt_tokens", 0) or 0,
+        "output_tokens": getattr(usage_obj, "completion_tokens", 0) or 0,
+    }
+    try:
+        raw_content = response.choices[0].message.content.strip()
+        clean_json = re.sub(r"^```(?:json)?|```$", "", raw_content, flags=re.MULTILINE).strip()
+        data = json.loads(clean_json)
+    except (ValueError, AttributeError, IndexError, TypeError) as exc:
+        raise CVResponseError(f"Réponse du modèle {model} non exploitable : {exc}", [usage]) from exc
+    if not isinstance(data, dict):
+        raise CVResponseError(f"Réponse du modèle {model} : objet JSON attendu", [usage])
+    return data, usage
+
+
+def _has_usable_content(data: Any) -> bool:
+    """Une extraction sans expérience, compétence ni intitulé n'est pas exploitable."""
+    if not isinstance(data, dict):
+        return False
+    has_experience = any(isinstance(e, dict) and any(e.values()) for e in data.get("experiences") or [])
+    skills = data.get("skills")
+    has_skills = isinstance(skills, dict) and any(
+        isinstance(items, list) and any(str(i).strip() for i in items) for items in skills.values()
+    )
+    has_headline = bool(str(data.get("headline") or "").strip())
+    return has_experience or has_skills or has_headline
+
+
+_LIST_SECTIONS = ("experiences", "projects", "education", "certifications", "languages", "interests")
+# Champs d'identité par section : deux éléments de même identité sont le même élément.
+_IDENTITY_FIELDS = {
+    "experiences": ("company", "role", "start"),
+    "projects": ("name",),
+    "education": ("school", "degree"),
+    "certifications": ("name",),
+}
+
+
+def _item_key(section: str, item: Any) -> str:
+    if isinstance(item, dict):
+        fields = _IDENTITY_FIELDS.get(section) or tuple(sorted(item))
+        return "|".join(str(item.get(f) or "").strip().casefold() for f in fields)
+    return str(item).strip().casefold()
+
+
+def _merge_cv_complement(base: Dict[str, Any], extra: Dict[str, Any]) -> Dict[str, Any]:
+    """Complète `base` avec `extra` sans jamais écraser une valeur déjà présente."""
+    for section in _LIST_SECTIONS:
+        current = list(base.get(section) or [])
+        seen = {_item_key(section, item) for item in current}
+        for item in extra.get(section) or []:
+            key = _item_key(section, item)
+            if key not in seen:
+                seen.add(key)
+                current.append(item)
+        if current:
+            base[section] = current
+
+    skills = {cat: list(items) for cat, items in (base.get("skills") or {}).items()}
+    for category, items in (extra.get("skills") or {}).items():
+        merged = skills.setdefault(category, [])
+        known = {str(i).strip().casefold() for i in merged}
+        for item in items:
+            if str(item).strip().casefold() not in known:
+                known.add(str(item).strip().casefold())
+                merged.append(item)
+    if skills:
+        base["skills"] = skills
+
+    contact = dict(base.get("contact") or {})
+    for key, value in (extra.get("contact") or {}).items():
+        if not contact.get(key):
+            contact[key] = value
+    if contact:
+        base["contact"] = contact
+
+    for key, value in extra.items():
+        if key in _LIST_SECTIONS or key in ("skills", "contact", "_usage"):
+            continue
+        if not base.get(key) and value:
+            base[key] = value
+    return base
+
+
 async def parse_cv_with_vlm(
     base64_images: List[str],
     model: str = DEFAULT_VLM_MODEL,
@@ -279,60 +398,13 @@ Consignes importantes :
         api_key=key,
         drop_params=True,
     )
-    raw_content = response.choices[0].message.content.strip()
-    clean_json = re.sub(r"^```(?:json)?|```$", "", raw_content, flags=re.MULTILINE).strip()
-    data = json.loads(clean_json)
-    usage = getattr(response, "usage", None)
-    data["_usage"] = {
-        "model": model,
-        "input_tokens": getattr(usage, "prompt_tokens", 0) or 0,
-        "output_tokens": getattr(usage, "completion_tokens", 0) or 0,
-    }
+    data, usage = _read_json_response(response, model)
+    data["_usage"] = [usage]
     return _clean_parsed_cv(data)
 
 
-async def parse_cv_with_llm(
-    cv_text: str = "",
-    pdf_path: Optional[str] = None,
-    model: str = DEFAULT_CV_PARSER_MODEL,
-    vlm_model: str = DEFAULT_VLM_MODEL,
-) -> Dict[str, Any]:
-    """Extrait les données structurées du CV.
-
-    Tente en priorité l'analyse visuelle multimodale (VLM Mistral) si le fichier PDF
-    est accessible et qu'une clé Mistral est active. Bascule sur l'extraction
-    textuelle LLM en cas d'indisponibilité ou d'erreur.
-    """
-    # 1. Tentative VLM si PDF présent
-    if pdf_path and os.path.exists(pdf_path):
-        try:
-            images = await asyncio.to_thread(render_pdf_pages_to_base64_images, pdf_path)
-            if images and os.environ.get("MISTRAL_API_KEY"):
-                logger.info("Extraction du CV via VLM (%s) sur %d page(s)", vlm_model, len(images))
-                vlm_payload = await parse_cv_with_vlm(images, model=vlm_model)
-                if vlm_payload and isinstance(vlm_payload, dict):
-                    if "experiences" in vlm_payload or "skills" in vlm_payload or "headline" in vlm_payload:
-                        logger.info("Succès de l'extraction VLM pour le CV")
-                        return vlm_payload
-        except Exception as exc:
-            logger.warning("Échec de l'extraction VLM du CV, bascule vers le LLM texte : %s", exc)
-
-    # 2. Fallback textuel classique
-    if not cv_text and pdf_path and os.path.exists(pdf_path):
-        cv_text = await asyncio.to_thread(extract_text_from_pdf, pdf_path)
-
-    # Si cv_text est vide, renvoyer un profil minimal par défaut
-    if not cv_text.strip():
-        return {
-            "headline": "",
-            "summary": "",
-            "experiences": [],
-            "projects": [],
-            "education": [],
-            "certifications": [],
-            "skills": {}
-        }
-
+async def _parse_cv_text(cv_text: str, model: str) -> Dict[str, Any]:
+    """Extrait les données structurées d'un texte de CV via le LLM texte."""
     chosen_model = model
     if chosen_model.startswith("gemini/") or chosen_model in ("gemini/gemini-3.8-flash", "gemini/gemini-2.5-flash", "gemini/gemini-3.7-flash", "gemini/gemini-2.0-flash"):
         chosen_model = os.getenv("CV_PARSER_MODEL", "openai/gpt-4o-mini")
@@ -367,13 +439,90 @@ Schéma JSON attendu :
         temperature=0.1,
         drop_params=True,
     )
-    content = response.choices[0].message.content.strip()
-    content = re.sub(r"^```(?:json)?|```$", "", content, flags=re.MULTILINE).strip()
-    data = json.loads(content)
-    usage = getattr(response, "usage", None)
-    data["_usage"] = {
-        "model": chosen_model,
-        "input_tokens": getattr(usage, "prompt_tokens", 0) or 0,
-        "output_tokens": getattr(usage, "completion_tokens", 0) or 0,
-    }
+    data, usage = _read_json_response(response, chosen_model)
+    data["_usage"] = [usage]
     return _clean_parsed_cv(data)
+
+
+async def parse_cv_with_llm(
+    cv_text: str = "",
+    pdf_path: Optional[str] = None,
+    model: str = DEFAULT_CV_PARSER_MODEL,
+    vlm_model: str = DEFAULT_VLM_MODEL,
+) -> Dict[str, Any]:
+    """Extrait les données structurées du CV.
+
+    Tente en priorité l'analyse visuelle multimodale (VLM Mistral) si le fichier PDF
+    est accessible et qu'une clé Mistral est active. Les pages au-delà de la limite
+    VLM sont complétées par le LLM texte. Bascule sur l'extraction textuelle LLM en
+    cas d'indisponibilité, d'erreur ou de réponse VLM vide.
+
+    La clé `_usage` du résultat liste l'usage de chaque appel facturable.
+    """
+    usages: List[Dict[str, Any]] = []
+
+    # 1. Tentative VLM si PDF présent
+    if pdf_path and os.path.exists(pdf_path):
+        try:
+            images = await asyncio.to_thread(render_pdf_pages_to_base64_images, pdf_path)
+            if images and os.environ.get("MISTRAL_API_KEY"):
+                logger.info("Extraction du CV via VLM (%s) sur %d page(s)", vlm_model, len(images))
+                vlm_payload = await parse_cv_with_vlm(images, model=vlm_model)
+                if isinstance(vlm_payload, dict):
+                    usages.extend(vlm_payload.pop("_usage", None) or [])
+                if _has_usable_content(vlm_payload):
+                    logger.info("Succès de l'extraction VLM pour le CV")
+                    await _complete_with_remaining_pages(vlm_payload, pdf_path, model, usages)
+                    vlm_payload["_usage"] = usages
+                    return vlm_payload
+                logger.warning("Réponse VLM vide pour le CV, bascule vers le LLM texte")
+        except Exception as exc:
+            usages.extend(getattr(exc, "usage", None) or [])
+            logger.warning("Échec de l'extraction VLM du CV, bascule vers le LLM texte : %s", exc)
+
+    # 2. Fallback textuel classique
+    if not cv_text and pdf_path and os.path.exists(pdf_path):
+        cv_text = await asyncio.to_thread(extract_text_from_pdf, pdf_path)
+
+    # Si cv_text est vide, renvoyer un profil minimal par défaut
+    if not cv_text.strip():
+        empty = {
+            "headline": "",
+            "summary": "",
+            "experiences": [],
+            "projects": [],
+            "education": [],
+            "certifications": [],
+            "skills": {}
+        }
+        if usages:
+            empty["_usage"] = usages
+        return empty
+
+    try:
+        data = await _parse_cv_text(cv_text, model)
+    except CVResponseError as exc:
+        exc.usage = usages + exc.usage
+        raise
+    data["_usage"] = usages + data.get("_usage", [])
+    return data
+
+
+async def _complete_with_remaining_pages(
+    vlm_payload: Dict[str, Any], pdf_path: str, model: str, usages: List[Dict[str, Any]]
+) -> None:
+    """Complète le résultat VLM avec le texte des pages que le VLM n'a pas vues.
+
+    Best effort : un échec ici ne fait jamais perdre le résultat VLM.
+    """
+    try:
+        remaining_text = await asyncio.to_thread(extract_text_from_pdf, pdf_path, VLM_MAX_PAGES)
+        if not remaining_text.strip():
+            return
+        logger.info("Complément texte du CV pour les pages au-delà de %d", VLM_MAX_PAGES)
+        extra = await _parse_cv_text(remaining_text, model)
+        usages.extend(extra.pop("_usage", None) or [])
+        _merge_cv_complement(vlm_payload, extra)
+    except Exception as exc:
+        usages.extend(getattr(exc, "usage", None) or [])
+        logger.warning("Échec du complément texte des pages restantes du CV : %s", exc)
