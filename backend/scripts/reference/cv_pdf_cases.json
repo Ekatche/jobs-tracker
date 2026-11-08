@@ -1,0 +1,78 @@
+[
+  {"case_id": "oc_p01", "profile_id": "p01", "category": "one_column", "options": {"layout": "one_column"}},
+  {"case_id": "oc_p02", "profile_id": "p02", "category": "one_column", "options": {"layout": "one_column"}},
+  {"case_id": "oc_p03", "profile_id": "p03", "category": "one_column", "options": {"layout": "one_column"}},
+  {"case_id": "oc_p09", "profile_id": "p09", "category": "one_column", "options": {"layout": "one_column"}},
+  {"case_id": "oc_p10", "profile_id": "p10", "category": "one_column", "options": {"layout": "one_column"}},
+  {"case_id": "tc_p11", "profile_id": "p11", "category": "two_columns", "options": {"layout": "two_columns"}},
+  {"case_id": "tc_p12", "profile_id": "p12", "category": "two_columns", "options": {"layout": "two_columns"}},
+  {"case_id": "tc_p14", "profile_id": "p14", "category": "two_columns", "options": {"layout": "two_columns"}},
+  {"case_id": "tc_p15", "profile_id": "p15", "category": "two_columns", "options": {"layout": "two_columns"}},
+  {"case_id": "tc_p17", "profile_id": "p17", "category": "two_columns", "options": {"layout": "two_columns"}},
+  {"case_id": "sc_p01", "profile_id": "p01", "category": "scanned", "options": {"layout": "one_column", "scan": "all"}},
+  {"case_id": "sc_p04", "profile_id": "p04", "category": "scanned", "options": {"layout": "one_column", "scan": "all"}},
+  {"case_id": "sc_p19", "profile_id": "p19", "category": "scanned", "options": {"layout": "two_columns", "scan": "all"}},
+  {"case_id": "ms_p03", "profile_id": "p03", "category": "mixed_scanned", "options": {"layout": "one_column", "scan": "after_first"}},
+  {"case_id": "ms_p07", "profile_id": "p07", "category": "mixed_scanned", "options": {"layout": "one_column", "scan": "after_first"}},
+  {"case_id": "en_p05", "profile_id": "p05", "category": "english", "options": {"layout": "one_column"}},
+  {"case_id": "en_p06", "profile_id": "p06", "category": "english", "options": {"layout": "two_columns"}},
+  {"case_id": "en_p08", "profile_id": "p08", "category": "english", "options": {"layout": "one_column"}},
+  {"case_id": "en_p16", "profile_id": "p16", "category": "english", "options": {"layout": "two_columns"}},
+  {"case_id": "en_p22", "profile_id": "p22", "category": "english", "options": {"layout": "one_column"}},
+  {"case_id": "mt_cariste", "profile_id": "m01", "category": "manual_trade", "options": {"layout": "one_column"},
+   "extra_profile": {
+     "headline": "Cariste CACES R489 catégories 1, 3 et 5",
+     "summary": "Cariste en entrepôt logistique, travail en équipes 2x8, inventaires tournants et préparation de commandes.",
+     "contact": {"name": "Yannick Delarouzée", "email": "yannick.delarouzee@example.com", "phone": "06 00 00 00 11", "location": "Saint-Quentin-Fallavier"},
+     "experiences": [
+       {"company": "Logistique Valbrune", "role": "Cariste", "start_date": "2021-03", "end_date": "present", "missions": ["Chargement et déchargement de camions", "Gerbage en rack sur trois niveaux"], "stack": ["chariot frontal", "gerbeur"]},
+       {"company": "Entrepôts Corvaisier", "role": "Préparateur de commandes", "start_date": "2018-05", "end_date": "2021-02", "missions": ["Préparation de 120 colis par heure"], "stack": ["scanner RF"]},
+       {"company": "Manutention Haut-Brenne", "role": "Agent de quai", "start_date": "2016-09", "end_date": "2018-04", "missions": ["Réception et contrôle des marchandises"], "stack": ["transpalette"]}
+     ],
+     "education": [{"school": "Lycée professionnel Les Garennes", "degree": "CAP Opérateur logistique", "years": "2014-2016"}],
+     "skills": {"manutention": ["conduite de chariot élévateur", "gerbage", "inventaire tournant"], "outils": ["WMS", "scanner RF"]},
+     "languages": ["Français (natif)"],
+     "certifications": [{"name": "CACES R489 cat. 1, 3, 5", "issuer": "Formalog", "year": "2022"}]
+   },
+   "extra_facts": [
+     {"profile_id": "m01", "fait": "yannick.delarouzee@example.com", "champ": "contact.email", "page": 1, "critique": true},
+     {"profile_id": "m01", "fait": "Logistique Valbrune", "champ": "experiences.company", "page": 1, "critique": true},
+     {"profile_id": "m01", "fait": "Cariste", "champ": "experiences.role", "page": 1, "critique": true},
+     {"profile_id": "m01", "fait": "2021-03 - present", "champ": "experiences.dates", "page": 1, "critique": true},
+     {"profile_id": "m01", "fait": "Entrepôts Corvaisier", "champ": "experiences.company", "page": 1, "critique": true},
+     {"profile_id": "m01", "fait": "Manutention Haut-Brenne", "champ": "experiences.company", "page": 2, "critique": true},
+     {"profile_id": "m01", "fait": "CAP Opérateur logistique", "champ": "education.degree", "page": 2, "critique": true},
+     {"profile_id": "m01", "fait": "gerbage", "champ": "skills", "page": 1, "critique": false}
+   ]},
+  {"case_id": "mt_aide_soignante", "profile_id": "m02", "category": "manual_trade", "options": {"layout": "two_columns"},
+   "extra_profile": {
+     "headline": "Aide-soignante en EHPAD et en clinique",
+     "summary": "Aide-soignante diplômée, expérience en soins de nuit et en accompagnement de personnes âgées dépendantes.",
+     "contact": {"name": "Clémence Ravaillac", "email": "clemence.ravaillac@example.com", "phone": "06 00 00 00 22", "location": "Montfaucon-sur-Orne"},
+     "experiences": [
+       {"company": "Résidence Les Tilleuls d'Argent", "role": "Aide-soignante", "start_date": "2020-02", "end_date": "present", "missions": ["Toilette et nursing de 8 résidents", "Transmissions ciblées à l'équipe infirmière"], "stack": ["dossier de soins informatisé"]},
+       {"company": "Clinique Saint-Orvin", "role": "Aide-soignante de nuit", "start_date": "2017-09", "end_date": "2020-01", "missions": ["Surveillance des patients en post-opératoire"], "stack": []},
+       {"company": "Maison de retraite Le Hameau Fleuri", "role": "Agent de service hospitalier", "start_date": "2015-06", "end_date": "2017-08", "missions": ["Entretien des chambres et aide au repas"], "stack": []}
+     ],
+     "education": [{"school": "IFAS de Montfaucon", "degree": "Diplôme d'État d'aide-soignant", "years": "2016-2017"}],
+     "skills": {"soins": ["toilette et nursing", "prévention des escarres", "transmissions ciblées"], "relationnel": ["accompagnement de fin de vie"]},
+     "languages": ["Français (natif)", "Espagnol (notions)"],
+     "certifications": [{"name": "AFGSU niveau 2", "issuer": "Centre de formation fictif", "year": "2021"}]
+   },
+   "extra_facts": [
+     {"profile_id": "m02", "fait": "clemence.ravaillac@example.com", "champ": "contact.email", "page": 1, "critique": true},
+     {"profile_id": "m02", "fait": "Résidence Les Tilleuls d'Argent", "champ": "experiences.company", "page": 1, "critique": true},
+     {"profile_id": "m02", "fait": "Aide-soignante", "champ": "experiences.role", "page": 1, "critique": true},
+     {"profile_id": "m02", "fait": "2020-02 - present", "champ": "experiences.dates", "page": 1, "critique": true},
+     {"profile_id": "m02", "fait": "Clinique Saint-Orvin", "champ": "experiences.company", "page": 2, "critique": true},
+     {"profile_id": "m02", "fait": "Diplôme d'État d'aide-soignant", "champ": "education.degree", "page": 2, "critique": true},
+     {"profile_id": "m02", "fait": "prévention des escarres", "champ": "skills", "page": 2, "critique": false}
+   ]},
+  {"case_id": "lg_p04", "profile_id": "p04", "category": "long", "options": {"layout": "one_column"}},
+  {"case_id": "lg_p07", "profile_id": "p07", "category": "long", "options": {"layout": "two_columns"}},
+  {"case_id": "lg_p13", "profile_id": "p13", "category": "long", "options": {"layout": "one_column"}},
+  {"case_id": "lg_p21", "profile_id": "p21", "category": "long", "options": {"layout": "two_columns"}},
+  {"case_id": "em_blank", "profile_id": null, "category": "empty", "options": {}},
+  {"case_id": "pr_p02", "profile_id": "p02", "category": "protected", "options": {"layout": "one_column", "password": "mot-de-passe-fictif"}},
+  {"case_id": "un_corrupt", "profile_id": null, "category": "unreadable", "options": {}}
+]
