@@ -30,6 +30,8 @@ def ocr_pdf(path: str, model: str = OCR_MODEL) -> Tuple[List[str], int]:
         json={"model": model, "document": {"type": "document_url", "document_url": data_url}},
         timeout=OCR_TIMEOUT_S,
     )
+    if response.is_error:
+        raise RuntimeError(f"OCR {response.status_code} : {response.text[:300]}")
     response.raise_for_status()
     body = response.json()
     pages = sorted(body.get("pages") or [], key=lambda p: p.get("index", 0))

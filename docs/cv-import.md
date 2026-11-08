@@ -4,7 +4,7 @@ Route : `POST /profile/candidate/sources/cv` (`backend/app/routers/cover_letters
 
 ## Formats supportés
 
-PDF uniquement. La route ne regarde ni le type MIME ni l'extension du fichier : elle lit les octets et exige la signature `%PDF` en tête (`_read_upload`). Un DOCX, une image ou tout autre contenu est refusé avec 400 `Le contenu du fichier n'est pas un PDF valide`, même renommé en `.pdf`. Un PDF d'au plus 10 Mo est accepté, au-delà la réponse est 413 `Fichier trop volumineux (10 Mo maximum)`.
+PDF uniquement. La route ne regarde ni le type MIME ni l'extension du fichier : elle lit les octets et exige la signature `%PDF` en tête (`_read_upload`). Un DOCX, une image ou tout autre contenu est refusé avec 400 `Le contenu du fichier n'est pas un PDF valide`, même renommé en `.pdf`. La taille est contrôlée avant la signature : un fichier de plus de 10 Mo reçoit 413 `Fichier trop volumineux (10 Mo maximum)`, quel que soit son format.
 
 ## Méthode par page
 
@@ -24,14 +24,15 @@ La réponse porte `import_report` : pages traitées par méthode, pages non couv
 | PDF vide | 400 | `Aucun contenu exploitable n'a été trouvé dans ce PDF : vérifiez qu'il contient du texte ou une image lisible` |
 | Analyse visuelle indisponible, sans texte exploitable | 503 | `L'analyse visuelle de ce PDF est momentanément indisponible. Réessayez dans quelques minutes.` |
 | Erreur fournisseur identifiée (crédits 402, quota 429, clé 502, surcharge 503) | selon le cas | message du fournisseur (`app/llm/provider_errors.py`) |
+| Profil dérivé invalide | 502 | `Le profil obtenu n'a pas pu être validé` |
 | Autre échec du fournisseur | 502 | `Le CV n'a pas pu être analysé` |
 | Échec partiel (ex. complément texte des pages au-delà de la page 3) | 200 | entrée dans `import_report.errors` ; le résultat du visuel est conservé |
 
-Un import en échec n'enregistre aucun coût ni source.
+Un import en échec n'enregistre ni coût ni source, sauf un profil dérivé invalide (502) : l'usage est alors déjà enregistré.
 
 ## Mesures
 
-Banc : `backend/scripts/cv_reference_bench.py --method vlm|text|ocr`, sur 29 PDF synthétiques (57 pages, 10 catégories). Les colonnes « simulé » viennent d'un oracle parfait par construction : elles mesurent la couverture du pipeline (pages, repli, complément), pas la qualité d'un modèle. Elles ne sont pas des mesures réelles. L'OCR simulé reconstruit le texte de chaque page depuis la vérité du cas.
+Banc : `backend/scripts/cv_reference_bench.py --method vlm|text|ocr`, sur 29 PDF synthétiques (57 pages, 10 catégories). Les colonnes « simulé » viennent d'un oracle parfait par construction : elles mesurent la couverture du pipeline (pages, repli, complément), pas la qualité d'un modèle. Elles ne sont pas des mesures réelles. L'OCR simulé reconstruit le texte de chaque page depuis la vérité du cas (une page sans élément de vérité reste vide dans le stub).
 
 Les colonnes réelles se remplissent avec `--real --confirm` (registre `llm_budget`, part `parser` de 0,25 $). Estimations avant appel : vlm 0,0347 $ (29 cas), text 0,0334 $ (29 cas), ocr 0,0502 $ (10 cas).
 
@@ -45,10 +46,10 @@ Colonne simulé : « simulé : couverture du pipeline, pas qualité du modèle �
 |---|---|---|
 | Rappel des expériences | 97 % | à mesurer (contrôleur, `--real --confirm`) |
 | Faits inventés | 0 | à mesurer (contrôleur, `--real --confirm`) |
-| Pages couvertes | 94 % | à mesurer (contrôleur, `--real --confirm`) |
+| Pages couvertes | 98 % | à mesurer (contrôleur, `--real --confirm`) |
 | Faux rejets | 0 | à mesurer (contrôleur, `--real --confirm`) |
-| Durée moyenne par CV | 0,07 s | à mesurer (contrôleur, `--real --confirm`) |
-| Coût moyen par CV | 0,0008 $ (estimé) | à mesurer (contrôleur, `--real --confirm`) |
+| Durée moyenne par CV | 0,08 s | à mesurer (contrôleur, `--real --confirm`) |
+| Coût moyen par CV | 0,0008 $ (jetons de l'oracle simulé) | à mesurer (contrôleur, `--real --confirm`) |
 
 Catégorie `long`, pages 4 et suivantes : 6 faits critiques sur 6 retrouvés par le complément texte, 0 perdu (simulé).
 
@@ -58,10 +59,10 @@ Catégorie `long`, pages 4 et suivantes : 6 faits critiques sur 6 retrouvés par
 |---|---|---|
 | Rappel des expériences | 85 % (les 3 scans n'ont pas de couche texte) | à mesurer (contrôleur, `--real --confirm`) |
 | Faits inventés | 0 | à mesurer (contrôleur, `--real --confirm`) |
-| Pages couvertes | 95 % | à mesurer (contrôleur, `--real --confirm`) |
+| Pages couvertes | 84 % | à mesurer (contrôleur, `--real --confirm`) |
 | Faux rejets | 3 (les scans) | à mesurer (contrôleur, `--real --confirm`) |
 | Durée moyenne par CV | 0,01 s | à mesurer (contrôleur, `--real --confirm`) |
-| Coût moyen par CV | 0,0003 $ (estimé) | à mesurer (contrôleur, `--real --confirm`) |
+| Coût moyen par CV | 0,0003 $ (jetons de l'oracle simulé) | à mesurer (contrôleur, `--real --confirm`) |
 
 ### ocr (10 cas)
 
@@ -69,10 +70,10 @@ Catégorie `long`, pages 4 et suivantes : 6 faits critiques sur 6 retrouvés par
 |---|---|---|
 | Rappel des expériences | 100 % | à mesurer (contrôleur, `--real --confirm`) |
 | Faits inventés | 0 | à mesurer (contrôleur, `--real --confirm`) |
-| Pages couvertes | 98 % | à mesurer (contrôleur, `--real --confirm`) |
+| Pages couvertes | 97,5 % | à mesurer (contrôleur, `--real --confirm`) |
 | Faux rejets | 0 | à mesurer (contrôleur, `--real --confirm`) |
-| Durée moyenne par CV | 0,003 s | à mesurer (contrôleur, `--real --confirm`) |
-| Coût moyen par CV | 0,0042 $ (estimé, OCR compris) | à mesurer (contrôleur, `--real --confirm`) |
+| Durée moyenne par CV | 0,005 s | à mesurer (contrôleur, `--real --confirm`) |
+| Coût moyen par CV | 0,0042 $ (jetons de l'oracle simulé, OCR compris) | à mesurer (contrôleur, `--real --confirm`) |
 
 Le jeu simulé de l'OCR ne couvre que 10 cas : ses moyennes ne se comparent pas telles quelles à celles des deux autres méthodes.
 

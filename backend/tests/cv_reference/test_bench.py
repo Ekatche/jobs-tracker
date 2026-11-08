@@ -169,6 +169,7 @@ async def test_methods_run_offline_on_a_scanned_case(run, generated, method):
     r = by_id(report)["sc_p04"]
     called = {c["kind"] for c in kinds[0]}
     assert r["method"] == report["method"] == method
+    assert r["completed"] or r["pages_covered"] == 0.0  # un import en échec compte 0 page couverte, pas « exclu »
     assert ("vlm" in called) == (method == "vlm") and bool(ocr_calls) == (method == "ocr")
     if method == "ocr":
         pages = r["pages_by_method"]  # une page sans texte OCR reste « sautée », jamais attribuée au texte du PDF

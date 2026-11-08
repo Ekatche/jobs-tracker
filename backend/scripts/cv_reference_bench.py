@@ -316,17 +316,25 @@ async def _call_pipeline(path: str) -> Dict[str, Any]:
     return out
 
 
-def _page_metrics(entry, outcome, report, method: str = "vlm") -> Dict[str, Any]:
+def _page_metrics(entry, outcome, report, method: str = "vlm", failed: bool = False,
+                  expected_rejection: bool = False) -> Dict[str, Any]:
+    """Couverture des pages. Un import en échec compte 0 page couverte ; un rejet attendu reste hors moyenne."""
     if report is None:
-        return {"total_pages": entry["n_pages"], "pages_by_method": {"vlm": [], "text": []},
-                "skipped_pages": [], "pages_covered": None, "fallback_used": None}
+        return {"total_pages": entry["n_pages"], "pages_by_method": {"vlm": [], "text": [], "ocr": []},
+                "skipped_pages": [], "fallback_used": None,
+                "pages_covered": 0.0 if failed and not expected_rejection and entry["n_pages"] else None}
     total = report["total_pages"]
-    by_method = report["pages_by_method"]
+    by_method = {"vlm": [], "text": [], "ocr": [], **report["pages_by_method"]}
     if method == "ocr":  # le texte de ces pages vient de l'OCR, pas de la couche texte du PDF
         by_method = {"vlm": [], "text": [], "ocr": by_method["text"]}
+    covered = 1 - len(report["skipped_pages"]) / total if total else None
+    if expected_rejection:
+        covered = None
+    elif failed and total:
+        covered = 0.0
     return {
         "total_pages": total, "pages_by_method": by_method, "skipped_pages": report["skipped_pages"],
-        "pages_covered": 1 - len(report["skipped_pages"]) / total if total else None,
+        "pages_covered": covered,
         "fallback_used": report["fallback_used"],
     }
 
@@ -387,9 +395,10 @@ async def _run_case(entry, case, ref, mode, oracle_factory, method="vlm", ocr_fa
         errors.append(outcome["rejected"])
     metrics = compute_metrics(entry["facts"], truth["cv"], result)
     metrics["evidence_page_accuracy"] = evidence_page_accuracy(entry["facts"], result, report)
-    pages = _page_metrics(entry, outcome, report, method)
     category = entry["category"]
     expected_rejection = category in REJECTION_CATEGORIES or bool(outcome["rejected"])
+    pages = _page_metrics(entry, outcome, report, method, failed=result is None,
+                          expected_rejection=category in REJECTION_CATEGORIES)
     if expected_rejection:  # évalué sur le rejet lui-même, pas sur le rappel
         metrics["experience_recall"], metrics["missed_experiences"] = None, []
     skipped = set(pages["skipped_pages"])
