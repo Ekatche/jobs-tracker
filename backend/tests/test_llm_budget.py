@@ -85,6 +85,11 @@ def test_accepts_exactly_at_plan_share(ledger):
     [
         lambda: check_budget("inconnu", 0.01),
         lambda: check_budget("profil", -0.01),
+        lambda: check_budget("profil", float("nan")),
+        lambda: check_budget("profil", float("inf")),
+        lambda: record_call("profil", "s", "m", -0.01, "estimated"),
+        lambda: record_call("profil", "s", "m", float("nan"), "estimated"),
+        lambda: record_call("profil", "s", "m", True, "estimated"),
         lambda: record_call("inconnu", "s", "m", 0.1, "estimated"),
         lambda: record_call("profil", "s", "m", 0.1, "guessed"),
     ],
@@ -94,9 +99,32 @@ def test_invalid_arguments_raise_value_error(ledger, call):
         call()
 
 
-def test_corrupted_line_refuses_rather_than_undercount(ledger):
+CORRUPT_LINES = [
+    "{pas du json",
+    '{"plan": "profil", "cost_usd": NaN}',
+    '{"plan": "profil", "cost_usd": -0.5}',
+    '{"plan": "profil", "cost_usd": true}',
+    '{"plan": "profil"}',
+    '{"cost_usd": 0.01}',
+    "[1, 2]",
+]
+
+
+@pytest.fixture
+def corrupt_ledger(ledger, request):
     _record("profil", 0.01)
     with ledger.open("a", encoding="utf-8") as f:
-        f.write("{pas du json\n")
+        f.write(request.param + "\n")
+    return ledger
+
+
+@pytest.mark.parametrize("corrupt_ledger", CORRUPT_LINES, indirect=True)
+def test_corrupted_line_refuses_rather_than_undercount(corrupt_ledger):
     with pytest.raises(BudgetExceeded, match="illisible"):
         check_budget("profil", 0.01)
+
+
+@pytest.mark.parametrize("corrupt_ledger", CORRUPT_LINES, indirect=True)
+def test_spent_usd_raises_on_corrupted_ledger(corrupt_ledger):
+    with pytest.raises(ValueError, match="illisible"):
+        spent_usd()

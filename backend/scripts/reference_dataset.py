@@ -36,7 +36,28 @@ def _blank(value) -> bool:
 
 def _duplicates(rows, key):
     counts = Counter(r.get(key) for r in rows)
-    return [v for v, n in counts.items() if n > 1]
+    return [v for v, n in counts.items() if n > 1 and not _blank(v)]
+
+
+def _dict_rows(rows, name, errors):
+    """Ne garde que les lignes objets ; signale les autres."""
+    if not isinstance(rows, list):
+        errors.append(f"{name} : une liste est attendue")
+        return []
+    good = []
+    for i, r in enumerate(rows):
+        if isinstance(r, dict):
+            good.append(r)
+        else:
+            errors.append(f"{name}[{i}] : objet attendu, reçu {type(r).__name__}")
+    return good
+
+
+def _check_ids(rows, name, keys, errors):
+    for i, r in enumerate(rows):
+        for key in keys:
+            if _blank(r.get(key)):
+                errors.append(f"{name}[{i}] : {key} manquant ou vide")
 
 
 def _check_profiles(profiles, errors):
@@ -109,6 +130,16 @@ def _check_facts(facts, errors):
 def validate_reference(ref) -> list[str]:
     """Erreurs structurelles lisibles ; liste vide si le jeu est valide."""
     errors: list[str] = []
+    names = ("profiles", "offers", "matching_labels", "cv_facts", "letter_requirements")
+    ref = {n: _dict_rows(ref[n], n, errors) for n in names}
+    for n, keys in (
+        ("profiles", ("profile_id",)),
+        ("offers", ("offer_id",)),
+        ("matching_labels", ("profile_id", "offer_id")),
+        ("cv_facts", ("profile_id",)),
+        ("letter_requirements", ("profile_id", "offer_id")),
+    ):
+        _check_ids(ref[n], n, keys, errors)
     profiles, offers = ref["profiles"], ref["offers"]
     _check_profiles(profiles, errors)
     _check_offers(offers, errors)
@@ -123,7 +154,7 @@ def validate_reference(ref) -> list[str]:
 
 
 def coverage_report(ref) -> dict:
-    """Comptages du jeu (aucun seuil asserté ici)."""
+    """Comptages du jeu (aucun seuil asserté ici). Suppose un jeu déjà validé."""
     per_profile = Counter(r["profile_id"] for r in ref["matching_labels"])
     subgroups = {
         key: dict(Counter(p["subgroup"][key] for p in ref["profiles"]))

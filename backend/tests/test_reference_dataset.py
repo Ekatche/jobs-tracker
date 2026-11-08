@@ -66,6 +66,32 @@ def _dup_offer(r):
     r["offers"][1]["offer_id"] = "o001"
 
 
+@pytest.mark.parametrize("name", ["profiles", "offers", "matching_labels", "cv_facts", "letter_requirements"])
+def test_non_dict_row_reports_error(ref, name):
+    ref[name][0] = "pas un objet"
+    assert any(f"{name}[0]" in e and "objet attendu" in e for e in validate_reference(ref))
+
+
+@pytest.mark.parametrize(
+    "name, key, value",
+    [
+        ("profiles", "profile_id", ""),
+        ("offers", "offer_id", None),
+        ("matching_labels", "profile_id", ""),
+        ("matching_labels", "offer_id", None),
+        ("cv_facts", "profile_id", " "),
+        ("letter_requirements", "profile_id", None),
+        ("letter_requirements", "offer_id", ""),
+    ],
+)
+def test_missing_or_empty_id_reports_error(ref, name, key, value):
+    if value is None:
+        del ref[name][0][key]
+    else:
+        ref[name][0][key] = value
+    assert any(f"{name}[0] : {key} manquant ou vide" in e for e in validate_reference(ref))
+
+
 @pytest.mark.parametrize(
     "mutate, fragment",
     [

@@ -6,6 +6,7 @@ versionné). Aucun appel réseau : simple lecture/écriture de fichier. Usage :
 """
 
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -18,6 +19,15 @@ _EPSILON = 1e-9  # tolère l'erreur d'arrondi flottant sur les sommes
 
 class BudgetExceeded(Exception):
     """Un appel dépasserait la part du plan ou le plafond commun."""
+
+
+def _valid_cost(value) -> bool:
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and value >= 0
+    )
 
 
 def _resolve(path):
@@ -35,8 +45,9 @@ def _read_rows(path):
                 continue
             try:
                 row = json.loads(raw)
-                float(row["cost_usd"])
                 row["plan"]
+                if not _valid_cost(row["cost_usd"]):
+                    raise ValueError("cost_usd invalide")
             except (ValueError, KeyError, TypeError) as exc:
                 raise ValueError(f"ligne {number} illisible dans {path}") from exc
             rows.append(row)
@@ -53,8 +64,8 @@ def check_budget(plan, estimated_usd, path=None) -> None:
     """Lève ``BudgetExceeded`` si l'appel dépasserait la part du plan ou le total."""
     if plan not in PLAN_CAPS_USD:
         raise ValueError(f"plan inconnu : {plan!r} (attendu : {sorted(PLAN_CAPS_USD)})")
-    if estimated_usd < 0:
-        raise ValueError(f"estimation négative : {estimated_usd}")
+    if not _valid_cost(estimated_usd):
+        raise ValueError(f"estimation invalide (finie et >= 0 attendue) : {estimated_usd}")
     try:
         plan_spent = spent_usd(plan, path)
         total_spent = spent_usd(None, path)
@@ -77,6 +88,8 @@ def record_call(plan, script, model, cost_usd, cost_kind, path=None, **extra) ->
     """Ajoute une ligne au registre (mode ajout) et la renvoie."""
     if plan not in PLAN_CAPS_USD:
         raise ValueError(f"plan inconnu : {plan!r} (attendu : {sorted(PLAN_CAPS_USD)})")
+    if not _valid_cost(cost_usd):
+        raise ValueError(f"cost_usd invalide (fini et >= 0 attendu) : {cost_usd}")
     if cost_kind not in COST_KINDS:
         raise ValueError(f"cost_kind invalide : {cost_kind!r} (attendu : {COST_KINDS})")
     line = {
