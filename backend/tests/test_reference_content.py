@@ -309,15 +309,12 @@ def test_remote_violations_flag_preference_violee():
         if r["label"] == "hors_sujet":
             continue  # un hors-sujet ne porte jamais le flag (autre métier)
         profile = _profile(r["profile_id"])
-        policies = [
-            p["remote_policy"]
-            for p in _source_preferences(profile)
-            if p.get("remote_policy")
-        ]
-        if not policies:
+        merged, _ = build_profile_from_sources(profile["sources"])
+        policy = (merged.get("preferences") or {}).get("remote_policy")
+        if not policy:
             continue
         mode = offers[r["offer_id"]]["mode_travail"]
-        if mode in REMOTE_VIOLATIONS[policies[0]]:
+        if mode in REMOTE_VIOLATIONS[policy]:
             assert r.get("preference_violee") is True, (r["profile_id"], r["offer_id"])
 
 

@@ -28,19 +28,12 @@ SMALL_SUBGROUP_RELEVANT = 20
 EXPORTED_AT = datetime(2026, 11, 8, tzinfo=timezone.utc)
 REFERENCE_DATA_DIR = matching_bench.DATA_DIR / "reference"
 REFERENCE_COS_CACHE = REFERENCE_DATA_DIR / "hybrid_cos_cache.json"
-REFERENCE_RESULTS_PATH = Path("scripts/reference_bench_results.json")
+REFERENCE_RESULTS_PATH = Path(__file__).resolve().parent / "reference_bench_results.json"
 SUBGROUP_DIMENSIONS = ("metier", "niveau", "langue", "reconversion", "sources")
 RANKINGS = ("hybrid", "chronological")
 
 
 # --- Adaptateur vers le format de `load_export` ---
-
-
-def _parse_created_at(value: Any) -> Any:
-    if not isinstance(value, str):
-        return value
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def reference_to_export(ref: Dict[str, Any]) -> Dict[str, Any]:
@@ -51,7 +44,7 @@ def reference_to_export(ref: Dict[str, Any]) -> Dict[str, Any]:
         profile, _conflicts = build_profile_from_sources(p["sources"])
         profiles.append({"alias": pid, "user_id": pid, "profile": {**profile, "user_id": pid}})
     offers = [
-        {**o, "_id": o["offer_id"], "created_at": _parse_created_at(o.get("created_at"))}
+        {**o, "_id": o["offer_id"], "created_at": o.get("created_at")}
         for o in ref["offers"]
     ]
     labelled = {r["offer_id"] for r in ref["matching_labels"]}
@@ -242,6 +235,11 @@ def _fmt(value: Optional[float]) -> str:
 
 def _print_report(metrics: Dict[str, Any], n_pairs: int, n_cos: int) -> None:
     print(f"Paires évaluées : {n_pairs}, avec cos : {n_cos}, sans cos : {n_pairs - n_cos}\n")
+    print(
+        "Note : aucune offre du jeu n'a de `matched_user_ids`, donc le classement chronologique suit des "
+        "`created_at` synthétiques (équivalent au hasard) et le bucket de source « synthetic » est artificiel. "
+        "Ni l'un ni l'autre n'a de sens comme base de comparaison sur ce jeu.\n"
+    )
     print("| Profil | p@5 | nDCG@10 | Rappel | Faux négatifs | p@5 chrono | nDCG@10 chrono |")
     print("|---|---|---|---|---|---|---|")
     for pid, m in metrics["per_profile"].items():

@@ -62,6 +62,18 @@ def _empty_description(r):
     r["offers"][0]["description"] = ""
 
 
+def _unhashable_profile_id(r):
+    r["profiles"][0]["profile_id"] = ["p01"]
+
+
+def _blank_fact(r):
+    r["cv_facts"][0]["fait"] = 12
+
+
+def _unknown_source(r):
+    r["profiles"][0]["sources"] = {"linkedin": {"headline": "x"}}
+
+
 def _dup_offer(r):
     r["offers"][1]["offer_id"] = "o001"
 
@@ -108,6 +120,9 @@ def test_missing_or_empty_id_reports_error(ref, name, key, value):
         (_bad_preference_violee, "preference_violee"),
         (_unknown_letter_profile, "p99"),
         (_empty_description, "description"),
+        (_unhashable_profile_id, "profile_id"),
+        (_blank_fact, "fait"),
+        (_unknown_source, "source inconnue"),
     ],
 )
 def test_invalid_dataset_reports_error(ref, mutate, fragment):

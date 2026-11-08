@@ -106,6 +106,7 @@ CORRUPT_LINES = [
     '{"plan": "profil", "cost_usd": true}',
     '{"plan": "profil"}',
     '{"cost_usd": 0.01}',
+    '{"plan": "inconnu", "cost_usd": 0.01}',
     "[1, 2]",
 ]
 

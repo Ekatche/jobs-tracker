@@ -5,8 +5,10 @@ versionné). Aucun appel réseau : simple lecture/écriture de fichier. Usage :
 ``check_budget`` avant l'appel, ``record_call`` après.
 """
 
+import fcntl
 import json
 import math
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -34,6 +36,23 @@ def _resolve(path):
     return Path(path) if path is not None else LEDGER_PATH
 
 
+@contextmanager
+def _ledger_lock(path):
+    """Verrou exclusif (``flock``) sur un fichier voisin du registre.
+
+    Deux scripts lancés en même temps ne lisent pas un registre à moitié écrit et
+    n'écrivent pas en même temps. Le verrou ne couvre pas l'appel payant entre
+    ``check_budget`` et ``record_call`` : il protège chaque accès, pas la séquence.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.with_name(path.name + ".lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
 def _read_rows(path):
     """Lignes du registre ; ``ValueError`` si l'une est illisible."""
     if not path.exists():
@@ -45,7 +64,8 @@ def _read_rows(path):
                 continue
             try:
                 row = json.loads(raw)
-                row["plan"]
+                if row["plan"] not in PLAN_CAPS_USD:
+                    raise ValueError("plan inconnu")
                 if not _valid_cost(row["cost_usd"]):
                     raise ValueError("cost_usd invalide")
             except (ValueError, KeyError, TypeError) as exc:
@@ -67,8 +87,9 @@ def check_budget(plan, estimated_usd, path=None) -> None:
     if not _valid_cost(estimated_usd):
         raise ValueError(f"estimation invalide (finie et >= 0 attendue) : {estimated_usd}")
     try:
-        plan_spent = spent_usd(plan, path)
-        total_spent = spent_usd(None, path)
+        with _ledger_lock(_resolve(path)):
+            plan_spent = spent_usd(plan, path)
+            total_spent = spent_usd(None, path)
     except ValueError as exc:
         raise BudgetExceeded(f"registre illisible, appel refusé : {exc}") from exc
     cap = PLAN_CAPS_USD[plan]
@@ -93,16 +114,16 @@ def record_call(plan, script, model, cost_usd, cost_kind, path=None, **extra) ->
     if cost_kind not in COST_KINDS:
         raise ValueError(f"cost_kind invalide : {cost_kind!r} (attendu : {COST_KINDS})")
     line = {
+        **extra,
         "date": datetime.now(timezone.utc).isoformat(),
         "plan": plan,
         "script": script,
         "model": model,
         "cost_usd": cost_usd,
         "cost_kind": cost_kind,
-        **extra,
     }
     target = _resolve(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    with target.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(line, ensure_ascii=False) + "\n")
+    with _ledger_lock(target):
+        with target.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(line, ensure_ascii=False) + "\n")
     return line

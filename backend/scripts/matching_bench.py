@@ -59,7 +59,7 @@ from scripts.llm_budget import check_budget, record_call
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-DATA_DIR = Path("scripts/data/matching_bench")
+DATA_DIR = Path(__file__).resolve().parent / "data" / "matching_bench"
 DEFAULT_EXPORT = DATA_DIR / "export.json"
 JUDGE_CACHE = DATA_DIR / "judge_cache.json"
 TWOPASS_CACHE = DATA_DIR / "twopass_cache.json"
@@ -973,9 +973,13 @@ def run_reference_command(args: argparse.Namespace) -> None:
     if args.command == "twopass":
         raise SystemExit("--reference : Two-Pass hors budget de ce plan")
     from scripts import reference_bench
-    from scripts.reference_dataset import load_reference
+    from scripts.reference_dataset import load_reference, validate_reference
 
     ref = load_reference()
+    errors = validate_reference(ref)
+    if errors:
+        shown = "\n".join(f"  - {e}" for e in errors[:10])
+        raise SystemExit(f"--reference : jeu invalide, aucun appel lancé ({len(errors)} erreur(s))\n{shown}")
     export = reference_bench.reference_to_export(ref)
     if args.command == "embed":
         asyncio.run(run_embed(export, reference_bench.REFERENCE_COS_CACHE, args.confirm))
@@ -985,7 +989,12 @@ def run_reference_command(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--export", type=Path, default=DEFAULT_EXPORT, help="Export produit par export_matching_bench.py")
+    parser.add_argument(
+        "--export",
+        type=Path,
+        default=None,
+        help=f"Export produit par export_matching_bench.py (défaut : {DEFAULT_EXPORT})",
+    )
     parser.add_argument(
         "--reference",
         action="store_true",
@@ -1008,10 +1017,12 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.reference:
+        if args.export is not None:
+            raise SystemExit("--export et --reference s'excluent : le jeu de référence a son propre export")
         run_reference_command(args)
         return
 
-    export = load_export(args.export)
+    export = load_export(args.export or DEFAULT_EXPORT)
     if args.command == "judge":
         asyncio.run(run_judge(export, JUDGE_CACHE, args.confirm, args.concurrency, args.model))
     elif args.command == "twopass":

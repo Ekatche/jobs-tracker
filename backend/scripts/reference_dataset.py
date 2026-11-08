@@ -13,6 +13,7 @@ REFERENCE_DIR = Path(__file__).resolve().parent / "reference"
 LABELS = ("pertinent", "partiel", "hors_sujet")
 NIVEAUX = ("junior", "confirme", "senior")
 LANGUES = ("fr", "en")
+SOURCES = ("manual", "cv", "website", "github")
 _FILES = {
     "profiles": "profiles.json",
     "offers": "offers.json",
@@ -35,7 +36,9 @@ def _blank(value) -> bool:
 
 
 def _duplicates(rows, key):
-    counts = Counter(r.get(key) for r in rows)
+    # Seules les chaînes sont comptées : une valeur non hachable (liste) est déjà
+    # signalée par `_check_ids` et ferait planter `Counter`.
+    counts = Counter(v for v in (r.get(key) for r in rows) if isinstance(v, str))
     return [v for v, n in counts.items() if n > 1 and not _blank(v)]
 
 
@@ -68,6 +71,8 @@ def _check_profiles(profiles, errors):
         sources = p.get("sources")
         if not isinstance(sources, dict) or not any(sources.values()):
             errors.append(f"profil {pid} : aucune source non vide")
+        elif unknown := sorted(str(name) for name in sources if name not in SOURCES):
+            errors.append(f"profil {pid} : source inconnue {unknown} (attendu : {SOURCES})")
         sub = p.get("subgroup")
         if not isinstance(sub, dict):
             errors.append(f"profil {pid} : sous-groupe absent")
@@ -94,16 +99,24 @@ def _check_offers(offers, errors):
             errors.append(f"offre {oid} : piege_filtre_metier doit être booléen")
 
 
+def _is_known(value, known) -> bool:
+    return isinstance(value, str) and value in known
+
+
 def _check_refs(rows, name, pids, oids, errors):
     for r in rows:
-        if r.get("profile_id") not in pids:
+        if not _is_known(r.get("profile_id"), pids):
             errors.append(f"{name} : profile_id inexistant {r.get('profile_id')!r}")
-        if oids is not None and r.get("offer_id") not in oids:
+        if oids is not None and not _is_known(r.get("offer_id"), oids):
             errors.append(f"{name} : offer_id inexistant {r.get('offer_id')!r}")
 
 
 def _check_labels(labels, errors):
-    seen = Counter((r.get("profile_id"), r.get("offer_id")) for r in labels)
+    seen = Counter(
+        pair
+        for pair in ((r.get("profile_id"), r.get("offer_id")) for r in labels)
+        if all(isinstance(v, str) for v in pair)
+    )
     for (pid, oid), n in seen.items():
         if n > 1:
             errors.append(f"matching_labels : paire dupliquée ({pid}, {oid})")
@@ -120,6 +133,8 @@ def _check_labels(labels, errors):
 def _check_facts(facts, errors):
     for f in facts:
         pid = f.get("profile_id")
+        if _blank(f.get("fait")):
+            errors.append(f"cv_facts {pid} : fait doit être une chaîne non vide")
         page = f.get("page")
         if not isinstance(page, int) or isinstance(page, bool) or page < 1:
             errors.append(f"cv_facts {pid} : page doit être un entier >= 1 ({page!r})")
@@ -143,8 +158,8 @@ def validate_reference(ref) -> list[str]:
     profiles, offers = ref["profiles"], ref["offers"]
     _check_profiles(profiles, errors)
     _check_offers(offers, errors)
-    pids = {p.get("profile_id") for p in profiles}
-    oids = {o.get("offer_id") for o in offers}
+    pids = {p["profile_id"] for p in profiles if isinstance(p.get("profile_id"), str)}
+    oids = {o["offer_id"] for o in offers if isinstance(o.get("offer_id"), str)}
     _check_refs(ref["matching_labels"], "matching_labels", pids, oids, errors)
     _check_refs(ref["cv_facts"], "cv_facts", pids, None, errors)
     _check_refs(ref["letter_requirements"], "letter_requirements", pids, oids, errors)
