@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import AsyncMock
 from datetime import datetime, timezone, timedelta
 from app.services.normalization import compute_unique_key, normalize_company, normalize_position, normalize_city
 from app.services.job_offers import clean_job_offer_duplicates, normalize_text_for_comparison, fast_similarity_check
@@ -64,8 +65,11 @@ def test_defensive_date_sorting_exact_duplicates():
     assert sorted_docs[2]["id"] == 3
 
 
-def test_enrich_job_offer_data_valid_and_rejected():
+def test_enrich_job_offer_data_valid_and_rejected(monkeypatch):
     from app.tasks.job_offers_collectors import enrich_offers_sync
+
+    # normalize_role interroge Mongo et l'API d'embeddings : hors sujet ici
+    monkeypatch.setattr("app.tasks.job_offers_collectors.normalize_role", AsyncMock(side_effect=lambda role: role))
 
     raw_offers = [
         {
@@ -122,8 +126,11 @@ def test_crawler_job_offer_pydantic_model():
     assert offer.salaire == "Non spécifié"
 
 
-def test_enrich_job_offer_data_url_company_fallback():
+def test_enrich_job_offer_data_url_company_fallback(monkeypatch):
     from app.tasks.job_offers_collectors import enrich_offers_sync
+
+    # normalize_role interroge Mongo et l'API d'embeddings : hors sujet ici
+    monkeypatch.setattr("app.tasks.job_offers_collectors.normalize_role", AsyncMock(side_effect=lambda role: role))
 
     raw_offers = [
         {
@@ -165,7 +172,6 @@ def test_enrich_job_offer_data_url_company_fallback():
 def test_enrich_infers_contract_from_raw_title(monkeypatch):
     """« Stage » est retiré de l'intitulé affiché mais doit rester dans type_contrat,
     sinon le filtre « Mes contrats ciblés » ne peut pas écarter l'offre."""
-    from unittest.mock import AsyncMock
     from app.tasks.job_offers_collectors import enrich_offers_sync
 
     # normalize_role interroge Mongo et l'API d'embeddings : hors sujet ici
@@ -191,7 +197,6 @@ def test_enrich_infers_contract_from_raw_title(monkeypatch):
 
 def test_enrich_raw_data_keyed_by_source(monkeypatch):
     """raw_data garde l'enregistrement d'origine sous la clé de sa source, pas la copie normalisée."""
-    from unittest.mock import AsyncMock
     from app.tasks.job_offers_collectors import enrich_offers_sync
 
     monkeypatch.setattr("app.tasks.job_offers_collectors.normalize_role", AsyncMock(side_effect=lambda role: role))
@@ -502,8 +507,11 @@ def test_crawler_grounding_normalized_text():
     assert grounded("", "AXA", "Rejoignez AXA France à Nanterre") is True
 
 
-def test_structured_description_preservation():
+def test_structured_description_preservation(monkeypatch):
     from app.tasks.job_offers_collectors import enrich_offers_sync
+
+    # normalize_role interroge Mongo et l'API d'embeddings : hors sujet ici
+    monkeypatch.setattr("app.tasks.job_offers_collectors.normalize_role", AsyncMock(side_effect=lambda role: role))
 
     structured_desc = (
         "**Contexte & Enjeux** :\n"
@@ -968,7 +976,6 @@ async def test_save_offers_survives_company_resolver_failure(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_crawl_skips_offers_expired_on_ats(monkeypatch):
-    from unittest.mock import AsyncMock
     import app.tasks.job_offers_collectors as collectors
     import app.services.ats.router as ats_router
 
@@ -993,7 +1000,6 @@ async def test_crawl_skips_offers_expired_on_ats(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_collect_and_save_offers_tags_new_offers(monkeypatch):
-    from unittest.mock import AsyncMock
     from bson import ObjectId
     import app.tasks.job_offers_collectors as collectors
 
@@ -1022,7 +1028,6 @@ async def test_collect_and_save_offers_tags_new_offers(monkeypatch):
 
 
 def _mock_collect_pipeline(monkeypatch, collectors, crawled, structured):
-    from unittest.mock import AsyncMock
 
     monkeypatch.setattr(collectors, "get_urls_for_query", AsyncMock(return_value=["https://example.com/1"]))
     if isinstance(crawled, Exception):
@@ -1118,7 +1123,6 @@ async def test_collect_raises_when_search_fails_without_structured_offers(monkey
 @pytest.mark.asyncio
 async def test_collect_drops_known_and_structured_urls_before_crawl(monkeypatch):
     import app.tasks.job_offers_collectors as collectors
-    from unittest.mock import AsyncMock
 
     tavily_urls = [
         "https://www.linkedin.com/jobs/view/12345678",

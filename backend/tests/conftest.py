@@ -250,7 +250,12 @@ def _forbid_real_llm_calls(monkeypatch):
 
     Patche `litellm.*` et les noms importés directement dans les modules
     déjà chargés. Un patch posé par le test lui-même passe après cette
-    fixture et reste prioritaire.
+    fixture et reste prioritaire. Chaque déclenchement du garde est compté :
+    un appel avalé par un `except` de production fait quand même échouer le test.
+
+    Limites : ne couvre ni les alias d'import chargés avant la fixture, ni les
+    modules de `site-packages` qui importent le nom directement, ni le SDK
+    openai (`ChatOpenAI`, `import openai`).
     """
     import sys
 
@@ -258,12 +263,16 @@ def _forbid_real_llm_calls(monkeypatch):
 
     message = "Appel LLM réel interdit en test : patchez l'appelant"
 
+    triggered = []
+
     def _forbidden_sync(*args, **kwargs):
+        triggered.append(1)
         raise RuntimeError(message)
 
     # Async pour les points d'entrée async : `patch()` choisit AsyncMock
     # d'après la nature de la cible, un garde sync casserait ces patchs.
     async def _forbidden_async(*args, **kwargs):
+        triggered.append(1)
         raise RuntimeError(message)
 
     originals = {}
@@ -280,3 +289,6 @@ def _forbid_real_llm_calls(monkeypatch):
         for name, original in originals.items():
             if vars(mod).get(name) is original:
                 monkeypatch.setattr(mod, name, guards[name])
+    yield
+    if triggered:
+        pytest.fail("Appel LLM réel tenté : patchez l'appelant")
