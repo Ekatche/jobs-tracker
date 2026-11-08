@@ -1,5 +1,6 @@
 """Couverture de l'import PDF : pages au-delà de la limite VLM, VLM vide ou invalide,
 suivi de l'usage facturable (tests hors réseau, fournisseurs simulés)."""
+from typing import List, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,8 +15,10 @@ VLM_OK = {
 }
 
 
-def _make_pdf(tmp_path, pages: int, scanned: frozenset = frozenset()):
-    """PDF de test ; les pages de `scanned` sont une image sans couche texte."""
+def _make_pdf(tmp_path, pages: int, scanned: frozenset = frozenset(), texts: Optional[List[str]] = None):
+    """PDF de test ; les pages de `scanned` sont une image sans couche texte.
+
+    `texts` fixe le texte (une ligne par élément séparé par \\n) de chaque page, sinon un marqueur."""
     import fitz
 
     doc = fitz.open()
@@ -23,11 +26,11 @@ def _make_pdf(tmp_path, pages: int, scanned: frozenset = frozenset()):
         page = doc.new_page(width=300, height=300)
         if i in scanned:
             source = fitz.open()
-            source.new_page(width=300, height=300).insert_text((20, 50), f"SCAN_{i}", fontsize=14)
+            source.new_page(width=300, height=300).insert_text((20, 50), texts[i - 1] if texts else f"SCAN_{i}", fontsize=14)
             page.insert_image(page.rect, pixmap=source[0].get_pixmap(dpi=72))
             source.close()
         else:
-            page.insert_text((20, 50), f"MARQUEUR_PAGE_{i}", fontsize=14)
+            page.insert_text((20, 50), texts[i - 1] if texts else f"MARQUEUR_PAGE_{i}", fontsize=14)
     path = tmp_path / "cv.pdf"
     doc.save(str(path))
     doc.close()
@@ -190,6 +193,7 @@ async def test_report_vlm_pages_text_complement_and_scanned_skip(tmp_path, mistr
         "skipped_pages": [6],
         "fallback_used": False,
         "errors": [],
+        "evidence": [],
     }
     _assert_report_partitions_pages(report)
 
@@ -253,3 +257,46 @@ async def test_no_report_without_pdf():
         result = await parse_cv_with_llm(cv_text="texte du CV")
 
     assert "_import_report" not in result
+
+
+@pytest.mark.parametrize(
+    "base,extra,expected",
+    [
+        ({"experiences": [{"company": "Acme", "role": "Data Engineer", "start": "2020"}]},
+         {"experiences": [{"company": "Acme", "role": "Data Analyst", "start": "2020"}]},
+         {"experiences": [{"company": "Acme", "role": "Data Engineer", "start": "2020"},
+                          {"company": "Acme", "role": "Data Analyst", "start": "2020"}]}),
+        ({"experiences": [{"company": "Acme", "role": "Data Engineer", "start": "09/2021"}]},
+         {"experiences": [{"company": "ACME", "role": "data engineer", "start": "2021-09"}]},
+         {"experiences": [{"company": "Acme", "role": "Data Engineer", "start": "09/2021"}]}),
+        ({"experiences": [{"company": "Acme", "role": "Data Engineer"}]},
+         {"experiences": [{"company": "Acme", "role": "Data Engineer", "start": None}]},
+         {"experiences": [{"company": "Acme", "role": "Data Engineer"}]}),
+        ({"education": [{"school": "UTC", "degree": "Ingénieur"}], "languages": ["Anglais (C1)"]},
+         {"education": [{"school": "UTC", "degree": "Ingénieur"}], "languages": ["Anglais (C1)"]},
+         {"education": [{"school": "UTC", "degree": "Ingénieur"}], "languages": ["Anglais (C1)"]}),
+    ],
+)
+def test_merge_cv_complement_keeps_distinct_experiences_and_dedups_the_rest(base, extra, expected):
+    from app.services.cv_parser import _merge_cv_complement
+
+    merged = _merge_cv_complement(base, extra)
+    assert {section: merged[section] for section in expected} == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scanned, page", [(frozenset(), 2), (frozenset({2}), None)])
+async def test_evidence_points_to_the_page_text_never_to_a_scan(tmp_path, mistral_key, scanned, page):
+    from app.services.cv_parser import parse_cv_with_llm
+
+    pdf = _make_pdf(tmp_path, 2, scanned=scanned, texts=["Profil data", "Initech - Data Engineer"])
+    vlm = _vlm_payload(experiences=[{"company": "Initech", "role": "Data Engineer", "start": "2020"}])
+    with patch("app.services.cv_parser.parse_cv_with_vlm", new_callable=AsyncMock, return_value=vlm):
+        result = await parse_cv_with_llm(cv_text="texte", pdf_path=pdf)
+
+    evidence = result["_import_report"]["evidence"]
+    if page is None:
+        assert evidence == []
+    else:
+        assert [(e["section"], e["index"], e["page"]) for e in evidence] == [("experiences", 0, page)]
+        assert "Initech" in evidence[0]["excerpt"]

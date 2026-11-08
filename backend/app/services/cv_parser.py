@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import unicodedata
 from typing import Any, Dict, List, Optional
 
 from litellm import acompletion
@@ -297,17 +298,27 @@ def _has_usable_content(data: Any) -> bool:
 _LIST_SECTIONS = ("experiences", "projects", "education", "certifications", "languages", "interests")
 # Champs d'identité par section : deux éléments de même identité sont le même élément.
 _IDENTITY_FIELDS = {
-    "experiences": ("company", "role", "start"),
+    "experiences": ("company", "role", "start"),  # `start` réduit à son année, cf. _item_key
     "projects": ("name",),
     "education": ("school", "degree"),
     "certifications": ("name",),
 }
 
 
+def _start_year(value: Any) -> str:
+    """Année d'une date de début ("09/2021", "2021-09", "sept. 2021" -> "2021"), "" sans année."""
+    match = re.search(r"\d{4}", str(value or ""))
+    return match.group(0) if match else ""
+
+
 def _item_key(section: str, item: Any) -> str:
     if isinstance(item, dict):
         fields = _IDENTITY_FIELDS.get(section) or tuple(sorted(item))
-        return "|".join(str(item.get(f) or "").strip().casefold() for f in fields)
+        values = [
+            _start_year(item.get(f)) if (section, f) == ("experiences", "start") else str(item.get(f) or "").strip().casefold()
+            for f in fields
+        ]
+        return "|".join(values)
     return str(item).strip().casefold()
 
 
@@ -493,12 +504,56 @@ def is_empty_extraction(payload: Any) -> bool:
     return not any(_is_filled(payload.get(field)) for field in _EMPTINESS_FIELDS)
 
 
+def _normalize(value: Any) -> str:
+    """Comparaison insensible à la casse, aux accents et aux espaces multiples."""
+    text = unicodedata.normalize("NFKD", str(value or ""))
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    return " ".join(text.casefold().split())
+
+
+def _find_excerpt(page_text: str, needle: str) -> Optional[str]:
+    """Ligne de la page où figure `needle` (déjà normalisé), tronquée ; None si absent."""
+    if needle not in _normalize(page_text):
+        return None
+    lines = [line.strip() for line in page_text.splitlines() if line.strip()]
+    for i, line in enumerate(lines):
+        # Une correspondance peut chevaucher deux lignes : on garde celle où elle commence.
+        if needle in _normalize(line) or needle in _normalize(" ".join(lines[i:i + 2])):
+            return line[:160]
+    return None
+
+
+def _locate_evidence(payload: Dict[str, Any], page_texts: List[str]) -> List[Dict[str, Any]]:
+    """Page (base 1) et extrait où figure l'entreprise d'une expérience ou le diplôme d'une formation.
+
+    Une entrée n'existe que si la valeur figure littéralement dans le texte d'une page ; une
+    page scannée (sans couche texte) ou une valeur vide ne produit rien : aucune source inventée.
+    """
+    evidence: List[Dict[str, Any]] = []
+    wanted = (("experiences", ("company",)), ("education", ("degree", "school")))
+    for section, fields in wanted:
+        for index, item in enumerate(payload.get(section) or []):
+            if not isinstance(item, dict):
+                continue
+            value = next((item.get(f) for f in fields if _normalize(item.get(f))), None)
+            needle = _normalize(value)
+            if not needle:
+                continue
+            for page, text in enumerate(page_texts, start=1):
+                excerpt = _find_excerpt(text, needle)
+                if excerpt is not None:
+                    evidence.append({"section": section, "index": index, "page": page, "excerpt": excerpt})
+                    break
+    return evidence
+
+
 def _build_import_report(
     total_pages: int,
     vlm_pages: List[int],
     text_pages: List[int],
     fallback_used: bool,
     errors: List[str],
+    evidence: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Rapport de couverture d'un import (pages numérotées à partir de 1)."""
     covered = set(vlm_pages) | set(text_pages)
@@ -508,6 +563,7 @@ def _build_import_report(
         "skipped_pages": [n for n in range(1, total_pages + 1) if n not in covered],
         "fallback_used": fallback_used,
         "errors": errors,
+        "evidence": evidence or [],
     }
 
 
@@ -542,10 +598,14 @@ async def parse_cv_with_llm(
         except Exception as exc:
             logger.warning("Lecture page par page du PDF impossible, rapport de couverture omis : %s", exc)
 
-    def report(vlm_pages: List[int], text_pages: List[int], fallback: bool) -> Optional[Dict[str, Any]]:
+    def report(
+        payload: Dict[str, Any], vlm_pages: List[int], text_pages: List[int], fallback: bool
+    ) -> Optional[Dict[str, Any]]:
         if page_texts is None:
             return None
-        return _build_import_report(len(page_texts), vlm_pages, text_pages, fallback, errors)
+        # Provenance calculée sur le profil final ; jamais persistée (comme tout le rapport).
+        evidence = _locate_evidence(payload, page_texts)
+        return _build_import_report(len(page_texts), vlm_pages, text_pages, fallback, errors, evidence)
 
     # 1. Tentative VLM si PDF présent
     if has_pdf:
@@ -562,7 +622,7 @@ async def parse_cv_with_llm(
                         vlm_payload, page_texts, model, usages, errors
                     )
                     vlm_payload["_usage"] = usages
-                    built = report(list(range(1, len(images) + 1)), text_pages, False)
+                    built = report(vlm_payload, list(range(1, len(images) + 1)), text_pages, False)
                     if built is not None:
                         vlm_payload["_import_report"] = built
                     return vlm_payload
@@ -590,7 +650,7 @@ async def parse_cv_with_llm(
         }
         if usages:
             empty["_usage"] = usages
-        built = report([], [], has_pdf)
+        built = report(empty, [], [], has_pdf)
         if built is not None:
             empty["_import_report"] = built
         return empty
@@ -601,7 +661,7 @@ async def parse_cv_with_llm(
         exc.usage = usages + exc.usage
         raise
     data["_usage"] = usages + data.get("_usage", [])
-    built = report([], _pages_with_text(page_texts or []), has_pdf)
+    built = report(data, [], _pages_with_text(page_texts or []), has_pdf)
     if built is not None:
         data["_import_report"] = built
     return data
