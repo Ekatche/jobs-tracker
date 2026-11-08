@@ -1,0 +1,397 @@
+[
+  {
+    "profile_id": "p01",
+    "offer_id": "o001",
+    "exigences": [
+      "Séries temporelles",
+      "Détection d'anomalies",
+      "Airflow et Docker"
+    ],
+    "preuves_exactes": [
+      {
+        "exigence": "Séries temporelles",
+        "preuve": "Prévision de la demande hebdomadaire de 1 200 références avec Prophet et LightGBM"
+      },
+      {
+        "exigence": "Détection d'anomalies",
+        "preuve": "Détection d'anomalies sur les indicateurs de trafic web avec des modèles saisonniers"
+      },
+      {
+        "exigence": "Airflow et Docker",
+        "preuve": "Mise en production de pipelines de scoring avec Airflow et Docker"
+      }
+    ],
+    "transferables": [],
+    "lacunes": []
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o002",
+    "exigences": [
+      "Séries temporelles de capteurs industriels",
+      "Traitement du signal",
+      "Maintenance prédictive sur plateforme IoT"
+    ],
+    "preuves_exactes": [
+      {
+        "exigence": "Séries temporelles",
+        "preuve": "Prévision de la demande hebdomadaire de 1 200 références avec Prophet et LightGBM"
+      }
+    ],
+    "transferables": [
+      {
+        "exigence": "Détection de dérives",
+        "element": "Détection d'anomalies sur les indicateurs de trafic web avec des modèles saisonniers"
+      }
+    ],
+    "lacunes": [
+      "Aucune expérience des capteurs industriels (vibrations, température, pression)",
+      "Pas de traitement du signal ni de plateforme IoT"
+    ]
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o003",
+    "exigences": [
+      "Capteurs industriels (SCADA, MQTT, OPC UA)",
+      "Détection d'anomalies sur les mesures",
+      "InfluxDB"
+    ],
+    "preuves_exactes": [
+      {
+        "exigence": "Détection d'anomalies sur les mesures",
+        "preuve": "Détection d'anomalies sur les indicateurs de trafic web"
+      }
+    ],
+    "transferables": [
+      {
+        "exigence": "Données temporelles",
+        "element": "Modélisation de séries mensuelles de consommation d'énergie des bâtiments"
+      }
+    ],
+    "lacunes": [
+      "Aucune expérience des capteurs industriels ni de SCADA, MQTT ou OPC UA",
+      "Pas de travail sur site avec des automaticiens"
+    ]
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o008",
+    "exigences": [
+      "SQL",
+      "Visualisations Metabase",
+      "Analyses ponctuelles pour les équipes métier"
+    ],
+    "preuves_exactes": [
+      {
+        "exigence": "SQL",
+        "preuve": "Requêtes SQL (jointures, fonctions de fenêtre) sur une base PostgreSQL de 2 millions de lignes"
+      },
+      {
+        "exigence": "Visualisations",
+        "preuve": "Création de tableaux de bord Power BI sur les ventes par canal"
+      }
+    ],
+    "transferables": [
+      {
+        "exigence": "Analyses pour les équipes métier",
+        "element": "Présentation hebdomadaire des résultats au directeur commercial"
+      },
+      {
+        "exigence": "Statistiques",
+        "element": "Analyse statistique des résultats d'évaluation de 120 élèves sous Excel"
+      }
+    ],
+    "lacunes": [
+      "Metabase jamais utilisé"
+    ]
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o105",
+    "exigences": [
+      "Python et TypeScript",
+      "Tests automatisés",
+      "Comprendre les usages des soignants"
+    ],
+    "preuves_exactes": [
+      {
+        "exigence": "Python",
+        "preuve": "Développement d'une API de gestion de rendez-vous avec FastAPI et PostgreSQL"
+      },
+      {
+        "exigence": "Tests automatisés",
+        "preuve": "Écriture de 60 tests automatisés avec pytest"
+      }
+    ],
+    "transferables": [
+      {
+        "exigence": "Usages des soignants",
+        "element": "Tenue du dossier de soins informatisé et transmissions à l'équipe"
+      },
+      {
+        "exigence": "TypeScript",
+        "element": "JavaScript"
+      }
+    ],
+    "lacunes": [
+      "TypeScript non pratiqué en contexte professionnel"
+    ]
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o028",
+    "exigences": [
+      "API Node.js et TypeScript",
+      "MongoDB",
+      "Correction d'anomalies"
+    ],
+    "preuves_exactes": [
+      {
+        "exigence": "API Node.js et TypeScript",
+        "preuve": "Développement d'API REST en Node.js et TypeScript"
+      },
+      {
+        "exigence": "MongoDB",
+        "preuve": "Modélisation de la base MongoDB d'une application de suivi de commandes"
+      },
+      {
+        "exigence": "Correction d'anomalies",
+        "preuve": "Correction d'une trentaine d'anomalies en production"
+      }
+    ],
+    "transferables": [
+      {
+        "exigence": "Rigueur de conception",
+        "element": "Rédaction des dossiers de calcul et suivi de fabrication"
+      }
+    ],
+    "lacunes": []
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o069",
+    "exigences": [
+      "Newsletters",
+      "Réseaux sociaux",
+      "SEO"
+    ],
+    "preuves_exactes": [
+      {
+        "exigence": "Newsletters",
+        "preuve": "Rédaction de 300 articles par an pour le site et la newsletter"
+      },
+      {
+        "exigence": "SEO",
+        "preuve": "Rédaction de 4 articles par mois optimisés SEO pour trois clients"
+      },
+      {
+        "exigence": "Réseaux sociaux",
+        "preuve": "Animation des réseaux sociaux du journal et suivi de l'audience"
+      }
+    ],
+    "transferables": [],
+    "lacunes": []
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o032",
+    "exigences": [
+      "HTML, CSS et JavaScript",
+      "Composants Vue.js",
+      "Tests"
+    ],
+    "preuves_exactes": [
+      {
+        "exigence": "HTML, CSS et JavaScript",
+        "preuve": "Integrated six marketing pages from Figma mockups in HTML, CSS and JavaScript"
+      },
+      {
+        "exigence": "Tests",
+        "preuve": "Wrote unit tests with Jest and Testing Library, raising coverage from 40% to 70%"
+      }
+    ],
+    "transferables": [
+      {
+        "exigence": "Composants Vue.js",
+        "element": "Built reusable React components in TypeScript for a booking dashboard"
+      }
+    ],
+    "lacunes": [
+      "Vue.js cité en compétence, sans projet documenté"
+    ]
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o036",
+    "exigences": [
+      "Terraform et Ansible",
+      "Kubernetes",
+      "Supervision Prometheus et Grafana"
+    ],
+    "preuves_exactes": [
+      {
+        "exigence": "Terraform",
+        "preuve": "Rewrote the infrastructure in Terraform modules reused by 12 teams"
+      },
+      {
+        "exigence": "Ansible",
+        "preuve": "Automated server provisioning with Ansible across 80 Linux hosts"
+      },
+      {
+        "exigence": "Kubernetes",
+        "preuve": "Managed Kubernetes clusters on a public cloud and reduced node costs by 28%"
+      },
+      {
+        "exigence": "Supervision",
+        "preuve": "Built Prometheus and Grafana dashboards with alert rules tied to SLOs"
+      }
+    ],
+    "transferables": [],
+    "lacunes": []
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o011",
+    "exigences": [
+      "Dashboards Looker",
+      "SQL",
+      "Analyses d'A/B tests"
+    ],
+    "preuves_exactes": [
+      {
+        "exigence": "Dashboards Looker",
+        "preuve": "Built 20 Looker dashboards used daily by the marketing and product teams"
+      },
+      {
+        "exigence": "A/B tests",
+        "preuve": "Analysed 14 A/B tests and recommended rollouts worth an estimated 450 000 euros per year"
+      },
+      {
+        "exigence": "SQL",
+        "preuve": "Wrote SQL models in dbt and documented metric definitions"
+      }
+    ],
+    "transferables": [],
+    "lacunes": []
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o089",
+    "exigences": [
+      "Démonstrations",
+      "Négociation des contrats",
+      "Suivi du pipeline"
+    ],
+    "preuves_exactes": [
+      {
+        "exigence": "Démonstrations",
+        "preuve": "Ran discovery calls and demos with operations directors in France and Germany"
+      },
+      {
+        "exigence": "Négociation",
+        "preuve": "Negotiated annual contracts with finance and procurement teams"
+      },
+      {
+        "exigence": "Pipeline",
+        "preuve": "Managed a pipeline of 60 qualified opportunities and a 25% win rate"
+      },
+      {
+        "exigence": "Premiers rendez-vous",
+        "preuve": "Booked 20 qualified meetings per month through cold calls and e-mails"
+      }
+    ],
+    "transferables": [],
+    "lacunes": []
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o013",
+    "exigences": [
+      "Pipelines Airflow",
+      "Qualité des données",
+      "BigQuery"
+    ],
+    "preuves_exactes": [
+      {
+        "exigence": "Airflow",
+        "preuve": "Conception de pipelines Airflow ingérant 40 sources vers BigQuery"
+      },
+      {
+        "exigence": "Qualité des données",
+        "preuve": "Mise en place de tests de qualité des données avec Great Expectations"
+      },
+      {
+        "exigence": "BigQuery",
+        "preuve": "Migration d'un entrepôt on-premise vers BigQuery, coût mensuel réduit de 35 %"
+      }
+    ],
+    "transferables": [
+      {
+        "exigence": "Spark",
+        "element": "Développement de jobs Spark de transformation de 2 To par jour"
+      }
+    ],
+    "lacunes": [
+      "Observabilité des flux (alertes, métriques) non documentée"
+    ]
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o027",
+    "exigences": [
+      "Java et Spring Boot",
+      "Accompagner les développeurs",
+      "PostgreSQL"
+    ],
+    "preuves_exactes": [
+      {
+        "exigence": "Java et Spring Boot",
+        "preuve": "Conception d'un service de réconciliation de paiements en Java et Spring Boot traitant 3 millions de transactions par jour"
+      },
+      {
+        "exigence": "Accompagnement",
+        "preuve": "Encadrement technique de quatre développeurs et revue de code quotidienne"
+      },
+      {
+        "exigence": "PostgreSQL",
+        "preuve": "Réduction de 40 % de la latence p95 de l'API par optimisation des requêtes PostgreSQL"
+      }
+    ],
+    "transferables": [],
+    "lacunes": []
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o051",
+    "exigences": [
+      "Feuille de route",
+      "Discovery",
+      "Pilotage des indicateurs de rétention",
+      "Manager un product owner"
+    ],
+    "preuves_exactes": [
+      {
+        "exigence": "Feuille de route",
+        "preuve": "Pilotage de la feuille de route d'un module de facturation utilisé par 600 clients"
+      },
+      {
+        "exigence": "Discovery",
+        "preuve": "Découverte client : 40 entretiens par an et priorisation avec la méthode RICE"
+      },
+      {
+        "exigence": "Rétention",
+        "preuve": "Hausse de 18 % de la rétention à 12 mois grâce à la refonte de l'onboarding"
+      }
+    ],
+    "transferables": [
+      {
+        "exigence": "Management",
+        "element": "Pilotage d'une équipe de huit personnes : design, développement et QA"
+      }
+    ],
+    "lacunes": [
+      "Aucun management direct d'un product owner"
+    ]
+  }
+]

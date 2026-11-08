@@ -1,0 +1,2355 @@
+[
+  {
+    "profile_id": "p01",
+    "offer_id": "o001",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o006",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o005",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o018",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o002",
+    "label": "partiel",
+    "motif": "Séries temporelles couvertes mais aucune expérience de capteurs industriels ni de traitement du signal.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o007",
+    "label": "partiel",
+    "motif": "Métier voisin (analyse) mais moins de modélisation.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o012",
+    "label": "partiel",
+    "motif": "Métier voisin, compétences dbt et SQL à confirmer.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o003",
+    "label": "partiel",
+    "motif": "Capteurs industriels et SCADA non couverts ; poste sur site alors que le profil vise hybride ou full-remote.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o004",
+    "label": "partiel",
+    "motif": "Poste junior alors que le profil vise confirmé ou senior.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o020",
+    "label": "partiel",
+    "motif": "CDD sur site à Marseille, hors localisation, contrat et mode de travail visés.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o022",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o055",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p01",
+    "offer_id": "o042",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o008",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o004",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o007",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o011",
+    "label": "partiel",
+    "motif": "Offre en anglais et 2 ans d'expérience demandés, niveau d'anglais B2.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o012",
+    "label": "partiel",
+    "motif": "Métier voisin mais dbt et ingénierie analytique non couverts.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o009",
+    "label": "partiel",
+    "motif": "Stage alors que le profil vise CDI ou CDD.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o010",
+    "label": "partiel",
+    "motif": "Poste à Nantes, hors localisations visées.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o020",
+    "label": "partiel",
+    "motif": "Poste à Marseille sur site, hors localisation et mode de travail visés.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o024",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o022",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o036",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o013",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o017",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o015",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o012",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o005",
+    "label": "partiel",
+    "motif": "Métier voisin, orientation modèles plus qu'ingénierie.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o019",
+    "label": "partiel",
+    "motif": "Poste de management au-delà de l'expérience.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o010",
+    "label": "partiel",
+    "motif": "Métier voisin (BI), moins d'ingénierie.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o018",
+    "label": "partiel",
+    "motif": "Métier voisin, NLP non couvert.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o014",
+    "label": "partiel",
+    "motif": "Poste junior alors que le profil vise confirmé ou senior.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o016",
+    "label": "partiel",
+    "motif": "Alternance sur site à Annecy, contrat, ville et mode de travail hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o024",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o055",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p03",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o027",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o044",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o026",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o029",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o030",
+    "label": "partiel",
+    "motif": "Full stack TypeScript, la partie frontend et TypeScript est peu couverte.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o005",
+    "label": "partiel",
+    "motif": "Métier voisin, orientation machine learning.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o035",
+    "label": "partiel",
+    "motif": "Métier voisin, poste frontend.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o028",
+    "label": "partiel",
+    "motif": "Poste junior à Rennes, niveau et ville hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o041",
+    "label": "partiel",
+    "motif": "Développement mobile à Rennes, hors ville visée.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o042",
+    "label": "partiel",
+    "motif": "Embarqué C++ sur site à Toulouse, hors ville et mode de travail.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o045",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o046",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o047",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o055",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p04",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o032",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o031",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o033",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o035",
+    "label": "partiel",
+    "motif": "Poste de lead senior, niveau trop élevé.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o028",
+    "label": "partiel",
+    "motif": "Métier voisin (backend), stack différente.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o056",
+    "label": "partiel",
+    "motif": "Métier voisin (UX/UI), peu de développement.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o034",
+    "label": "partiel",
+    "motif": "Alternance à Annecy, hors localisations visées.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o030",
+    "label": "partiel",
+    "motif": "Full stack à Lille, hors localisations visées.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o043",
+    "label": "partiel",
+    "motif": "Stage Python, hors contrats visés.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o046",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o047",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o036",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o036",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o037",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o039",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o044",
+    "label": "partiel",
+    "motif": "Métier voisin, architecture logicielle plus que infrastructure.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o026",
+    "label": "partiel",
+    "motif": "Métier voisin, backend.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o013",
+    "label": "partiel",
+    "motif": "Métier voisin, ingénierie des données.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o038",
+    "label": "partiel",
+    "motif": "Poste junior sur site à Grenoble, niveau, ville et mode de travail hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o040",
+    "label": "partiel",
+    "motif": "Administration systèmes sur site à Lille, hors ville et mode de travail.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o042",
+    "label": "partiel",
+    "motif": "Embarqué sur site à Toulouse, hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o045",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o046",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o047",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o055",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o051",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o054",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o050",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o065",
+    "label": "partiel",
+    "motif": "Directeur de programme sur site, métier voisin.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o060",
+    "label": "partiel",
+    "motif": "Chef de projet IT, métier voisin à Lyon.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o064",
+    "label": "partiel",
+    "motif": "Métier voisin (agilité), moins de stratégie produit.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o061",
+    "label": "partiel",
+    "motif": "Chef de projet digital, métier voisin.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o052",
+    "label": "partiel",
+    "motif": "Poste à Lyon, hors localisation visée.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o053",
+    "label": "partiel",
+    "motif": "Poste junior (Associate PM), niveau hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o074",
+    "label": "partiel",
+    "motif": "Responsable marketing à Lyon, hors localisation et métier voisin.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o067",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o063",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o066",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o042",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o055",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o057",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o058",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o031",
+    "label": "partiel",
+    "motif": "Métier voisin (frontend), moins de recherche utilisateur.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o050",
+    "label": "partiel",
+    "motif": "Métier voisin (produit), peu de conception.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o052",
+    "label": "partiel",
+    "motif": "Métier voisin, orienté backlog.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o056",
+    "label": "partiel",
+    "motif": "Poste junior à Rennes, niveau et ville hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o059",
+    "label": "partiel",
+    "motif": "Graphisme sur site à Nantes, hors ville et mode de travail.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o053",
+    "label": "partiel",
+    "motif": "Associate PM junior à Paris, hors ville et niveau.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o066",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o067",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o046",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o036",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o069",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o070",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o068",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o071",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o075",
+    "label": "partiel",
+    "motif": "Marketing opérationnel événementiel, localisation inconnue, métier voisin.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o074",
+    "label": "partiel",
+    "motif": "Poste senior de responsable marketing, niveau trop élevé.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o072",
+    "label": "partiel",
+    "motif": "Poste full-remote alors que le profil vise hybride.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o073",
+    "label": "partiel",
+    "motif": "Community manager à Nantes, hors localisations visées.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o076",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o022",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o036",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o042",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p09",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o077",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o078",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o081",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o007",
+    "label": "partiel",
+    "motif": "Chiffres et Excel en commun, SQL et BI non couverts.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o079",
+    "label": "partiel",
+    "motif": "Assistant comptable à Paris, hors localisation et niveau inférieur.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o082",
+    "label": "partiel",
+    "motif": "Paie à Paris, hors localisation et métier voisin.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o025",
+    "label": "partiel",
+    "motif": "Actuariat à Paris, hors localisation et métier voisin.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o010",
+    "label": "partiel",
+    "motif": "BI à Nantes, hors localisation.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o080",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o101",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o024",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o045",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o036",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o055",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o084",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o083",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o085",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o048",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o082",
+    "label": "partiel",
+    "motif": "Paie, métier voisin, paie en simples notions.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o087",
+    "label": "partiel",
+    "motif": "Alternance à Annecy, hors localisations visées.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o086",
+    "label": "partiel",
+    "motif": "Poste senior, niveau hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o024",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o022",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o045",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o046",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o036",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o055",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p11",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o089",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o091",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o045",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o023",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o080",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o092",
+    "label": "partiel",
+    "motif": "Poste senior de grands comptes, niveau supérieur.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o093",
+    "label": "partiel",
+    "motif": "SDR junior, niveau inférieur.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o090",
+    "label": "partiel",
+    "motif": "Ingénieur d'affaires itinérant à Grenoble, vente plus technique.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o049",
+    "label": "partiel",
+    "motif": "Technico-commercial réseaux, vente plus technique.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o076",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o101",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o036",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o055",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p12",
+    "offer_id": "o026",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o060",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o061",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o052",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o051",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o064",
+    "label": "partiel",
+    "motif": "Scrum master, métier voisin.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o044",
+    "label": "partiel",
+    "motif": "Architecte logiciel, métier voisin.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o019",
+    "label": "partiel",
+    "motif": "Head of Data à Lyon, métier voisin et domaine data.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o065",
+    "label": "partiel",
+    "motif": "Directeur de programme sur site, mode de travail hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o062",
+    "label": "partiel",
+    "motif": "Poste junior d'assistant chef de projet, niveau hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o063",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o066",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o067",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p13",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o095",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o098",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o100",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o086",
+    "label": "partiel",
+    "motif": "Droit du travail proche mais métier RH.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o096",
+    "label": "partiel",
+    "motif": "Poste junior, niveau hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o097",
+    "label": "partiel",
+    "motif": "Alternance junior, contrat et niveau hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o099",
+    "label": "partiel",
+    "motif": "Assistant juridique junior sur site, niveau et mode de travail hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o101",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o045",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o046",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o024",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o036",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o055",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o105",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o026",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o104",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o027",
+    "label": "partiel",
+    "motif": "Poste senior Java, niveau et stack trop éloignés.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o032",
+    "label": "partiel",
+    "motif": "Métier voisin (frontend), stack Vue.js.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o028",
+    "label": "partiel",
+    "motif": "Backend Node.js à Rennes, hors localisations visées.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o043",
+    "label": "partiel",
+    "motif": "Stage Python, hors contrats visés.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o030",
+    "label": "partiel",
+    "motif": "Full stack à Lille, hors localisations visées.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o103",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o046",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o047",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o042",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o007",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o011",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o012",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o017",
+    "label": "partiel",
+    "motif": "Métier voisin (ingénierie des données).",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o005",
+    "label": "partiel",
+    "motif": "Métier voisin, orienté machine learning.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o018",
+    "label": "partiel",
+    "motif": "Métier voisin, NLP non couvert.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o010",
+    "label": "partiel",
+    "motif": "BI à Nantes, hors localisations visées.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o008",
+    "label": "partiel",
+    "motif": "Poste junior à Lille, niveau et ville hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o009",
+    "label": "partiel",
+    "motif": "Stage à Lyon, hors contrats visés.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o022",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o023",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o024",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o028",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o029",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o105",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o027",
+    "label": "partiel",
+    "motif": "Poste senior Java, niveau trop élevé.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o032",
+    "label": "partiel",
+    "motif": "Métier voisin (frontend).",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o030",
+    "label": "partiel",
+    "motif": "Full stack à Lille, hors localisations visées.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o026",
+    "label": "partiel",
+    "motif": "Backend Python à Paris, hors localisations visées.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o043",
+    "label": "partiel",
+    "motif": "Stage Python, hors contrats visés.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o038",
+    "label": "partiel",
+    "motif": "DevOps junior sur site, mode de travail hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o046",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o047",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o055",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o073",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o072",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o068",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o069",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o071",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o074",
+    "label": "partiel",
+    "motif": "Poste senior de responsable marketing, niveau trop élevé.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o070",
+    "label": "partiel",
+    "motif": "Alternance à Lyon, hors localisations et contrats visés.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o075",
+    "label": "partiel",
+    "motif": "Marketing opérationnel sur site, mode de travail hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o076",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o022",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o036",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o042",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p18",
+    "offer_id": "o055",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o008",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o009",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o004",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o007",
+    "label": "partiel",
+    "motif": "Poste confirmé, expérience insuffisante.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o014",
+    "label": "partiel",
+    "motif": "Métier voisin (ingénierie des données), compétences à construire.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o010",
+    "label": "partiel",
+    "motif": "Poste confirmé en BI.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o012",
+    "label": "partiel",
+    "motif": "Poste confirmé en analytics engineering.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o020",
+    "label": "partiel",
+    "motif": "Statistiques en CDD, outils différents.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o024",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o022",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o055",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o096",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o097",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o099",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o095",
+    "label": "partiel",
+    "motif": "Poste confirmé, expérience insuffisante.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o100",
+    "label": "partiel",
+    "motif": "Spécialisation données personnelles, à acquérir.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o098",
+    "label": "partiel",
+    "motif": "Poste senior de legal counsel.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o101",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o045",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o046",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o047",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o036",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o055",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o024",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o037",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o036",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o039",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o026",
+    "label": "partiel",
+    "motif": "Métier voisin, backend.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o013",
+    "label": "partiel",
+    "motif": "Métier voisin, ingénierie des données.",
+    "preference_violee": false
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o044",
+    "label": "partiel",
+    "motif": "Architecte logiciel à Lyon, hors localisation.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o040",
+    "label": "partiel",
+    "motif": "Administration systèmes sur site à Lille, hors ville et mode de travail.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o038",
+    "label": "partiel",
+    "motif": "Poste junior sur site à Grenoble, niveau et mode de travail hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o045",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o046",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o047",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o083",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o055",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o021",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o089",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o091",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o092",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o045",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o023",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o080",
+    "label": "pertinent",
+    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o093",
+    "label": "partiel",
+    "motif": "SDR junior, niveau hors préférences.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o090",
+    "label": "partiel",
+    "motif": "Ingénieur d'affaires itinérant à Grenoble, hors ville et mode de travail.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o049",
+    "label": "partiel",
+    "motif": "Technico-commercial itinérant à Lyon, hors ville et mode de travail.",
+    "preference_violee": true
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o094",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o076",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o101",
+    "label": "hors_sujet",
+    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o102",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o077",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o036",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o055",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  },
+  {
+    "profile_id": "p22",
+    "offer_id": "o026",
+    "label": "hors_sujet",
+    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+  }
+]

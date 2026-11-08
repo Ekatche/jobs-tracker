@@ -1,0 +1,2737 @@
+[
+  {
+    "profile_id": "p01",
+    "subgroup": {
+      "metier": "data scientist séries temporelles",
+      "niveau": "confirme",
+      "langue": "fr",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Data scientist séries temporelles",
+        "summary": "Data scientist spécialisée dans la prévision et la détection d'anomalies sur séries temporelles, avec 5 ans d'expérience en conseil et en analyse statistique.",
+        "contact": {
+          "name": "Alix Montrelay",
+          "email": "alix.montrelay@example.com",
+          "phone": "+33 6 00 00 00 01",
+          "location": "Lyon"
+        },
+        "experiences": [
+          {
+            "company": "Brumel Conseil",
+            "role": "Data scientist",
+            "start_date": "2021-09",
+            "end_date": "present",
+            "missions": [
+              "Prévision de la demande hebdomadaire de 1 200 références avec Prophet et LightGBM, erreur MAPE réduite de 18 % à 11 %",
+              "Détection d'anomalies sur les indicateurs de trafic web avec des modèles saisonniers (STL, isolation forest)",
+              "Mise en production de pipelines de scoring avec Airflow et Docker"
+            ],
+            "stack": [
+              "Python",
+              "Prophet",
+              "LightGBM",
+              "Airflow",
+              "Docker"
+            ]
+          },
+          {
+            "company": "Quantia Lab",
+            "role": "Data analyst",
+            "start_date": "2019-09",
+            "end_date": "2021-08",
+            "missions": [
+              "Analyse statistique des ventes et construction de tableaux de bord",
+              "Premiers modèles ARIMA pour prévoir la fréquentation de magasins"
+            ],
+            "stack": [
+              "Python",
+              "SQL",
+              "statsmodels"
+            ]
+          },
+          {
+            "company": "Institut de Statistique Appliquée",
+            "role": "Stagiaire data",
+            "start_date": "2019-03",
+            "end_date": "2019-08",
+            "missions": [
+              "Modélisation de séries mensuelles de consommation d'énergie des bâtiments"
+            ],
+            "stack": [
+              "R",
+              "Python"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "Université de Lyon",
+            "degree": "Master Statistique et Science des données",
+            "years": "2017-2019"
+          }
+        ],
+        "skills": {
+          "langages": [
+            "Python",
+            "SQL",
+            "R"
+          ],
+          "modélisation": [
+            "scikit-learn",
+            "statsmodels",
+            "Prophet",
+            "LightGBM"
+          ],
+          "outils": [
+            "Airflow",
+            "Docker",
+            "Git"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (courant)"
+        ]
+      },
+      "manual": {
+        "preferences": {
+          "target_roles": [
+            "data scientist",
+            "data scientist séries temporelles"
+          ],
+          "locations": [
+            "Lyon",
+            "Paris"
+          ],
+          "contract_types": [
+            "CDI"
+          ],
+          "remote_policy": [
+            "hybride",
+            "full-remote"
+          ],
+          "seniority_levels": [
+            "confirme",
+            "senior"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile_id": "p02",
+    "subgroup": {
+      "metier": "data analyst",
+      "niveau": "junior",
+      "langue": "fr",
+      "reconversion": true
+    },
+    "sources": {
+      "cv": {
+        "headline": "Data analyst en reconversion, ancienne enseignante de mathématiques",
+        "summary": "Après onze ans d'enseignement des mathématiques, je me reconvertis en data analyst : formation certifiante, stage de fin de formation et goût pour les chiffres et la pédagogie.",
+        "contact": {
+          "name": "Maëlle Ferrandon",
+          "email": "maelle.ferrandon@example.org",
+          "phone": "+33 6 00 00 00 02",
+          "location": "Lyon"
+        },
+        "experiences": [
+          {
+            "company": "Les Ateliers du Rhône",
+            "role": "Stagiaire data analyst",
+            "start_date": "2026-04",
+            "end_date": "2026-09",
+            "missions": [
+              "Création de tableaux de bord Power BI sur les ventes par canal",
+              "Requêtes SQL (jointures, fonctions de fenêtre) sur une base PostgreSQL de 2 millions de lignes",
+              "Présentation hebdomadaire des résultats au directeur commercial"
+            ],
+            "stack": [
+              "Power BI",
+              "SQL",
+              "PostgreSQL"
+            ]
+          },
+          {
+            "company": "Collège Les Hirondelles",
+            "role": "Professeure de mathématiques",
+            "start_date": "2014-09",
+            "end_date": "2025-06",
+            "missions": [
+              "Enseignement des mathématiques à quatre classes de la sixième à la troisième",
+              "Analyse statistique des résultats d'évaluation de 120 élèves sous Excel",
+              "Coordination de l'équipe de mathématiques du collège"
+            ],
+            "stack": [
+              "Excel"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "Datacampus",
+            "degree": "Titre professionnel Data Analyst",
+            "years": "2025-2026"
+          },
+          {
+            "school": "Université de Lyon",
+            "degree": "Master Mathématiques appliquées",
+            "years": "2012-2014"
+          }
+        ],
+        "skills": {
+          "analyse": [
+            "SQL",
+            "Power BI",
+            "Excel",
+            "statistiques descriptives"
+          ],
+          "programmation": [
+            "Python",
+            "pandas"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (B2)"
+        ]
+      },
+      "manual": {
+        "experiences": [
+          {
+            "company": "Les Ateliers du Rhône",
+            "role": "Data analyst (stage de fin de formation)",
+            "start_date": "2026-04",
+            "end_date": "2026-09"
+          }
+        ],
+        "preferences": {
+          "target_roles": [
+            "data analyst"
+          ],
+          "locations": [
+            "Lyon",
+            "Paris",
+            "Lille"
+          ],
+          "contract_types": [
+            "CDI",
+            "CDD"
+          ],
+          "remote_policy": [
+            "hybride"
+          ],
+          "seniority_levels": [
+            "junior",
+            "confirme"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile_id": "p03",
+    "subgroup": {
+      "metier": "data engineer",
+      "niveau": "confirme",
+      "langue": "fr",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Data engineer",
+        "summary": "Data engineer avec 5 ans d'expérience dans la construction de pipelines d'ingestion et d'entrepôts de données dans le cloud.",
+        "contact": {
+          "name": "Soren Aldanier",
+          "email": "soren.aldanier@example.com",
+          "phone": "+33 6 00 00 00 03",
+          "location": "Paris"
+        },
+        "experiences": [
+          {
+            "company": "Pelican Systems",
+            "role": "Data engineer",
+            "start_date": "2022-01",
+            "end_date": "present",
+            "missions": [
+              "Conception de pipelines Airflow ingérant 40 sources vers BigQuery",
+              "Migration d'un entrepôt on-premise vers BigQuery, coût mensuel réduit de 35 %",
+              "Mise en place de tests de qualité des données avec Great Expectations"
+            ],
+            "stack": [
+              "Python",
+              "Airflow",
+              "BigQuery",
+              "dbt",
+              "Terraform"
+            ]
+          },
+          {
+            "company": "Fluxor",
+            "role": "Ingénieur données",
+            "start_date": "2020-02",
+            "end_date": "2021-12",
+            "missions": [
+              "Développement de jobs Spark de transformation de 2 To par jour",
+              "Industrialisation de l'ordonnancement avec Airflow"
+            ],
+            "stack": [
+              "Spark",
+              "Python",
+              "AWS"
+            ]
+          },
+          {
+            "company": "Tandem Digital",
+            "role": "Développeur ETL",
+            "start_date": "2018-09",
+            "end_date": "2020-01",
+            "missions": [
+              "Développement de flux ETL sous Talend vers un entrepôt PostgreSQL",
+              "Optimisation de requêtes SQL, temps de chargement divisé par trois"
+            ],
+            "stack": [
+              "Talend",
+              "SQL",
+              "PostgreSQL"
+            ]
+          },
+          {
+            "company": "Atelier Logique",
+            "role": "Stagiaire développeur",
+            "start_date": "2018-03",
+            "end_date": "2018-08",
+            "missions": [
+              "Développement d'un outil interne de reporting en Python"
+            ],
+            "stack": [
+              "Python"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "École d'ingénieurs de Grenoble",
+            "degree": "Diplôme d'ingénieur informatique",
+            "years": "2013-2018"
+          }
+        ],
+        "certifications": [
+          {
+            "name": "Google Cloud Professional Data Engineer",
+            "issuer": "Google Cloud",
+            "year": "2023"
+          }
+        ],
+        "skills": {
+          "langages": [
+            "Python",
+            "SQL",
+            "Scala"
+          ],
+          "données": [
+            "Airflow",
+            "Spark",
+            "dbt",
+            "BigQuery"
+          ],
+          "outils": [
+            "Terraform",
+            "Docker",
+            "Git"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (courant)"
+        ]
+      },
+      "github": {
+        "projects": [
+          {
+            "name": "pipeline-meteo",
+            "description": "Pipeline d'ingestion de données météo ouvertes vers un entrepôt DuckDB, orchestré avec Airflow",
+            "stack": [
+              "Python",
+              "Airflow",
+              "DuckDB"
+            ],
+            "url": "https://example.com/code/pipeline-meteo"
+          }
+        ]
+      },
+      "manual": {
+        "preferences": {
+          "target_roles": [
+            "data engineer"
+          ],
+          "locations": [
+            "Paris",
+            "Rennes"
+          ],
+          "contract_types": [
+            "CDI"
+          ],
+          "remote_policy": [
+            "hybride",
+            "full-remote"
+          ],
+          "seniority_levels": [
+            "confirme",
+            "senior"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile_id": "p04",
+    "subgroup": {
+      "metier": "développeur backend",
+      "niveau": "senior",
+      "langue": "fr",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Développeur backend senior Java et Python",
+        "summary": "Développeur backend senior avec 12 ans d'expérience : API, systèmes de paiement et architecture de services. Habitué à encadrer des équipes de 3 à 6 développeurs.",
+        "contact": {
+          "name": "Tancrède Valmorel",
+          "email": "tancrede.valmorel@example.com",
+          "phone": "+33 6 00 00 00 04",
+          "location": "Lyon"
+        },
+        "experiences": [
+          {
+            "company": "Soléane Paiements",
+            "role": "Développeur backend senior",
+            "start_date": "2021-03",
+            "end_date": "present",
+            "missions": [
+              "Conception d'un service de réconciliation de paiements en Java et Spring Boot traitant 3 millions de transactions par jour",
+              "Encadrement technique de quatre développeurs et revue de code quotidienne",
+              "Réduction de 40 % de la latence p95 de l'API par optimisation des requêtes PostgreSQL"
+            ],
+            "stack": [
+              "Java",
+              "Spring Boot",
+              "PostgreSQL",
+              "Kafka"
+            ]
+          },
+          {
+            "company": "Granit Logiciels",
+            "role": "Développeur backend",
+            "start_date": "2018-06",
+            "end_date": "2021-02",
+            "missions": [
+              "Développement d'API REST en Python et Django pour un logiciel de gestion de flotte",
+              "Mise en place de l'intégration continue avec GitLab CI",
+              "Migration d'un monolithe vers trois services conteneurisés"
+            ],
+            "stack": [
+              "Python",
+              "Django",
+              "Docker",
+              "GitLab CI"
+            ]
+          },
+          {
+            "company": "Ombrelle Assurances",
+            "role": "Développeur Java",
+            "start_date": "2016-01",
+            "end_date": "2018-05",
+            "missions": [
+              "Maintenance et évolution d'un moteur de tarification en Java",
+              "Écriture de tests d'intégration automatisés, couverture portée de 30 % à 75 %"
+            ],
+            "stack": [
+              "Java",
+              "Oracle",
+              "JUnit"
+            ]
+          },
+          {
+            "company": "Cabinet Rivière Conseil",
+            "role": "Consultant développeur",
+            "start_date": "2014-03",
+            "end_date": "2015-12",
+            "missions": [
+              "Développement de modules de facturation pour trois clients PME",
+              "Support de niveau 3 et correction d'anomalies en production"
+            ],
+            "stack": [
+              "Java",
+              "MySQL"
+            ]
+          },
+          {
+            "company": "Naviplan",
+            "role": "Développeur junior",
+            "start_date": "2012-09",
+            "end_date": "2014-02",
+            "missions": [
+              "Développement de scripts d'import de données en PHP",
+              "Participation à la refonte d'un portail client"
+            ],
+            "stack": [
+              "PHP",
+              "MySQL"
+            ]
+          },
+          {
+            "company": "Studio Pixelmine",
+            "role": "Stagiaire développeur",
+            "start_date": "2012-03",
+            "end_date": "2012-08",
+            "missions": [
+              "Développement d'un module de réservation en ligne"
+            ],
+            "stack": [
+              "PHP",
+              "JavaScript"
+            ]
+          },
+          {
+            "company": "Association Les Voiles Blanches",
+            "role": "Développeur bénévole",
+            "start_date": "2011-06",
+            "end_date": "2012-02",
+            "missions": [
+              "Création du site de l'association et de son formulaire d'inscription"
+            ],
+            "stack": [
+              "HTML",
+              "PHP"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "École d'ingénieurs de Lyon",
+            "degree": "Diplôme d'ingénieur informatique",
+            "years": "2008-2012"
+          },
+          {
+            "school": "Lycée Les Tilleuls",
+            "degree": "Baccalauréat scientifique",
+            "years": "2008"
+          }
+        ],
+        "certifications": [
+          {
+            "name": "Oracle Certified Professional Java SE",
+            "issuer": "Oracle",
+            "year": "2017"
+          },
+          {
+            "name": "AWS Certified Developer Associate",
+            "issuer": "AWS",
+            "year": "2022"
+          }
+        ],
+        "skills": {
+          "langages": [
+            "Java",
+            "Python",
+            "SQL",
+            "PHP"
+          ],
+          "frameworks": [
+            "Spring Boot",
+            "Django",
+            "FastAPI"
+          ],
+          "infrastructure": [
+            "Docker",
+            "Kubernetes",
+            "GitLab CI",
+            "Kafka"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (courant)"
+        ],
+        "interests": [
+          "voile",
+          "échecs"
+        ]
+      },
+      "website": {
+        "projects": [
+          {
+            "name": "Lib de réconciliation",
+            "description": "Bibliothèque open source de réconciliation de transactions en Java",
+            "stack": [
+              "Java"
+            ],
+            "url": "https://example.com/tancrede/reconciliation"
+          }
+        ]
+      },
+      "manual": {
+        "experiences": [
+          {
+            "company": "Granit Logiciels",
+            "role": "Développeur backend Python",
+            "start_date": "2018-06",
+            "end_date": "2021-03"
+          }
+        ],
+        "preferences": {
+          "target_roles": [
+            "développeur backend",
+            "lead développeur backend"
+          ],
+          "locations": [
+            "Lyon",
+            "Paris"
+          ],
+          "contract_types": [
+            "CDI"
+          ],
+          "remote_policy": [
+            "hybride",
+            "full-remote"
+          ],
+          "seniority_levels": [
+            "senior",
+            "confirme"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile_id": "p05",
+    "subgroup": {
+      "metier": "développeur frontend",
+      "niveau": "junior",
+      "langue": "en",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Junior frontend developer",
+        "summary": "Junior frontend developer with a six-month internship and an apprenticeship, passionate about accessible and well-tested interfaces.",
+        "contact": {
+          "name": "Ravi Tessanier",
+          "email": "ravi.tessanier@example.org",
+          "phone": "+33 6 00 00 00 05",
+          "location": "Rennes"
+        },
+        "preferences": {
+          "target_roles": [
+            "frontend developer"
+          ],
+          "locations": [
+            "Rennes",
+            "Nantes",
+            "Paris",
+            "Lyon",
+            "Remote"
+          ],
+          "contract_types": [
+            "CDI",
+            "Alternance"
+          ],
+          "remote_policy": [
+            "hybrid",
+            "full-remote"
+          ],
+          "seniority_levels": [
+            "junior",
+            "confirme"
+          ]
+        },
+        "experiences": [
+          {
+            "company": "Kestrel Studio",
+            "role": "Frontend developer apprentice",
+            "start_date": "2025-09",
+            "end_date": "present",
+            "missions": [
+              "Built reusable React components in TypeScript for a booking dashboard",
+              "Wrote unit tests with Jest and Testing Library, raising coverage from 40% to 70%",
+              "Fixed accessibility issues reported by an external audit"
+            ],
+            "stack": [
+              "React",
+              "TypeScript",
+              "Jest",
+              "CSS"
+            ]
+          },
+          {
+            "company": "Lumo Agency",
+            "role": "Web developer intern",
+            "start_date": "2025-03",
+            "end_date": "2025-08",
+            "missions": [
+              "Integrated six marketing pages from Figma mockups in HTML, CSS and JavaScript",
+              "Added a contact form validated on the client side"
+            ],
+            "stack": [
+              "HTML",
+              "CSS",
+              "JavaScript"
+            ]
+          }
+        ],
+        "projects": [
+          {
+            "name": "Recipe Box",
+            "description": "Single-page recipe manager built with React and a local storage cache",
+            "stack": [
+              "React",
+              "JavaScript"
+            ],
+            "url": "https://example.com/ravi/recipe-box"
+          }
+        ],
+        "education": [
+          {
+            "school": "University of Rennes",
+            "degree": "Bachelor in Computer Science",
+            "years": "2022-2025"
+          },
+          {
+            "school": "University of Rennes",
+            "degree": "Master in Software Engineering (ongoing)",
+            "years": "2025-2027"
+          }
+        ],
+        "skills": {
+          "languages": [
+            "JavaScript",
+            "TypeScript",
+            "HTML",
+            "CSS"
+          ],
+          "frameworks": [
+            "React",
+            "Vue.js"
+          ],
+          "tools": [
+            "Git",
+            "Figma",
+            "Jest"
+          ]
+        },
+        "languages": [
+          "English (fluent)",
+          "French (native)"
+        ]
+      }
+    }
+  },
+  {
+    "profile_id": "p06",
+    "subgroup": {
+      "metier": "devops",
+      "niveau": "confirme",
+      "langue": "en",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "DevOps engineer",
+        "summary": "DevOps engineer with 5 years of experience automating cloud infrastructure and delivery pipelines for SaaS products.",
+        "contact": {
+          "name": "Imogen Tarrasque",
+          "email": "imogen.tarrasque@example.com",
+          "phone": "+33 6 00 00 00 06",
+          "location": "Paris"
+        },
+        "experiences": [
+          {
+            "company": "Helix Cloud",
+            "role": "DevOps engineer",
+            "start_date": "2022-05",
+            "end_date": "present",
+            "missions": [
+              "Managed Kubernetes clusters on a public cloud and reduced node costs by 28%",
+              "Rewrote the infrastructure in Terraform modules reused by 12 teams",
+              "Built Prometheus and Grafana dashboards with alert rules tied to SLOs"
+            ],
+            "stack": [
+              "Kubernetes",
+              "Terraform",
+              "Prometheus",
+              "GitLab CI"
+            ]
+          },
+          {
+            "company": "Brightfield Software",
+            "role": "Systems engineer",
+            "start_date": "2020-01",
+            "end_date": "2022-04",
+            "missions": [
+              "Automated server provisioning with Ansible across 80 Linux hosts",
+              "Set up Jenkins pipelines and cut release time from two days to two hours"
+            ],
+            "stack": [
+              "Ansible",
+              "Jenkins",
+              "Linux",
+              "Docker"
+            ]
+          },
+          {
+            "company": "Corvid Hosting",
+            "role": "Junior system administrator",
+            "start_date": "2018-09",
+            "end_date": "2019-12",
+            "missions": [
+              "Administered Linux web servers and handled monitoring alerts",
+              "Wrote Bash scripts for nightly backups"
+            ],
+            "stack": [
+              "Linux",
+              "Bash"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "University of Bordeaux",
+            "degree": "Master in Networks and Systems",
+            "years": "2016-2018"
+          }
+        ],
+        "certifications": [
+          {
+            "name": "Certified Kubernetes Administrator",
+            "issuer": "CNCF",
+            "year": "2023"
+          },
+          {
+            "name": "HashiCorp Terraform Associate",
+            "issuer": "HashiCorp",
+            "year": "2022"
+          }
+        ],
+        "skills": {
+          "infrastructure": [
+            "Kubernetes",
+            "Terraform",
+            "Ansible",
+            "Docker"
+          ],
+          "ci_cd": [
+            "GitLab CI",
+            "Jenkins",
+            "ArgoCD"
+          ],
+          "observability": [
+            "Prometheus",
+            "Grafana"
+          ],
+          "languages": [
+            "Python",
+            "Bash"
+          ]
+        },
+        "languages": [
+          "English (fluent)",
+          "French (native)"
+        ]
+      },
+      "manual": {
+        "experiences": [
+          {
+            "company": "Brightfield Software",
+            "role": "DevOps engineer",
+            "start_date": "2020-01",
+            "end_date": "2022-04"
+          }
+        ],
+        "preferences": {
+          "target_roles": [
+            "devops engineer",
+            "platform engineer",
+            "site reliability engineer"
+          ],
+          "locations": [
+            "Paris"
+          ],
+          "contract_types": [
+            "CDI"
+          ],
+          "remote_policy": [
+            "hybrid",
+            "full-remote"
+          ],
+          "seniority_levels": [
+            "confirme",
+            "senior"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile_id": "p07",
+    "subgroup": {
+      "metier": "product manager",
+      "niveau": "senior",
+      "langue": "fr",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Product manager senior B2B SaaS",
+        "summary": "Product manager senior avec 11 ans d'expérience en produits B2B, du cadrage à la montée en charge, orienté résultats et pilotage par la donnée.",
+        "contact": {
+          "name": "Octavie Marchembault",
+          "email": "octavie.marchembault@example.com",
+          "phone": "+33 6 00 00 00 07",
+          "location": "Paris"
+        },
+        "experiences": [
+          {
+            "company": "Altaïr Software",
+            "role": "Senior product manager",
+            "start_date": "2021-01",
+            "end_date": "present",
+            "missions": [
+              "Pilotage de la feuille de route d'un module de facturation utilisé par 600 clients",
+              "Découverte client : 40 entretiens par an et priorisation avec la méthode RICE",
+              "Hausse de 18 % de la rétention à 12 mois grâce à la refonte de l'onboarding"
+            ],
+            "stack": [
+              "Jira",
+              "Amplitude",
+              "Figma"
+            ]
+          },
+          {
+            "company": "Piment Digital",
+            "role": "Product manager",
+            "start_date": "2018-09",
+            "end_date": "2020-12",
+            "missions": [
+              "Lancement d'une application mobile de réservation, 120 000 téléchargements en six mois",
+              "Pilotage d'une équipe de huit personnes : design, développement et QA"
+            ],
+            "stack": [
+              "Jira",
+              "Mixpanel"
+            ]
+          },
+          {
+            "company": "Cobalt Mobilité",
+            "role": "Product owner",
+            "start_date": "2016-03",
+            "end_date": "2018-08",
+            "missions": [
+              "Rédaction et priorisation du backlog d'une plateforme de covoiturage",
+              "Animation des rituels Scrum pour deux équipes"
+            ],
+            "stack": [
+              "Jira",
+              "Confluence"
+            ]
+          },
+          {
+            "company": "Maison Verdier",
+            "role": "Chef de projet web",
+            "start_date": "2014-01",
+            "end_date": "2016-02",
+            "missions": [
+              "Conduite de 15 projets de sites e-commerce pour des clients retail",
+              "Rédaction de cahiers des charges et suivi du budget"
+            ],
+            "stack": [
+              "WordPress",
+              "Jira"
+            ]
+          },
+          {
+            "company": "Agence Pixel & Plume",
+            "role": "Chargé de communication digitale",
+            "start_date": "2012-02",
+            "end_date": "2013-12",
+            "missions": [
+              "Animation des réseaux sociaux de 6 marques",
+              "Reporting mensuel des audiences"
+            ],
+            "stack": [
+              "Google Analytics"
+            ]
+          },
+          {
+            "company": "Groupe Valmy",
+            "role": "Stagiaire marketing",
+            "start_date": "2011-04",
+            "end_date": "2011-09",
+            "missions": [
+              "Étude de marché sur les usages numériques des 18-25 ans"
+            ],
+            "stack": [
+              "Excel"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "École supérieure de commerce de Lyon",
+            "degree": "Master Management et marketing digital",
+            "years": "2009-2012"
+          },
+          {
+            "school": "Université de Lyon",
+            "degree": "Licence Économie et gestion",
+            "years": "2006-2009"
+          }
+        ],
+        "certifications": [
+          {
+            "name": "Professional Scrum Product Owner I",
+            "issuer": "Scrum.org",
+            "year": "2017"
+          }
+        ],
+        "skills": {
+          "produit": [
+            "discovery",
+            "roadmap",
+            "priorisation RICE",
+            "OKR"
+          ],
+          "outils": [
+            "Jira",
+            "Amplitude",
+            "Mixpanel",
+            "Figma"
+          ],
+          "agilité": [
+            "Scrum",
+            "Kanban"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (courant)",
+          "Espagnol (notions)"
+        ]
+      },
+      "manual": {
+        "preferences": {
+          "target_roles": [
+            "product manager",
+            "head of product"
+          ],
+          "locations": [
+            "Paris"
+          ],
+          "contract_types": [
+            "CDI"
+          ],
+          "remote_policy": [
+            "hybride",
+            "full-remote"
+          ],
+          "seniority_levels": [
+            "senior",
+            "confirme"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile_id": "p08",
+    "subgroup": {
+      "metier": "ux designer",
+      "niveau": "confirme",
+      "langue": "en",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "UX designer",
+        "summary": "UX designer with 5 years of experience designing accessible web and mobile products, from user research to design systems.",
+        "contact": {
+          "name": "Linnea Okonjo",
+          "email": "linnea.okonjo@example.org",
+          "phone": "+33 6 00 00 00 08",
+          "location": "Lyon"
+        },
+        "preferences": {
+          "target_roles": [
+            "ux designer",
+            "product designer"
+          ],
+          "locations": [
+            "Lyon",
+            "Remote",
+            "Lille"
+          ],
+          "contract_types": [
+            "CDI"
+          ],
+          "remote_policy": [
+            "hybrid",
+            "full-remote"
+          ],
+          "seniority_levels": [
+            "confirme",
+            "senior"
+          ]
+        },
+        "experiences": [
+          {
+            "company": "Parallel Studio",
+            "role": "UX designer",
+            "start_date": "2021-10",
+            "end_date": "present",
+            "missions": [
+              "Led 25 usability tests for a banking app and prioritised the findings with the product team",
+              "Created and documented a Figma design system of 90 components",
+              "Improved the sign-up completion rate by 22% after redesigning the onboarding flow"
+            ],
+            "stack": [
+              "Figma",
+              "Maze",
+              "Notion"
+            ]
+          },
+          {
+            "company": "Cedar Interactive",
+            "role": "UI/UX designer",
+            "start_date": "2019-06",
+            "end_date": "2021-09",
+            "missions": [
+              "Designed mobile screens for a food-delivery application",
+              "Ran card sorting sessions to restructure the navigation"
+            ],
+            "stack": [
+              "Sketch",
+              "Figma"
+            ]
+          },
+          {
+            "company": "Finch & Co",
+            "role": "Graphic designer",
+            "start_date": "2018-01",
+            "end_date": "2019-05",
+            "missions": [
+              "Designed brand identities and web banners for small business clients"
+            ],
+            "stack": [
+              "Illustrator",
+              "Photoshop"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "School of Design of Lyon",
+            "degree": "Master in Interaction Design",
+            "years": "2013-2018"
+          }
+        ],
+        "skills": {
+          "design": [
+            "user research",
+            "wireframing",
+            "prototyping",
+            "design systems"
+          ],
+          "tools": [
+            "Figma",
+            "Sketch",
+            "Maze",
+            "Illustrator"
+          ]
+        },
+        "languages": [
+          "English (fluent)",
+          "French (fluent)"
+        ]
+      },
+      "website": {
+        "projects": [
+          {
+            "name": "Banking onboarding case study",
+            "description": "Case study of the redesign of a mobile banking onboarding flow, from research to tests",
+            "stack": [
+              "Figma"
+            ],
+            "url": "https://example.com/linnea/onboarding"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "profile_id": "p09",
+    "subgroup": {
+      "metier": "chargé de marketing digital",
+      "niveau": "junior",
+      "langue": "fr",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Chargée de marketing digital junior",
+        "summary": "Alternante en Master marketing digital, à l'aise avec les campagnes d'e-mailing, les réseaux sociaux et l'analyse d'audience.",
+        "contact": {
+          "name": "Juliane Chaumeret",
+          "email": "juliane.chaumeret@example.com",
+          "phone": "+33 6 00 00 00 09",
+          "location": "Lille"
+        },
+        "experiences": [
+          {
+            "company": "Maison Bellerive",
+            "role": "Alternante marketing digital",
+            "start_date": "2024-09",
+            "end_date": "2026-08",
+            "missions": [
+              "Pilotage de 18 newsletters mensuelles, taux d'ouverture passé de 24 % à 31 %",
+              "Animation du compte Instagram de la marque (12 000 abonnés)",
+              "Suivi des campagnes Google Ads sur un budget de 3 000 euros par mois"
+            ],
+            "stack": [
+              "Mailchimp",
+              "Google Ads",
+              "Google Analytics",
+              "Canva"
+            ]
+          },
+          {
+            "company": "Agence Rosace",
+            "role": "Stagiaire communication",
+            "start_date": "2024-04",
+            "end_date": "2024-07",
+            "missions": [
+              "Rédaction d'articles de blog optimisés pour le référencement naturel",
+              "Planification des publications LinkedIn de deux clients"
+            ],
+            "stack": [
+              "WordPress",
+              "Canva"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "Université de Lille",
+            "degree": "Master Marketing digital (en alternance)",
+            "years": "2024-2026"
+          },
+          {
+            "school": "IUT de Lille",
+            "degree": "BUT Techniques de commercialisation",
+            "years": "2021-2024"
+          }
+        ],
+        "certifications": [
+          {
+            "name": "Google Analytics 4",
+            "issuer": "Google",
+            "year": "2024"
+          }
+        ],
+        "skills": {
+          "marketing": [
+            "e-mailing",
+            "SEO",
+            "SEA",
+            "réseaux sociaux"
+          ],
+          "outils": [
+            "Mailchimp",
+            "Google Ads",
+            "Google Analytics",
+            "Canva"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (B2)"
+        ]
+      },
+      "manual": {
+        "preferences": {
+          "target_roles": [
+            "chargé de marketing digital",
+            "traffic manager"
+          ],
+          "locations": [
+            "Lille",
+            "Paris",
+            "Lyon"
+          ],
+          "contract_types": [
+            "CDI",
+            "CDD",
+            "Alternance"
+          ],
+          "remote_policy": [
+            "hybride"
+          ],
+          "seniority_levels": [
+            "junior",
+            "confirme"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile_id": "p10",
+    "subgroup": {
+      "metier": "comptable",
+      "niveau": "confirme",
+      "langue": "fr",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Comptable général",
+        "summary": "Comptable général avec 7 ans d'expérience en cabinet et en entreprise, de la saisie à la révision des comptes.",
+        "contact": {
+          "name": "Hector Valbonnais",
+          "email": "hector.valbonnais@example.com",
+          "phone": "+33 6 00 00 00 10",
+          "location": "Lyon"
+        },
+        "preferences": {
+          "target_roles": [
+            "comptable",
+            "comptable général"
+          ],
+          "locations": [
+            "Lyon"
+          ],
+          "contract_types": [
+            "CDI"
+          ],
+          "remote_policy": [
+            "sur site",
+            "hybride"
+          ],
+          "seniority_levels": [
+            "confirme",
+            "senior"
+          ]
+        },
+        "experiences": [
+          {
+            "company": "Cabinet Fournel",
+            "role": "Comptable",
+            "start_date": "2020-03",
+            "end_date": "present",
+            "missions": [
+              "Tenue de la comptabilité d'un portefeuille de 45 PME jusqu'au bilan",
+              "Établissement des déclarations de TVA mensuelles et trimestrielles",
+              "Révision des comptes annuels et préparation des liasses fiscales"
+            ],
+            "stack": [
+              "Sage",
+              "Excel"
+            ]
+          },
+          {
+            "company": "Distribution Ravaud",
+            "role": "Comptable fournisseurs",
+            "start_date": "2017-09",
+            "end_date": "2020-02",
+            "missions": [
+              "Enregistrement et lettrage de 600 factures fournisseurs par mois",
+              "Rapprochements bancaires et suivi des échéances de paiement"
+            ],
+            "stack": [
+              "Sage",
+              "Excel"
+            ]
+          },
+          {
+            "company": "Fiduciaire Montclair",
+            "role": "Assistant comptable",
+            "start_date": "2015-09",
+            "end_date": "2017-08",
+            "missions": [
+              "Saisie des écritures comptables de 30 dossiers clients",
+              "Préparation des situations intermédiaires"
+            ],
+            "stack": [
+              "Ciel Compta"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "Université de Lyon",
+            "degree": "Licence professionnelle Comptabilité et gestion",
+            "years": "2014-2015"
+          },
+          {
+            "school": "Lycée Les Tilleuls",
+            "degree": "BTS Comptabilité et gestion",
+            "years": "2012-2014"
+          }
+        ],
+        "skills": {
+          "comptabilité": [
+            "comptabilité générale",
+            "TVA",
+            "révision des comptes",
+            "bilan"
+          ],
+          "outils": [
+            "Sage",
+            "Excel",
+            "Ciel Compta"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (notions)"
+        ]
+      }
+    }
+  },
+  {
+    "profile_id": "p11",
+    "subgroup": {
+      "metier": "chargé rh",
+      "niveau": "junior",
+      "langue": "fr",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Chargée de ressources humaines junior",
+        "summary": "Jeune diplômée en ressources humaines, deux expériences en recrutement et administration du personnel.",
+        "contact": {
+          "name": "Priscille Dambrun",
+          "email": "priscille.dambrun@example.org",
+          "phone": "+33 6 00 00 00 11",
+          "location": "Paris"
+        },
+        "preferences": {
+          "target_roles": [
+            "chargé rh",
+            "assistant rh",
+            "chargé de recrutement"
+          ],
+          "locations": [
+            "Paris",
+            "Lille",
+            "Lyon"
+          ],
+          "contract_types": [
+            "CDI",
+            "CDD",
+            "Alternance"
+          ],
+          "remote_policy": [
+            "hybride",
+            "sur site"
+          ],
+          "seniority_levels": [
+            "junior",
+            "confirme"
+          ]
+        },
+        "experiences": [
+          {
+            "company": "Groupe Lavandière",
+            "role": "Assistante RH",
+            "start_date": "2025-09",
+            "end_date": "2026-08",
+            "missions": [
+              "Préparation de 60 contrats de travail et dossiers d'embauche",
+              "Suivi des visites médicales et du plan de formation",
+              "Transmission mensuelle des variables de paie"
+            ],
+            "stack": [
+              "Excel",
+              "SIRH"
+            ]
+          },
+          {
+            "company": "Cabinet Rivalis",
+            "role": "Stagiaire recrutement",
+            "start_date": "2025-02",
+            "end_date": "2025-07",
+            "missions": [
+              "Rédaction et diffusion de 25 annonces sur les jobboards",
+              "Présélection téléphonique de 150 candidats",
+              "Organisation de 40 entretiens avec les clients"
+            ],
+            "stack": [
+              "LinkedIn Recruiter",
+              "Excel"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "Université de Paris Nanterre",
+            "degree": "Master Gestion des ressources humaines",
+            "years": "2023-2025"
+          },
+          {
+            "school": "Université de Paris Nanterre",
+            "degree": "Licence Administration économique et sociale",
+            "years": "2020-2023"
+          }
+        ],
+        "skills": {
+          "rh": [
+            "recrutement",
+            "administration du personnel",
+            "paie (notions)",
+            "droit du travail"
+          ],
+          "outils": [
+            "SIRH",
+            "LinkedIn Recruiter",
+            "Excel"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (B2)"
+        ]
+      }
+    }
+  },
+  {
+    "profile_id": "p12",
+    "subgroup": {
+      "metier": "commercial b2b",
+      "niveau": "confirme",
+      "langue": "fr",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Commercial B2B logiciels",
+        "summary": "Commercial B2B avec 6 ans d'expérience dans la vente de logiciels aux PME et ETI, du premier appel à la signature.",
+        "contact": {
+          "name": "Gaspard Ilhéry",
+          "email": "gaspard.ilhery@example.com",
+          "phone": "+33 6 00 00 00 12",
+          "location": "Paris"
+        },
+        "experiences": [
+          {
+            "company": "Solvane Logiciels",
+            "role": "Commercial B2B",
+            "start_date": "2022-02",
+            "end_date": "present",
+            "missions": [
+              "Gestion d'un portefeuille de 120 PME et signature de 54 nouveaux contrats en 2025",
+              "Réalisation de démonstrations produit auprès de directeurs financiers",
+              "Dépassement de l'objectif annuel à 118 %"
+            ],
+            "stack": [
+              "Salesforce",
+              "LinkedIn Sales Navigator"
+            ]
+          },
+          {
+            "company": "Tegra Services",
+            "role": "Business developer",
+            "start_date": "2019-09",
+            "end_date": "2022-01",
+            "missions": [
+              "Prospection téléphonique et par e-mail de 40 comptes par semaine",
+              "Qualification des besoins et transmission de 15 opportunités par mois aux commerciaux seniors"
+            ],
+            "stack": [
+              "HubSpot",
+              "LinkedIn"
+            ]
+          },
+          {
+            "company": "Magasin Duval",
+            "role": "Conseiller de vente",
+            "start_date": "2018-01",
+            "end_date": "2019-08",
+            "missions": [
+              "Conseil et vente de matériel informatique aux professionnels"
+            ],
+            "stack": [
+              "Caisse"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "École de commerce de Lyon",
+            "degree": "Bachelor Commerce et négociation",
+            "years": "2015-2018"
+          }
+        ],
+        "skills": {
+          "vente": [
+            "prospection",
+            "négociation",
+            "démonstration produit",
+            "fidélisation"
+          ],
+          "outils": [
+            "Salesforce",
+            "HubSpot",
+            "LinkedIn Sales Navigator"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (courant)"
+        ]
+      }
+    }
+  },
+  {
+    "profile_id": "p13",
+    "subgroup": {
+      "metier": "chef de projet",
+      "niveau": "senior",
+      "langue": "fr",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Chef de projet IT senior",
+        "summary": "Chef de projet IT avec 14 ans d'expérience de la conduite de projets applicatifs et d'infrastructure, en cycle en V comme en agilité.",
+        "contact": {
+          "name": "Bérénice Landrecies",
+          "email": "berenice.landrecies@example.org",
+          "phone": "+33 6 00 00 00 13",
+          "location": "Lyon"
+        },
+        "experiences": [
+          {
+            "company": "Heliotrope Services",
+            "role": "Chef de projet senior",
+            "start_date": "2020-04",
+            "end_date": "present",
+            "missions": [
+              "Pilotage du remplacement d'un ERP : budget de 2,4 millions d'euros, équipe de 15 personnes",
+              "Animation mensuelle du comité de pilotage et gestion des risques",
+              "Livraison dans les délais avec un écart budgétaire inférieur à 3 %"
+            ],
+            "stack": [
+              "MS Project",
+              "Jira",
+              "Confluence"
+            ]
+          },
+          {
+            "company": "Atlas Conseil",
+            "role": "Chef de projet",
+            "start_date": "2016-09",
+            "end_date": "2020-03",
+            "missions": [
+              "Conduite de 9 projets de migration vers le cloud pour des clients du secteur public",
+              "Coordination de 3 prestataires et rédaction des plans de recette"
+            ],
+            "stack": [
+              "MS Project",
+              "Azure"
+            ]
+          },
+          {
+            "company": "Oméga Industrie",
+            "role": "Responsable de projets SI",
+            "start_date": "2013-01",
+            "end_date": "2016-08",
+            "missions": [
+              "Déploiement d'une GPAO sur 4 sites industriels",
+              "Formation de 120 utilisateurs"
+            ],
+            "stack": [
+              "GPAO",
+              "SQL"
+            ]
+          },
+          {
+            "company": "Vector Informatique",
+            "role": "Analyste fonctionnel",
+            "start_date": "2010-09",
+            "end_date": "2012-12",
+            "missions": [
+              "Rédaction des spécifications fonctionnelles d'un portail de gestion de contrats",
+              "Recette fonctionnelle et suivi des anomalies"
+            ],
+            "stack": [
+              "UML",
+              "SQL"
+            ]
+          },
+          {
+            "company": "Lorca Systèmes",
+            "role": "Développeur",
+            "start_date": "2008-09",
+            "end_date": "2010-08",
+            "missions": [
+              "Développement de modules de reporting en Java"
+            ],
+            "stack": [
+              "Java",
+              "Oracle"
+            ]
+          },
+          {
+            "company": "Cabinet Mestre",
+            "role": "Stagiaire ingénieur",
+            "start_date": "2008-02",
+            "end_date": "2008-07",
+            "missions": [
+              "Étude de faisabilité d'un outil de suivi de projets"
+            ],
+            "stack": [
+              "Excel"
+            ]
+          },
+          {
+            "company": "Atelier Sorgues",
+            "role": "Assistant de projet",
+            "start_date": "2007-06",
+            "end_date": "2007-09",
+            "missions": [
+              "Suivi de planning d'un chantier de rénovation de locaux informatiques"
+            ],
+            "stack": [
+              "Excel"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "École d'ingénieurs de Lyon",
+            "degree": "Diplôme d'ingénieur en informatique",
+            "years": "2005-2008"
+          }
+        ],
+        "certifications": [
+          {
+            "name": "PMP",
+            "issuer": "PMI",
+            "year": "2015"
+          },
+          {
+            "name": "PSM I",
+            "issuer": "Scrum.org",
+            "year": "2019"
+          }
+        ],
+        "skills": {
+          "gestion de projet": [
+            "planification",
+            "budget",
+            "gestion des risques",
+            "pilotage de prestataires"
+          ],
+          "méthodes": [
+            "cycle en V",
+            "Scrum",
+            "Kanban"
+          ],
+          "outils": [
+            "MS Project",
+            "Jira",
+            "Confluence"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (courant)"
+        ]
+      },
+      "manual": {
+        "experiences": [
+          {
+            "company": "Atlas Conseil",
+            "role": "Chef de projet cloud",
+            "start_date": "2016-09",
+            "end_date": "2020-04"
+          }
+        ],
+        "preferences": {
+          "target_roles": [
+            "chef de projet it",
+            "directeur de programme"
+          ],
+          "locations": [
+            "Lyon",
+            "Paris"
+          ],
+          "contract_types": [
+            "CDI"
+          ],
+          "remote_policy": [
+            "hybride"
+          ],
+          "seniority_levels": [
+            "senior",
+            "confirme"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile_id": "p14",
+    "subgroup": {
+      "metier": "juriste",
+      "niveau": "confirme",
+      "langue": "fr",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Juriste en droit des affaires",
+        "summary": "Juriste en droit des affaires avec 5 ans d'expérience en cabinet puis en entreprise, spécialisée dans les contrats commerciaux.",
+        "contact": {
+          "name": "Isaure Bellefonds",
+          "email": "isaure.bellefonds@example.com",
+          "phone": "+33 6 00 00 00 14",
+          "location": "Lyon"
+        },
+        "experiences": [
+          {
+            "company": "Groupe Montaigne Industrie",
+            "role": "Juriste d'entreprise",
+            "start_date": "2022-01",
+            "end_date": "present",
+            "missions": [
+              "Rédaction et négociation de 150 contrats commerciaux par an",
+              "Veille juridique et réglementaire et note mensuelle à la direction",
+              "Gestion de précontentieux avec l'appui d'avocats externes"
+            ],
+            "stack": [
+              "Word",
+              "Doctrine"
+            ]
+          },
+          {
+            "company": "Cabinet Arnauld Associés",
+            "role": "Juriste collaboratrice",
+            "start_date": "2019-09",
+            "end_date": "2021-12",
+            "missions": [
+              "Rédaction d'actes de droit des sociétés (statuts, pactes d'associés)",
+              "Recherches juridiques et consultations pour 30 clients PME"
+            ],
+            "stack": [
+              "Word",
+              "Lamyline"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "Université Lyon III",
+            "degree": "Master 2 Droit des affaires",
+            "years": "2017-2019"
+          },
+          {
+            "school": "Université Lyon III",
+            "degree": "Licence en droit",
+            "years": "2014-2017"
+          }
+        ],
+        "skills": {
+          "juridique": [
+            "droit des contrats",
+            "droit des sociétés",
+            "veille juridique",
+            "précontentieux"
+          ],
+          "outils": [
+            "Word",
+            "Doctrine",
+            "Lamyline"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (courant)"
+        ]
+      },
+      "manual": {
+        "preferences": {
+          "target_roles": [
+            "juriste",
+            "juriste contrats"
+          ],
+          "locations": [
+            "Lyon",
+            "Paris"
+          ],
+          "contract_types": [
+            "CDI"
+          ],
+          "remote_policy": [
+            "hybride"
+          ],
+          "seniority_levels": [
+            "confirme",
+            "senior"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile_id": "p15",
+    "subgroup": {
+      "metier": "développeur backend",
+      "niveau": "junior",
+      "langue": "fr",
+      "reconversion": true
+    },
+    "sources": {
+      "cv": {
+        "headline": "Développeur backend en reconversion, ancien infirmier",
+        "summary": "Infirmier pendant huit ans, je me reconvertis dans le développement logiciel pour construire des outils utiles aux soignants.",
+        "contact": {
+          "name": "Étienne Barjavel",
+          "email": "etienne.barjavel@example.org",
+          "phone": "+33 6 00 00 00 15",
+          "location": "Lyon"
+        },
+        "experiences": [
+          {
+            "company": "Centre de formation CodeBase",
+            "role": "Stagiaire développeur",
+            "start_date": "2026-03",
+            "end_date": "2026-08",
+            "missions": [
+              "Développement d'une API de gestion de rendez-vous avec FastAPI et PostgreSQL",
+              "Écriture de 60 tests automatisés avec pytest",
+              "Déploiement du service avec Docker"
+            ],
+            "stack": [
+              "Python",
+              "FastAPI",
+              "PostgreSQL",
+              "Docker"
+            ]
+          },
+          {
+            "company": "Hôpital Saint-Aubin",
+            "role": "Infirmier diplômé d'État",
+            "start_date": "2017-09",
+            "end_date": "2025-12",
+            "missions": [
+              "Soins infirmiers en service de chirurgie, jusqu'à 14 patients par garde",
+              "Tenue du dossier de soins informatisé et transmissions à l'équipe",
+              "Encadrement et tutorat de 12 étudiants infirmiers"
+            ],
+            "stack": [
+              "dossier patient informatisé"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "CodeBase",
+            "degree": "Titre professionnel Développeur web et web mobile",
+            "years": "2025-2026"
+          },
+          {
+            "school": "IFSI de Lyon",
+            "degree": "Diplôme d'État d'infirmier",
+            "years": "2014-2017"
+          }
+        ],
+        "skills": {
+          "programmation": [
+            "Python",
+            "SQL",
+            "JavaScript"
+          ],
+          "outils": [
+            "Git",
+            "Docker",
+            "pytest"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (B1)"
+        ]
+      },
+      "github": {
+        "projects": [
+          {
+            "name": "soins-planning",
+            "description": "Application web de planification des gardes pour une équipe soignante",
+            "stack": [
+              "Python",
+              "FastAPI",
+              "PostgreSQL"
+            ],
+            "url": "https://example.com/etienne/soins-planning"
+          }
+        ]
+      },
+      "manual": {
+        "preferences": {
+          "target_roles": [
+            "développeur backend",
+            "développeur logiciel santé"
+          ],
+          "locations": [
+            "Lyon",
+            "Paris"
+          ],
+          "contract_types": [
+            "CDI"
+          ],
+          "remote_policy": [
+            "hybride",
+            "sur site"
+          ],
+          "seniority_levels": [
+            "junior",
+            "confirme"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile_id": "p16",
+    "subgroup": {
+      "metier": "data analyst",
+      "niveau": "confirme",
+      "langue": "en",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Data analyst",
+        "summary": "Data analyst with 4 years of experience turning product and marketing data into actionable dashboards and experiments.",
+        "contact": {
+          "name": "Priya Calderon-Voss",
+          "email": "priya.calderon@example.com",
+          "phone": "+33 6 00 00 00 16",
+          "location": "Paris"
+        },
+        "preferences": {
+          "target_roles": [
+            "data analyst",
+            "analytics engineer"
+          ],
+          "locations": [
+            "Paris",
+            "Remote"
+          ],
+          "contract_types": [
+            "CDI"
+          ],
+          "remote_policy": [
+            "hybrid",
+            "full-remote"
+          ],
+          "seniority_levels": [
+            "confirme"
+          ]
+        },
+        "experiences": [
+          {
+            "company": "Maple Commerce",
+            "role": "Data analyst",
+            "start_date": "2022-06",
+            "end_date": "present",
+            "missions": [
+              "Built 20 Looker dashboards used daily by the marketing and product teams",
+              "Analysed 14 A/B tests and recommended rollouts worth an estimated 450 000 euros per year",
+              "Wrote SQL models in dbt and documented metric definitions"
+            ],
+            "stack": [
+              "SQL",
+              "Looker",
+              "dbt",
+              "Python"
+            ]
+          },
+          {
+            "company": "Quill Media",
+            "role": "Junior data analyst",
+            "start_date": "2020-09",
+            "end_date": "2022-05",
+            "missions": [
+              "Produced weekly audience reports in Excel and Tableau",
+              "Automated a monthly reporting pipeline in Python, saving two days of manual work"
+            ],
+            "stack": [
+              "Tableau",
+              "Excel",
+              "Python"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "University of Paris-Saclay",
+            "degree": "Master in Applied Statistics",
+            "years": "2018-2020"
+          }
+        ],
+        "skills": {
+          "analytics": [
+            "SQL",
+            "A/B testing",
+            "dashboarding",
+            "statistics"
+          ],
+          "tools": [
+            "Looker",
+            "Tableau",
+            "dbt",
+            "Python",
+            "pandas"
+          ]
+        },
+        "languages": [
+          "English (native)",
+          "French (fluent)"
+        ]
+      }
+    }
+  },
+  {
+    "profile_id": "p17",
+    "subgroup": {
+      "metier": "développeur backend",
+      "niveau": "junior",
+      "langue": "fr",
+      "reconversion": true
+    },
+    "sources": {
+      "cv": {
+        "headline": "Développeur backend, ancien ingénieur en mécanique",
+        "summary": "Ingénieur en mécanique pendant six ans, reconverti en développement backend après une formation intensive et deux projets personnels.",
+        "contact": {
+          "name": "Anselme Rougerie",
+          "email": "anselme.rougerie@example.com",
+          "phone": "+33 6 00 00 00 17",
+          "location": "Grenoble"
+        },
+        "experiences": [
+          {
+            "company": "Atelier Numérique Alpin",
+            "role": "Développeur backend (alternance)",
+            "start_date": "2026-01",
+            "end_date": "2026-09",
+            "missions": [
+              "Développement d'API REST en Node.js et TypeScript",
+              "Modélisation de la base MongoDB d'une application de suivi de commandes",
+              "Correction d'une trentaine d'anomalies en production"
+            ],
+            "stack": [
+              "Node.js",
+              "TypeScript",
+              "MongoDB"
+            ]
+          },
+          {
+            "company": "Bureau d'études Marnier",
+            "role": "Ingénieur mécanique",
+            "start_date": "2019-09",
+            "end_date": "2025-06",
+            "missions": [
+              "Conception de pièces en CAO pour des équipements de levage",
+              "Rédaction des dossiers de calcul et suivi de fabrication",
+              "Automatisation de feuilles de calcul avec des macros pour gagner 6 heures par semaine"
+            ],
+            "stack": [
+              "CAO",
+              "Excel"
+            ]
+          }
+        ],
+        "projects": [
+          {
+            "name": "Suivi de stock",
+            "description": "API de gestion de stock d'atelier avec authentification et tests",
+            "stack": [
+              "Node.js",
+              "PostgreSQL"
+            ],
+            "url": "https://example.com/anselme/suivi-stock"
+          }
+        ],
+        "education": [
+          {
+            "school": "Alpes Code School",
+            "degree": "Titre professionnel Concepteur développeur d'applications",
+            "years": "2025-2026"
+          },
+          {
+            "school": "École d'ingénieurs de Grenoble",
+            "degree": "Diplôme d'ingénieur en génie mécanique",
+            "years": "2014-2019"
+          }
+        ],
+        "skills": {
+          "programmation": [
+            "JavaScript",
+            "TypeScript",
+            "Python",
+            "SQL"
+          ],
+          "outils": [
+            "Node.js",
+            "Git",
+            "Docker"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (courant)"
+        ]
+      },
+      "manual": {
+        "preferences": {
+          "target_roles": [
+            "développeur backend"
+          ],
+          "locations": [
+            "Grenoble",
+            "Lyon",
+            "Remote",
+            "Rennes"
+          ],
+          "contract_types": [
+            "CDI"
+          ],
+          "remote_policy": [
+            "hybride",
+            "full-remote"
+          ],
+          "seniority_levels": [
+            "junior",
+            "confirme"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile_id": "p18",
+    "subgroup": {
+      "metier": "chargé de marketing digital",
+      "niveau": "junior",
+      "langue": "fr",
+      "reconversion": true
+    },
+    "sources": {
+      "cv": {
+        "headline": "Chargé de marketing digital, ancien journaliste",
+        "summary": "Journaliste pendant sept ans, je mets mon sens de l'écriture et de l'audience au service du marketing digital et du contenu.",
+        "contact": {
+          "name": "Basile Courtemanche",
+          "email": "basile.courtemanche@example.org",
+          "phone": "+33 6 00 00 00 18",
+          "location": "Nantes"
+        },
+        "preferences": {
+          "target_roles": [
+            "chargé de marketing digital",
+            "content manager",
+            "community manager"
+          ],
+          "locations": [
+            "Nantes",
+            "Remote",
+            "Paris",
+            "Lille"
+          ],
+          "contract_types": [
+            "CDI",
+            "CDD"
+          ],
+          "remote_policy": [
+            "hybride",
+            "full-remote"
+          ],
+          "seniority_levels": [
+            "junior",
+            "confirme"
+          ]
+        },
+        "experiences": [
+          {
+            "company": "Studio Marée",
+            "role": "Chargé de contenu digital (reconversion)",
+            "start_date": "2025-10",
+            "end_date": "present",
+            "missions": [
+              "Rédaction de 4 articles par mois optimisés SEO pour trois clients",
+              "Gestion du calendrier éditorial et des publications LinkedIn",
+              "Hausse de 35 % du trafic organique sur un site client en six mois"
+            ],
+            "stack": [
+              "WordPress",
+              "SEMrush",
+              "Google Analytics"
+            ]
+          },
+          {
+            "company": "Le Courrier de l'Ouest Numérique",
+            "role": "Journaliste",
+            "start_date": "2018-09",
+            "end_date": "2025-08",
+            "missions": [
+              "Rédaction de 300 articles par an pour le site et la newsletter",
+              "Animation des réseaux sociaux du journal et suivi de l'audience",
+              "Interviews, reportages et coordination de pigistes"
+            ],
+            "stack": [
+              "CMS",
+              "Google Analytics"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "École de journalisme de Lille",
+            "degree": "Master Journalisme",
+            "years": "2016-2018"
+          },
+          {
+            "school": "Webmarketing Academy",
+            "degree": "Certificat Marketing digital",
+            "years": "2025"
+          }
+        ],
+        "skills": {
+          "marketing": [
+            "SEO",
+            "rédaction web",
+            "e-mailing",
+            "réseaux sociaux"
+          ],
+          "outils": [
+            "WordPress",
+            "SEMrush",
+            "Google Analytics",
+            "Canva"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (B2)"
+        ]
+      }
+    }
+  },
+  {
+    "profile_id": "p19",
+    "subgroup": {
+      "metier": "data analyst",
+      "niveau": "junior",
+      "langue": "fr",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Data analyst junior",
+        "summary": "Étudiant en Licence informatique, à la recherche d'une première expérience en analyse de données.",
+        "contact": {
+          "name": "Léopold Quenneville",
+          "email": "leopold.quenneville@example.com",
+          "phone": "+33 6 00 00 00 19",
+          "location": "Lyon"
+        },
+        "experiences": [
+          {
+            "company": "Pharmacie du Parc",
+            "role": "Stagiaire",
+            "start_date": "2026-06",
+            "end_date": "2026-07",
+            "missions": [
+              "Mise en forme de tableaux de ventes sous Excel"
+            ],
+            "stack": [
+              "Excel"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "Université de Lyon",
+            "degree": "Licence Informatique",
+            "years": "2023-2026"
+          }
+        ],
+        "skills": {
+          "outils": [
+            "Excel",
+            "SQL (bases)",
+            "Python (bases)"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile_id": "p20",
+    "subgroup": {
+      "metier": "juriste",
+      "niveau": "junior",
+      "langue": "fr",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Juriste junior en droit des affaires",
+        "summary": "Titulaire d'un Master 1 en droit des affaires, un stage en cabinet.",
+        "contact": {
+          "name": "Colombe Estevenon",
+          "email": "colombe.estevenon@example.org",
+          "phone": "+33 6 00 00 00 20",
+          "location": "Lyon"
+        },
+        "experiences": [
+          {
+            "company": "Cabinet Duclos",
+            "role": "Stagiaire juriste",
+            "start_date": "2026-05",
+            "end_date": "2026-08",
+            "missions": [
+              "Recherches juridiques et rédaction de deux notes de synthèse",
+              "Préparation d'actes de cession de parts"
+            ],
+            "stack": [
+              "Word"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "Université Lyon III",
+            "degree": "Master 1 Droit des affaires",
+            "years": "2025-2026"
+          }
+        ],
+        "skills": {
+          "juridique": [
+            "recherches juridiques",
+            "rédaction"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile_id": "p21",
+    "subgroup": {
+      "metier": "devops",
+      "niveau": "senior",
+      "langue": "fr",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "Ingénieur DevOps et SRE senior",
+        "summary": "Ingénieur DevOps et SRE senior avec 13 ans d'expérience : fiabilité de plateformes à forte charge, automatisation et culture de la mesure.",
+        "contact": {
+          "name": "Thibault Marcoussis",
+          "email": "thibault.marcoussis@example.com",
+          "phone": "+33 6 00 00 00 21",
+          "location": "Paris"
+        },
+        "experiences": [
+          {
+            "company": "Nimbus Paiement",
+            "role": "SRE senior",
+            "start_date": "2020-09",
+            "end_date": "present",
+            "missions": [
+              "Définition des SLO de 25 services et réduction de 60 % des incidents majeurs",
+              "Animation des post-mortems et mise en place d'une astreinte tournante",
+              "Migration de 40 services vers Kubernetes avec ArgoCD"
+            ],
+            "stack": [
+              "Kubernetes",
+              "ArgoCD",
+              "Terraform",
+              "Prometheus"
+            ]
+          },
+          {
+            "company": "Vague Média",
+            "role": "Ingénieur DevOps",
+            "start_date": "2017-04",
+            "end_date": "2020-08",
+            "missions": [
+              "Construction des pipelines CI/CD de 18 applications",
+              "Industrialisation de l'infrastructure en Terraform sur un cloud public"
+            ],
+            "stack": [
+              "Jenkins",
+              "Terraform",
+              "AWS"
+            ]
+          },
+          {
+            "company": "Sextant Hébergement",
+            "role": "Administrateur systèmes",
+            "start_date": "2013-09",
+            "end_date": "2017-03",
+            "missions": [
+              "Administration de 300 serveurs Linux et automatisation avec Puppet",
+              "Mise en place de la supervision Nagios puis Prometheus"
+            ],
+            "stack": [
+              "Linux",
+              "Puppet",
+              "Nagios"
+            ]
+          },
+          {
+            "company": "Réseau Tallis",
+            "role": "Technicien réseaux",
+            "start_date": "2011-09",
+            "end_date": "2013-08",
+            "missions": [
+              "Exploitation des équipements réseau de 12 agences",
+              "Support de niveau 2 auprès des utilisateurs"
+            ],
+            "stack": [
+              "Cisco",
+              "Linux"
+            ]
+          },
+          {
+            "company": "Boréal Informatique",
+            "role": "Technicien support",
+            "start_date": "2010-09",
+            "end_date": "2011-08",
+            "missions": [
+              "Support de niveau 1 et installation de postes de travail"
+            ],
+            "stack": [
+              "Windows"
+            ]
+          },
+          {
+            "company": "Mairie de Vauclaire",
+            "role": "Stagiaire informatique",
+            "start_date": "2010-03",
+            "end_date": "2010-08",
+            "missions": [
+              "Inventaire du parc informatique et déploiement de 80 postes"
+            ],
+            "stack": [
+              "Windows"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "Institut universitaire de technologie de Lyon",
+            "degree": "DUT Réseaux et télécommunications",
+            "years": "2008-2010"
+          },
+          {
+            "school": "CNAM",
+            "degree": "Titre d'ingénieur Informatique (cursus du soir)",
+            "years": "2012-2017"
+          }
+        ],
+        "certifications": [
+          {
+            "name": "Certified Kubernetes Administrator",
+            "issuer": "CNCF",
+            "year": "2021"
+          },
+          {
+            "name": "AWS Solutions Architect Associate",
+            "issuer": "AWS",
+            "year": "2019"
+          }
+        ],
+        "skills": {
+          "infrastructure": [
+            "Kubernetes",
+            "Terraform",
+            "Puppet",
+            "Docker"
+          ],
+          "ci_cd": [
+            "ArgoCD",
+            "Jenkins",
+            "GitLab CI"
+          ],
+          "observabilité": [
+            "Prometheus",
+            "Grafana",
+            "OpenTelemetry"
+          ],
+          "langages": [
+            "Python",
+            "Go",
+            "Bash"
+          ]
+        },
+        "languages": [
+          "Français (natif)",
+          "Anglais (courant)"
+        ]
+      },
+      "manual": {
+        "experiences": [
+          {
+            "company": "Vague Média",
+            "role": "Ingénieur DevOps senior",
+            "start_date": "2017-04",
+            "end_date": "2020-09"
+          }
+        ],
+        "preferences": {
+          "target_roles": [
+            "sre",
+            "devops",
+            "platform engineer"
+          ],
+          "locations": [
+            "Paris"
+          ],
+          "contract_types": [
+            "CDI"
+          ],
+          "remote_policy": [
+            "hybride",
+            "full-remote"
+          ],
+          "seniority_levels": [
+            "senior",
+            "confirme"
+          ]
+        }
+      }
+    }
+  },
+  {
+    "profile_id": "p22",
+    "subgroup": {
+      "metier": "commercial b2b",
+      "niveau": "confirme",
+      "langue": "en",
+      "reconversion": false
+    },
+    "sources": {
+      "cv": {
+        "headline": "B2B sales executive",
+        "summary": "B2B sales executive with 7 years of experience selling SaaS and logistics software to mid-size companies across Europe.",
+        "contact": {
+          "name": "Declan Harrowgate",
+          "email": "declan.harrowgate@example.org",
+          "phone": "+33 6 00 00 00 22",
+          "location": "Paris"
+        },
+        "experiences": [
+          {
+            "company": "Veritas Route",
+            "role": "Senior account executive",
+            "start_date": "2021-02",
+            "end_date": "present",
+            "missions": [
+              "Closed 3.2 million euros in new annual recurring revenue over three years",
+              "Ran discovery calls and demos with operations directors in France and Germany",
+              "Mentored two business developers and shared a repeatable outreach playbook"
+            ],
+            "stack": [
+              "Salesforce",
+              "Outreach",
+              "LinkedIn Sales Navigator"
+            ]
+          },
+          {
+            "company": "Pathway Software",
+            "role": "Account executive",
+            "start_date": "2018-06",
+            "end_date": "2021-01",
+            "missions": [
+              "Managed a pipeline of 60 qualified opportunities and a 25% win rate",
+              "Negotiated annual contracts with finance and procurement teams"
+            ],
+            "stack": [
+              "HubSpot",
+              "Excel"
+            ]
+          },
+          {
+            "company": "Ardent Staffing",
+            "role": "Sales development representative",
+            "start_date": "2016-09",
+            "end_date": "2018-05",
+            "missions": [
+              "Booked 20 qualified meetings per month through cold calls and e-mails"
+            ],
+            "stack": [
+              "HubSpot"
+            ]
+          }
+        ],
+        "education": [
+          {
+            "school": "Trinity Business School",
+            "degree": "BSc in Business and Management",
+            "years": "2012-2016"
+          }
+        ],
+        "skills": {
+          "sales": [
+            "prospecting",
+            "discovery",
+            "negotiation",
+            "pipeline management"
+          ],
+          "tools": [
+            "Salesforce",
+            "HubSpot",
+            "Outreach"
+          ]
+        },
+        "languages": [
+          "English (native)",
+          "French (fluent)",
+          "German (basic)"
+        ]
+      },
+      "manual": {
+        "preferences": {
+          "target_roles": [
+            "business developer",
+            "account executive",
+            "sales manager"
+          ],
+          "locations": [
+            "Paris"
+          ],
+          "contract_types": [
+            "CDI"
+          ],
+          "remote_policy": [
+            "hybrid"
+          ],
+          "seniority_levels": [
+            "confirme",
+            "senior"
+          ]
+        }
+      }
+    }
+  }
+]

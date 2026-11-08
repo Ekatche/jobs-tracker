@@ -1,0 +1,1528 @@
+[
+  {
+    "profile_id": "p01",
+    "fait": "alix.montrelay@example.com",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p01",
+    "fait": "Brumel Conseil",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p01",
+    "fait": "Data scientist",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p01",
+    "fait": "2021-09 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p01",
+    "fait": "Quantia Lab",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p01",
+    "fait": "Data analyst",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p01",
+    "fait": "2019-09 - 2021-08",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p01",
+    "fait": "Institut de Statistique Appliquée",
+    "champ": "experiences.company",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p01",
+    "fait": "Stagiaire data",
+    "champ": "experiences.role",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p01",
+    "fait": "Master Statistique et Science des données",
+    "champ": "education.degree",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p01",
+    "fait": "Python",
+    "champ": "skills",
+    "page": 2,
+    "critique": false
+  },
+  {
+    "profile_id": "p02",
+    "fait": "maelle.ferrandon@example.org",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p02",
+    "fait": "Les Ateliers du Rhône",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p02",
+    "fait": "Stagiaire data analyst",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p02",
+    "fait": "2026-04 - 2026-09",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p02",
+    "fait": "Collège Les Hirondelles",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p02",
+    "fait": "Professeure de mathématiques",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p02",
+    "fait": "2014-09 - 2025-06",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p02",
+    "fait": "Titre professionnel Data Analyst",
+    "champ": "education.degree",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p02",
+    "fait": "SQL",
+    "champ": "skills",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p03",
+    "fait": "soren.aldanier@example.com",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p03",
+    "fait": "Pelican Systems",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p03",
+    "fait": "Data engineer",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p03",
+    "fait": "2022-01 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p03",
+    "fait": "Fluxor",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p03",
+    "fait": "Ingénieur données",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p03",
+    "fait": "2020-02 - 2021-12",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p03",
+    "fait": "Tandem Digital",
+    "champ": "experiences.company",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p03",
+    "fait": "Développeur ETL",
+    "champ": "experiences.role",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p03",
+    "fait": "Diplôme d'ingénieur informatique",
+    "champ": "education.degree",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p03",
+    "fait": "Python",
+    "champ": "skills",
+    "page": 2,
+    "critique": false
+  },
+  {
+    "profile_id": "p04",
+    "fait": "tancrede.valmorel@example.com",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p04",
+    "fait": "Soléane Paiements",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p04",
+    "fait": "Développeur backend senior",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p04",
+    "fait": "2021-03 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p04",
+    "fait": "Granit Logiciels",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p04",
+    "fait": "Développeur backend",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p04",
+    "fait": "2018-06 - 2021-02",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p04",
+    "fait": "Ombrelle Assurances",
+    "champ": "experiences.company",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p04",
+    "fait": "Développeur Java",
+    "champ": "experiences.role",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p04",
+    "fait": "Association Les Voiles Blanches",
+    "champ": "experiences.company",
+    "page": 4,
+    "critique": true
+  },
+  {
+    "profile_id": "p04",
+    "fait": "Diplôme d'ingénieur informatique",
+    "champ": "education.degree",
+    "page": 4,
+    "critique": true
+  },
+  {
+    "profile_id": "p04",
+    "fait": "Java",
+    "champ": "skills",
+    "page": 4,
+    "critique": false
+  },
+  {
+    "profile_id": "p05",
+    "fait": "ravi.tessanier@example.org",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p05",
+    "fait": "Kestrel Studio",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p05",
+    "fait": "Frontend developer apprentice",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p05",
+    "fait": "2025-09 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p05",
+    "fait": "Lumo Agency",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p05",
+    "fait": "Web developer intern",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p05",
+    "fait": "2025-03 - 2025-08",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p05",
+    "fait": "Bachelor in Computer Science",
+    "champ": "education.degree",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p05",
+    "fait": "JavaScript",
+    "champ": "skills",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p06",
+    "fait": "imogen.tarrasque@example.com",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p06",
+    "fait": "Helix Cloud",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p06",
+    "fait": "DevOps engineer",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p06",
+    "fait": "2022-05 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p06",
+    "fait": "Brightfield Software",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p06",
+    "fait": "Systems engineer",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p06",
+    "fait": "2020-01 - 2022-04",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p06",
+    "fait": "Corvid Hosting",
+    "champ": "experiences.company",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p06",
+    "fait": "Junior system administrator",
+    "champ": "experiences.role",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p06",
+    "fait": "Master in Networks and Systems",
+    "champ": "education.degree",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p06",
+    "fait": "Kubernetes",
+    "champ": "skills",
+    "page": 2,
+    "critique": false
+  },
+  {
+    "profile_id": "p07",
+    "fait": "octavie.marchembault@example.com",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p07",
+    "fait": "Altaïr Software",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p07",
+    "fait": "Senior product manager",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p07",
+    "fait": "2021-01 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p07",
+    "fait": "Piment Digital",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p07",
+    "fait": "Product manager",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p07",
+    "fait": "2018-09 - 2020-12",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p07",
+    "fait": "Cobalt Mobilité",
+    "champ": "experiences.company",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p07",
+    "fait": "Product owner",
+    "champ": "experiences.role",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p07",
+    "fait": "Groupe Valmy",
+    "champ": "experiences.company",
+    "page": 4,
+    "critique": true
+  },
+  {
+    "profile_id": "p07",
+    "fait": "Master Management et marketing digital",
+    "champ": "education.degree",
+    "page": 3,
+    "critique": true
+  },
+  {
+    "profile_id": "p07",
+    "fait": "discovery",
+    "champ": "skills",
+    "page": 3,
+    "critique": false
+  },
+  {
+    "profile_id": "p08",
+    "fait": "linnea.okonjo@example.org",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p08",
+    "fait": "Parallel Studio",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p08",
+    "fait": "UX designer",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p08",
+    "fait": "2021-10 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p08",
+    "fait": "Cedar Interactive",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p08",
+    "fait": "UI/UX designer",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p08",
+    "fait": "2019-06 - 2021-09",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p08",
+    "fait": "Finch & Co",
+    "champ": "experiences.company",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p08",
+    "fait": "Graphic designer",
+    "champ": "experiences.role",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p08",
+    "fait": "Master in Interaction Design",
+    "champ": "education.degree",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p08",
+    "fait": "user research",
+    "champ": "skills",
+    "page": 2,
+    "critique": false
+  },
+  {
+    "profile_id": "p09",
+    "fait": "juliane.chaumeret@example.com",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p09",
+    "fait": "Maison Bellerive",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p09",
+    "fait": "Alternante marketing digital",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p09",
+    "fait": "2024-09 - 2026-08",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p09",
+    "fait": "Agence Rosace",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p09",
+    "fait": "Stagiaire communication",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p09",
+    "fait": "2024-04 - 2024-07",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p09",
+    "fait": "Master Marketing digital (en alternance)",
+    "champ": "education.degree",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p09",
+    "fait": "e-mailing",
+    "champ": "skills",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p10",
+    "fait": "hector.valbonnais@example.com",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p10",
+    "fait": "Cabinet Fournel",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p10",
+    "fait": "Comptable",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p10",
+    "fait": "2020-03 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p10",
+    "fait": "Distribution Ravaud",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p10",
+    "fait": "Comptable fournisseurs",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p10",
+    "fait": "2017-09 - 2020-02",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p10",
+    "fait": "Fiduciaire Montclair",
+    "champ": "experiences.company",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p10",
+    "fait": "Assistant comptable",
+    "champ": "experiences.role",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p10",
+    "fait": "Licence professionnelle Comptabilité et gestion",
+    "champ": "education.degree",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p10",
+    "fait": "comptabilité générale",
+    "champ": "skills",
+    "page": 2,
+    "critique": false
+  },
+  {
+    "profile_id": "p11",
+    "fait": "priscille.dambrun@example.org",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p11",
+    "fait": "Groupe Lavandière",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p11",
+    "fait": "Assistante RH",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p11",
+    "fait": "2025-09 - 2026-08",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p11",
+    "fait": "Cabinet Rivalis",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p11",
+    "fait": "Stagiaire recrutement",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p11",
+    "fait": "2025-02 - 2025-07",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p11",
+    "fait": "Master Gestion des ressources humaines",
+    "champ": "education.degree",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p11",
+    "fait": "recrutement",
+    "champ": "skills",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p12",
+    "fait": "gaspard.ilhery@example.com",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p12",
+    "fait": "Solvane Logiciels",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p12",
+    "fait": "Commercial B2B",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p12",
+    "fait": "2022-02 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p12",
+    "fait": "Tegra Services",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p12",
+    "fait": "Business developer",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p12",
+    "fait": "2019-09 - 2022-01",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p12",
+    "fait": "Magasin Duval",
+    "champ": "experiences.company",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p12",
+    "fait": "Conseiller de vente",
+    "champ": "experiences.role",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p12",
+    "fait": "Bachelor Commerce et négociation",
+    "champ": "education.degree",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p12",
+    "fait": "prospection",
+    "champ": "skills",
+    "page": 2,
+    "critique": false
+  },
+  {
+    "profile_id": "p13",
+    "fait": "berenice.landrecies@example.org",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p13",
+    "fait": "Heliotrope Services",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p13",
+    "fait": "Chef de projet senior",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p13",
+    "fait": "2020-04 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p13",
+    "fait": "Atlas Conseil",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p13",
+    "fait": "Chef de projet",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p13",
+    "fait": "2016-09 - 2020-03",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p13",
+    "fait": "Oméga Industrie",
+    "champ": "experiences.company",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p13",
+    "fait": "Responsable de projets SI",
+    "champ": "experiences.role",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p13",
+    "fait": "Atelier Sorgues",
+    "champ": "experiences.company",
+    "page": 4,
+    "critique": true
+  },
+  {
+    "profile_id": "p13",
+    "fait": "Diplôme d'ingénieur en informatique",
+    "champ": "education.degree",
+    "page": 4,
+    "critique": true
+  },
+  {
+    "profile_id": "p13",
+    "fait": "planification",
+    "champ": "skills",
+    "page": 4,
+    "critique": false
+  },
+  {
+    "profile_id": "p14",
+    "fait": "isaure.bellefonds@example.com",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p14",
+    "fait": "Groupe Montaigne Industrie",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p14",
+    "fait": "Juriste d'entreprise",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p14",
+    "fait": "2022-01 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p14",
+    "fait": "Cabinet Arnauld Associés",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p14",
+    "fait": "Juriste collaboratrice",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p14",
+    "fait": "2019-09 - 2021-12",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p14",
+    "fait": "Master 2 Droit des affaires",
+    "champ": "education.degree",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p14",
+    "fait": "droit des contrats",
+    "champ": "skills",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p15",
+    "fait": "etienne.barjavel@example.org",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p15",
+    "fait": "Centre de formation CodeBase",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p15",
+    "fait": "Stagiaire développeur",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p15",
+    "fait": "2026-03 - 2026-08",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p15",
+    "fait": "Hôpital Saint-Aubin",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p15",
+    "fait": "Infirmier diplômé d'État",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p15",
+    "fait": "2017-09 - 2025-12",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p15",
+    "fait": "Titre professionnel Développeur web et web mobile",
+    "champ": "education.degree",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p15",
+    "fait": "Python",
+    "champ": "skills",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p16",
+    "fait": "priya.calderon@example.com",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p16",
+    "fait": "Maple Commerce",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p16",
+    "fait": "Data analyst",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p16",
+    "fait": "2022-06 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p16",
+    "fait": "Quill Media",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p16",
+    "fait": "Junior data analyst",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p16",
+    "fait": "2020-09 - 2022-05",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p16",
+    "fait": "Master in Applied Statistics",
+    "champ": "education.degree",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p16",
+    "fait": "SQL",
+    "champ": "skills",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p17",
+    "fait": "anselme.rougerie@example.com",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p17",
+    "fait": "Atelier Numérique Alpin",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p17",
+    "fait": "Développeur backend (alternance)",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p17",
+    "fait": "2026-01 - 2026-09",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p17",
+    "fait": "Bureau d'études Marnier",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p17",
+    "fait": "Ingénieur mécanique",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p17",
+    "fait": "2019-09 - 2025-06",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p17",
+    "fait": "Titre professionnel Concepteur développeur d'applications",
+    "champ": "education.degree",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p17",
+    "fait": "JavaScript",
+    "champ": "skills",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p18",
+    "fait": "basile.courtemanche@example.org",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p18",
+    "fait": "Studio Marée",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p18",
+    "fait": "Chargé de contenu digital (reconversion)",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p18",
+    "fait": "2025-10 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p18",
+    "fait": "Le Courrier de l'Ouest Numérique",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p18",
+    "fait": "Journaliste",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p18",
+    "fait": "2018-09 - 2025-08",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p18",
+    "fait": "Master Journalisme",
+    "champ": "education.degree",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p18",
+    "fait": "SEO",
+    "champ": "skills",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p19",
+    "fait": "leopold.quenneville@example.com",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p19",
+    "fait": "Pharmacie du Parc",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p19",
+    "fait": "Stagiaire",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p19",
+    "fait": "2026-06 - 2026-07",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p19",
+    "fait": "Licence Informatique",
+    "champ": "education.degree",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p19",
+    "fait": "Excel",
+    "champ": "skills",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p20",
+    "fait": "colombe.estevenon@example.org",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p20",
+    "fait": "Cabinet Duclos",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p20",
+    "fait": "Stagiaire juriste",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p20",
+    "fait": "2026-05 - 2026-08",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p20",
+    "fait": "Master 1 Droit des affaires",
+    "champ": "education.degree",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p20",
+    "fait": "recherches juridiques",
+    "champ": "skills",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p21",
+    "fait": "thibault.marcoussis@example.com",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p21",
+    "fait": "Nimbus Paiement",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p21",
+    "fait": "SRE senior",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p21",
+    "fait": "2020-09 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p21",
+    "fait": "Vague Média",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p21",
+    "fait": "Ingénieur DevOps",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p21",
+    "fait": "2017-04 - 2020-08",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p21",
+    "fait": "Sextant Hébergement",
+    "champ": "experiences.company",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p21",
+    "fait": "Administrateur systèmes",
+    "champ": "experiences.role",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p21",
+    "fait": "Mairie de Vauclaire",
+    "champ": "experiences.company",
+    "page": 4,
+    "critique": true
+  },
+  {
+    "profile_id": "p21",
+    "fait": "DUT Réseaux et télécommunications",
+    "champ": "education.degree",
+    "page": 3,
+    "critique": true
+  },
+  {
+    "profile_id": "p21",
+    "fait": "Kubernetes",
+    "champ": "skills",
+    "page": 3,
+    "critique": false
+  },
+  {
+    "profile_id": "p22",
+    "fait": "declan.harrowgate@example.org",
+    "champ": "contact.email",
+    "page": 1,
+    "critique": false
+  },
+  {
+    "profile_id": "p22",
+    "fait": "Veritas Route",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p22",
+    "fait": "Senior account executive",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p22",
+    "fait": "2021-02 - present",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p22",
+    "fait": "Pathway Software",
+    "champ": "experiences.company",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p22",
+    "fait": "Account executive",
+    "champ": "experiences.role",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p22",
+    "fait": "2018-06 - 2021-01",
+    "champ": "experiences.dates",
+    "page": 1,
+    "critique": true
+  },
+  {
+    "profile_id": "p22",
+    "fait": "Ardent Staffing",
+    "champ": "experiences.company",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p22",
+    "fait": "Sales development representative",
+    "champ": "experiences.role",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p22",
+    "fait": "BSc in Business and Management",
+    "champ": "education.degree",
+    "page": 2,
+    "critique": true
+  },
+  {
+    "profile_id": "p22",
+    "fait": "prospecting",
+    "champ": "skills",
+    "page": 2,
+    "critique": false
+  }
+]
