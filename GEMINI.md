@@ -75,3 +75,9 @@ Avant toute suppression ou refonte de tests :
 4. **Vérifier l'exécution** :
    - Lancez `pytest backend/tests/test_<nom>.py -v` pour valider que la suite restante passe intégralement au vert.
 
+#### 4. Architecture, taille et hygiène des fichiers de test (Règles strictes)
+- **Taille maximale par fichier** : Aucun fichier de test ne doit dépasser **300 à 400 lignes**. Tout fichier approchant ou dépassant ce seuil DOIT être scindé en sous-modules thématiques dans un sous-dossier dédié (ex: `tests/<domaine>/test_<aspect>.py`).
+- **Interdiction formelle des mocks volumineux inline** : Ne jamais intégrer de volumineux payloads JSON (> 10 lignes), d'arbres HTML/JSON-LD ou d'objets candidats géants directement au milieu des fonctions de test. Les données de test et mocks volumineux DOIVENT être externalisés dans `conftest.py`, un module `fixtures.py` local ou `tests/fixtures/`.
+- **Paramétrisation systématique (`@pytest.mark.parametrize`)** : Lorsque plusieurs tests partagent la même structure avec des variations d'entrées/sorties ou de cas limites (ex: 404, 500, timeout, payload vide), utiliser obligatoirement `@pytest.mark.parametrize` plutôt que de dupliquer des fonctions entières.
+- **Exécution hors réseau et déterministe** : Les tests unitaires doivent toujours s'exécuter hors réseau et sans I/O bloquante.
+
