@@ -19,6 +19,8 @@ Usage:
     docker exec jobtracker-backend python scripts/matching_bench.py embed --confirm
     docker exec jobtracker-backend python scripts/matching_bench.py validation-sheet
     docker exec jobtracker-backend python scripts/matching_bench.py report --model gemini/gemini-3.8-flash
+    uv run python scripts/matching_bench.py --reference embed    # jeu de référence synthétique : estimation
+    uv run python scripts/matching_bench.py --reference report   # labels annotés, sans juge ; seuls embed et report
 """
 
 import argparse
@@ -52,6 +54,7 @@ from app.services.offer_scoring.score import ScoreResult, build_skill_idf, profi
 from app.services.profile.context import build_candidate_context
 from app.services.role_normalizer import cosine_similarity
 from app.services.usage_tracker import estimate_llm_cost
+from scripts.llm_budget import check_budget, record_call
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -377,6 +380,27 @@ def _profile_identities(export: Dict[str, Any]) -> Dict[str, Tuple[Optional[str]
     return identities
 
 
+def estimate_embed_cost(
+    pending: List[Tuple[str, str]],
+    offer_texts: Dict[str, str],
+    identities: Dict[str, Tuple[Optional[str], Optional[str]]],
+) -> float:
+    """Coût estimé (USD) des embeddings : chaque texte d'offre et chaque identité
+    candidat compte une fois, `(caractères / 4)` tokens à 0,1 $ le million."""
+    chars = 0
+    seen_offers: set = set()
+    seen_aliases: set = set()
+    for alias, oid in pending:
+        if oid not in seen_offers:
+            chars += len(offer_texts[oid])
+            seen_offers.add(oid)
+        identity, _ = identities[alias]
+        if identity and alias not in seen_aliases:
+            chars += len(identity)
+            seen_aliases.add(alias)
+    return (chars / 4) / 1_000_000 * 0.1
+
+
 async def run_embed(export: Dict[str, Any], cache_path: Path, confirm: bool) -> None:
     """Embarque les offres pertinentes (échantillon + interactions de chaque profil, cf.
     `_hybrid_assessment_ids`) et les identités candidates pour le cosinus du score hybride,
@@ -406,24 +430,17 @@ async def run_embed(export: Dict[str, Any], cache_path: Path, confirm: bool) -> 
             if not _cos_record_valid(record, EMBEDDING_MODEL, text_hash(text), identity_hash):
                 pending.append((alias, oid))
 
+    estimated = estimate_embed_cost(pending, offer_texts, identities)
     if not confirm:
-        chars = 0
-        seen_offers: set = set()
-        seen_aliases: set = set()
-        for alias, oid in pending:
-            if oid not in seen_offers:
-                chars += len(offer_texts[oid])
-                seen_offers.add(oid)
-            identity, _ = identities[alias]
-            if identity and alias not in seen_aliases:
-                chars += len(identity)
-                seen_aliases.add(alias)
-        cost = (chars / 4) / 1_000_000 * 0.1
+        cost = estimated
         logger.info(
             f"🧮 Embeddings hybrides {EMBEDDING_MODEL} : {len(pending)} paires manquantes sur "
             f"{total_pairs}, coût estimé {cost:.4f} $. Aucun appel sans --confirm."
         )
         return
+
+    if pending:
+        check_budget("profil", estimated)  # BudgetExceeded remonte avant tout appel
 
     # Chaque texte d'offre et chaque identité candidat n'est embarqué qu'une fois,
     # même s'il manque à plusieurs paires (offre partagée entre profils).
@@ -454,16 +471,18 @@ async def run_embed(export: Dict[str, Any], cache_path: Path, confirm: bool) -> 
             "cos": cos,
         }
     save_cache(cache_path, cache)
+    if pending:
+        record_call("profil", "matching_bench.py embed", EMBEDDING_MODEL, estimated, "estimated", n_pairs=len(pending))
     logger.info(f"✅ Embeddings hybrides : {len(pending)} paires calculées")
 
 
-def cached_hybrid_cos_records(export: Dict[str, Any]) -> List[Dict[str, Any]]:
+def cached_hybrid_cos_records(export: Dict[str, Any], cache_path: Optional[Path] = None) -> List[Dict[str, Any]]:
     """Enregistrements cos valides pour le texte d'offre et l'identité candidat courants,
     sur l'échantillon et les offres des interactions de chaque profil (mêmes ids que
     `hybrid_scores`, cf. `_hybrid_assessment_ids`). Une paire sans enregistrement valide
     est ignorée : `assess_offer` la scorera avec `cos=None` (moitié des points sémantiques,
     cf. global-constraints.md)."""
-    cache = load_cache(HYBRID_COS_CACHE)
+    cache = load_cache(cache_path or HYBRID_COS_CACHE)  # lu à l'appel : monkeypatchable
     offers = offers_by_id(export)
     identities = _profile_identities(export)
     assessment_ids = {p["alias"]: _hybrid_assessment_ids(export, p["alias"]) for p in export["profiles"]}
@@ -947,9 +966,31 @@ def report(export: Dict[str, Any], model: str) -> None:
     logger.info(f"✅ Résultats écrits dans {RESULTS_PATH}")
 
 
+def run_reference_command(args: argparse.Namespace) -> None:
+    """`--reference` : embed (cache référence) et report ; le reste est refusé."""
+    if args.command in ("judge", "validation-sheet"):
+        raise SystemExit("--reference : les labels annotés remplacent le juge, commande indisponible")
+    if args.command == "twopass":
+        raise SystemExit("--reference : Two-Pass hors budget de ce plan")
+    from scripts import reference_bench
+    from scripts.reference_dataset import load_reference
+
+    ref = load_reference()
+    export = reference_bench.reference_to_export(ref)
+    if args.command == "embed":
+        asyncio.run(run_embed(export, reference_bench.REFERENCE_COS_CACHE, args.confirm))
+    else:
+        reference_bench.run_reference_report(ref, export)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--export", type=Path, default=DEFAULT_EXPORT, help="Export produit par export_matching_bench.py")
+    parser.add_argument(
+        "--reference",
+        action="store_true",
+        help="Jeu de référence synthétique (scripts/reference/) au lieu de --export ; seuls embed et report",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     judge = sub.add_parser("judge", help="Annoter les paires avec le juge LLM")
     judge.add_argument("--confirm", action="store_true", help="Appeler le LLM (dépense)")
@@ -965,6 +1006,10 @@ def main() -> None:
     report_parser = sub.add_parser("report", help="Calculer les métriques et écrire le fichier de résultats")
     report_parser.add_argument("--model", default=DEFAULT_EVALUATION_MODEL, help="Modèle du Two-Pass mesuré")
     args = parser.parse_args()
+
+    if args.reference:
+        run_reference_command(args)
+        return
 
     export = load_export(args.export)
     if args.command == "judge":

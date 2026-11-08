@@ -1,0 +1,945 @@
+{
+  "meta": {
+    "dataset_date": "2026-11-08",
+    "embedding_model": "mistral/mistral-embed",
+    "floor": 35,
+    "n_profiles": 22,
+    "n_offers": 118,
+    "n_labels": 389,
+    "n_assessed_pairs": 2574,
+    "n_cos_pairs": 0,
+    "n_pairs_without_cos": 2574
+  },
+  "per_profile": {
+    "p01": {
+      "n_labels": 18,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.4,
+        "ndcg@10": 0.6646544271515498,
+        "preference_violations@5": 2,
+        "recall": 0.75,
+        "false_negatives": [
+          {
+            "offer_id": "o005",
+            "reason": "role",
+            "score": null
+          }
+        ]
+      },
+      "chronological": {
+        "p@5": 0.0,
+        "ndcg@10": 0.1863297655119953,
+        "preference_violations@5": 0
+      }
+    },
+    "p02": {
+      "n_labels": 18,
+      "n_relevant": 5,
+      "hybrid": {
+        "p@5": 1.0,
+        "ndcg@10": 0.8693802808441937,
+        "preference_violations@5": 0,
+        "recall": 1.0,
+        "false_negatives": []
+      },
+      "chronological": {
+        "p@5": 0.0,
+        "ndcg@10": 0.29950519238792606,
+        "preference_violations@5": 0
+      }
+    },
+    "p03": {
+      "n_labels": 17,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.6,
+        "ndcg@10": 0.686702593223284,
+        "preference_violations@5": 1,
+        "recall": 0.75,
+        "false_negatives": [
+          {
+            "offer_id": "o012",
+            "reason": "role",
+            "score": null
+          }
+        ]
+      },
+      "chronological": {
+        "p@5": 0.0,
+        "ndcg@10": 0.309581793127535,
+        "preference_violations@5": 0
+      }
+    },
+    "p04": {
+      "n_labels": 18,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.6,
+        "ndcg@10": 0.6506832987719725,
+        "preference_violations@5": 0,
+        "recall": 0.75,
+        "false_negatives": [
+          {
+            "offer_id": "o044",
+            "reason": "role",
+            "score": null
+          }
+        ]
+      },
+      "chronological": {
+        "p@5": 0.2,
+        "ndcg@10": 0.5289414635922837,
+        "preference_violations@5": 2
+      }
+    },
+    "p05": {
+      "n_labels": 18,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.8,
+        "ndcg@10": 0.8256348840864177,
+        "preference_violations@5": 0,
+        "recall": 1.0,
+        "false_negatives": []
+      },
+      "chronological": {
+        "p@5": 0.6,
+        "ndcg@10": 0.6974543942989937,
+        "preference_violations@5": 2
+      }
+    },
+    "p06": {
+      "n_labels": 18,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.8,
+        "ndcg@10": 0.7210546348742877,
+        "preference_violations@5": 0,
+        "recall": 1.0,
+        "false_negatives": []
+      },
+      "chronological": {
+        "p@5": 0.0,
+        "ndcg@10": 0.26064900108195593,
+        "preference_violations@5": 0
+      }
+    },
+    "p07": {
+      "n_labels": 19,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.8,
+        "ndcg@10": 0.8161850888106869,
+        "preference_violations@5": 1,
+        "recall": 1.0,
+        "false_negatives": []
+      },
+      "chronological": {
+        "p@5": 0.6,
+        "ndcg@10": 0.7114617110573678,
+        "preference_violations@5": 2
+      }
+    },
+    "p08": {
+      "n_labels": 18,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.8,
+        "ndcg@10": 0.77550133271434,
+        "preference_violations@5": 0,
+        "recall": 1.0,
+        "false_negatives": []
+      },
+      "chronological": {
+        "p@5": 0.2,
+        "ndcg@10": 0.5557166874818266,
+        "preference_violations@5": 3
+      }
+    },
+    "p09": {
+      "n_labels": 16,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.8,
+        "ndcg@10": 0.8922010669433236,
+        "preference_violations@5": 0,
+        "recall": 1.0,
+        "false_negatives": []
+      },
+      "chronological": {
+        "p@5": 0.6,
+        "ndcg@10": 0.7641364138663808,
+        "preference_violations@5": 1
+      }
+    },
+    "p10": {
+      "n_labels": 18,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.6,
+        "ndcg@10": 0.7598749650920508,
+        "preference_violations@5": 0,
+        "recall": 0.75,
+        "false_negatives": [
+          {
+            "offer_id": "o081",
+            "reason": "role",
+            "score": null
+          }
+        ]
+      },
+      "chronological": {
+        "p@5": 0.0,
+        "ndcg@10": 0.3188512830746317,
+        "preference_violations@5": 1
+      }
+    },
+    "p11": {
+      "n_labels": 17,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.8,
+        "ndcg@10": 0.9882176950326548,
+        "preference_violations@5": 1,
+        "recall": 1.0,
+        "false_negatives": []
+      },
+      "chronological": {
+        "p@5": 0.4,
+        "ndcg@10": 0.6581810008579329,
+        "preference_violations@5": 2
+      }
+    },
+    "p12": {
+      "n_labels": 17,
+      "n_relevant": 5,
+      "hybrid": {
+        "p@5": 0.4,
+        "ndcg@10": 0.7099933778278873,
+        "preference_violations@5": 0,
+        "recall": 1.0,
+        "false_negatives": []
+      },
+      "chronological": {
+        "p@5": 0.2,
+        "ndcg@10": 0.5938581709733816,
+        "preference_violations@5": 0
+      }
+    },
+    "p13": {
+      "n_labels": 17,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.2,
+        "ndcg@10": 0.43015205103235793,
+        "preference_violations@5": 1,
+        "recall": 0.25,
+        "false_negatives": [
+          {
+            "offer_id": "o061",
+            "reason": "role",
+            "score": null
+          },
+          {
+            "offer_id": "o052",
+            "reason": "role",
+            "score": null
+          },
+          {
+            "offer_id": "o051",
+            "reason": "role",
+            "score": null
+          }
+        ]
+      },
+      "chronological": {
+        "p@5": 0.4,
+        "ndcg@10": 0.6114080929663195,
+        "preference_violations@5": 0
+      }
+    },
+    "p14": {
+      "n_labels": 18,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.6,
+        "ndcg@10": 0.9144688224120845,
+        "preference_violations@5": 1,
+        "recall": 0.75,
+        "false_negatives": [
+          {
+            "offer_id": "o098",
+            "reason": "role",
+            "score": null
+          }
+        ]
+      },
+      "chronological": {
+        "p@5": 0.0,
+        "ndcg@10": 0.28242043846110604,
+        "preference_violations@5": 0
+      }
+    },
+    "p15": {
+      "n_labels": 18,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.6,
+        "ndcg@10": 0.8395532802393251,
+        "preference_violations@5": 1,
+        "recall": 0.75,
+        "false_negatives": [
+          {
+            "offer_id": "o104",
+            "reason": "role",
+            "score": null
+          }
+        ]
+      },
+      "chronological": {
+        "p@5": 0.4,
+        "ndcg@10": 0.7127514550840164,
+        "preference_violations@5": 2
+      }
+    },
+    "p16": {
+      "n_labels": 18,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.6,
+        "ndcg@10": 0.7982341929445539,
+        "preference_violations@5": 0,
+        "recall": 1.0,
+        "false_negatives": []
+      },
+      "chronological": {
+        "p@5": 0.0,
+        "ndcg@10": 0.2619630960781393,
+        "preference_violations@5": 0
+      }
+    },
+    "p17": {
+      "n_labels": 18,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.8,
+        "ndcg@10": 0.8194670122873279,
+        "preference_violations@5": 0,
+        "recall": 1.0,
+        "false_negatives": []
+      },
+      "chronological": {
+        "p@5": 0.4,
+        "ndcg@10": 0.5808733071096537,
+        "preference_violations@5": 1
+      }
+    },
+    "p18": {
+      "n_labels": 17,
+      "n_relevant": 5,
+      "hybrid": {
+        "p@5": 0.6,
+        "ndcg@10": 0.7922024596886922,
+        "preference_violations@5": 0,
+        "recall": 0.8,
+        "false_negatives": [
+          {
+            "offer_id": "o071",
+            "reason": "role",
+            "score": null
+          }
+        ]
+      },
+      "chronological": {
+        "p@5": 0.6,
+        "ndcg@10": 0.7083744663044166,
+        "preference_violations@5": 1
+      }
+    },
+    "p19": {
+      "n_labels": 18,
+      "n_relevant": 5,
+      "hybrid": {
+        "p@5": 0.6,
+        "ndcg@10": 0.8035539104335908,
+        "preference_violations@5": 0,
+        "recall": 1.0,
+        "false_negatives": []
+      },
+      "chronological": {
+        "p@5": 0.0,
+        "ndcg@10": 0.24764860300431996,
+        "preference_violations@5": 0
+      }
+    },
+    "p20": {
+      "n_labels": 18,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.6,
+        "ndcg@10": 0.8681827164404581,
+        "preference_violations@5": 0,
+        "recall": 0.75,
+        "false_negatives": [
+          {
+            "offer_id": "o099",
+            "reason": "role",
+            "score": null
+          }
+        ]
+      },
+      "chronological": {
+        "p@5": 0.0,
+        "ndcg@10": 0.1441373107402618,
+        "preference_violations@5": 0
+      }
+    },
+    "p21": {
+      "n_labels": 18,
+      "n_relevant": 4,
+      "hybrid": {
+        "p@5": 0.6,
+        "ndcg@10": 0.6252635660115496,
+        "preference_violations@5": 0,
+        "recall": 0.5,
+        "false_negatives": [
+          {
+            "offer_id": "o118",
+            "reason": "role",
+            "score": null
+          },
+          {
+            "offer_id": "o037",
+            "reason": "role",
+            "score": null
+          }
+        ]
+      },
+      "chronological": {
+        "p@5": 0.0,
+        "ndcg@10": 0.22330282527344716,
+        "preference_violations@5": 0
+      }
+    },
+    "p22": {
+      "n_labels": 17,
+      "n_relevant": 6,
+      "hybrid": {
+        "p@5": 0.8,
+        "ndcg@10": 0.816090632222964,
+        "preference_violations@5": 0,
+        "recall": 0.8333333333333334,
+        "false_negatives": [
+          {
+            "offer_id": "o092",
+            "reason": "role",
+            "score": null
+          }
+        ]
+      },
+      "chronological": {
+        "p@5": 0.2,
+        "ndcg@10": 0.5658740397022747,
+        "preference_violations@5": 2
+      }
+    }
+  },
+  "aggregate": {
+    "n_profiles": 22,
+    "n_relevant": 94,
+    "small": false,
+    "hybrid": {
+      "p@5": 0.6545454545454545,
+      "ndcg@10": 0.7757841949584342,
+      "preference_violations@5": 0.36363636363636365,
+      "recall": 0.8469696969696969,
+      "n_false_negatives": 14
+    },
+    "chronological": {
+      "p@5": 0.21818181818181817,
+      "ndcg@10": 0.46470093236528026,
+      "preference_violations@5": 0.8636363636363636
+    }
+  },
+  "subgroups": {
+    "metier": {
+      "chargé de marketing digital": {
+        "n_profiles": 2,
+        "n_relevant": 9,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.7,
+          "ndcg@10": 0.8422017633160079,
+          "preference_violations@5": 0.0,
+          "recall": 0.9,
+          "n_false_negatives": 1
+        },
+        "chronological": {
+          "p@5": 0.6,
+          "ndcg@10": 0.7362554400853987,
+          "preference_violations@5": 1.0
+        }
+      },
+      "chargé rh": {
+        "n_profiles": 1,
+        "n_relevant": 4,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.8,
+          "ndcg@10": 0.9882176950326548,
+          "preference_violations@5": 1.0,
+          "recall": 1.0,
+          "n_false_negatives": 0
+        },
+        "chronological": {
+          "p@5": 0.4,
+          "ndcg@10": 0.6581810008579329,
+          "preference_violations@5": 2.0
+        }
+      },
+      "chef de projet": {
+        "n_profiles": 1,
+        "n_relevant": 4,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.2,
+          "ndcg@10": 0.43015205103235793,
+          "preference_violations@5": 1.0,
+          "recall": 0.25,
+          "n_false_negatives": 3
+        },
+        "chronological": {
+          "p@5": 0.4,
+          "ndcg@10": 0.6114080929663195,
+          "preference_violations@5": 0.0
+        }
+      },
+      "commercial b2b": {
+        "n_profiles": 2,
+        "n_relevant": 11,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.6000000000000001,
+          "ndcg@10": 0.7630420050254256,
+          "preference_violations@5": 0.0,
+          "recall": 0.9166666666666667,
+          "n_false_negatives": 1
+        },
+        "chronological": {
+          "p@5": 0.2,
+          "ndcg@10": 0.5798661053378281,
+          "preference_violations@5": 1.0
+        }
+      },
+      "comptable": {
+        "n_profiles": 1,
+        "n_relevant": 4,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.6,
+          "ndcg@10": 0.7598749650920508,
+          "preference_violations@5": 0.0,
+          "recall": 0.75,
+          "n_false_negatives": 1
+        },
+        "chronological": {
+          "p@5": 0.0,
+          "ndcg@10": 0.3188512830746317,
+          "preference_violations@5": 1.0
+        }
+      },
+      "data analyst": {
+        "n_profiles": 3,
+        "n_relevant": 14,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.7333333333333334,
+          "ndcg@10": 0.8237227947407795,
+          "preference_violations@5": 0.0,
+          "recall": 1.0,
+          "n_false_negatives": 0
+        },
+        "chronological": {
+          "p@5": 0.0,
+          "ndcg@10": 0.2697056304901284,
+          "preference_violations@5": 0.0
+        }
+      },
+      "data engineer": {
+        "n_profiles": 1,
+        "n_relevant": 4,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.6,
+          "ndcg@10": 0.686702593223284,
+          "preference_violations@5": 1.0,
+          "recall": 0.75,
+          "n_false_negatives": 1
+        },
+        "chronological": {
+          "p@5": 0.0,
+          "ndcg@10": 0.309581793127535,
+          "preference_violations@5": 0.0
+        }
+      },
+      "data scientist séries temporelles": {
+        "n_profiles": 1,
+        "n_relevant": 4,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.4,
+          "ndcg@10": 0.6646544271515498,
+          "preference_violations@5": 2.0,
+          "recall": 0.75,
+          "n_false_negatives": 1
+        },
+        "chronological": {
+          "p@5": 0.0,
+          "ndcg@10": 0.1863297655119953,
+          "preference_violations@5": 0.0
+        }
+      },
+      "devops": {
+        "n_profiles": 2,
+        "n_relevant": 8,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.7,
+          "ndcg@10": 0.6731591004429187,
+          "preference_violations@5": 0.0,
+          "recall": 0.75,
+          "n_false_negatives": 2
+        },
+        "chronological": {
+          "p@5": 0.0,
+          "ndcg@10": 0.24197591317770156,
+          "preference_violations@5": 0.0
+        }
+      },
+      "développeur backend": {
+        "n_profiles": 3,
+        "n_relevant": 12,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.6666666666666666,
+          "ndcg@10": 0.7699011970995419,
+          "preference_violations@5": 0.3333333333333333,
+          "recall": 0.8333333333333334,
+          "n_false_negatives": 2
+        },
+        "chronological": {
+          "p@5": 0.3333333333333333,
+          "ndcg@10": 0.6075220752619845,
+          "preference_violations@5": 1.6666666666666667
+        }
+      },
+      "développeur frontend": {
+        "n_profiles": 1,
+        "n_relevant": 4,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.8,
+          "ndcg@10": 0.8256348840864177,
+          "preference_violations@5": 0.0,
+          "recall": 1.0,
+          "n_false_negatives": 0
+        },
+        "chronological": {
+          "p@5": 0.6,
+          "ndcg@10": 0.6974543942989937,
+          "preference_violations@5": 2.0
+        }
+      },
+      "juriste": {
+        "n_profiles": 2,
+        "n_relevant": 8,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.6,
+          "ndcg@10": 0.8913257694262713,
+          "preference_violations@5": 0.5,
+          "recall": 0.75,
+          "n_false_negatives": 2
+        },
+        "chronological": {
+          "p@5": 0.0,
+          "ndcg@10": 0.2132788746006839,
+          "preference_violations@5": 0.0
+        }
+      },
+      "product manager": {
+        "n_profiles": 1,
+        "n_relevant": 4,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.8,
+          "ndcg@10": 0.8161850888106869,
+          "preference_violations@5": 1.0,
+          "recall": 1.0,
+          "n_false_negatives": 0
+        },
+        "chronological": {
+          "p@5": 0.6,
+          "ndcg@10": 0.7114617110573678,
+          "preference_violations@5": 2.0
+        }
+      },
+      "ux designer": {
+        "n_profiles": 1,
+        "n_relevant": 4,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.8,
+          "ndcg@10": 0.77550133271434,
+          "preference_violations@5": 0.0,
+          "recall": 1.0,
+          "n_false_negatives": 0
+        },
+        "chronological": {
+          "p@5": 0.2,
+          "ndcg@10": 0.5557166874818266,
+          "preference_violations@5": 3.0
+        }
+      }
+    },
+    "niveau": {
+      "confirme": {
+        "n_profiles": 9,
+        "n_relevant": 39,
+        "small": false,
+        "hybrid": {
+          "p@5": 0.6222222222222222,
+          "ndcg@10": 0.7607305531625558,
+          "preference_violations@5": 0.4444444444444444,
+          "recall": 0.8703703703703703,
+          "n_false_negatives": 5
+        },
+        "chronological": {
+          "p@5": 0.06666666666666668,
+          "ndcg@10": 0.3705826972769829,
+          "preference_violations@5": 0.6666666666666666
+        }
+      },
+      "junior": {
+        "n_profiles": 9,
+        "n_relevant": 39,
+        "small": false,
+        "hybrid": {
+          "p@5": 0.7333333333333333,
+          "ndcg@10": 0.8553770339995537,
+          "preference_violations@5": 0.2222222222222222,
+          "recall": 0.9222222222222223,
+          "n_false_negatives": 3
+        },
+        "chronological": {
+          "p@5": 0.3333333333333333,
+          "ndcg@10": 0.5347846826282113,
+          "preference_violations@5": 1.0
+        }
+      },
+      "senior": {
+        "n_profiles": 4,
+        "n_relevant": 16,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.55,
+          "ndcg@10": 0.6305710011566418,
+          "preference_violations@5": 0.5,
+          "recall": 0.625,
+          "n_false_negatives": 6
+        },
+        "chronological": {
+          "p@5": 0.3,
+          "ndcg@10": 0.5187785232223545,
+          "preference_violations@5": 1.0
+        }
+      }
+    },
+    "langue": {
+      "en": {
+        "n_profiles": 5,
+        "n_relevant": 22,
+        "small": false,
+        "hybrid": {
+          "p@5": 0.76,
+          "ndcg@10": 0.7873031353685127,
+          "preference_violations@5": 0.0,
+          "recall": 0.9666666666666666,
+          "n_false_negatives": 1
+        },
+        "chronological": {
+          "p@5": 0.2,
+          "ndcg@10": 0.46833144372863805,
+          "preference_violations@5": 1.4
+        }
+      },
+      "fr": {
+        "n_profiles": 17,
+        "n_relevant": 72,
+        "small": false,
+        "hybrid": {
+          "p@5": 0.6235294117647059,
+          "ndcg@10": 0.7723962713084112,
+          "preference_violations@5": 0.47058823529411764,
+          "recall": 0.8117647058823529,
+          "n_false_negatives": 13
+        },
+        "chronological": {
+          "p@5": 0.22352941176470587,
+          "ndcg@10": 0.4636331349054692,
+          "preference_violations@5": 0.7058823529411765
+        }
+      }
+    },
+    "reconversion": {
+      "false": {
+        "n_profiles": 18,
+        "n_relevant": 76,
+        "small": false,
+        "hybrid": {
+          "p@5": 0.6333333333333333,
+          "ndcg@10": 0.7637027364458897,
+          "preference_violations@5": 0.3888888888888889,
+          "recall": 0.837962962962963,
+          "n_false_negatives": 12
+        },
+        "chronological": {
+          "p@5": 0.18888888888888888,
+          "ndcg@10": 0.4401064495083418,
+          "preference_violations@5": 0.8333333333333334
+        }
+      },
+      "true": {
+        "n_profiles": 4,
+        "n_relevant": 18,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.75,
+          "ndcg@10": 0.8301507582648847,
+          "preference_violations@5": 0.25,
+          "recall": 0.8875,
+          "n_false_negatives": 2
+        },
+        "chronological": {
+          "p@5": 0.35,
+          "ndcg@10": 0.5753761052215032,
+          "preference_violations@5": 1.0
+        }
+      }
+    },
+    "sources": {
+      "cv": {
+        "n_profiles": 8,
+        "n_relevant": 35,
+        "small": false,
+        "hybrid": {
+          "p@5": 0.625,
+          "ndcg@10": 0.8182367751932882,
+          "preference_violations@5": 0.125,
+          "recall": 0.9125,
+          "n_false_negatives": 3
+        },
+        "chronological": {
+          "p@5": 0.225,
+          "ndcg@10": 0.45380854066650966,
+          "preference_violations@5": 0.75
+        }
+      },
+      "cv+github+manual": {
+        "n_profiles": 2,
+        "n_relevant": 8,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.6,
+          "ndcg@10": 0.7631279367313045,
+          "preference_violations@5": 1.0,
+          "recall": 0.75,
+          "n_false_negatives": 2
+        },
+        "chronological": {
+          "p@5": 0.2,
+          "ndcg@10": 0.5111666241057757,
+          "preference_violations@5": 1.0
+        }
+      },
+      "cv+manual": {
+        "n_profiles": 10,
+        "n_relevant": 43,
+        "small": false,
+        "hybrid": {
+          "p@5": 0.6799999999999999,
+          "ndcg@10": 0.7568917582590325,
+          "preference_violations@5": 0.5,
+          "recall": 0.8083333333333333,
+          "n_false_negatives": 8
+        },
+        "chronological": {
+          "p@5": 0.22000000000000003,
+          "ndcg@10": 0.4485960787418427,
+          "preference_violations@5": 0.6
+        }
+      },
+      "cv+manual+website": {
+        "n_profiles": 1,
+        "n_relevant": 4,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.6,
+          "ndcg@10": 0.6506832987719725,
+          "preference_violations@5": 0.0,
+          "recall": 0.75,
+          "n_false_negatives": 1
+        },
+        "chronological": {
+          "p@5": 0.2,
+          "ndcg@10": 0.5289414635922837,
+          "preference_violations@5": 2.0
+        }
+      },
+      "cv+website": {
+        "n_profiles": 1,
+        "n_relevant": 4,
+        "small": true,
+        "hybrid": {
+          "p@5": 0.8,
+          "ndcg@10": 0.77550133271434,
+          "preference_violations@5": 0.0,
+          "recall": 1.0,
+          "n_false_negatives": 0
+        },
+        "chronological": {
+          "p@5": 0.2,
+          "ndcg@10": 0.5557166874818266,
+          "preference_violations@5": 3.0
+        }
+      }
+    }
+  },
+  "offer_sources": {
+    "ats_greenhouse": {
+      "n_relevant": 14,
+      "recall": 0.8571428571428571
+    },
+    "cadremploi": {
+      "n_relevant": 7,
+      "recall": 0.42857142857142855
+    },
+    "indeed": {
+      "n_relevant": 10,
+      "recall": 0.9
+    },
+    "linkedin": {
+      "n_relevant": 20,
+      "recall": 0.8
+    },
+    "synthetic": {
+      "n_relevant": 15,
+      "recall": 0.9333333333333333
+    },
+    "wttj": {
+      "n_relevant": 28,
+      "recall": 0.9285714285714286
+    }
+  }
+}
