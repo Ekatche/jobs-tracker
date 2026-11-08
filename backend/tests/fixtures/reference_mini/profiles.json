@@ -1,0 +1,7 @@
+[
+  {"profile_id": "p01", "subgroup": {"metier": "data engineer", "niveau": "junior", "langue": "fr", "reconversion": false},
+   "sources": {"cv": {"headline": "Data engineer junior", "experiences": [{"company": "Acme", "role": "Stagiaire data", "start_date": "2023-01", "end_date": "2023-06", "missions": ["ETL Airflow"], "stack": ["Python", "SQL"]}], "skills": {"langages": ["Python", "SQL"]}},
+               "manual": {"preferences": {"target_roles": ["data engineer"], "locations": ["Paris"]}}}},
+  {"profile_id": "p02", "subgroup": {"metier": "comptable", "niveau": "senior", "langue": "en", "reconversion": true},
+   "sources": {"cv": {"headline": "Senior accountant", "experiences": [{"company": "Beta", "role": "Accountant", "start_date": "2012-01", "end_date": "2022-12", "missions": ["Closing"], "stack": []}]}}}
+]

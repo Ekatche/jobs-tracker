@@ -1,0 +1,4 @@
+[
+  {"offer_id": "o001", "poste": "Data Engineer", "entreprise": "Gamma", "localisation": "Paris", "type_contrat": "CDI", "mode_travail": "hybride", "description": "Pipelines Airflow et SQL.", "competences_cles": ["Python", "SQL"], "seniority_level": "junior", "sector": "tech", "company_size": "50-200", "canonical_title": "data engineer", "created_at": "2026-10-01T08:00:00Z", "source": "synthetic", "url": "https://example.test/o001"},
+  {"offer_id": "o002", "poste": "Comptable", "entreprise": "Delta", "localisation": "Lyon", "type_contrat": "CDI", "mode_travail": "presentiel", "description": "Tenue de la comptabilité générale.", "competences_cles": ["Sage"], "seniority_level": "confirme", "sector": "finance", "company_size": "10-50", "canonical_title": "comptable", "created_at": "2026-10-02T08:00:00Z", "source": "synthetic", "url": "https://example.test/o002"}
+]

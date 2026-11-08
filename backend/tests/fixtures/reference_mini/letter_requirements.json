@@ -1,0 +1,3 @@
+[
+  {"profile_id": "p01", "offer_id": "o001", "exigences": ["Airflow", "SQL"], "preuves_exactes": [{"exigence": "Airflow", "preuve": "ETL Airflow"}], "transferables": [{"exigence": "SQL", "element": "Python"}], "lacunes": []}
+]

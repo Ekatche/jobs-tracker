@@ -1,0 +1,4 @@
+[
+  {"profile_id": "p01", "fait": "Acme", "champ": "experiences.company", "page": 1, "critique": true},
+  {"profile_id": "p02", "fait": "Beta", "champ": "experiences.company", "page": 4, "critique": false}
+]

@@ -1,0 +1,5 @@
+[
+  {"profile_id": "p01", "offer_id": "o001", "label": "pertinent", "motif": "Meme metier, niveau coherent."},
+  {"profile_id": "p01", "offer_id": "o002", "label": "hors_sujet", "motif": "Autre metier."},
+  {"profile_id": "p02", "offer_id": "o002", "label": "partiel", "motif": "Metier identique mais ville hors preference.", "preference_violee": true}
+]

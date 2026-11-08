@@ -1,0 +1,145 @@
+"""Jeu de référence synthétique commun (profil, parseur CV, lettres).
+
+Chargement, validation structurelle et rapport de couverture. Les seuils de
+volume sont vérifiés par un test sur le contenu réel, pas ici. Schéma :
+``scripts/reference/README.md``.
+"""
+
+import json
+from collections import Counter
+from pathlib import Path
+
+REFERENCE_DIR = Path(__file__).resolve().parent / "reference"
+LABELS = ("pertinent", "partiel", "hors_sujet")
+NIVEAUX = ("junior", "confirme", "senior")
+LANGUES = ("fr", "en")
+_FILES = {
+    "profiles": "profiles.json",
+    "offers": "offers.json",
+    "matching_labels": "matching_labels.json",
+    "cv_facts": "cv_facts.json",
+    "letter_requirements": "letter_requirements.json",
+}
+
+
+def load_reference(directory=REFERENCE_DIR) -> dict:
+    directory = Path(directory)
+    return {
+        key: json.loads((directory / name).read_text(encoding="utf-8"))
+        for key, name in _FILES.items()
+    }
+
+
+def _blank(value) -> bool:
+    return not isinstance(value, str) or not value.strip()
+
+
+def _duplicates(rows, key):
+    counts = Counter(r.get(key) for r in rows)
+    return [v for v, n in counts.items() if n > 1]
+
+
+def _check_profiles(profiles, errors):
+    for pid in _duplicates(profiles, "profile_id"):
+        errors.append(f"profiles : profile_id dupliqué {pid!r}")
+    for p in profiles:
+        pid = p.get("profile_id")
+        sources = p.get("sources")
+        if not isinstance(sources, dict) or not any(sources.values()):
+            errors.append(f"profil {pid} : aucune source non vide")
+        sub = p.get("subgroup")
+        if not isinstance(sub, dict):
+            errors.append(f"profil {pid} : sous-groupe absent")
+            continue
+        if _blank(sub.get("metier")):
+            errors.append(f"profil {pid} : sous-groupe sans metier")
+        if sub.get("niveau") not in NIVEAUX:
+            errors.append(f"profil {pid} : sous-groupe niveau invalide {sub.get('niveau')!r}")
+        if sub.get("langue") not in LANGUES:
+            errors.append(f"profil {pid} : sous-groupe langue invalide {sub.get('langue')!r}")
+        if not isinstance(sub.get("reconversion"), bool):
+            errors.append(f"profil {pid} : sous-groupe reconversion doit être booléen")
+
+
+def _check_offers(offers, errors):
+    for oid in _duplicates(offers, "offer_id"):
+        errors.append(f"offers : offer_id dupliqué {oid!r}")
+    for o in offers:
+        oid = o.get("offer_id")
+        for field in ("poste", "description"):
+            if _blank(o.get(field)):
+                errors.append(f"offre {oid} : {field} vide")
+        if "piege_filtre_metier" in o and not isinstance(o["piege_filtre_metier"], bool):
+            errors.append(f"offre {oid} : piege_filtre_metier doit être booléen")
+
+
+def _check_refs(rows, name, pids, oids, errors):
+    for r in rows:
+        if r.get("profile_id") not in pids:
+            errors.append(f"{name} : profile_id inexistant {r.get('profile_id')!r}")
+        if oids is not None and r.get("offer_id") not in oids:
+            errors.append(f"{name} : offer_id inexistant {r.get('offer_id')!r}")
+
+
+def _check_labels(labels, errors):
+    seen = Counter((r.get("profile_id"), r.get("offer_id")) for r in labels)
+    for (pid, oid), n in seen.items():
+        if n > 1:
+            errors.append(f"matching_labels : paire dupliquée ({pid}, {oid})")
+    for r in labels:
+        pair = (r.get("profile_id"), r.get("offer_id"))
+        if r.get("label") not in LABELS:
+            errors.append(f"matching_labels {pair} : label inconnu {r.get('label')!r}")
+        if _blank(r.get("motif")):
+            errors.append(f"matching_labels {pair} : motif vide")
+        if "preference_violee" in r and not isinstance(r["preference_violee"], bool):
+            errors.append(f"matching_labels {pair} : preference_violee doit être booléen")
+
+
+def _check_facts(facts, errors):
+    for f in facts:
+        pid = f.get("profile_id")
+        page = f.get("page")
+        if not isinstance(page, int) or isinstance(page, bool) or page < 1:
+            errors.append(f"cv_facts {pid} : page doit être un entier >= 1 ({page!r})")
+        if not isinstance(f.get("critique"), bool):
+            errors.append(f"cv_facts {pid} : critique doit être booléen")
+
+
+def validate_reference(ref) -> list[str]:
+    """Erreurs structurelles lisibles ; liste vide si le jeu est valide."""
+    errors: list[str] = []
+    profiles, offers = ref["profiles"], ref["offers"]
+    _check_profiles(profiles, errors)
+    _check_offers(offers, errors)
+    pids = {p.get("profile_id") for p in profiles}
+    oids = {o.get("offer_id") for o in offers}
+    _check_refs(ref["matching_labels"], "matching_labels", pids, oids, errors)
+    _check_refs(ref["cv_facts"], "cv_facts", pids, None, errors)
+    _check_refs(ref["letter_requirements"], "letter_requirements", pids, oids, errors)
+    _check_labels(ref["matching_labels"], errors)
+    _check_facts(ref["cv_facts"], errors)
+    return errors
+
+
+def coverage_report(ref) -> dict:
+    """Comptages du jeu (aucun seuil asserté ici)."""
+    per_profile = Counter(r["profile_id"] for r in ref["matching_labels"])
+    subgroups = {
+        key: dict(Counter(p["subgroup"][key] for p in ref["profiles"]))
+        for key in ("metier", "niveau", "langue", "reconversion")
+    }
+    return {
+        "profiles": len(ref["profiles"]),
+        "offers": len(ref["offers"]),
+        "labels": len(ref["matching_labels"]),
+        "labels_per_profile_min": min(
+            (per_profile.get(p["profile_id"], 0) for p in ref["profiles"]), default=0
+        ),
+        "labels_by_value": dict(Counter(r["label"] for r in ref["matching_labels"])),
+        "subgroups": subgroups,
+        "profiles_with_fact_page_ge_4": len(
+            {f["profile_id"] for f in ref["cv_facts"] if f["page"] >= 4}
+        ),
+        "letter_requirements": len(ref["letter_requirements"]),
+    }
