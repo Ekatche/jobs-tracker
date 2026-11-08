@@ -46,3 +46,20 @@ WEBSITE = {
     ],
     "projects": [{"name": "Sentinel", "description": "Trading quantitatif."}],
 }
+
+
+def experience(company, role, start, end=None, **extra):
+    """Une expérience minimale ; `extra` ajoute missions, stack, etc."""
+    return {"company": company, "role": role, "start": start, "end": end, **extra}
+
+
+# Employeurs fictifs pour les cas de conflit et de réimport.
+CV_V1_ORION = {
+    "experiences": [
+        experience("Orion Data SAS", "Data Engineer", "2022-03", "2024-06"),
+        experience("Helios Conseil", "Analyste", "2020-01", "2021-12"),
+    ]
+}
+MANUAL_ORION_CORRECTION = {
+    "experiences": [experience("Orion Data", "Lead Data Engineer", "2022-03", "2024-06")]
+}

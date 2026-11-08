@@ -1,5 +1,4 @@
 from app.services.profile.merge import build_profile_from_sources
-from tests.profile_merge.fixtures import CV
 
 
 def test_education_entry_only_in_one_source_survives_merge():
