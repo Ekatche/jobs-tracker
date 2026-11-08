@@ -175,7 +175,9 @@
         "element": "Rédaction des dossiers de calcul et suivi de fabrication"
       }
     ],
-    "lacunes": []
+    "lacunes": [
+      "Aucune optimisation de requêtes MongoDB documentée (modélisation de base seulement)"
+    ]
   },
   {
     "profile_id": "p18",
@@ -200,7 +202,9 @@
       }
     ],
     "transferables": [],
-    "lacunes": []
+    "lacunes": [
+      "Aucune campagne de newsletter programmée ni suivie (taux d'ouverture, clics) : seulement la rédaction des contenus"
+    ]
   },
   {
     "profile_id": "p05",
