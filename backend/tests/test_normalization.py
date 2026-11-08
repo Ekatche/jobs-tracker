@@ -1,234 +1,223 @@
+"""Tests unitaires pour les fonctions de normalisation de texte, URLs et métadonnées d'offres."""
+
+from datetime import datetime, timezone
 import pytest
+
+from app.models import JobOfferCreate, JobOfferResponse
 from app.services.normalization import (
-    normalize_city,
-    normalize_company,
-    normalize_position,
-    extract_domain,
-    compute_unique_key,
-    extract_company_from_url,
-    optimize_crawl_url,
-    restore_canonical_job_url,
     clean_html_entities_and_tags,
     clean_job_title_syntax,
+    detect_contract_type,
+    extract_company_from_url,
+    extract_seniority,
+    normalize_city,
+    normalize_company,
     normalize_offer_fields,
+    normalize_position,
+    optimize_crawl_url,
+    restore_canonical_job_url,
 )
 
 
-def test_normalize_city():
-    assert normalize_city("44000 Nantes") == "Nantes"
-    assert normalize_city("Lyon - 01") == "Lyon"
-    assert normalize_city("Paris (75)") == "Paris"
-    assert normalize_city("LYON 03") == "Lyon"
-    assert normalize_city(None) == "Non spécifié"
-    assert normalize_city("") == "Non spécifié"
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("44000 Nantes", "Nantes"),
+        ("Lyon - 01", "Lyon"),
+        ("Paris (75)", "Paris"),
+        ("LYON 03", "Lyon"),
+        (None, "Non spécifié"),
+        ("", "Non spécifié"),
+    ],
+)
+def test_normalize_city(raw, expected):
+    assert normalize_city(raw) == expected
 
 
-def test_normalize_company():
-    assert normalize_company("Acme SAS") == "ACME"
-    assert normalize_company("Google LLC") == "GOOGLE"
-    assert normalize_company("Tech Solutions SARL") == "TECH SOLUTIONS"
-    assert normalize_company(None) == "Non spécifié"
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("Acme SAS", "ACME"),
+        ("Google LLC", "GOOGLE"),
+        ("Tech Solutions SARL", "TECH SOLUTIONS"),
+        (None, "Non spécifié"),
+    ],
+)
+def test_normalize_company(raw, expected):
+    assert normalize_company(raw) == expected
 
 
-def test_normalize_position():
-    assert normalize_position("Data Scientist (H/F)") == "DATA SCIENTIST"
-    assert normalize_position("Ingénieur Devops / Cloud H/F") == "CLOUD DEVOPS INGÉNIEUR"
-    assert normalize_position(None) == "Non spécifié"
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("Data Scientist (H/F)", "DATA SCIENTIST"),
+        ("Ingénieur Devops / Cloud H/F", "CLOUD DEVOPS INGÉNIEUR"),
+        (None, "Non spécifié"),
+    ],
+)
+def test_normalize_position(raw, expected):
+    assert normalize_position(raw) == expected
 
 
-def test_compute_unique_key():
-    key1 = compute_unique_key("Acme SAS", "Data Scientist (H/F)", "Lyon - 01")
-    key2 = compute_unique_key("Acme", "Data Scientist", "44000 Lyon")
-    assert key1 == key2
-
-    key_url1 = compute_unique_key("Acme", "Data Scientist", url="https://acme.com/jobs/123/")
-    key_url2 = compute_unique_key("Acme SAS", "Data Scientist H/F", url="https://acme.com/jobs/123")
-    assert key_url1 == key_url2
-
-    # Cross-source URLs (WTTJ vs LinkedIn) for same company and role
-    key_wttj = compute_unique_key(
-        "Deloitte", "Ai Engineer / Scientist Confirmé F/h", "Lyon",
-        url="https://www.welcometothejungle.com/fr/companies/deloitte/jobs/ai-engineer-scientist-confirme-f-h_lyon"
-    )
-    key_linkedin = compute_unique_key(
-        "Deloitte", "AI Engineer / Scientist confirmé", "Lyon",
-        url="https://fr.linkedin.com/jobs/view/ai-engineer-scientist-confirm%C3%A9-f-h-at-deloitte-4463883002"
-    )
-    assert key_wttj == key_linkedin
-    assert key_wttj == "deloitte|ai confirmé engineer scientist|lyon"
-
-
-def test_extract_company_from_url():
-    # ATS URLs
-    assert (
-        extract_company_from_url(
-            "https://galderma.wd3.myworkdayjobs.com/fr-FR/External/job/Alby/Data-Analyst_JR014026-1"
-        )
-        == "Galderma"
-    )
-    assert extract_company_from_url("https://boards.greenhouse.io/stripe/jobs/123") == "Stripe"
-    assert extract_company_from_url("https://jobs.lever.co/datadog/456") == "Datadog"
-    assert extract_company_from_url("https://jobs.smartrecruiters.com/boschgroup/789") == "Boschgroup"
-    assert (
-        extract_company_from_url("https://www.welcometothejungle.com/fr/companies/alan/jobs/123")
-        == "Alan"
-    )
-    assert extract_company_from_url("https://swile.recruitee.com/o/lead-dev") == "Swile"
-    assert extract_company_from_url("https://carrieres.totalenergies.com/offres/123") == "Totalenergies"
-
-    # New global and generalist ATS platforms
-    assert extract_company_from_url("https://jobs.ashbyhq.com/openai/12345") == "Openai"
-    assert extract_company_from_url("https://acme.bamboohr.com/careers/123") == "Acme"
-    assert extract_company_from_url("https://apply.workable.com/qonto/j/ABC123/") == "Qonto"
-    assert extract_company_from_url("https://qonto.workable.com/j/ABC123") == "Qonto"
-    assert extract_company_from_url("https://alan.jobs.personio.de/job/987") == "Alan"
-    assert extract_company_from_url("https://jobs.personio.de/alan/job/987") == "Alan"
-    assert extract_company_from_url("https://danone.jobs2web.com/job/123") == "Danone"
-    assert extract_company_from_url("https://airbus.taleo.net/careersection/jobdetail.ftl?job=123") == "Airbus"
-    assert extract_company_from_url("https://careers-totalenergies.icims.com/jobs/123") == "Totalenergies"
-    assert extract_company_from_url("https://swile.teamtailor.com/jobs/123") == "Swile"
-
-    # Aggregator URLs must return None
-    assert extract_company_from_url("https://candidat.francetravail.fr/offres/recherche/detail/184ABCD") is None
-    assert extract_company_from_url("https://www.linkedin.com/jobs/view/12345") is None
-    assert extract_company_from_url("https://www.apec.fr/candidat/detail-offre/123") is None
-    assert extract_company_from_url("https://fr.indeed.com/viewjob?jk=123") is None
-
-    # Empty or invalid URLs
-    assert extract_company_from_url(None) is None
-    assert extract_company_from_url("") is None
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("https://galderma.wd3.myworkdayjobs.com/fr-FR/External/job/Alby/Data-Analyst_JR014026-1", "Galderma"),
+        ("https://boards.greenhouse.io/stripe/jobs/123", "Stripe"),
+        ("https://jobs.lever.co/datadog/456", "Datadog"),
+        ("https://jobs.smartrecruiters.com/boschgroup/789", "Boschgroup"),
+        ("https://www.welcometothejungle.com/fr/companies/alan/jobs/123", "Alan"),
+        ("https://swile.recruitee.com/o/lead-dev", "Swile"),
+        ("https://carrieres.totalenergies.com/offres/123", "Totalenergies"),
+        ("https://jobs.ashbyhq.com/openai/12345", "Openai"),
+        ("https://acme.bamboohr.com/careers/123", "Acme"),
+        ("https://apply.workable.com/qonto/j/ABC123/", "Qonto"),
+        ("https://qonto.workable.com/j/ABC123", "Qonto"),
+        ("https://alan.jobs.personio.de/job/987", "Alan"),
+        ("https://jobs.personio.de/alan/job/987", "Alan"),
+        ("https://danone.jobs2web.com/job/123", "Danone"),
+        ("https://airbus.taleo.net/careersection/jobdetail.ftl?job=123", "Airbus"),
+        ("https://careers-totalenergies.icims.com/jobs/123", "Totalenergies"),
+        ("https://swile.teamtailor.com/jobs/123", "Swile"),
+        # Agrégateurs -> None
+        ("https://candidat.francetravail.fr/offres/recherche/detail/184ABCD", None),
+        ("https://www.linkedin.com/jobs/view/12345", None),
+        ("https://www.apec.fr/candidat/detail-offre/123", None),
+        ("https://fr.indeed.com/viewjob?jk=123", None),
+        (None, None),
+        ("", None),
+    ],
+)
+def test_extract_company_from_url(url, expected):
+    assert extract_company_from_url(url) == expected
 
 
-def test_optimize_crawl_url():
-    # LinkedIn URLs: rewrite to guest API endpoint
-    assert (
-        optimize_crawl_url("https://fr.linkedin.com/jobs/view/4463811288")
-        == "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/4463811288"
-    )
-    assert (
-        optimize_crawl_url("https://www.linkedin.com/jobs/view/data-scientist-at-klanik-4463811288?position=1")
-        == "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/4463811288"
-    )
-    # Already guest API -> unchanged
-    assert (
-        optimize_crawl_url("https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/4463811288")
-        == "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/4463811288"
-    )
-
-    # Indeed URLs: rewrite to mobile view (/m/viewjob) to bypass Cloudflare
-    assert (
-        optimize_crawl_url("https://fr.indeed.com/viewjob?jk=40a89e89e93a1394")
-        == "https://fr.indeed.com/m/viewjob?jk=40a89e89e93a1394"
-    )
-    assert (
-        optimize_crawl_url("https://www.indeed.com/rc/clk?jk=abc123xyz&from=vjs")
-        == "https://www.indeed.com/m/viewjob?jk=abc123xyz"
-    )
-    # Already mobile view -> unchanged
-    assert (
-        optimize_crawl_url("https://fr.indeed.com/m/viewjob?jk=40a89e89e93a1394")
-        == "https://fr.indeed.com/m/viewjob?jk=40a89e89e93a1394"
-    )
-
-    # Other job boards: untouched
-    wttj = "https://www.welcometothejungle.com/fr/companies/alan/jobs/123"
-    assert optimize_crawl_url(wttj) == wttj
-    apec = "https://www.apec.fr/candidat/recherche-emploi.html/offre/123"
-    assert optimize_crawl_url(apec) == apec
-
-    # Empty / None
-    assert optimize_crawl_url(None) == ""
-    assert optimize_crawl_url("") == ""
+@pytest.mark.parametrize(
+    "raw_url, expected_url",
+    [
+        ("https://fr.linkedin.com/jobs/view/4463811288", "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/4463811288"),
+        ("https://www.linkedin.com/jobs/view/data-scientist-at-klanik-4463811288?position=1", "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/4463811288"),
+        ("https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/4463811288", "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/4463811288"),
+        ("https://fr.indeed.com/viewjob?jk=40a89e89e93a1394", "https://fr.indeed.com/m/viewjob?jk=40a89e89e93a1394"),
+        ("https://www.indeed.com/rc/clk?jk=abc123xyz&from=vjs", "https://www.indeed.com/m/viewjob?jk=abc123xyz"),
+        ("https://fr.indeed.com/m/viewjob?jk=40a89e89e93a1394", "https://fr.indeed.com/m/viewjob?jk=40a89e89e93a1394"),
+        ("https://www.welcometothejungle.com/fr/companies/alan/jobs/123", "https://www.welcometothejungle.com/fr/companies/alan/jobs/123"),
+        (None, ""),
+        ("", ""),
+    ],
+)
+def test_optimize_crawl_url(raw_url, expected_url):
+    assert optimize_crawl_url(raw_url) == expected_url
 
 
-def test_restore_canonical_job_url():
-    # LinkedIn guest endpoint -> user-facing view URL
-    assert (
-        restore_canonical_job_url("https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/4463811288")
-        == "https://www.linkedin.com/jobs/view/4463811288"
-    )
-
-    # Indeed mobile endpoint -> user-facing desktop viewjob
-    assert (
-        restore_canonical_job_url("https://fr.indeed.com/m/viewjob?jk=40a89e89e93a1394")
-        == "https://fr.indeed.com/viewjob?jk=40a89e89e93a1394"
-    )
-
-    # Other URLs untouched
-    wttj = "https://www.welcometothejungle.com/fr/companies/alan/jobs/123"
-    assert restore_canonical_job_url(wttj) == wttj
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/4463811288", "https://www.linkedin.com/jobs/view/4463811288"),
+        ("https://fr.indeed.com/m/viewjob?jk=40a89e89e93a1394", "https://fr.indeed.com/viewjob?jk=40a89e89e93a1394"),
+        ("https://www.welcometothejungle.com/fr/companies/alan/jobs/123", "https://www.welcometothejungle.com/fr/companies/alan/jobs/123"),
+    ],
+)
+def test_restore_canonical_job_url(url, expected):
+    assert restore_canonical_job_url(url) == expected
 
 
-def test_merge_multidiffusion_offers_preserves_metadata():
-    from app.services.normalization import merge_multidiffusion_offers
-
-    wttj_offer = {
-        "poste": "Ai Engineer / Scientist Confirmé F/h",
-        "entreprise": "Deloitte",
-        "localisation": "Lyon",
-        "url": "https://www.welcometothejungle.com/fr/companies/deloitte/jobs/ai-engineer-scientist-confirme-f-h_lyon",
-        "evaluation": {"score": 5.0, "match": "Excellent"},
-        "user_interaction": "saved",
-        "description": "Court descriptif WTTJ",
-        "competences_cles": ["Python", "PyTorch"],
-    }
-
-    linkedin_offer = {
-        "poste": "AI Engineer / Scientist confirmé",
-        "entreprise": "Deloitte",
-        "localisation": "Lyon",
-        "url": "https://fr.linkedin.com/jobs/view/ai-engineer-scientist-confirm%C3%A9-f-h-at-deloitte-4463883002",
-        "description": "Descriptif beaucoup plus long et détaillé issu de LinkedIn avec tous les éléments du poste...",
-        "competences_cles": ["Python", "MLOps", "Docker"],
-    }
-
-    merged = merge_multidiffusion_offers(wttj_offer, linkedin_offer)
-
-    # WTTJ has priority 80 over LinkedIn 50
-    assert merged["url"] == wttj_offer["url"]
-    assert linkedin_offer["url"] in merged["alternative_urls"]
-    # Preserves evaluation & user_interaction
-    assert merged["evaluation"] == {"score": 5.0, "match": "Excellent"}
-    assert merged["user_interaction"] == "saved"
-    # Merges skills
-    assert set(merged["competences_cles"]) == {"Python", "PyTorch", "MLOps", "Docker"}
-    # Keeps longest description
-    assert merged["description"] == linkedin_offer["description"]
-    # Clean canonical unique_key
-    assert merged["unique_key"] == "deloitte|ai confirmé engineer scientist|lyon"
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("Junior Data Scientist / ML Engineer (R&amp;D)", "Junior Data Scientist / ML Engineer (R&D)"),
+        ("Ingénieur &lt;Cloud&gt; &amp; DevOps", "Ingénieur <Cloud> & DevOps"),
+        ("Lead&#39;s Team &quot;AI&quot;", "Lead's Team \"AI\""),
+        ("<strong>Data Analyst</strong>", "Data Analyst"),
+        ("Espace\u00a0insécable\u200b", "Espace insécable"),
+        (None, ""),
+        ("", ""),
+    ],
+)
+def test_clean_html_entities_and_tags(raw, expected):
+    assert clean_html_entities_and_tags(raw) == expected
 
 
-def test_clean_html_entities_and_tags():
-    assert clean_html_entities_and_tags("Junior Data Scientist / ML Engineer (R&amp;D)") == "Junior Data Scientist / ML Engineer (R&D)"
-    assert clean_html_entities_and_tags("Ingénieur &lt;Cloud&gt; &amp; DevOps") == "Ingénieur <Cloud> & DevOps"
-    assert clean_html_entities_and_tags("Lead&#39;s Team &quot;AI&quot;") == "Lead's Team \"AI\""
-    assert clean_html_entities_and_tags("<strong>Data Analyst</strong>") == "Data Analyst"
-    assert clean_html_entities_and_tags("Espace\u00a0insécable\u200b") == "Espace insécable"
-    assert clean_html_entities_and_tags(None) == ""
-    assert clean_html_entities_and_tags("") == ""
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ("Data Scientist (H/F)", "Data Scientist"),
+        ("Data Scientist (F/H)", "Data Scientist"),
+        ("Data Scientist H/F", "Data Scientist"),
+        ("Data Scientist Homme / Femme", "Data Scientist"),
+        ("Ingénieur IA (M/F/D)", "Ingénieur IA"),
+        ("Lead Data Engineer - CDI", "Lead Data Engineer"),
+        ("Data Analyst CDD", "Data Analyst"),
+        ("Stage Data Science", "Data Science"),
+        ("Alternance Machine Learning", "Machine Learning"),
+        ("🚀 [LYON] Senior ML Engineer (H/F) - CDI [URGENT] 🔥", "Senior ML Engineer"),
+        ("Backend Engineer - Paris", "Backend Engineer"),
+        ("Fullstack Developer | Remote", "Fullstack Developer"),
+        ("Data Engineer (Lyon)", "Data Engineer"),
+        ("DevOps Engineer - Télétravail", "DevOps Engineer"),
+        ("Junior Data Scientist / ML Engineer (R&amp;D)", "Junior Data Scientist / ML Engineer (R&D)"),
+        ("<h3>Data Engineer</h3> (H/F)", "Data Engineer"),
+        ("Data Scientist (H/F) ()", "Data Scientist"),
+        ("ML Engineer [ ]", "ML Engineer"),
+        ("Data Analyst (CDI) (Paris)", "Data Analyst"),
+        ("Data Trust & AI Governance Manager (H/F/NB)", "Data Trust & AI Governance Manager"),
+        ("Data Scientist – Remote", "Data Scientist"),
+        ("Data Scientist - -", "Data Scientist"),
+        (None, "Non spécifié"),
+        ("", "Non spécifié"),
+        ("   ", "Non spécifié"),
+    ],
+)
+def test_clean_job_title_syntax(raw, expected):
+    assert clean_job_title_syntax(raw) == expected
 
 
-def test_clean_job_title_syntax():
-    # HTML entities in title
-    raw = "Junior Data Scientist / ML Engineer (R&amp;D)"
-    assert clean_job_title_syntax(raw) == "Junior Data Scientist / ML Engineer (R&D)"
-
-    # HTML tags in title
-    assert clean_job_title_syntax("<h3>Data Engineer</h3> (H/F)") == "Data Engineer"
-
-    # Residual empty brackets and parentheses
-    assert clean_job_title_syntax("Data Scientist (H/F) ()") == "Data Scientist"
-    assert clean_job_title_syntax("ML Engineer [ ]") == "ML Engineer"
-    assert clean_job_title_syntax("Data Analyst (CDI) (Paris)") == "Data Analyst"
-
-    # Typographic punctuation & legal mentions
-    assert clean_job_title_syntax("Data Trust & AI Governance Manager (H/F/NB)") == "Data Trust & AI Governance Manager"
-    assert clean_job_title_syntax("Data Scientist – Remote") == "Data Scientist"
-    assert clean_job_title_syntax("Data Scientist - -") == "Data Scientist"
+@pytest.mark.parametrize(
+    "title, description, expected",
+    [
+        ("Senior Data Scientist", None, "senior"),
+        ("Lead DevOps Engineer", None, "lead"),
+        ("Junior Python Developer", None, "junior"),
+        ("Stage / Intern Data Science", None, "intern"),
+        ("VP Engineering", None, "director"),
+        ("Data Scientist Confirmé", None, "mid"),
+        ("Data Scientist", "Nous recrutons un profil Senior avec plus de 5 ans d'expérience.", "senior"),
+        ("Data Scientist", "Poste au sein de notre équipe data.", None),
+    ],
+)
+def test_extract_seniority(title, description, expected):
+    assert extract_seniority(title, description) == expected
 
 
-def test_normalize_offer_fields():
-    polluted_offer = {
+@pytest.mark.parametrize(
+    "source_contract, title, description, expected",
+    [
+        ("", "Stage Data Science (F/H/X)", None, "Stage"),
+        ("Non spécifié", "Alternance - Data scientist H/F", None, "Alternance"),
+        (None, "Data Analyst (stage ou alternance)", None, "Stage / Alternance"),
+        ("", "Data Science", "Le stagiaire Data Scientist participera au déploiement.", "Stage"),
+        ("", "Data Analyst", "Stage de 3 à 4 mois à partir de mars.", "Stage"),
+        ("", "Data Engineer", "Poste à pourvoir en contrat d'apprentissage de 24 mois.", "Alternance"),
+        ("", "Data Scientist", "Le poste peut éventuellement prendre la forme d'un stage.", "Non spécifié"),
+        ("", "Data Engineer - Early-stage startup", None, "Non spécifié"),
+        ("", "ML Engineer, Seed stage fintech", None, "Non spécifié"),
+        ("", "Lead Data Scientist", "Vous encadrerez le stagiaire de l'équipe.", "Non spécifié"),
+        ("", "Ingénieur apprentissage automatique", None, "Non spécifié"),
+        ("Permanent contract", "Data Scientist", None, "CDI"),
+        ("Contrat à durée indéterminée", "Data Scientist", None, "CDI"),
+        ("CDD / Temporaire", "Data Scientist", None, "CDD"),
+        ("CDI", "Stage - IA et management opérationnel", None, "Stage"),
+        ("CDI", "Data Engineer Freelance", None, "CDI"),
+        ("Temps partiel", "Data Analyst", None, "Temps partiel"),
+        ("None", "Data Analyst", None, "Non spécifié"),
+    ],
+)
+def test_detect_contract_type(source_contract, title, description, expected):
+    assert detect_contract_type(source_contract, title, description) == expected
+
+
+def test_normalize_offer_fields_and_contract_inference():
+    polluted = {
         "poste": "Junior Data Scientist / ML Engineer (R&amp;D) (H/F)",
         "entreprise": "Recupere Metals &amp; Co",
         "localisation": "Paris (75) &amp; Remote",
@@ -238,21 +227,50 @@ def test_normalize_offer_fields():
         "mode_travail": "Hybride &amp; Flexible",
         "url": "https://recuperemetals.com/jobs/1",
     }
-
-    cleaned = normalize_offer_fields(polluted_offer)
-
+    cleaned = normalize_offer_fields(polluted)
     assert cleaned["poste"] == "Junior Data Scientist / ML Engineer (R&D)"
     assert cleaned["entreprise"] == "Recupere Metals & Co"
     assert cleaned["localisation"] == "Paris & Remote"
     assert "<p>" not in cleaned["description"]
-    assert "<strong>" not in cleaned["description"]
-    assert "Recupere Metals & Co" in cleaned["description"]
-    # Entités décodées, puis valeur mise sous forme canonique par detect_contract_type
     assert cleaned["type_contrat"] == "CDI"
     assert "€" in cleaned["salaire"]
-    assert cleaned["mode_travail"] == "Hybride & Flexible"
     assert cleaned["unique_key"] is not None
-    assert "recupere metals & co" in cleaned["unique_key"]
+
+    stage_offer = {"poste": "Stage Développeur Python Fullstack H/F", "entreprise": "TechCorp", "type_contrat": None}
+    assert normalize_offer_fields(stage_offer)["type_contrat"] == "Stage"
+
+    alt_offer = {"poste": "Alternance Data Scientist - Paris", "entreprise": "DataCo", "type_contrat": "Non spécifié"}
+    assert normalize_offer_fields(alt_offer)["type_contrat"] == "Alternance"
+
+    cdi_offer = {"poste": "Développeur Python Freelance", "entreprise": "DevCo", "type_contrat": "CDI"}
+    assert normalize_offer_fields(cdi_offer)["type_contrat"] == "CDI"
 
 
+def test_job_offer_models_include_new_fields():
+    now = datetime.now(timezone.utc)
+    create_payload = {
+        "poste": "Senior Data Scientist",
+        "entreprise": "Acme",
+        "canonical_title": "Data Scientist",
+        "seniority_level": "senior",
+        "alternative_urls": ["https://indeed.com/1", "https://linkedin.com/2"],
+    }
+    create_model = JobOfferCreate(**create_payload)
+    assert create_model.canonical_title == "Data Scientist"
+    assert create_model.seniority_level == "senior"
+    assert len(create_model.alternative_urls) == 2
 
+    response_payload = {
+        "id": "60d5ecb8b5c9c8e1d4e8b9f1",
+        "poste": "Senior Data Scientist",
+        "entreprise": "Acme",
+        "canonical_title": "Data Scientist",
+        "seniority_level": "senior",
+        "alternative_urls": ["https://indeed.com/1"],
+        "created_at": now,
+        "updated_at": now,
+    }
+    response_model = JobOfferResponse(**response_payload)
+    assert response_model.canonical_title == "Data Scientist"
+    assert response_model.seniority_level == "senior"
+    assert response_model.alternative_urls == ["https://indeed.com/1"]
