@@ -45,13 +45,14 @@ async def test_trigger_cover_letter_on_etude_transition():
         args, _ = bg_tasks.add_task.call_args
         assert args[0] == mock_bg_fn
 
+@pytest.mark.parametrize("status", ["ready", "needs_review"])
 @pytest.mark.asyncio
-async def test_cover_letter_bg_idempotency():
+async def test_cover_letter_bg_idempotency(status):
     mock_db = MagicMock()
     app_id = ObjectId()
     user_id = ObjectId()
 
-    mock_db["cover_letters"].find_one = AsyncMock(return_value={"_id": ObjectId(), "status": "ready"})
+    mock_db["cover_letters"].find_one = AsyncMock(return_value={"_id": ObjectId(), "status": status})
     mock_db["cover_letters"].insert_one = AsyncMock()
 
     await _generate_cover_letter_bg(app_id, user_id, mock_db)

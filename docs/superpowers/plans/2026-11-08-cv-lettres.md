@@ -26,7 +26,7 @@ Le garde CV actuel ne contrôle pas les affirmations des puces ni les certificat
 - [ ] Export PDF (`backend/app/routers/cover_letters.py`, contrôle `status != "ready"`) : autoriser l'export d'une lettre `needs_review` après avertissement explicite côté interface, sans la marquer prête.
 - [ ] Frontend : ajouter `needs_review` au type de `frontend/src/types/coverLetter.ts` ; dans `CoverLetterPanel.tsx`, arrêter le rafraîchissement automatique sur `needs_review` (il ne s'arrête aujourd'hui que sur `ready` ou `failed`) et afficher les motifs avec l'action de correction.
 - [ ] Compatibilité : les lettres existantes `ready` restent `ready` ; pas de migration.
-- [ ] Depuis `backend`, exécuter `uv run pytest tests/test_cover_letters_api.py tests/test_cover_letter_crew.py -v` et les tests frontend concernés.
+- [ ] Depuis `backend`, exécuter `uv run pytest tests/test_cover_letters_api.py tests/test_cover_letter_crew.py tests/test_cover_letter_status.py -v` et les tests frontend concernés.
 
 ## Tâche 1 — Jeu de référence et mesure
 
@@ -43,7 +43,7 @@ Le garde CV actuel ne contrôle pas les affirmations des puces ni les certificat
 ## Tâche 3 — Qualité des lettres
 
 - [ ] Tester dans `test_cover_letter_crew.py` et `test_letter_guards.py` le lien entre exigences et preuves, le transfert clairement formulé et l'attribution erronée. Adapter les prompts et la critique sans masquer les violations restantes ; une violation non résolue doit aboutir à `needs_review`, jamais à `ready`.
-- [ ] Depuis `backend`, exécuter `uv run pytest tests/test_letter_guards.py tests/test_cover_letter_crew.py tests/test_cover_letters_api.py -v`.
+- [ ] Depuis `backend`, exécuter `uv run pytest tests/test_letter_guards.py tests/test_cover_letter_crew.py tests/test_cover_letters_api.py tests/test_cover_letter_status.py -v`.
 
 ## Tâche 4 — PDF et bilan
 

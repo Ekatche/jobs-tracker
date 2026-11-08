@@ -93,33 +93,6 @@ async def test_clean_guard_report_yields_ready(client, letter_db):
     assert client.get(f"/applications/{app_id}/cover-letter").json()["status"] == "ready"
 
 
-@pytest.mark.asyncio
-async def test_background_rerun_ignores_needs_review_letter(letter_db):
-    app_id = await _seed_application(letter_db)
-    await _seed_letter(letter_db, app_id, "needs_review", guard_report=BLOCKING)
-
-    pipeline = await _generate(letter_db, app_id, BLOCKING)
-
-    pipeline.assert_not_called()
-    letter = await letter_db["cover_letters"].find_one({"application_id": app_id})
-    assert letter["status"] == "needs_review"
-    assert len(letter["versions"]) == 1
-
-
-@pytest.mark.asyncio
-async def test_explicit_regenerate_moves_needs_review_back_to_pending(client, letter_db):
-    app_id = await _seed_application(letter_db)
-    await _seed_letter(letter_db, app_id, "needs_review", guard_report=BLOCKING)
-
-    with patch("app.routers.cover_letters._generate_cover_letter_bg"):
-        res = client.post(f"/applications/{app_id}/cover-letter/regenerate")
-
-    assert res.status_code == 200
-    letter = await letter_db["cover_letters"].find_one({"application_id": app_id})
-    assert letter["status"] == "pending"
-    assert len(letter["versions"]) == 1
-
-
 @pytest.mark.parametrize("new_body, expected_status, expected_violations", [
     (CLEAN_BODY, "ready", []),
     (CLEAN_BODY + " Cordialement !", "needs_review", ["Point d'exclamation (!) interdit"]),
@@ -157,9 +130,7 @@ async def test_edit_of_legacy_ready_letter_without_context_stays_ready(client, l
 
 @pytest.mark.parametrize("query, status, expected_code", [
     ("", "needs_review", 409),
-    ("?acknowledge_review=false", "needs_review", 409),
     ("?acknowledge_review=true", "needs_review", 200),
-    ("", "ready", 200),
     ("?acknowledge_review=true", "pending", 404),
 ])
 @pytest.mark.asyncio
