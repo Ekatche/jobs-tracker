@@ -204,3 +204,4 @@ def test_reconcile_ignores_unknown_req_id():
 def test_quote_in_offer(quote, expected):
     offer = "Poste d'animateur. Titulaire du BAFA, vous rejoignez l'équipe d'animation.\nPermis B apprécié."
     assert quote_in_offer(quote, offer) is expected
+

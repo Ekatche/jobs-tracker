@@ -141,3 +141,4 @@ async def test_evaluation_records_models_actually_used():
     stored = cols["offer_evaluations"].update_one.call_args.args[1]["$set"]
     assert stored["models_used"] == [FALLBACK_MODEL, PRIMARY_MODEL]
     assert mock_usage.await_args.kwargs["models_used"] == [FALLBACK_MODEL, PRIMARY_MODEL]
+

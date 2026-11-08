@@ -91,3 +91,4 @@ def test_evaluate_invalid_ids():
         assert client.get("/job-offers/invalid-id/evaluation").status_code == 400
     finally:
         app.dependency_overrides.pop(get_current_user, None)
+

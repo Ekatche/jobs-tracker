@@ -22,6 +22,7 @@ htmlcov/
 
 # ✅ Environnements virtuels
 .venv/
+**/.venv/
 venv/
 env/
 ENV/

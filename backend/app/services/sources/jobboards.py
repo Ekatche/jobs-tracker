@@ -7,11 +7,13 @@ d'exception sur un blocage : l'erreur arrive dans `attrs["errors"]` du DataFrame
 
 import asyncio
 import datetime
+import json
 import logging
 import math
 from typing import Optional
 
 from app.services.sources.geo import GEO_RADIUS_KM, clean_city_label
+from app.services.collection_context import collection_query_id, query_fingerprint
 
 logger = logging.getLogger(__name__)
 
@@ -91,9 +93,12 @@ def _scrape_site(site: str, role: str, city: Optional[str]) -> list[dict]:
         verbose=0,
     )
     error = jobs.attrs.get("errors", {}).get(site)
+    rows = [map_jobboard_row(row) for row in jobs.to_dict("records")]
+    query_id = collection_query_id.get() or query_fingerprint(f"{role}|{city or ''}")
+    logger.info("collection_source %s", json.dumps({"query_id": query_id, "source": site, "status": "partial_failure" if error and rows else "error" if error else "success" if rows else "empty", "found": len(rows)}))
     if error:
         logger.warning(f"⚠️ {site} en échec pour '{role}': {error}")
-    return [map_jobboard_row(row) for row in jobs.to_dict("records")]
+    return rows
 
 
 async def fetch_jobboard_offers(role: str, city: Optional[str], contract: Optional[str]) -> list[dict]:
@@ -104,6 +109,8 @@ async def fetch_jobboard_offers(role: str, city: Optional[str], contract: Option
     offers: list[dict] = []
     for site, result in zip(JOBBOARD_SITES, results):
         if isinstance(result, Exception):
+            query_id = collection_query_id.get() or query_fingerprint(f"{role}|{city or ''}")
+            logger.info("collection_source %s", json.dumps({"query_id": query_id, "source": site, "status": "error", "found": 0}))
             logger.warning(f"⚠️ {site} indisponible pour '{role}': {result}")
             continue
         logger.info(f"📥 {site}: {len(result)} offres pour '{role}' ({city or 'France'})")

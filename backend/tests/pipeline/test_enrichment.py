@@ -190,3 +190,4 @@ def test_enrich_raw_data_keyed_by_source():
     assert enriched[0]["raw_data"] == {"linkedin": linkedin_row}
     assert enriched[1]["raw_data"] == {"llm_crawl": raw_offers[1]}
     assert all("source_record" not in offer for offer in enriched)
+

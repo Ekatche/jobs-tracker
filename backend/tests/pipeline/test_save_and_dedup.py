@@ -267,3 +267,4 @@ async def test_save_offers_survives_company_resolver_failure(monkeypatch):
     res = await save_offers_to_database([offer])
     assert res["saved"] == 1
     assert mock_col.insert_one.called
+

@@ -195,3 +195,4 @@ def test_structured_description_preservation():
     assert "**Missions principales** :" in saved_desc
     assert "**Profil recherché** :" in saved_desc
     assert "**Stack & Outils** :" in saved_desc
+

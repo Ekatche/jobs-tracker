@@ -229,3 +229,4 @@ def test_get_job_offers_requires_login(client):
     app.dependency_overrides.pop(get_current_user, None)
     assert client.get("/job-offers/").status_code == 401
     assert client.get("/job-offers/count/").status_code == 401
+
