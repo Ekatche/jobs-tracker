@@ -45,6 +45,7 @@ PROTECTED_MESSAGE = "Ce PDF est protégé par un mot de passe : exportez une ver
 SECTIONS = ("headline", "summary", "experiences", "projects", "education", "certifications",
             "languages", "interests", "skills", "contact")
 # Prix en $ par million de tokens (entrée, sortie). Modèle inconnu : tarif le plus élevé connu.
+# Hypothèses (pixtral-12b, gpt-4o-mini) : à confirmer avant --real --confirm.
 PRICES_USD_PER_M = {
     "mistral/pixtral-large-latest": (2.0, 6.0),
     "mistral/pixtral-12b-2409": (0.15, 0.15),
@@ -184,6 +185,9 @@ def compute_metrics(facts: List[Dict[str, Any]], truth_cv: Dict[str, Any], resul
     recall = (len(company_facts) - len(missed)) / len(company_facts) if company_facts else None
 
     experiences = truth_cv.get("experiences") or []
+    # Écart assumé avec le brief (« aucun fait du cas ») : les faits n'annotent qu'une partie des
+    # expériences (ex. p03, p04 : certaines n'ont aucun fait). Sans les entreprises du CV de vérité,
+    # une expérience réelle mais non annotée serait comptée à tort comme inventée.
     known_companies = {normalize(c) for c in company_facts} | {normalize(e.get("company")) for e in experiences}
     invented = [f"experiences.company : {e.get('company')}" for e in extracted
                 if normalize(e.get("company")) not in known_companies]
@@ -290,6 +294,9 @@ async def _run_case(entry, case, ref, mode, oracle_factory) -> Dict[str, Any]:
     metrics = compute_metrics(entry["facts"], truth["cv"], result)
     pages = _page_metrics(entry, outcome, report)
     category = entry["category"]
+    expected_rejection = category in REJECTION_CATEGORIES or bool(outcome["rejected"])
+    if expected_rejection:  # évalué sur le rejet lui-même, pas sur le rappel
+        metrics["experience_recall"], metrics["missed_experiences"] = None, []
     skipped = set(pages["skipped_pages"])
     unavailable = sum(1 for u in usage if not u.get("input_tokens") and not u.get("output_tokens"))
     if outcome["error"] and not usage and category not in REJECTION_CATEGORIES:
@@ -297,11 +304,11 @@ async def _run_case(entry, case, ref, mode, oracle_factory) -> Dict[str, Any]:
     return {
         "case_id": entry["case_id"], "category": category, "profile_id": entry["profile_id"],
         **metrics, **pages,
-        "n_company_facts": sum(1 for f in entry["facts"] if f["champ"] == "experiences.company"),
+        "n_company_facts": 0 if expected_rejection else sum(1 for f in entry["facts"] if f["champ"] == "experiences.company"),
         "facts_lost_on_skipped_pages": sum(1 for f in entry["facts"] if f["page"] in skipped and f.get("critique")),
         "rejected": outcome["rejected"], "errors": errors, "duration_s": round(duration, 4),
         "cost_usd": usage_cost_usd(usage), "usage": usage, "usage_unavailable": unavailable, "n_calls": len(calls),
-        "expected_rejection": category in REJECTION_CATEGORIES,
+        "expected_rejection": expected_rejection,
         "expectation_met": _expectation_met(category, outcome, result),
         "completed": result is not None, "cost_recorded": False,
     }
@@ -387,10 +394,15 @@ async def run_bench(manifest, cases, ref, mode: str = "simulated", confirm: bool
         return {"mode": mode, "confirmed": False, "estimate_usd": sum(estimates.values()),
                 "estimates": estimates, "results": []}
     rows: List[Dict[str, Any]] = []
+    out = Path(out_dir)
     for case in cases:
         entry = entries[case["case_id"]]
         if mode == "real":
-            llm_budget.check_budget("parser", estimates[case["case_id"]])
+            try:
+                llm_budget.check_budget("parser", estimates[case["case_id"]])
+            except llm_budget.BudgetExceeded:
+                _write_report(out, mode, _build_report(mode, rows, partial=True))
+                raise
         row = await _run_case(entry, case, ref, mode, oracle_factory)
         if mode == "real" and row["completed"] and row["usage"]:
             models = "+".join(sorted({u.get("model", "?") for u in row["usage"]}))
@@ -398,14 +410,23 @@ async def run_bench(manifest, cases, ref, mode: str = "simulated", confirm: bool
                                    case_id=row["case_id"], usage_unavailable=row["usage_unavailable"])
             row["cost_recorded"] = True
         rows.append(row)
+    report = _build_report(mode, rows)
+    _write_report(out, mode, report)
+    return report
+
+
+def _build_report(mode: str, rows: List[Dict[str, Any]], partial: bool = False) -> Dict[str, Any]:
     agg = aggregate(rows)
     targets = pilot_targets(agg, rows)
-    report = {"mode": mode, "confirmed": True, "results": rows, "aggregates": agg, "pilot_targets": targets,
-              "real_only_measures": list(REAL_ONLY_MEASURES), "summary": render_summary(mode, rows, agg, targets)}
-    out = Path(out_dir)
+    return {"mode": mode, "confirmed": True, "partial": partial, "results": rows, "aggregates": agg,
+            "pilot_targets": targets, "real_only_measures": list(REAL_ONLY_MEASURES),
+            "summary": render_summary(mode, rows, agg, targets)}
+
+
+def _write_report(out: Path, mode: str, report: Dict[str, Any]) -> None:
     out.mkdir(parents=True, exist_ok=True)
-    (out / f"bench_results_{mode}.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
-    return report
+    (out / f"bench_results_{mode}.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
 
 def _load_manifest(cases, ref, out_dir: Path) -> List[Dict[str, Any]]:

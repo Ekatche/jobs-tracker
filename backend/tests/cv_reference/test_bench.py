@@ -5,7 +5,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from scripts import llm_budget
-from scripts.cv_reference_bench import compute_metrics, run_bench
+from app.services.cv_parser import DEFAULT_CV_PARSER_MODEL, DEFAULT_VLM_MODEL
+from scripts.cv_reference_bench import compute_metrics, estimate_case_usd, run_bench
 from tests.cv_reference.fixtures import (INVENTED_EXPERIENCE, INVENTED_ROLE_EXPERIENCE, inventing_oracle,
                                          llm_response, refusing_acompletion)
 
@@ -88,14 +89,38 @@ async def test_simulated_mode_never_touches_the_budget_ledger(run):
     assert not llm_budget.LEDGER_PATH.exists()
 
 
-@pytest.mark.parametrize("case_id, expectation", [
-    ("pr_p02", "rejected"), ("un_corrupt", "error"), ("em_blank", "empty"),
-])
-async def test_expected_rejections_are_not_failures(run, case_id, expectation):
-    r = by_id(await run([case_id]))[case_id]
+async def test_protected_pdf_is_rejected_with_a_readable_message(run):
+    r = by_id(await run(["pr_p02"]))["pr_p02"]
     assert r["expected_rejection"] and r["expectation_met"]
-    assert r["rejected"] if expectation == "rejected" else True
-    assert (r["errors"] and all(isinstance(e, str) and e for e in r["errors"])) or expectation == "empty"
+    assert "mot de passe" in r["rejected"] and r["errors"] == [r["rejected"]]
+    assert r["experience_recall"] is None and r["missed_experiences"] == [] and r["n_company_facts"] == 0
+    assert r["n_calls"] == 0 and r["cost_usd"] == 0
+
+
+async def test_unreadable_pdf_error_is_captured_and_names_its_type(run):
+    r = by_id(await run(["un_corrupt"]))["un_corrupt"]
+    assert r["expected_rejection"] and r["expectation_met"] and not r["completed"]
+    assert any("FileDataError" in e and "Failed to open" in e for e in r["errors"])
+
+
+async def test_blank_pdf_gives_an_empty_result(run):
+    r = by_id(await run(["em_blank"]))["em_blank"]
+    assert r["expected_rejection"] and r["expectation_met"] and r["completed"]
+    assert r["fields_extracted"] == 0 and r["errors"]
+
+
+async def test_protected_category_is_outside_the_recall_denominator(run):
+    report = await run(["oc_p01", "pr_p02"])
+    g = report["aggregates"]["global"]
+    assert g["experience_recall"] == 1.0 and g["missed_experiences"] == 0
+    assert report["aggregates"]["by_category"]["protected"]["experience_recall"] is None
+
+
+def test_price_table_knows_the_default_models():
+    from app.services.cv_parser import DEFAULT_CV_PARSER_MODEL, DEFAULT_VLM_MODEL
+    from scripts.cv_reference_bench import PRICES_USD_PER_M
+
+    assert DEFAULT_VLM_MODEL in PRICES_USD_PER_M and DEFAULT_CV_PARSER_MODEL in PRICES_USD_PER_M
 
 
 async def test_aggregates_group_by_category(run):
@@ -143,3 +168,16 @@ async def test_real_mode_records_nothing_for_a_total_failure(run, monkeypatch):
     r = by_id(report)["oc_p02"]
     assert r["cost_usd"] > 0 and not r["cost_recorded"]
     assert not llm_budget.LEDGER_PATH.exists()
+
+
+async def test_budget_exceeded_mid_loop_writes_partial_results_first(run, generated, monkeypatch):
+    monkeypatch.setenv("MISTRAL_API_KEY", "dummy")
+    payload = {"headline": "Data", "experiences": [{"company": "X", "role": "Y"}]}
+    est = {e["case_id"]: estimate_case_usd(e, DEFAULT_VLM_MODEL, DEFAULT_CV_PARSER_MODEL) for e in generated["manifest"]}
+    # Laisse la place du premier cas seulement : le second dépasse la part parser.
+    llm_budget.record_call("parser", "preload", "m", 0.25 - est["oc_p02"] - est["lg_p04"] / 2, "estimated")
+    with patch("app.services.cv_parser.acompletion", AsyncMock(return_value=llm_response(payload, 10, 5))):
+        with pytest.raises(llm_budget.BudgetExceeded):
+            await run(["oc_p02", "lg_p04"], mode="real", confirm=True)
+    saved = json.loads((generated["out_dir"] / "bench_results_real.json").read_text())
+    assert saved["partial"] and [r["case_id"] for r in saved["results"]] == ["oc_p02"]
