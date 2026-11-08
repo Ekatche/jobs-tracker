@@ -98,7 +98,7 @@ const FAQ_ITEMS: FaqItem[] = [
           Les parseurs traditionnels lisent de gauche à droite et mélangent le texte des barres latérales avec le texte principal.
         </p>
         <p className="text-xs text-slate-400">
-          Notre modèle de vision (<strong>Mistral Pixtral VLM</strong>) « regarde » chaque page comme un humain : il identifie chaque bloc visuel, préserve la chronologie des postes et associe fidèlement vos compétences à leurs expériences.
+          Notre <strong>modèle de vision Mistral</strong> « regarde » chaque page comme un humain : il identifie chaque bloc visuel, préserve la chronologie des postes et associe fidèlement vos compétences à leurs expériences.
         </p>
       </div>
     ),
@@ -310,7 +310,7 @@ export default function GuidePage() {
                 </div>
                 <h3 className="font-bold text-white text-base">Téléversez votre CV PDF</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Notre modèle de vision <strong>Mistral Pixtral VLM</strong> lit votre CV comme un humain. Les colonnes, timelines et badges sont extraits sans mélanger le texte.
+                  Notre <strong>modèle de vision Mistral</strong> lit votre CV comme un humain. Les colonnes, timelines et badges sont extraits sans mélanger le texte.
                 </p>
               </div>
               <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-2 text-[11px] text-blue-300">
