@@ -13,13 +13,14 @@ def _by_company(profile, needle):
 
 
 def test_conflicting_dates_for_same_role_keep_priority_source_dates():
-    """Même poste, mêmes mois de départ à un mois près : une seule expérience, dates du CV."""
-    cv = {"experiences": [experience("Orion Data", "Data Engineer", "2023-03", "2024-06")]}
-    website = {"experiences": [experience("Orion Data", "Data Engineer", "2023-04", "2024-09")]}
+    """Même poste, débuts à un mois d'écart à cheval sur deux années : une seule expérience, dates du CV."""
+    cv_start, website_start = "2021-12", "2022-01"
+    cv = {"experiences": [experience("Orion Data", "Data Engineer", cv_start, "2024-06")]}
+    website = {"experiences": [experience("Orion Data", "Data Engineer", website_start, "2024-09")]}
     profile, conflicts = build_profile_from_sources({"cv": cv, "website": website})
     assert len(profile["experiences"]) == 1
     exp = profile["experiences"][0]
-    assert (exp["start"], exp["end"]) == ("2023-03", "2024-06")
+    assert (exp["start"], exp["end"]) == (cv_start, "2024-06")
     # Contrat existant : seule la fin divergente est signalée comme conflit.
     end_conflicts = [c for c in conflicts if c["field"] == "end"]
     assert [(c["kept"], c["kept_source"]) for c in end_conflicts] == [("2024-06", "cv")]
@@ -59,17 +60,27 @@ def test_distinct_positions_are_never_merged(first, second):
 
 
 @pytest.mark.parametrize(
-    "label",
-    ["Orion Data SAS", "ORION DATA", "Orion Data (Paris)", "Orion-Data", "Orion Data Systems", "Société Orion Data"],
+    "label, manual_start, cv_start",
+    [
+        ("Orion Data SAS", "2022-03", "2022-03"),
+        ("ORION DATA", "2022-03", "2022-03"),
+        ("Orion Data (Paris)", "2022-03", "2022-03"),
+        ("Orion-Data", "2022-03", "2022-03"),
+        ("Orion Data Systems", "2022-03", "2022-03"),
+        ("Société Orion Data", "2022-03", "2022-03"),
+        # La correction manual décale le début de 4 mois, à cheval sur deux années.
+        ("Orion Data SAS", "2022-04", "2021-12"),
+    ],
 )
-def test_manual_correction_survives_reimport_with_different_employer_label(label):
+def test_manual_correction_survives_reimport_with_different_employer_label(label, manual_start, cv_start):
     cv_v2 = {
         "experiences": [
-            experience(label, "Data Engineer", "2022-03", "2024-06"),
+            experience(label, "Data Engineer", cv_start, "2024-06"),
             experience("Helios Conseil", "Analyste", "2020-01", "2021-12"),
         ]
     }
-    profile, _ = build_profile_from_sources({"cv": cv_v2, "manual": MANUAL_ORION_CORRECTION})
+    manual = {"experiences": [experience("Orion Data", "Lead Data Engineer", manual_start, "2024-06")]}
+    profile, _ = build_profile_from_sources({"cv": cv_v2, "manual": manual})
     orion = _by_company(profile, "orion")
     assert len(orion) == 1
     assert orion[0]["role"] == "Lead Data Engineer"  # la correction reste visible

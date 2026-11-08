@@ -195,6 +195,42 @@ def _merge_one_experience(
     return merged
 
 
+_OPEN_END_INDEX = 10**6
+_MAX_START_GAP_MONTHS = 2
+_MIN_OVERLAP_MONTHS = 2
+
+
+def _end_of(experience: Dict[str, Any]) -> str | None:
+    return normalize_month(experience.get("end") or experience.get("end_date"))
+
+
+def _month_index(value: str, *, end: bool = False) -> int:
+    """'YYYY-MM' en nombre de mois ; 'YYYY' seul vaut janvier (début) ou décembre (fin)."""
+    year = int(value[:4])
+    month = int(value[5:7]) if len(value) >= 7 else (12 if end else 1)
+    return year * 12 + month
+
+
+def _same_position_dates(
+    start_a: str, end_a: str | None, start_b: str, end_b: str | None
+) -> bool:
+    """Deux périodes d'un même employeur désignent-elles le même poste ?
+
+    Oui si les débuts sont à 2 mois au plus l'un de l'autre, ou si les périodes se
+    chevauchent d'au moins 2 mois (fin absente = en cours). Un seul mois commun est
+    la transition d'une promotion, pas un même poste. Une année seule, sans mois, est
+    trop imprécise pour mesurer un écart : on compare alors les années.
+    """
+    if len(start_a) < 7 or len(start_b) < 7:
+        return start_a[:4] == start_b[:4]
+    a0, b0 = _month_index(start_a), _month_index(start_b)
+    if abs(a0 - b0) <= _MAX_START_GAP_MONTHS:
+        return True
+    a1 = _month_index(end_a, end=True) if end_a else _OPEN_END_INDEX
+    b1 = _month_index(end_b, end=True) if end_b else _OPEN_END_INDEX
+    return min(a1, b1) - max(a0, b0) + 1 >= _MIN_OVERLAP_MONTHS
+
+
 def _merge_experiences(
     sources: Dict[str, Dict[str, Any]],
     order: List[str],
@@ -225,13 +261,11 @@ def _merge_experiences(
                     if existing_start is None or s_date is None:
                         matched_key = key
                         break
-                    # Même année (ex: 2022-09 vs 2022-10 pour une seule expérience Nodya par source)
-                    if (
-                        existing_start
-                        and s_date
-                        and len(existing_start) >= 4
-                        and len(s_date) >= 4
-                        and existing_start[:4] == s_date[:4]
+                    if any(
+                        _same_position_dates(
+                            existing_start, _end_of(payload), s_date, _end_of(experience)
+                        )
+                        for _s, payload in grouped[key]
                     ):
                         matched_key = key
                         break
