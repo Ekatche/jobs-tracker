@@ -124,6 +124,20 @@ EMPTY_CV_MESSAGE = (
     "Aucun contenu exploitable n'a été trouvé dans ce PDF : "
     "vérifiez qu'il contient du texte ou une image lisible"
 )
+VISION_UNAVAILABLE_MESSAGE = (
+    "L'analyse visuelle de ce PDF est momentanément indisponible. Réessayez dans quelques minutes."
+)
+
+
+class CVVisionUnavailable(Exception):
+    """PDF sans texte exploitable dont l'analyse visuelle n'a pas abouti.
+
+    Porte l'usage déjà facturé (`usage`) à titre d'information : l'appelant ne l'enregistre pas.
+    """
+
+    def __init__(self, message: str = VISION_UNAVAILABLE_MESSAGE, usage: Optional[List[Dict[str, Any]]] = None):
+        super().__init__(message)
+        self.usage = usage or []
 
 
 def is_pdf_readable(pdf_path: str) -> bool:
@@ -595,6 +609,8 @@ async def parse_cv_with_llm(
     """
     usages: List[Dict[str, Any]] = []
     errors: List[str] = []
+    vlm_answered = False
+    vlm_error: Optional[BaseException] = None
     has_pdf = bool(pdf_path and os.path.exists(pdf_path))
     page_texts: Optional[List[str]] = None
     if has_pdf:
@@ -619,6 +635,7 @@ async def parse_cv_with_llm(
             if images and os.environ.get("MISTRAL_API_KEY"):
                 logger.info("Extraction du CV via VLM (%s) sur %d page(s)", vlm_model, len(images))
                 vlm_payload = await parse_cv_with_vlm(images, model=vlm_model)
+                vlm_answered = True
                 if isinstance(vlm_payload, dict):
                     usages.extend(vlm_payload.pop("_usage", None) or [])
                 if _has_usable_content(vlm_payload):
@@ -634,6 +651,7 @@ async def parse_cv_with_llm(
                 logger.warning("Réponse VLM vide pour le CV, bascule vers le LLM texte")
                 errors.append("L'analyse visuelle n'a rien renvoyé : le texte extrait du PDF a été utilisé à la place.")
         except Exception as exc:
+            vlm_error = exc
             usages.extend(getattr(exc, "usage", None) or [])
             logger.warning("Échec de l'extraction VLM du CV, bascule vers le LLM texte : %s", exc)
             errors.append("L'analyse visuelle a échoué : le texte extrait du PDF a été utilisé à la place.")
@@ -644,6 +662,9 @@ async def parse_cv_with_llm(
 
     # Si cv_text est vide, renvoyer un profil minimal par défaut
     if not cv_text.strip():
+        if has_pdf and not vlm_answered:
+            # Aucun texte et pas de lecture visuelle : panne, pas un fichier vide.
+            raise CVVisionUnavailable(usage=usages) from vlm_error
         empty = {
             "headline": "",
             "summary": "",

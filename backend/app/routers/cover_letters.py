@@ -20,7 +20,8 @@ from app.models import ApiUsageAction, CandidateProfile, UserModel
 from app.utils import serialize_mongodb_doc
 from app.routers.applications import _generate_cover_letter_bg
 from app.services.cv_parser import (
-    EMPTY_CV_MESSAGE, PROTECTED_PDF_MESSAGE, UNREADABLE_PDF_MESSAGE, extract_text_from_pdf,
+    EMPTY_CV_MESSAGE, PROTECTED_PDF_MESSAGE, UNREADABLE_PDF_MESSAGE, VISION_UNAVAILABLE_MESSAGE,
+    CVVisionUnavailable, extract_text_from_pdf,
     is_empty_extraction, is_pdf_password_protected, is_pdf_readable, parse_cv_with_llm,
 )
 from app.services.cv_pdf_renderer import generate_cv_pdf
@@ -583,6 +584,10 @@ async def import_cv_source(
         return {**stored, "import_report": import_report} if import_report else stored
     except HTTPException:
         raise
+    except CVVisionUnavailable as exc:
+        # Échec = aucun coût enregistré (même si un usage VLM partiel existe) ; rien n'est stocké.
+        logger.warning("Analyse visuelle du CV indisponible (%s)", type(exc.__cause__).__name__ if exc.__cause__ else "VLM non tenté")
+        raise HTTPException(status_code=503, detail=VISION_UNAVAILABLE_MESSAGE)
     except Exception as exc:
         logger.exception("Échec du parsing de CV pour %s", current_user.id)
         raise llm_http_exception(exc) or HTTPException(status_code=502, detail="Le CV n'a pas pu être analysé")
