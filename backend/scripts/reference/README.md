@@ -86,7 +86,16 @@ Le jeu utilise les valeurs que le scoring voit réellement ; le test importe les
 - Offres : `mode_travail` ∈ {"Télétravail total", "Hybride", "Présentiel", ""} (`""` = inconnu ; un déplacement terrain compte comme "Présentiel") ; `seniority_level` ∈ `SENIORITY_ORDER` (intern, junior, mid, senior, lead, director ; un stage est `intern`) ; `sector` ∈ `SECTORS` ; `company_size` ∈ `COMPANY_SIZES` ; `type_contrat` ∈ CDI, CDD, Alternance, Stage ou `""`.
 - Préférences (toutes sources) : `remote_policy` est une chaîne scalaire `RemotePolicy` (`full_remote`, `hybrid`, `on_site`, `flexible`) ; `seniority_levels` dans `SENIORITY_ORDER` ; `locations` sans "Remote" (le télétravail passe par `remote_policy`) ; `preferred_industries` / `preferred_company_sizes` dans `SECTORS` / `COMPANY_SIZES`.
 - `subgroup.niveau` reste junior / confirme / senior (schéma du jeu, distinct de `seniority_level`).
-- `preference_violee` : vrai si la ville (hors télétravail total), le contrat, le niveau ou le mode (`on_site` face à du télétravail total, `full_remote` face à du présentiel ou de l'hybride) sort des préférences déclarées. `hybrid` et `flexible` n'écartent aucun mode.
+- `preference_violee` reflète un jugement humain, pas le comportement du scoring : vrai si la ville (hors télétravail total), le contrat, le niveau ou le mode de travail sort des préférences déclarées. Table du mode :
+
+  | remote_policy | Présentiel | Hybride | Télétravail total |
+  |---|---|---|---|
+  | hybrid | violation | — | pas de violation (plus de souplesse que demandé) |
+  | on_site | — | — | violation |
+  | full_remote | violation | violation | — |
+  | flexible | aucune violation | aucune violation | aucune violation |
+
+  Un mode inconnu (`""`) n'est jamais une violation. Un profil dont les sources disent [sur site, hybride] ou [hybride, sur site] est `flexible`.
 - Chaque `exigence` de `preuves_exactes` et `transferables` figure dans `exigences` ; `transferables[].element` fait au moins 15 caractères.
 
 ## Critères de label

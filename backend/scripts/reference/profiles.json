@@ -1313,7 +1313,7 @@
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": "hybrid",
+          "remote_policy": "flexible",
           "seniority_levels": [
             "mid",
             "senior"
@@ -1429,7 +1429,7 @@
             "CDD",
             "Alternance"
           ],
-          "remote_policy": "hybrid",
+          "remote_policy": "flexible",
           "seniority_levels": [
             "junior",
             "mid"
@@ -1989,7 +1989,7 @@
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": "hybrid",
+          "remote_policy": "flexible",
           "seniority_levels": [
             "junior",
             "mid"

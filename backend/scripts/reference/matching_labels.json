@@ -49,21 +49,21 @@
     "offer_id": "o003",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Ingénieur Data IoT - Capteurs industriels (Grenoble, CDI, Présentiel, niveau mid) face à un profil data scientist séries temporelles confirme : métier ingénieur data iot proche du parcours ; compétences communes : Python ; préférence déclarée violée : ville Grenoble hors des villes visées (Lyon, Paris)"
+    "motif": "Ingénieur Data IoT - Capteurs industriels (Grenoble, CDI, Présentiel, niveau mid) face à un profil data scientist séries temporelles confirme : Ingénieur data IoT : métier voisin du data scientist, tourné vers l'acquisition de mesures de capteurs et l'infrastructure plutôt que vers la modélisation de séries temporelles ; compétences communes : Python ; préférence déclarée violée : ville Grenoble hors des villes visées (Lyon, Paris)"
   },
   {
     "profile_id": "p01",
     "offer_id": "o004",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Data Scientist Junior - Prévision de la demande (Paris, CDI, Hybride, niveau junior) face à un profil data scientist séries temporelles confirme : métier data scientist proche du parcours ; compétences communes : Python, prévision, SQL ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior)"
+    "motif": "Data Scientist Junior - Prévision de la demande (Paris, CDI, Hybride, niveau junior) face à un profil data scientist séries temporelles confirme : même métier de data scientist (prévision de la demande), mais poste junior pour un profil confirmé ; compétences communes : Python, prévision, SQL ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p01",
     "offer_id": "o020",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Chargé d'études statistiques (Marseille, CDD, Présentiel, niveau junior) face à un profil data scientist séries temporelles confirme : métier statisticien proche du parcours ; compétences communes : R ; préférence déclarée violée : ville Marseille hors des villes visées (Lyon, Paris) ; contrat CDD hors des contrats visés (CDI) ; niveau junior hors des niveaux visés (mid, senior)"
+    "motif": "Chargé d'études statistiques (Marseille, CDD, Présentiel, niveau junior) face à un profil data scientist séries temporelles confirme : statisticien : métier voisin du data scientist, études statistiques en R plutôt que modélisation en Python, poste junior en CDD ; compétences communes : R ; préférence déclarée violée : ville Marseille hors des villes visées (Lyon, Paris) ; contrat CDD hors des contrats visés (CDI) ; niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p01",
@@ -162,21 +162,21 @@
     "offer_id": "o009",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Stage Data Analyst (6 mois) (Lyon, Stage, Hybride, niveau intern) face à un profil data analyst junior : métier data analyst proche du parcours ; compétences communes : SQL, Python, Excel ; préférence déclarée violée : contrat Stage hors des contrats visés (CDI, CDD) ; niveau intern hors des niveaux visés (junior, mid)"
+    "motif": "Stage Data Analyst (6 mois) (Lyon, Stage, Hybride, niveau intern) face à un profil data analyst junior : même métier de data analyst, mais en stage de 6 mois alors que le profil vise un CDI ou un CDD ; compétences communes : SQL, Python, Excel ; préférence déclarée violée : contrat Stage hors des contrats visés (CDI, CDD) ; niveau intern hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p02",
     "offer_id": "o010",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Business Intelligence Analyst (Nantes, CDI, Hybride, niveau mid) face à un profil data analyst junior : métier bi analyst proche du parcours ; compétences communes : SQL, Power BI ; préférence déclarée violée : ville Nantes hors des villes visées (Lyon, Paris, Lille)"
+    "motif": "Business Intelligence Analyst (Nantes, CDI, Hybride, niveau mid) face à un profil data analyst junior : business intelligence : métier voisin du data analyst (SQL et Power BI), poste mid un cran au-dessus du profil junior ; compétences communes : SQL, Power BI ; préférence déclarée violée : ville Nantes hors des villes visées (Lyon, Paris, Lille)"
   },
   {
     "profile_id": "p02",
     "offer_id": "o020",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Chargé d'études statistiques (Marseille, CDD, Présentiel, niveau junior) face à un profil data analyst junior : métier statisticien proche du parcours ; compétences communes : R, statistiques ; préférence déclarée violée : ville Marseille hors des villes visées (Lyon, Paris, Lille)"
+    "motif": "Chargé d'études statistiques (Marseille, CDD, Présentiel, niveau junior) face à un profil data analyst junior : statisticien : métier voisin du data analyst, orienté études statistiques en R ; compétences communes : R, statistiques ; préférence déclarée violée : ville Marseille hors des villes visées (Lyon, Paris, Lille) ; présentiel alors que le profil veut de l'hybride"
   },
   {
     "profile_id": "p02",
@@ -262,7 +262,7 @@
     "offer_id": "o019",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Head of Data (Lyon, CDI, Hybride, niveau senior) face à un profil data engineer confirme : Poste de management au-delà de l'expérience ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Lyon hors des villes visées (Paris, Rennes)"
+    "motif": "Head of Data (Lyon, CDI, Hybride, niveau senior) face à un profil data engineer confirme : Head of Data : direction de l'équipe data, un cran au-dessus du data engineer, sur un domaine voisin ; préférence déclarée violée : ville Lyon hors des villes visées (Paris, Rennes)"
   },
   {
     "profile_id": "p03",
@@ -283,14 +283,14 @@
     "offer_id": "o014",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Data Engineer Junior (Rennes, CDI, Hybride, niveau junior) face à un profil data engineer confirme : métier data engineer proche du parcours ; compétences communes : Python, SQL, Airflow, Git ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior)"
+    "motif": "Data Engineer Junior (Rennes, CDI, Hybride, niveau junior) face à un profil data engineer confirme : même métier de data engineer, mais poste junior pour un profil confirmé ; compétences communes : Python, SQL, Airflow, Git ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p03",
     "offer_id": "o016",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Data Engineer en alternance (Annecy, Alternance, Présentiel, niveau junior) face à un profil data engineer confirme : métier data engineer proche du parcours ; compétences communes : Python, SQL, ETL ; préférence déclarée violée : ville Annecy hors des villes visées (Paris, Rennes) ; contrat Alternance hors des contrats visés (CDI) ; niveau junior hors des niveaux visés (mid, senior)"
+    "motif": "Data Engineer en alternance (Annecy, Alternance, Présentiel, niveau junior) face à un profil data engineer confirme : même métier de data engineer, mais en alternance et au niveau junior ; compétences communes : Python, SQL, ETL ; préférence déclarée violée : ville Annecy hors des villes visées (Paris, Rennes) ; contrat Alternance hors des contrats visés (CDI) ; niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p03",
@@ -384,21 +384,21 @@
     "offer_id": "o028",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Développeur Backend Junior (Node.js) (Rennes, CDI, Hybride, niveau junior) face à un profil développeur backend senior : métier développeur backend proche du parcours ; compétences communes : Git ; préférence déclarée violée : ville Rennes hors des villes visées (Lyon, Paris) ; niveau junior hors des niveaux visés (senior, mid)"
+    "motif": "Développeur Backend Junior (Node.js) (Rennes, CDI, Hybride, niveau junior) face à un profil développeur backend senior : même métier de développeur backend, mais en Node.js et au niveau junior pour un profil senior ; compétences communes : Git ; préférence déclarée violée : ville Rennes hors des villes visées (Lyon, Paris) ; niveau junior hors des niveaux visés (senior, mid)"
   },
   {
     "profile_id": "p04",
     "offer_id": "o041",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Développeur Mobile Flutter (Rennes, CDI, Hybride, niveau mid) face à un profil développeur backend senior : métier développeur mobile proche du parcours ; compétences communes : API REST, Git ; préférence déclarée violée : ville Rennes hors des villes visées (Lyon, Paris)"
+    "motif": "Développeur Mobile Flutter (Rennes, CDI, Hybride, niveau mid) face à un profil développeur backend senior : développement mobile Flutter : métier voisin du backend, côté application qui consomme des API REST ; compétences communes : API REST, Git ; préférence déclarée violée : ville Rennes hors des villes visées (Lyon, Paris)"
   },
   {
     "profile_id": "p04",
     "offer_id": "o042",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil développeur backend senior : métier ingénieur embarqué proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Toulouse hors des villes visées (Lyon, Paris)"
+    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil développeur backend senior : logiciel embarqué C++ : métier différent du backend (temps réel, RTOS, bus CAN, aérospatial), recoupement faible limité au génie logiciel général ; préférence déclarée violée : ville Toulouse hors des villes visées (Lyon, Paris)"
   },
   {
     "profile_id": "p04",
@@ -498,21 +498,21 @@
     "offer_id": "o034",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Développeur Frontend - Alternance (Annecy, Alternance, Hybride, niveau junior) face à un profil développeur frontend junior : métier développeur frontend proche du parcours ; compétences communes : React, JavaScript, HTML, CSS ; préférence déclarée violée : ville Annecy hors des villes visées (Rennes, Nantes, Paris, Lyon)"
+    "motif": "Développeur Frontend - Alternance (Annecy, Alternance, Hybride, niveau junior) face à un profil développeur frontend junior : même métier de développeur frontend, mais en alternance ; compétences communes : React, JavaScript, HTML, CSS ; préférence déclarée violée : ville Annecy hors des villes visées (Rennes, Nantes, Paris, Lyon)"
   },
   {
     "profile_id": "p05",
     "offer_id": "o030",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Développeur Full Stack TypeScript (Lille, CDI, Hybride, niveau mid) face à un profil développeur frontend junior : métier développeur full stack proche du parcours ; compétences communes : TypeScript, React ; préférence déclarée violée : ville Lille hors des villes visées (Rennes, Nantes, Paris, Lyon)"
+    "motif": "Développeur Full Stack TypeScript (Lille, CDI, Hybride, niveau mid) face à un profil développeur frontend junior : full stack TypeScript : métier voisin du frontend React du profil, avec le backend en plus, poste mid ; compétences communes : TypeScript, React ; préférence déclarée violée : ville Lille hors des villes visées (Rennes, Nantes, Paris, Lyon)"
   },
   {
     "profile_id": "p05",
     "offer_id": "o043",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Stage Développeur Python (Lyon, Stage, Hybride, niveau intern) face à un profil développeur frontend junior : métier développeur python proche du parcours ; compétences communes : Git, tests ; préférence déclarée violée : contrat Stage hors des contrats visés (CDI, Alternance) ; niveau intern hors des niveaux visés (junior, mid)"
+    "motif": "Stage Développeur Python (Lyon, Stage, Hybride, niveau intern) face à un profil développeur frontend junior : développeur Python en stage : métier voisin (développement logiciel) mais pile Python au lieu de JavaScript côté frontend, niveau stagiaire ; compétences communes : Git, tests ; préférence déclarée violée : contrat Stage hors des contrats visés (CDI, Alternance) ; niveau intern hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p05",
@@ -612,21 +612,21 @@
     "offer_id": "o038",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Ingénieur DevOps Junior (Grenoble, CDI, Présentiel, niveau junior) face à un profil devops confirme : métier devops proche du parcours ; compétences communes : Linux, Docker, Jenkins, Bash ; préférence déclarée violée : ville Grenoble hors des villes visées (Paris) ; niveau junior hors des niveaux visés (mid, senior)"
+    "motif": "Ingénieur DevOps Junior (Grenoble, CDI, Présentiel, niveau junior) face à un profil devops confirme : même métier de devops, mais poste junior pour un profil confirmé ; compétences communes : Linux, Docker, Jenkins, Bash ; préférence déclarée violée : ville Grenoble hors des villes visées (Paris) ; niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p06",
     "offer_id": "o040",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Administrateur systèmes et réseaux (Lille, contrat non précisé, Présentiel, niveau mid) face à un profil devops confirme : métier administrateur systèmes proche du parcours ; compétences communes : Linux ; préférence déclarée violée : ville Lille hors des villes visées (Paris)"
+    "motif": "Administrateur systèmes et réseaux (Lille, contrat non précisé, Présentiel, niveau mid) face à un profil devops confirme : administration systèmes et réseaux : métier voisin du devops, plus opérationnel et sans automatisation d'infrastructure ; le profil a débuté comme administrateur système junior ; compétences communes : Linux ; préférence déclarée violée : ville Lille hors des villes visées (Paris)"
   },
   {
     "profile_id": "p06",
     "offer_id": "o042",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil devops confirme : métier ingénieur embarqué proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Toulouse hors des villes visées (Paris)"
+    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil devops confirme : logiciel embarqué C++ : métier différent du devops (temps réel, RTOS, bus CAN, aérospatial), recoupement faible limité au développement logiciel ; préférence déclarée violée : ville Toulouse hors des villes visées (Paris)"
   },
   {
     "profile_id": "p06",
@@ -733,21 +733,21 @@
     "offer_id": "o052",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Product Owner (Lyon, CDI, Hybride, niveau mid) face à un profil product manager senior : métier product owner proche du parcours ; compétences communes : Scrum, backlog, Jira ; préférence déclarée violée : ville Lyon hors des villes visées (Paris)"
+    "motif": "Product Owner (Lyon, CDI, Hybride, niveau mid) face à un profil product manager senior : product owner : métier voisin du product manager, centré sur le backlog plutôt que sur la stratégie produit, poste mid ; compétences communes : Scrum, backlog, Jira ; préférence déclarée violée : ville Lyon hors des villes visées (Paris)"
   },
   {
     "profile_id": "p07",
     "offer_id": "o053",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Associate Product Manager (Paris, CDI, Hybride, niveau junior) face à un profil product manager senior : métier product manager proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : niveau junior hors des niveaux visés (senior, mid)"
+    "motif": "Associate Product Manager (Paris, CDI, Hybride, niveau junior) face à un profil product manager senior : Associate Product Manager : même métier de product manager, mais poste junior pour un profil senior ; préférence déclarée violée : niveau junior hors des niveaux visés (senior, mid)"
   },
   {
     "profile_id": "p07",
     "offer_id": "o074",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Responsable Marketing (Lyon, CDI, Hybride, niveau senior) face à un profil product manager senior : métier responsable marketing proche du parcours ; compétences communes : management, budget, digital ; préférence déclarée violée : ville Lyon hors des villes visées (Paris)"
+    "motif": "Responsable Marketing (Lyon, CDI, Hybride, niveau senior) face à un profil product manager senior : responsable marketing : métier voisin du product manager côté mise sur le marché, sans pilotage de feuille de route produit ; poste senior ; compétences communes : management, budget, digital ; préférence déclarée violée : ville Lyon hors des villes visées (Paris)"
   },
   {
     "profile_id": "p07",
@@ -819,49 +819,49 @@
     "profile_id": "p08",
     "offer_id": "o058",
     "label": "pertinent",
-    "motif": "UX Researcher (Lille, CDI, Hybride, niveau mid) face à un profil ux designer confirme : même métier ou métier voisin (ux researcher) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
+    "motif": "UX Researcher (Lille, CDI, Hybride, niveau mid) face à un profil ux designer confirme : UX researcher : spécialité de la recherche utilisateur, qui fait partie du métier d'UX designer du profil (user research, tests avec Maze) ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p08",
     "offer_id": "o031",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Développeur Frontend React (Paris, CDI, Hybride, niveau mid) face à un profil ux designer confirme : Métier voisin (frontend), moins de recherche utilisateur ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Paris hors des villes visées (Lyon, Lille)"
+    "motif": "Développeur Frontend React (Paris, CDI, Hybride, niveau mid) face à un profil ux designer confirme : développeur frontend React : métier voisin, côté implémentation des interfaces plutôt que leur conception ; préférence déclarée violée : ville Paris hors des villes visées (Lyon, Lille)"
   },
   {
     "profile_id": "p08",
     "offer_id": "o050",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Product Manager (Paris, CDI, Hybride, niveau mid) face à un profil ux designer confirme : Métier voisin (produit), peu de conception ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Paris hors des villes visées (Lyon, Lille)"
+    "motif": "Product Manager (Paris, CDI, Hybride, niveau mid) face à un profil ux designer confirme : product manager : métier voisin de l'UX designer côté produit, orienté priorisation et backlog plutôt que conception ; préférence déclarée violée : ville Paris hors des villes visées (Lyon, Lille)"
   },
   {
     "profile_id": "p08",
     "offer_id": "o052",
     "label": "partiel",
     "preference_violee": false,
-    "motif": "Product Owner (Lyon, CDI, Hybride, niveau mid) face à un profil ux designer confirme : Métier voisin, orienté backlog ; compétences communes : aucune compétence clé citée dans les sources ; aucune préférence violée."
+    "motif": "Product Owner (Lyon, CDI, Hybride, niveau mid) face à un profil ux designer confirme : product owner : métier voisin de l'UX designer, centré sur le backlog et les user stories ; aucune préférence violée."
   },
   {
     "profile_id": "p08",
     "offer_id": "o056",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "UX/UI Designer Junior (Rennes, CDI, Hybride, niveau junior) face à un profil ux designer confirme : métier ux designer proche du parcours ; compétences communes : Figma ; préférence déclarée violée : ville Rennes hors des villes visées (Lyon, Lille) ; niveau junior hors des niveaux visés (mid, senior)"
+    "motif": "UX/UI Designer Junior (Rennes, CDI, Hybride, niveau junior) face à un profil ux designer confirme : même métier d'UX designer (UX/UI), mais poste junior pour un profil confirmé ; compétences communes : Figma ; préférence déclarée violée : ville Rennes hors des villes visées (Lyon, Lille) ; niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p08",
     "offer_id": "o059",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Graphiste Webdesigner (Nantes, CDI, Présentiel, niveau mid) face à un profil ux designer confirme : métier graphiste proche du parcours ; compétences communes : Photoshop, Illustrator, Figma ; préférence déclarée violée : ville Nantes hors des villes visées (Lyon, Lille)"
+    "motif": "Graphiste Webdesigner (Nantes, CDI, Présentiel, niveau mid) face à un profil ux designer confirme : graphiste webdesigner : métier voisin de l'UX designer par la partie graphique (Photoshop, Illustrator, Figma), sans recherche utilisateur ; compétences communes : Photoshop, Illustrator, Figma ; préférence déclarée violée : ville Nantes hors des villes visées (Lyon, Lille)"
   },
   {
     "profile_id": "p08",
     "offer_id": "o053",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Associate Product Manager (Paris, CDI, Hybride, niveau junior) face à un profil ux designer confirme : métier product manager proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Paris hors des villes visées (Lyon, Lille) ; niveau junior hors des niveaux visés (mid, senior)"
+    "motif": "Associate Product Manager (Paris, CDI, Hybride, niveau junior) face à un profil ux designer confirme : Associate Product Manager : métier voisin de l'UX designer côté produit, poste junior ; préférence déclarée violée : ville Paris hors des villes visées (Lyon, Lille) ; niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p08",
@@ -939,8 +939,8 @@
     "profile_id": "p09",
     "offer_id": "o075",
     "label": "partiel",
-    "preference_violee": false,
-    "motif": "Chargé de Marketing Opérationnel - Événementiel (lieu non précisé, CDI, Présentiel, niveau mid) face à un profil chargé de marketing digital junior : Marketing opérationnel événementiel, localisation inconnue, métier voisin ; compétences communes : e-mailing ; aucune préférence violée."
+    "preference_violee": true,
+    "motif": "Chargé de Marketing Opérationnel - Événementiel (lieu non précisé, CDI, Présentiel, niveau mid) face à un profil chargé de marketing digital junior : Marketing opérationnel événementiel, localisation inconnue, métier voisin ; compétences communes : e-mailing ; préférence déclarée violée : présentiel alors que le profil veut de l'hybride"
   },
   {
     "profile_id": "p09",
@@ -961,7 +961,7 @@
     "offer_id": "o073",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Community Manager (Nantes, CDD, Hybride, niveau junior) face à un profil chargé de marketing digital junior : métier community manager proche du parcours ; compétences communes : réseaux sociaux, Canva ; préférence déclarée violée : ville Nantes hors des villes visées (Lille, Paris, Lyon)"
+    "motif": "Community Manager (Nantes, CDD, Hybride, niveau junior) face à un profil chargé de marketing digital junior : community manager : même famille que le marketing digital (animation des réseaux sociaux), poste junior comme le profil ; compétences communes : réseaux sociaux, Canva ; préférence déclarée violée : ville Nantes hors des villes visées (Lille, Paris, Lyon)"
   },
   {
     "profile_id": "p09",
@@ -1027,7 +1027,7 @@
     "profile_id": "p10",
     "offer_id": "o078",
     "label": "pertinent",
-    "motif": "Expert-Comptable Collaborateur (Lyon, CDI, Hybride, niveau senior) face à un profil comptable confirme : même métier ou métier voisin (expert-comptable) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
+    "motif": "Expert-Comptable Collaborateur (Lyon, CDI, Hybride, niveau senior) face à un profil comptable confirme : expert-comptable collaborateur : prolongement du métier de comptable (révision des comptes, bilan) vers la fiscalité et le conseil ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p10",
@@ -1047,28 +1047,28 @@
     "offer_id": "o079",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Assistant Comptable (Paris, CDI, Présentiel, niveau junior) face à un profil comptable confirme : métier assistant comptable proche du parcours ; compétences communes : lettrage, Excel ; préférence déclarée violée : ville Paris hors des villes visées (Lyon) ; niveau junior hors des niveaux visés (mid, senior)"
+    "motif": "Assistant Comptable (Paris, CDI, Présentiel, niveau junior) face à un profil comptable confirme : assistant comptable : même domaine que le comptable, un cran en dessous (lettrage, saisie) ; compétences communes : lettrage, Excel ; préférence déclarée violée : ville Paris hors des villes visées (Lyon) ; niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p10",
     "offer_id": "o082",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Gestionnaire de Paie (Paris, CDI, Hybride, niveau mid) face à un profil comptable confirme : métier gestionnaire de paie proche du parcours ; compétences communes : paie ; préférence déclarée violée : ville Paris hors des villes visées (Lyon)"
+    "motif": "Gestionnaire de Paie (Paris, CDI, Hybride, niveau mid) face à un profil comptable confirme : gestionnaire de paie : métier voisin du comptable, centré sur la paie que le profil ne pratique pas ; compétences communes : paie ; préférence déclarée violée : ville Paris hors des villes visées (Lyon)"
   },
   {
     "profile_id": "p10",
     "offer_id": "o025",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Actuaire / Statisticien assurance (Paris, CDI, Présentiel, niveau senior) face à un profil comptable confirme : métier actuaire proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Paris hors des villes visées (Lyon)"
+    "motif": "Actuaire / Statisticien assurance (Paris, CDI, Présentiel, niveau senior) face à un profil comptable confirme : actuaire : métier voisin par le traitement de chiffres mais très différent (modèles GLM, SAS, Python), le profil ne pratique pas la statistique ; préférence déclarée violée : ville Paris hors des villes visées (Lyon)"
   },
   {
     "profile_id": "p10",
     "offer_id": "o010",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Business Intelligence Analyst (Nantes, CDI, Hybride, niveau mid) face à un profil comptable confirme : métier bi analyst proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Nantes hors des villes visées (Lyon)"
+    "motif": "Business Intelligence Analyst (Nantes, CDI, Hybride, niveau mid) face à un profil comptable confirme : BI analyst : métier voisin par l'analyse de chiffres, mais SQL, Power BI et DAX sont absents du profil ; préférence déclarée violée : ville Nantes hors des villes visées (Lyon)"
   },
   {
     "profile_id": "p10",
@@ -1160,14 +1160,14 @@
     "offer_id": "o087",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Chargé RH - Alternance (Annecy, Alternance, Présentiel, niveau junior) face à un profil chargé rh junior : métier chargé rh proche du parcours ; compétences communes : recrutement, administration du personnel ; préférence déclarée violée : ville Annecy hors des villes visées (Paris, Lille, Lyon)"
+    "motif": "Chargé RH - Alternance (Annecy, Alternance, Présentiel, niveau junior) face à un profil chargé rh junior : même métier de chargé RH, mais en alternance ; compétences communes : recrutement, administration du personnel ; préférence déclarée violée : ville Annecy hors des villes visées (Paris, Lille, Lyon)"
   },
   {
     "profile_id": "p11",
     "offer_id": "o086",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "HR Business Partner (Paris, CDI, Hybride, niveau senior) face à un profil chargé rh junior : métier hrbp proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : niveau senior hors des niveaux visés (junior, mid)"
+    "motif": "HR Business Partner (Paris, CDI, Hybride, niveau senior) face à un profil chargé rh junior : HR Business Partner : métier voisin du chargé RH, poste senior de conseil aux managers (talent management) ; préférence déclarée violée : niveau senior hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p11",
@@ -1239,7 +1239,7 @@
     "profile_id": "p12",
     "offer_id": "o091",
     "label": "pertinent",
-    "motif": "Business Developer (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (business developer) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
+    "motif": "Business Developer (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : business developer : rôle déjà exercé par le profil, prospection et négociation B2B ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p12",
@@ -1257,7 +1257,7 @@
     "profile_id": "p12",
     "offer_id": "o080",
     "label": "pertinent",
-    "motif": "Commercial Logiciels de Comptabilité (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (commercial logiciels) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
+    "motif": "Commercial Logiciels de Comptabilité (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : vente B2B de logiciels : même métier que le profil, ici pour des logiciels de comptabilité ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p12",
@@ -1357,7 +1357,7 @@
     "profile_id": "p13",
     "offer_id": "o051",
     "label": "pertinent",
-    "motif": "Senior Product Manager - B2B SaaS (Paris, CDI, Hybride, niveau senior) face à un profil chef de projet senior : même métier ou métier voisin (product manager) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
+    "motif": "Senior Product Manager - B2B SaaS (Paris, CDI, Hybride, niveau senior) face à un profil chef de projet senior : Senior Product Manager : métier voisin du chef de projet IT senior (pilotage, feuille de route, management), même niveau ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p13",
@@ -1378,21 +1378,21 @@
     "offer_id": "o019",
     "label": "partiel",
     "preference_violee": false,
-    "motif": "Head of Data (Lyon, CDI, Hybride, niveau senior) face à un profil chef de projet senior : Head of Data à Lyon, métier voisin et domaine data ; compétences communes : aucune compétence clé citée dans les sources ; aucune préférence violée."
+    "motif": "Head of Data (Lyon, CDI, Hybride, niveau senior) face à un profil chef de projet senior : Head of Data : direction data, un cran au-dessus du chef de projet, domaine data non couvert ; aucune préférence violée."
   },
   {
     "profile_id": "p13",
     "offer_id": "o065",
     "label": "partiel",
-    "preference_violee": false,
-    "motif": "Directeur de Programme Transformation (Paris, CDI, Présentiel, niveau senior) face à un profil chef de projet senior : Directeur de programme : marche de responsabilité au-dessus de chef de projet senior (pilotage d'un portefeuille de projets, direction) ; compétences communes : budget ; aucune préférence violée."
+    "preference_violee": true,
+    "motif": "Directeur de Programme Transformation (Paris, CDI, Présentiel, niveau senior) face à un profil chef de projet senior : Directeur de programme : marche de responsabilité au-dessus de chef de projet senior (pilotage d'un portefeuille de projets, direction) ; compétences communes : budget ; préférence déclarée violée : présentiel alors que le profil veut de l'hybride"
   },
   {
     "profile_id": "p13",
     "offer_id": "o062",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Assistant Chef de Projet (junior) (Lyon, CDI, Hybride, niveau junior) face à un profil chef de projet senior : métier chef de projet proche du parcours ; compétences communes : planification, Jira, Excel, coordination ; préférence déclarée violée : niveau junior hors des niveaux visés (senior, mid)"
+    "motif": "Assistant Chef de Projet (junior) (Lyon, CDI, Hybride, niveau junior) face à un profil chef de projet senior : assistant chef de projet : même métier, mais poste junior pour un profil senior ; compétences communes : planification, Jira, Excel, coordination ; préférence déclarée violée : niveau junior hors des niveaux visés (senior, mid)"
   },
   {
     "profile_id": "p13",
@@ -1458,41 +1458,41 @@
     "profile_id": "p14",
     "offer_id": "o098",
     "label": "pertinent",
-    "motif": "Legal Counsel (Paris, CDI, Hybride, niveau senior) face à un profil juriste confirme : même métier ou métier voisin (legal counsel) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
+    "motif": "Legal Counsel (Paris, CDI, Hybride, niveau senior) face à un profil juriste confirme : legal counsel : même métier de juriste d'entreprise, offre rédigée en anglais (contract law, negotiation), équivalent du droit des contrats du profil ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p14",
     "offer_id": "o100",
     "label": "pertinent",
-    "motif": "Juriste Protection des Données (DPO) (Paris, CDI, Hybride, niveau mid) face à un profil juriste confirme : même métier ou métier voisin (dpo) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
+    "motif": "Juriste Protection des Données (DPO) (Paris, CDI, Hybride, niveau mid) face à un profil juriste confirme : juriste DPO : spécialisation du droit des affaires (RGPD), proche du métier de juriste du profil ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p14",
     "offer_id": "o086",
     "label": "partiel",
     "preference_violee": false,
-    "motif": "HR Business Partner (Paris, CDI, Hybride, niveau senior) face à un profil juriste confirme : Droit du travail proche mais métier RH ; compétences communes : aucune compétence clé citée dans les sources ; aucune préférence violée."
+    "motif": "HR Business Partner (Paris, CDI, Hybride, niveau senior) face à un profil juriste confirme : HR Business Partner : métier RH différent, seul le droit social touche au domaine juridique du profil ; aucune préférence violée."
   },
   {
     "profile_id": "p14",
     "offer_id": "o096",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Juriste Contrats Junior (Paris, CDI, Hybride, niveau junior) face à un profil juriste confirme : métier juriste contrats proche du parcours ; compétences communes : droit des contrats ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior)"
+    "motif": "Juriste Contrats Junior (Paris, CDI, Hybride, niveau junior) face à un profil juriste confirme : juriste contrats : même métier, mais poste junior pour un profil confirmé ; compétences communes : droit des contrats ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p14",
     "offer_id": "o097",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Juriste - Alternance (Lyon, Alternance, Présentiel, niveau junior) face à un profil juriste confirme : métier juriste proche du parcours ; compétences communes : droit des sociétés ; préférence déclarée violée : contrat Alternance hors des contrats visés (CDI) ; niveau junior hors des niveaux visés (mid, senior)"
+    "motif": "Juriste - Alternance (Lyon, Alternance, Présentiel, niveau junior) face à un profil juriste confirme : juriste en alternance : même métier, niveau junior et contrat d'alternance ; compétences communes : droit des sociétés ; préférence déclarée violée : contrat Alternance hors des contrats visés (CDI) ; niveau junior hors des niveaux visés (mid, senior) ; présentiel alors que le profil veut de l'hybride"
   },
   {
     "profile_id": "p14",
     "offer_id": "o099",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Assistant Juridique (Lyon, CDI, Présentiel, niveau junior) face à un profil juriste confirme : métier assistant juridique proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior)"
+    "motif": "Assistant Juridique (Lyon, CDI, Présentiel, niveau junior) face à un profil juriste confirme : assistant juridique : même domaine, suivi de dossiers et formalités en dessous du niveau du profil ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior) ; présentiel alors que le profil veut de l'hybride"
   },
   {
     "profile_id": "p14",
@@ -1597,21 +1597,21 @@
     "offer_id": "o028",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Développeur Backend Junior (Node.js) (Rennes, CDI, Hybride, niveau junior) face à un profil développeur backend junior : métier développeur backend proche du parcours ; compétences communes : Git ; préférence déclarée violée : ville Rennes hors des villes visées (Lyon, Paris)"
+    "motif": "Développeur Backend Junior (Node.js) (Rennes, CDI, Hybride, niveau junior) face à un profil développeur backend junior : développeur backend Node.js : même métier, autre pile (Node.js au lieu de Python), poste junior comme le profil ; compétences communes : Git ; préférence déclarée violée : ville Rennes hors des villes visées (Lyon, Paris)"
   },
   {
     "profile_id": "p15",
     "offer_id": "o043",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Stage Développeur Python (Lyon, Stage, Hybride, niveau intern) face à un profil développeur backend junior : métier développeur python proche du parcours ; compétences communes : Python, Git, tests ; préférence déclarée violée : contrat Stage hors des contrats visés (CDI) ; niveau intern hors des niveaux visés (junior, mid)"
+    "motif": "Stage Développeur Python (Lyon, Stage, Hybride, niveau intern) face à un profil développeur backend junior : développeur Python en stage : même pile que le profil, mais niveau stagiaire ; compétences communes : Python, Git, tests ; préférence déclarée violée : contrat Stage hors des contrats visés (CDI) ; niveau intern hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p15",
     "offer_id": "o030",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Développeur Full Stack TypeScript (Lille, CDI, Hybride, niveau mid) face à un profil développeur backend junior : métier développeur full stack proche du parcours ; compétences communes : PostgreSQL ; préférence déclarée violée : ville Lille hors des villes visées (Lyon, Paris)"
+    "motif": "Développeur Full Stack TypeScript (Lille, CDI, Hybride, niveau mid) face à un profil développeur backend junior : full stack TypeScript : métier voisin du backend, avec le frontend en plus, poste mid ; compétences communes : PostgreSQL ; préférence déclarée violée : ville Lille hors des villes visées (Lyon, Paris)"
   },
   {
     "profile_id": "p15",
@@ -1717,21 +1717,21 @@
     "offer_id": "o010",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Business Intelligence Analyst (Nantes, CDI, Hybride, niveau mid) face à un profil data analyst confirme : métier bi analyst proche du parcours ; compétences communes : SQL ; préférence déclarée violée : ville Nantes hors des villes visées (Paris)"
+    "motif": "Business Intelligence Analyst (Nantes, CDI, Hybride, niveau mid) face à un profil data analyst confirme : BI analyst : métier voisin du data analyst, SQL en commun, accent sur Power BI et DAX ; compétences communes : SQL ; préférence déclarée violée : ville Nantes hors des villes visées (Paris)"
   },
   {
     "profile_id": "p16",
     "offer_id": "o008",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Data Analyst Junior (Lille, CDI, Hybride, niveau junior) face à un profil data analyst confirme : métier data analyst proche du parcours ; compétences communes : SQL, Excel ; préférence déclarée violée : ville Lille hors des villes visées (Paris) ; niveau junior hors des niveaux visés (mid)"
+    "motif": "Data Analyst Junior (Lille, CDI, Hybride, niveau junior) face à un profil data analyst confirme : même métier de data analyst, mais poste junior pour un profil confirmé ; compétences communes : SQL, Excel ; préférence déclarée violée : ville Lille hors des villes visées (Paris) ; niveau junior hors des niveaux visés (mid)"
   },
   {
     "profile_id": "p16",
     "offer_id": "o009",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Stage Data Analyst (6 mois) (Lyon, Stage, Hybride, niveau intern) face à un profil data analyst confirme : métier data analyst proche du parcours ; compétences communes : SQL, Python, Excel, reporting ; préférence déclarée violée : ville Lyon hors des villes visées (Paris) ; contrat Stage hors des contrats visés (CDI) ; niveau intern hors des niveaux visés (mid)"
+    "motif": "Stage Data Analyst (6 mois) (Lyon, Stage, Hybride, niveau intern) face à un profil data analyst confirme : même métier de data analyst, en stage, niveau en dessous du profil ; compétences communes : SQL, Python, Excel, reporting ; préférence déclarée violée : ville Lyon hors des villes visées (Paris) ; contrat Stage hors des contrats visés (CDI) ; niveau intern hors des niveaux visés (mid)"
   },
   {
     "profile_id": "p16",
@@ -1824,21 +1824,21 @@
     "offer_id": "o030",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Développeur Full Stack TypeScript (Lille, CDI, Hybride, niveau mid) face à un profil développeur backend junior : métier développeur full stack proche du parcours ; compétences communes : TypeScript, Node.js, PostgreSQL ; préférence déclarée violée : ville Lille hors des villes visées (Grenoble, Lyon, Rennes)"
+    "motif": "Développeur Full Stack TypeScript (Lille, CDI, Hybride, niveau mid) face à un profil développeur backend junior : full stack TypeScript : métier voisin du backend, avec le frontend en plus, poste mid ; compétences communes : TypeScript, Node.js, PostgreSQL ; préférence déclarée violée : ville Lille hors des villes visées (Grenoble, Lyon, Rennes)"
   },
   {
     "profile_id": "p17",
     "offer_id": "o026",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Développeur Backend Python (Paris, CDI, Hybride, niveau mid) face à un profil développeur backend junior : métier développeur backend proche du parcours ; compétences communes : Python, PostgreSQL, Docker, tests ; préférence déclarée violée : ville Paris hors des villes visées (Grenoble, Lyon, Rennes)"
+    "motif": "Développeur Backend Python (Paris, CDI, Hybride, niveau mid) face à un profil développeur backend junior : développeur backend Python : même métier et même pile, poste mid ; compétences communes : Python, PostgreSQL, Docker, tests ; préférence déclarée violée : ville Paris hors des villes visées (Grenoble, Lyon, Rennes)"
   },
   {
     "profile_id": "p17",
     "offer_id": "o043",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Stage Développeur Python (Lyon, Stage, Hybride, niveau intern) face à un profil développeur backend junior : métier développeur python proche du parcours ; compétences communes : Python, Git, tests ; préférence déclarée violée : contrat Stage hors des contrats visés (CDI) ; niveau intern hors des niveaux visés (junior, mid)"
+    "motif": "Stage Développeur Python (Lyon, Stage, Hybride, niveau intern) face à un profil développeur backend junior : développeur Python en stage : même pile, niveau stagiaire ; compétences communes : Python, Git, tests ; préférence déclarée violée : contrat Stage hors des contrats visés (CDI) ; niveau intern hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p17",
@@ -1937,7 +1937,7 @@
     "offer_id": "o070",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Marketing Digital - Alternance (Lyon, Alternance, Hybride, niveau junior) face à un profil chargé de marketing digital junior : métier marketing digital proche du parcours ; compétences communes : réseaux sociaux, rédaction, analytics, SEO ; préférence déclarée violée : ville Lyon hors des villes visées (Nantes, Paris, Lille) ; contrat Alternance hors des contrats visés (CDI, CDD)"
+    "motif": "Marketing Digital - Alternance (Lyon, Alternance, Hybride, niveau junior) face à un profil chargé de marketing digital junior : marketing digital en alternance : même métier, contrat d'alternance ; compétences communes : réseaux sociaux, rédaction, analytics, SEO ; préférence déclarée violée : ville Lyon hors des villes visées (Nantes, Paris, Lille) ; contrat Alternance hors des contrats visés (CDI, CDD)"
   },
   {
     "profile_id": "p18",
@@ -2123,19 +2123,19 @@
     "profile_id": "p20",
     "offer_id": "o096",
     "label": "pertinent",
-    "motif": "Juriste Contrats Junior (Paris, CDI, Hybride, niveau junior) face à un profil juriste junior : même métier ou métier voisin (juriste contrats) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
+    "motif": "Juriste Contrats Junior (Paris, CDI, Hybride, niveau junior) face à un profil juriste junior : juriste contrats junior : même métier et même niveau que le profil (juriste junior en droit des affaires) ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p20",
     "offer_id": "o097",
     "label": "pertinent",
-    "motif": "Juriste - Alternance (Lyon, Alternance, Présentiel, niveau junior) face à un profil juriste junior : même métier ou métier voisin (juriste) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
+    "motif": "Juriste - Alternance (Lyon, Alternance, Présentiel, niveau junior) face à un profil juriste junior : juriste en alternance : même métier et même niveau, droit des sociétés ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p20",
     "offer_id": "o099",
     "label": "pertinent",
-    "motif": "Assistant Juridique (Lyon, CDI, Présentiel, niveau junior) face à un profil juriste junior : même métier ou métier voisin (assistant juridique) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
+    "motif": "Assistant Juridique (Lyon, CDI, Présentiel, niveau junior) face à un profil juriste junior : assistant juridique : même domaine, suivi de dossiers adapté à un profil junior ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p20",
@@ -2149,14 +2149,14 @@
     "offer_id": "o100",
     "label": "partiel",
     "preference_violee": false,
-    "motif": "Juriste Protection des Données (DPO) (Paris, CDI, Hybride, niveau mid) face à un profil juriste junior : Spécialisation données personnelles, à acquérir ; compétences communes : aucune compétence clé citée dans les sources ; aucune préférence violée."
+    "motif": "Juriste Protection des Données (DPO) (Paris, CDI, Hybride, niveau mid) face à un profil juriste junior : juriste DPO : spécialisation (RGPD) dont le profil junior n'a pas encore l'expertise ; aucune préférence violée."
   },
   {
     "profile_id": "p20",
     "offer_id": "o098",
     "label": "partiel",
     "preference_violee": false,
-    "motif": "Legal Counsel (Paris, CDI, Hybride, niveau senior) face à un profil juriste junior : Poste senior de legal counsel ; compétences communes : aucune compétence clé citée dans les sources ; aucune préférence violée."
+    "motif": "Legal Counsel (Paris, CDI, Hybride, niveau senior) face à un profil juriste junior : legal counsel : poste senior, au-dessus de l'expérience d'un stagiaire juriste ; aucune préférence violée."
   },
   {
     "profile_id": "p20",
@@ -2267,21 +2267,21 @@
     "offer_id": "o044",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Architecte Logiciel (Lyon, CDI, Hybride, niveau senior) face à un profil devops senior : métier architecte logiciel proche du parcours ; compétences communes : cloud ; préférence déclarée violée : ville Lyon hors des villes visées (Paris)"
+    "motif": "Architecte Logiciel (Lyon, CDI, Hybride, niveau senior) face à un profil devops senior : architecte logiciel : métier voisin du devops senior, conception d'applications cloud (Java, microservices) ; compétences communes : cloud ; préférence déclarée violée : ville Lyon hors des villes visées (Paris)"
   },
   {
     "profile_id": "p21",
     "offer_id": "o040",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Administrateur systèmes et réseaux (Lille, contrat non précisé, Présentiel, niveau mid) face à un profil devops senior : métier administrateur systèmes proche du parcours ; compétences communes : Linux, réseaux ; préférence déclarée violée : ville Lille hors des villes visées (Paris)"
+    "motif": "Administrateur systèmes et réseaux (Lille, contrat non précisé, Présentiel, niveau mid) face à un profil devops senior : administration systèmes et réseaux : métier voisin, plus opérationnel, un cran sous un devops senior ; compétences communes : Linux, réseaux ; préférence déclarée violée : ville Lille hors des villes visées (Paris)"
   },
   {
     "profile_id": "p21",
     "offer_id": "o038",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Ingénieur DevOps Junior (Grenoble, CDI, Présentiel, niveau junior) face à un profil devops senior : métier devops proche du parcours ; compétences communes : Linux, Docker, Jenkins, Bash ; préférence déclarée violée : ville Grenoble hors des villes visées (Paris) ; niveau junior hors des niveaux visés (senior, mid)"
+    "motif": "Ingénieur DevOps Junior (Grenoble, CDI, Présentiel, niveau junior) face à un profil devops senior : même métier de devops, mais poste junior pour un profil senior ; compétences communes : Linux, Docker, Jenkins, Bash ; préférence déclarée violée : ville Grenoble hors des villes visées (Paris) ; niveau junior hors des niveaux visés (senior, mid)"
   },
   {
     "profile_id": "p21",
@@ -2359,40 +2359,40 @@
     "profile_id": "p22",
     "offer_id": "o045",
     "label": "pertinent",
-    "motif": "Commercial Solutions Cloud (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (commercial cloud) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
+    "motif": "Commercial Solutions Cloud (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : vente B2B de solutions cloud : même métier de vente (prospection, négociation) sur un autre produit ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p22",
     "offer_id": "o023",
     "label": "pertinent",
-    "motif": "Commercial Data & Analytics Solutions (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (commercial data) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
+    "motif": "Commercial Data & Analytics Solutions (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : vente B2B de solutions data : même métier de vente sur un autre produit ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p22",
     "offer_id": "o080",
     "label": "pertinent",
-    "motif": "Commercial Logiciels de Comptabilité (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (commercial logiciels) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
+    "motif": "Commercial Logiciels de Comptabilité (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : vente B2B de logiciels de comptabilité : même métier de vente de logiciels ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p22",
     "offer_id": "o093",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "SDR / Business Developer Junior (Paris, CDI, Hybride, niveau junior) face à un profil commercial b2b confirme : métier sdr proche du parcours ; compétences communes : LinkedIn ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior)"
+    "motif": "SDR / Business Developer Junior (Paris, CDI, Hybride, niveau junior) face à un profil commercial b2b confirme : SDR : même filière commerciale, poste junior de prospection, un cran sous un profil confirmé ; compétences communes : LinkedIn ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p22",
     "offer_id": "o090",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Ingénieur d'Affaires (Grenoble, CDI, Présentiel, niveau mid) face à un profil commercial b2b confirme : métier ingénieur d'affaires proche du parcours ; compétences communes : industrie ; préférence déclarée violée : ville Grenoble hors des villes visées (Paris)"
+    "motif": "Ingénieur d'Affaires (Grenoble, CDI, Présentiel, niveau mid) face à un profil commercial b2b confirme : ingénieur d'affaires : métier voisin de la vente B2B, vente plus technique et itinérante ; compétences communes : industrie ; préférence déclarée violée : ville Grenoble hors des villes visées (Paris) ; présentiel alors que le profil veut de l'hybride"
   },
   {
     "profile_id": "p22",
     "offer_id": "o049",
     "label": "partiel",
     "preference_violee": true,
-    "motif": "Technico-commercial Réseaux et Télécoms (Lyon, CDI, Présentiel, niveau mid) face à un profil commercial b2b confirme : métier technico-commercial proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Lyon hors des villes visées (Paris)"
+    "motif": "Technico-commercial Réseaux et Télécoms (Lyon, CDI, Présentiel, niveau mid) face à un profil commercial b2b confirme : technico-commercial réseaux et télécoms : vente plus technique (réseaux, télécoms) que celle du profil ; préférence déclarée violée : ville Lyon hors des villes visées (Paris) ; présentiel alors que le profil veut de l'hybride"
   },
   {
     "profile_id": "p22",

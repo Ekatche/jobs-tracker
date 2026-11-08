@@ -289,6 +289,36 @@ def test_preferences_match_stored_models(pid):
 def test_label_motifs_are_specific():
     counts = Counter(r["motif"] for r in REF["matching_labels"])
     assert max(counts.values()) <= 3, counts.most_common(2)
+    for r in REF["matching_labels"]:
+        assert "aucune compétence clé citée" not in r["motif"], r
+        assert "proche du parcours" not in r["motif"], r
+
+
+# Table humaine remote_policy x mode d'offre ; un mode inconnu n'est jamais une violation.
+REMOTE_VIOLATIONS = {
+    "hybrid": {"Présentiel"},
+    "on_site": {"Télétravail total"},
+    "full_remote": {"Présentiel", "Hybride"},
+    "flexible": set(),
+}
+
+
+def test_remote_violations_flag_preference_violee():
+    offers = {o["offer_id"]: o for o in REF["offers"]}
+    for r in REF["matching_labels"]:
+        if r["label"] == "hors_sujet":
+            continue  # un hors-sujet ne porte jamais le flag (autre métier)
+        profile = _profile(r["profile_id"])
+        policies = [
+            p["remote_policy"]
+            for p in _source_preferences(profile)
+            if p.get("remote_policy")
+        ]
+        if not policies:
+            continue
+        mode = offers[r["offer_id"]]["mode_travail"]
+        if mode in REMOTE_VIOLATIONS[policies[0]]:
+            assert r.get("preference_violee") is True, (r["profile_id"], r["offer_id"])
 
 
 def test_letter_exigences_and_transferables_are_consistent():
