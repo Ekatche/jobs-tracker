@@ -3,6 +3,12 @@
 from unittest.mock import AsyncMock, MagicMock
 import pytest
 
+# Re-export root conftest symbols to prevent sys.modules['conftest'] collision in pytest
+try:
+    from tests.conftest import DATABASE_NAME, MONGO_URI
+except ImportError:
+    pass
+
 
 @pytest.fixture(autouse=True)
 def mock_external_pipeline_deps(monkeypatch):

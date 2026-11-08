@@ -6,6 +6,12 @@ from unittest.mock import AsyncMock
 from bson import ObjectId
 import pytest
 
+# Re-export root conftest symbols to prevent sys.modules['conftest'] collision in pytest
+try:
+    from tests.conftest import DATABASE_NAME, MONGO_URI
+except ImportError:
+    pass
+
 from app.auth import get_current_user
 from app.models import (
     AnticipatedQuestion,

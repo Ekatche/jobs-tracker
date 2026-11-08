@@ -104,7 +104,7 @@ def test_update_description_never_overwrites_shared_offer(client, auth_headers):
     import uuid
 
     import pymongo
-    from conftest import DATABASE_NAME, MONGO_URI
+    from tests.conftest import DATABASE_NAME, MONGO_URI
 
     key = uuid.uuid4().hex
     mongo = pymongo.MongoClient(MONGO_URI)

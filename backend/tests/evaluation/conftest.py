@@ -5,6 +5,12 @@ from unittest.mock import AsyncMock, MagicMock
 from bson import ObjectId
 import pytest
 
+# Re-export root conftest symbols to prevent sys.modules['conftest'] collision in pytest
+try:
+    from tests.conftest import DATABASE_NAME, MONGO_URI
+except ImportError:
+    pass
+
 TEST_USER_ID = "507f1f77bcf86cd799439011"
 TEST_OFFER_ID = "507f1f77bcf86cd799439022"
 

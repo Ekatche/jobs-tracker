@@ -8,7 +8,7 @@ from bson import ObjectId
 
 from app.auth import get_current_user
 from app.models import ApplicationStatus, UserModel, UserRole
-from conftest import DATABASE_NAME, MONGO_URI
+from tests.conftest import DATABASE_NAME, MONGO_URI
 from main import app
 
 USER_ID = str(ObjectId())

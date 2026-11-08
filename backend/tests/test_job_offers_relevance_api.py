@@ -16,7 +16,7 @@ from app.auth import get_current_user
 from app.models import UserModel, UserRole
 from app.routers.job_offers import _build_list_pipeline, relevance_lookup_stages
 from app.services.offer_scoring.score import level_for
-from conftest import DATABASE_NAME, MONGO_URI
+from tests.conftest import DATABASE_NAME, MONGO_URI
 from main import app
 
 
