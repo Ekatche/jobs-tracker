@@ -32,7 +32,9 @@ def _pdf_bytes(kind: str) -> bytes:
     if kind == "unreadable":
         return b"%PDF-1.7 octets corrompus"
     doc = fitz.open()
-    if kind.startswith("scanned"):  # page image ; "scanned_text" garde un numéro de page en texte
+    if kind.startswith("scanned") or kind == "mixed":  # page image ; "scanned_text" garde un numéro de page en texte
+        if kind == "mixed":  # une page de texte, puis une page scannée
+            doc.new_page(width=200, height=200).insert_text((20, 50), "Contact", fontsize=14)
         source = fitz.open()
         source.new_page(width=200, height=200).insert_text((20, 50), "CV scanné", fontsize=14)
         page = doc.new_page(width=200, height=200)
@@ -140,9 +142,14 @@ def test_cv_import_returns_report_but_never_persists_it(client, profile_db, monk
     assert "import_report" not in profile_db and "_import_report" not in profile_db
 
 
-@pytest.mark.parametrize("kind, text_llm_called", [("scanned", False), ("scanned_text", True)])
-def test_vlm_outage_on_scanned_pdf_is_a_503_without_storage_or_usage(
-    client, profile_db, monkeypatch, tmp_path, kind, text_llm_called
+@pytest.mark.parametrize("kind, vlm_answers, status, message, text_llm_called", [
+    ("scanned", False, 503, "VISION_UNAVAILABLE_MESSAGE", False),
+    ("scanned_text", False, 503, "VISION_UNAVAILABLE_MESSAGE", True),
+    # Le VLM répond sans rien trouver : fichier vide (400), pas une panne.
+    ("mixed", True, 400, "EMPTY_CV_MESSAGE", True),
+])
+def test_empty_scanned_import_is_503_on_vlm_outage_and_400_when_vlm_answers_empty(
+    client, profile_db, monkeypatch, tmp_path, kind, vlm_answers, status, message, text_llm_called
 ):
     import app.routers.cover_letters as router
 
@@ -155,15 +162,15 @@ def test_vlm_outage_on_scanned_pdf_is_a_503_without_storage_or_usage(
     empty_text_answer = MagicMock(
         choices=[MagicMock(message=MagicMock(content="{}"))], usage=MagicMock(prompt_tokens=10, completion_tokens=2)
     )
-    with patch("app.services.cv_parser.parse_cv_with_vlm", new_callable=AsyncMock,
-               side_effect=CVResponseError("JSON invalide", billed)):
+    vlm_outcome = {"return_value": {}} if vlm_answers else {"side_effect": CVResponseError("JSON invalide", billed)}
+    with patch("app.services.cv_parser.parse_cv_with_vlm", new_callable=AsyncMock, **vlm_outcome):
         with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock, return_value=empty_text_answer) as llm:
             res = client.post(
                 "/profile/candidate/sources/cv",
                 files={"file": ("cv.pdf", io.BytesIO(_pdf_bytes(kind)), "application/pdf")},
             )
-    assert res.status_code == 503
-    assert res.json()["detail"] == router.VISION_UNAVAILABLE_MESSAGE
+    assert res.status_code == status
+    assert res.json()["detail"] == getattr(router, message)
     assert profile_db == {}
     record.assert_not_called()
     assert llm.called is text_llm_called

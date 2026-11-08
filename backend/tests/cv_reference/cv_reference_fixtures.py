@@ -1,4 +1,8 @@
-"""Fixtures communes (module au nom unique : un `conftest` ici masquerait celui de tests/) : jeu de référence et PDF générés une fois par session (hors réseau)."""
+"""Fixtures communes du banc : jeu de référence et PDF générés hors réseau.
+
+Module au nom unique (un `conftest` ici masquerait celui de tests/). Importées explicitement :
+chaque module qui les importe les construit une fois (scope session par module, pas global).
+"""
 import socket
 
 import pytest

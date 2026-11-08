@@ -178,6 +178,7 @@ async def test_report_vlm_pages_text_complement_and_scanned_skip(tmp_path, mistr
                    return_value=_llm_response(COMPLEMENT_JSON)):
             result = await parse_cv_with_llm(cv_text="texte", pdf_path=pdf)
 
+    assert result["skills"]["general"] == ["Git"]  # M-1 : liste normalisée puis fusionnée
     report = result["_import_report"]
     assert report == {
         "total_pages": 6,
