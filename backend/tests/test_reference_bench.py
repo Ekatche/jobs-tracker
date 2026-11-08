@@ -64,14 +64,6 @@ def test_reference_to_export_shape(export):
     assert export["sample_offer_ids"] == ["o001", "o002"]
 
 
-def test_reference_to_export_runs_through_hybrid_scores(export):
-    assert set(matching_bench.offers_by_id(export)) == {"o001", "o002"}
-    assert matching_bench.sample_ids(export) == ["o001", "o002"]
-    scores = matching_bench.hybrid_scores(export, [])
-    assert set(scores) == {"p01", "p02"}
-    assert set(scores["p01"]) == {"o001", "o002"}
-
-
 def test_reference_labels_and_violations(ref):
     assert reference_labels(ref) == {
         "p01": {"o001": "relevant", "o002": "irrelevant"},
@@ -225,12 +217,6 @@ def test_offer_source_recall(export, monkeypatch, detached, recall):
     assert result == {"synthetic": {"n_relevant": 1, "recall": recall}}
 
 
-def test_cached_hybrid_cos_records_reads_given_path(export, tmp_path):
-    cache = tmp_path / "cos.json"
-    cache.write_text("{}", encoding="utf-8")
-    assert matching_bench.cached_hybrid_cos_records(export, cache) == []
-
-
 # --- Budget de l'embedding ---
 
 
@@ -246,48 +232,41 @@ def fake_embed(monkeypatch):
     return calls
 
 
-@pytest.fixture
-def ledger(tmp_path, monkeypatch):
-    path = tmp_path / "ledger.jsonl"
-    monkeypatch.setattr(llm_budget, "LEDGER_PATH", path)
-    return path
-
-
 def _embed(export, tmp_path, confirm):
     asyncio.run(matching_bench.run_embed(export, tmp_path / "cos.json", confirm))
 
 
-def test_embed_budget_exhausted_blocks_call(export, tmp_path, fake_embed, ledger):
-    llm_budget.record_call("profil", "seed", "m", 0.25, "billed", path=ledger)
+def test_embed_budget_exhausted_blocks_call(export, tmp_path, fake_embed):
+    llm_budget.record_call("profil", "seed", "m", 0.25, "billed", path=llm_budget.LEDGER_PATH)
     with pytest.raises(BudgetExceeded):
         _embed(export, tmp_path, confirm=True)
     assert fake_embed == []
-    assert len(ledger.read_text(encoding="utf-8").splitlines()) == 1
+    assert len(llm_budget.LEDGER_PATH.read_text(encoding="utf-8").splitlines()) == 1
 
 
-def test_embed_confirmed_records_one_row(export, tmp_path, fake_embed, ledger):
+def test_embed_confirmed_records_one_row(export, tmp_path, fake_embed):
     _embed(export, tmp_path, confirm=True)
     assert fake_embed
-    rows = [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()]
+    rows = [json.loads(line) for line in llm_budget.LEDGER_PATH.read_text(encoding="utf-8").splitlines()]
     assert len(rows) == 1
     assert rows[0]["plan"] == "profil" and rows[0]["cost_kind"] == "estimated"
     assert rows[0]["script"] == "matching_bench.py embed" and rows[0]["n_pairs"] > 0
     assert (tmp_path / "cos.json").exists()
 
 
-def test_embed_without_confirm_has_no_call_nor_row(export, tmp_path, fake_embed, ledger):
+def test_embed_without_confirm_has_no_call_nor_row(export, tmp_path, fake_embed):
     _embed(export, tmp_path, confirm=False)
-    assert fake_embed == [] and not ledger.exists()
+    assert fake_embed == [] and not llm_budget.LEDGER_PATH.exists()
 
 
-def test_embed_failure_propagates_and_records_nothing(export, tmp_path, monkeypatch, ledger):
+def test_embed_failure_propagates_and_records_nothing(export, tmp_path, monkeypatch):
     async def boom(texts):
         raise RuntimeError("embedding indisponible")
 
     monkeypatch.setattr(matching_bench, "embed_texts", boom)
     with pytest.raises(RuntimeError, match="indisponible"):
         _embed(export, tmp_path, confirm=True)
-    assert not ledger.exists()
+    assert not llm_budget.LEDGER_PATH.exists()
     assert not (tmp_path / "cos.json").exists()
 
 

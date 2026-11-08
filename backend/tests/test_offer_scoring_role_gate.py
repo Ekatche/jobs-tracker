@@ -100,7 +100,7 @@ def test_short_terms_need_exact_match():
         (["Contrôle de gestion FP&A", "Data analyste", "Finance project manager"], "Finance Project Manager", True),
         # acronyme d'intitulé développé : le jeton d'origine reste côté offre, dans les deux casses
         (["sre", "devops", "platform engineer"], "Ingénieur Fiabilité (SRE)", True),
-        (["SRE"], "sre platform", True),
+        (["Ingénieur SRE"], "INGENIEUR SRE", True),
         # famille juridique FR <-> EN
         (["juriste", "juriste contrats"], "Legal Counsel", True),
         # « juridique » seul est un adjectif : une vente d'assurance n'est pas un poste de juriste

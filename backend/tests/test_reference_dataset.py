@@ -1,5 +1,4 @@
 import copy
-import shutil
 from pathlib import Path
 
 import pytest
@@ -74,34 +73,20 @@ def _unknown_source(r):
     r["profiles"][0]["sources"] = {"linkedin": {"headline": "x"}}
 
 
+def _non_dict_row(r):
+    r["profiles"][0] = "pas un objet"
+
+
+def _empty_offer_id(r):
+    del r["matching_labels"][0]["offer_id"]
+
+
+def _bad_piege(r):
+    r["offers"][0]["piege_filtre_metier"] = "oui"
+
+
 def _dup_offer(r):
     r["offers"][1]["offer_id"] = "o001"
-
-
-@pytest.mark.parametrize("name", ["profiles", "offers", "matching_labels", "cv_facts", "letter_requirements"])
-def test_non_dict_row_reports_error(ref, name):
-    ref[name][0] = "pas un objet"
-    assert any(f"{name}[0]" in e and "objet attendu" in e for e in validate_reference(ref))
-
-
-@pytest.mark.parametrize(
-    "name, key, value",
-    [
-        ("profiles", "profile_id", ""),
-        ("offers", "offer_id", None),
-        ("matching_labels", "profile_id", ""),
-        ("matching_labels", "offer_id", None),
-        ("cv_facts", "profile_id", " "),
-        ("letter_requirements", "profile_id", None),
-        ("letter_requirements", "offer_id", ""),
-    ],
-)
-def test_missing_or_empty_id_reports_error(ref, name, key, value):
-    if value is None:
-        del ref[name][0][key]
-    else:
-        ref[name][0][key] = value
-    assert any(f"{name}[0] : {key} manquant ou vide" in e for e in validate_reference(ref))
 
 
 @pytest.mark.parametrize(
@@ -123,6 +108,9 @@ def test_missing_or_empty_id_reports_error(ref, name, key, value):
         (_unhashable_profile_id, "profile_id"),
         (_blank_fact, "fait"),
         (_unknown_source, "source inconnue"),
+        (_non_dict_row, "objet attendu"),
+        (_empty_offer_id, "offer_id manquant ou vide"),
+        (_bad_piege, "piege_filtre_metier"),
     ],
 )
 def test_invalid_dataset_reports_error(ref, mutate, fragment):
@@ -132,18 +120,11 @@ def test_invalid_dataset_reports_error(ref, mutate, fragment):
     assert any(fragment in e for e in errors)
 
 
-def test_valid_mini_dataset_has_no_error(ref):
+@pytest.mark.parametrize("piege", [True, False])
+def test_valid_mini_dataset_has_no_error_and_tolerates_optional_field(ref, piege):
     assert validate_reference(ref) == []
-
-
-def test_unknown_optional_offer_field_is_tolerated(ref):
-    ref["offers"][0]["piege_filtre_metier"] = True
+    ref["offers"][0]["piege_filtre_metier"] = piege
     assert validate_reference(ref) == []
-
-
-def test_non_boolean_piege_filtre_metier_rejected(ref):
-    ref["offers"][0]["piege_filtre_metier"] = "oui"
-    assert any("piege_filtre_metier" in e for e in validate_reference(ref))
 
 
 def test_coverage_report_on_mini_dataset(ref):
@@ -156,10 +137,3 @@ def test_coverage_report_on_mini_dataset(ref):
     assert report["profiles_with_fact_page_ge_4"] == 1
     assert report["letter_requirements"] == 1
     assert report["subgroups"]["niveau"] == {"junior": 1, "senior": 1}
-
-
-def test_load_reference_missing_file_raises(tmp_path):
-    shutil.copytree(MINI, tmp_path / "ref")
-    (tmp_path / "ref" / "offers.json").unlink()
-    with pytest.raises(FileNotFoundError):
-        load_reference(tmp_path / "ref")

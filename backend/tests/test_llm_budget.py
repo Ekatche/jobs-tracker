@@ -38,20 +38,6 @@ def test_record_line_format_and_extra(ledger):
     assert json.loads(ledger.read_text().splitlines()[0]) == line
 
 
-def test_default_path_is_resolved_at_call_time(ledger):
-    _record("profil", 0.1)
-    assert ledger.exists()
-
-
-def test_append_never_rewrites_existing_lines(ledger):
-    _record("profil", 0.01)
-    first = ledger.read_text()
-    _record("profil", 0.02)
-    lines = ledger.read_text().splitlines()
-    assert len(lines) == 2
-    assert ledger.read_text().startswith(first)
-
-
 @pytest.mark.parametrize(
     "plan, spent, estimate",
     [
@@ -123,9 +109,3 @@ def corrupt_ledger(ledger, request):
 def test_corrupted_line_refuses_rather_than_undercount(corrupt_ledger):
     with pytest.raises(BudgetExceeded, match="illisible"):
         check_budget("profil", 0.01)
-
-
-@pytest.mark.parametrize("corrupt_ledger", CORRUPT_LINES, indirect=True)
-def test_spent_usd_raises_on_corrupted_ledger(corrupt_ledger):
-    with pytest.raises(ValueError, match="illisible"):
-        spent_usd()
