@@ -13,6 +13,12 @@ Usage :
     uv run python scripts/cv_reference_bench.py                 # simulé
     uv run python scripts/cv_reference_bench.py --real          # estimation seule
     uv run python scripts/cv_reference_bench.py --real --confirm
+    uv run python scripts/cv_reference_bench.py --method text|ocr|vlm   # méthode comparée (défaut vlm)
+
+``--method text`` force le chemin texte (rendu des pages neutralisé, code de production inchangé) ;
+``--method ocr`` envoie le PDF à l'OCR Mistral (``cv_ocr.py``) puis au LLM texte, par défaut sur les
+catégories ``scanned``, ``mixed_scanned`` et ``two_columns`` ; en mode simulé l'OCR est un stub
+reconstruit depuis la vérité du cas (OCR simulé, aucun réseau).
 """
 
 import argparse
@@ -32,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.services import cv_parser  # noqa: E402
 from scripts import llm_budget  # noqa: E402
+from scripts.cv_ocr import OCR_MODEL, OCR_USD_PER_PAGE, ocr_pdf  # noqa: E402
 from scripts.cv_reference_pdfs import (  # noqa: E402
     CATEGORIES, DEFAULT_OUT, case_profile, date_range, generate_cases, load_cases, plan_pages,
 )
@@ -60,6 +67,9 @@ REAL_ONLY_MEASURES = (
     "durée réelle des appels et fiabilité du fournisseur (erreurs, JSON invalide)",
 )
 SIMULATION_NOTE = "mode simulé : couverture du pipeline, pas qualité du modèle"
+METHODS = ("vlm", "text", "ocr")
+OCR_DEFAULT_CATEGORIES = ("scanned", "mixed_scanned", "two_columns")
+OCR_USAGE_MODEL = f"mistral/{OCR_MODEL}"
 
 
 # --------------------------------------------------------------------------- utilitaires
@@ -81,7 +91,9 @@ def price_usd(model: str, input_tokens: int, output_tokens: int) -> float:
 
 
 def usage_cost_usd(usages: List[Dict[str, Any]]) -> float:
-    return sum(price_usd(u.get("model", ""), u.get("input_tokens", 0), u.get("output_tokens", 0)) for u in usages)
+    """Coût des usages ; une entrée OCR porte son coût (``pages`` x 0,002 $), pas des tokens."""
+    return sum(u["cost_usd"] if "pages" in u else
+               price_usd(u.get("model", ""), u.get("input_tokens", 0), u.get("output_tokens", 0)) for u in usages)
 
 
 # --------------------------------------------------------------------------- oracle simulé
@@ -169,6 +181,33 @@ def make_oracle(truth: Dict[str, Any], calls: Optional[List[Dict[str, Any]]] = N
     return fake
 
 
+def make_ocr_stub(truth: Dict[str, Any]):
+    """Faux ``ocr_pdf`` (OCR simulé) : le texte attendu de chaque page, reconstruit depuis la vérité."""
+
+    def fake(_path: str, model: str = OCR_MODEL):
+        n_pages = truth["plan"]["n_pages"]
+        texts: List[str] = [""] * n_pages
+        cv = truth["cv"]
+        if cv:
+            where = _element_pages(truth)
+
+            def put(page: int, *parts: Any) -> None:
+                texts[min(max(page, 1), n_pages) - 1] += "\n".join(str(x) for x in parts if x) + "\n"
+
+            put(1, cv.get("headline"), cv.get("summary"), *(cv.get("languages") or []),
+                *(c["name"] for c in cv.get("certifications") or []))
+            put(where["contact"], (cv.get("contact") or {}).get("email"))
+            for i, e in enumerate(cv.get("experiences") or []):
+                put(where["experiences"][i], e["company"], e["role"], *(e.get("missions") or []))
+            for i, e in enumerate(cv.get("education") or []):
+                put(where["education"][i], e["degree"])
+            for cat, items in (cv.get("skills") or {}).items():
+                put(where["skills"][cat], *items)
+        return texts, n_pages
+
+    return fake
+
+
 # --------------------------------------------------------------------------- métriques
 
 def _experience_dates(e: Dict[str, Any]) -> str:
@@ -237,11 +276,15 @@ def evidence_page_accuracy(facts: List[Dict[str, Any]], result: Optional[Dict[st
 
 # --------------------------------------------------------------------------- exécution d'un cas
 
-def estimate_case_usd(entry: Dict[str, Any], vlm_model: str, text_model: str) -> float:
-    """Estimation avant appel : VLM sur 3 pages au plus, complément texte au-delà."""
+def estimate_case_usd(entry: Dict[str, Any], vlm_model: str, text_model: str, method: str = "vlm") -> float:
+    """Estimation avant appel. ``vlm`` : 3 pages au plus puis complément texte ; ``text`` : LLM texte
+    seul ; ``ocr`` : pages x prix OCR plus LLM texte."""
     if entry["category"] in ("protected", "unreadable"):
         return 0.0
     pages = entry["n_pages"]
+    if method in ("text", "ocr"):
+        cost = price_usd(text_model, 800 + 700 * pages, 1500)
+        return cost + pages * OCR_USD_PER_PAGE if method == "ocr" else cost
     images = min(pages, cv_parser.VLM_MAX_PAGES)
     cost = price_usd(vlm_model, 900 + IMAGE_TOKENS * images, 1500)
     if pages > cv_parser.VLM_MAX_PAGES:
@@ -273,13 +316,16 @@ async def _call_pipeline(path: str) -> Dict[str, Any]:
     return out
 
 
-def _page_metrics(entry, outcome, report) -> Dict[str, Any]:
+def _page_metrics(entry, outcome, report, method: str = "vlm") -> Dict[str, Any]:
     if report is None:
         return {"total_pages": entry["n_pages"], "pages_by_method": {"vlm": [], "text": []},
                 "skipped_pages": [], "pages_covered": None, "fallback_used": None}
     total = report["total_pages"]
+    by_method = report["pages_by_method"]
+    if method == "ocr":  # le texte de ces pages vient de l'OCR, pas de la couche texte du PDF
+        by_method = {"vlm": [], "text": [], "ocr": by_method["text"]}
     return {
-        "total_pages": total, "pages_by_method": report["pages_by_method"], "skipped_pages": report["skipped_pages"],
+        "total_pages": total, "pages_by_method": by_method, "skipped_pages": report["skipped_pages"],
         "pages_covered": 1 - len(report["skipped_pages"]) / total if total else None,
         "fallback_used": report["fallback_used"],
     }
@@ -291,19 +337,48 @@ def _expectation_met(category, outcome, result) -> Optional[bool]:
     return bool(outcome["rejected"]) and not result
 
 
-async def _run_case(entry, case, ref, mode, oracle_factory) -> Dict[str, Any]:
+def _ocr_page_source(path: str, ocr_fn: Callable[..., Any], state: Dict[str, Any]) -> Callable[[str], List[str]]:
+    """``extract_page_texts`` de remplacement : un seul appel OCR par PDF (résultat ou erreur mémorisé)."""
+
+    def source(_pdf_path: str) -> List[str]:
+        if "error" in state:
+            raise state["error"]
+        if "texts" not in state:
+            try:
+                state["texts"], state["pages"] = ocr_fn(path)
+            except Exception as exc:
+                state["error"] = exc
+                raise
+        return state["texts"]
+
+    return source
+
+
+async def _run_case(entry, case, ref, mode, oracle_factory, method="vlm", ocr_factory=None) -> Dict[str, Any]:
     truth = build_truth(case, entry, ref)
     calls: List[Dict[str, Any]] = []
+    ocr_state: Dict[str, Any] = {}
     started = time.perf_counter()
     with contextlib.ExitStack() as stack:
         if mode == "simulated":
             stack.enter_context(patch.dict(os.environ, {"MISTRAL_API_KEY": SIMULATED_KEY}))
             stack.enter_context(patch("app.services.cv_parser.acompletion", oracle_factory(truth, calls)))
+        if method in ("text", "ocr"):  # chemin texte forcé, sans toucher au code de production
+            stack.enter_context(patch("app.services.cv_parser.render_pdf_pages_to_base64_images", return_value=[]))
+        if method == "ocr":
+            ocr_fn = (ocr_factory or make_ocr_stub)(truth) if mode == "simulated" else ocr_pdf
+            source = _ocr_page_source(entry["path"], ocr_fn, ocr_state)
+            stack.enter_context(patch("app.services.cv_parser.extract_page_texts", source))
+            stack.enter_context(patch("app.services.cv_parser.extract_text_from_pdf",
+                                      lambda _p, start_page=0: "\n\n".join(source(_p)[start_page:])))
         outcome = await _call_pipeline(entry["path"])
     duration = time.perf_counter() - started
 
     result = outcome["result"]
     usage = (result.pop("_usage", None) or []) if result else outcome["usage"]
+    if "pages" in ocr_state:
+        pages_billed = ocr_state["pages"]
+        usage = [*usage, {"model": OCR_USAGE_MODEL, "pages": pages_billed, "cost_usd": pages_billed * OCR_USD_PER_PAGE}]
     report = result.pop("_import_report", None) if result else outcome["report"]
     errors = list(report["errors"]) if report else []
     if outcome["error"]:
@@ -312,18 +387,19 @@ async def _run_case(entry, case, ref, mode, oracle_factory) -> Dict[str, Any]:
         errors.append(outcome["rejected"])
     metrics = compute_metrics(entry["facts"], truth["cv"], result)
     metrics["evidence_page_accuracy"] = evidence_page_accuracy(entry["facts"], result, report)
-    pages = _page_metrics(entry, outcome, report)
+    pages = _page_metrics(entry, outcome, report, method)
     category = entry["category"]
     expected_rejection = category in REJECTION_CATEGORIES or bool(outcome["rejected"])
     if expected_rejection:  # évalué sur le rejet lui-même, pas sur le rappel
         metrics["experience_recall"], metrics["missed_experiences"] = None, []
     skipped = set(pages["skipped_pages"])
-    unavailable = sum(1 for u in usage if not u.get("input_tokens") and not u.get("output_tokens"))
+    unavailable = sum(1 for u in usage if "pages" not in u and not u.get("input_tokens") and not u.get("output_tokens"))
     if outcome["error"] and not usage and category not in REJECTION_CATEGORIES:
         unavailable += 1
     return {
-        "case_id": entry["case_id"], "category": category, "profile_id": entry["profile_id"],
+        "case_id": entry["case_id"], "category": category, "profile_id": entry["profile_id"], "method": method,
         **metrics, **pages,
+        "critical_facts_beyond_vlm": sum(1 for f in entry["facts"] if f["page"] > cv_parser.VLM_MAX_PAGES and f.get("critique")),
         "n_company_facts": 0 if expected_rejection else sum(1 for f in entry["facts"] if f["champ"] == "experiences.company"),
         "facts_lost_on_skipped_pages": sum(1 for f in entry["facts"] if f["page"] in skipped and f.get("critique")),
         "rejected": outcome["rejected"], "errors": errors,
@@ -386,10 +462,13 @@ def _pct(value: Optional[float]) -> str:
     return "n/a" if value is None else f"{value:.0%}"
 
 
-def render_summary(mode: str, rows: List[Dict[str, Any]], agg: Dict[str, Any], targets: List[Dict[str, Any]]) -> str:
-    lines = [f"# Banc de couverture de l'import de CV ({mode})", ""]
+def render_summary(mode: str, rows: List[Dict[str, Any]], agg: Dict[str, Any], targets: List[Dict[str, Any]],
+                   method: str = "vlm") -> str:
+    lines = [f"# Banc de couverture de l'import de CV ({mode}, méthode {method})", ""]
     if mode == "simulated":
         lines += [f"**{SIMULATION_NOTE}.** L'oracle est parfait par construction.", ""]
+        if method == "ocr":
+            lines += ["**OCR simulé** : le texte de chaque page est reconstruit depuis la vérité du cas, aucun appel OCR.", ""]
     lines += ["| Catégorie | Cas | Rappel exp. | Omises | Inventés | Pages couvertes | Erreurs | Coût $ | Durée s |",
               "|---|---|---|---|---|---|---|---|---|"]
     for name, a in [*agg["by_category"].items(), ("**global**", agg["global"])]:
@@ -398,6 +477,12 @@ def render_summary(mode: str, rows: List[Dict[str, Any]], agg: Dict[str, Any], t
                      f"| {a['cost_usd']:.4f} | {a['duration_s']:.2f} |")
     g = agg["global"]
     lines += ["", f"Faux rejets : {g['false_rejections']} ; exactitude des pages de provenance : {_pct(g['evidence_page_accuracy'])}."]
+    long_rows = [r for r in rows if r["category"] == "long"]
+    if method == "vlm" and long_rows:
+        beyond = sum(r["critical_facts_beyond_vlm"] for r in long_rows)
+        lost = sum(r["facts_lost_on_skipped_pages"] for r in long_rows)
+        lines += [f"Catégorie long (vlm) : faits critiques des pages 4 et suivantes, {beyond - lost} retrouvés (complément texte), "
+                  f"{lost} perdus (pages non couvertes), sur {beyond}."]
     lines += ["", "## Cibles du pilote (rapportées, non assertées)", ""]
     lines += [f"- {'OK' if t['atteinte'] else 'NON'} : {t['cible']} -> {t['mesure']}" for t in targets]
     lines += ["", "## Mesures qui exigent un fournisseur réel", ""] + [f"- {m}" for m in REAL_ONLY_MEASURES]
@@ -407,15 +492,17 @@ def render_summary(mode: str, rows: List[Dict[str, Any]], agg: Dict[str, Any], t
 # --------------------------------------------------------------------------- banc
 
 async def run_bench(manifest, cases, ref, mode: str = "simulated", confirm: bool = False, out_dir=DEFAULT_OUT,
-                    oracle_factory=make_oracle) -> Dict[str, Any]:
-    """Fait passer chaque cas dans le pipeline. ``mode`` : ``simulated`` ou ``real``."""
+                    oracle_factory=make_oracle, method: str = "vlm", ocr_factory=None) -> Dict[str, Any]:
+    """Fait passer chaque cas dans le pipeline. ``mode`` : ``simulated`` ou ``real`` ; ``method`` : vlm, text, ocr."""
     if mode not in ("simulated", "real"):
         raise ValueError(f"mode inconnu : {mode!r}")
+    if method not in METHODS:
+        raise ValueError(f"méthode inconnue : {method!r}")
     entries = {e["case_id"]: e for e in manifest}
     estimates = {c["case_id"]: estimate_case_usd(entries[c["case_id"]], cv_parser.DEFAULT_VLM_MODEL,
-                                                 cv_parser.DEFAULT_CV_PARSER_MODEL) for c in cases}
+                                                 cv_parser.DEFAULT_CV_PARSER_MODEL, method) for c in cases}
     if mode == "real" and not confirm:
-        return {"mode": mode, "confirmed": False, "estimate_usd": sum(estimates.values()),
+        return {"mode": mode, "method": method, "confirmed": False, "estimate_usd": sum(estimates.values()),
                 "estimates": estimates, "results": []}
     rows: List[Dict[str, Any]] = []
     out = Path(out_dir)
@@ -425,31 +512,31 @@ async def run_bench(manifest, cases, ref, mode: str = "simulated", confirm: bool
             try:
                 llm_budget.check_budget("parser", estimates[case["case_id"]])
             except llm_budget.BudgetExceeded:
-                _write_report(out, mode, _build_report(mode, rows, partial=True))
+                _write_report(out, mode, method, _build_report(mode, rows, method, partial=True))
                 raise
-        row = await _run_case(entry, case, ref, mode, oracle_factory)
+        row = await _run_case(entry, case, ref, mode, oracle_factory, method, ocr_factory)
         if mode == "real" and row["completed"] and row["usage"]:
             models = "+".join(sorted({u.get("model", "?") for u in row["usage"]}))
             llm_budget.record_call("parser", SCRIPT_NAME, models, row["cost_usd"], "estimated",
                                    case_id=row["case_id"], usage_unavailable=row["usage_unavailable"])
             row["cost_recorded"] = True
         rows.append(row)
-    report = _build_report(mode, rows)
-    _write_report(out, mode, report)
+    report = _build_report(mode, rows, method)
+    _write_report(out, mode, method, report)
     return report
 
 
-def _build_report(mode: str, rows: List[Dict[str, Any]], partial: bool = False) -> Dict[str, Any]:
+def _build_report(mode: str, rows: List[Dict[str, Any]], method: str = "vlm", partial: bool = False) -> Dict[str, Any]:
     agg = aggregate(rows)
     targets = pilot_targets(agg, rows)
-    return {"mode": mode, "confirmed": True, "partial": partial, "results": rows, "aggregates": agg,
+    return {"mode": mode, "method": method, "confirmed": True, "partial": partial, "results": rows, "aggregates": agg,
             "pilot_targets": targets, "real_only_measures": list(REAL_ONLY_MEASURES),
-            "summary": render_summary(mode, rows, agg, targets)}
+            "summary": render_summary(mode, rows, agg, targets, method)}
 
 
-def _write_report(out: Path, mode: str, report: Dict[str, Any]) -> None:
+def _write_report(out: Path, mode: str, method: str, report: Dict[str, Any]) -> None:
     out.mkdir(parents=True, exist_ok=True)
-    (out / f"bench_results_{mode}.json").write_text(
+    (out / f"bench_results_{mode}_{method}.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
 
@@ -467,15 +554,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--out", default=str(DEFAULT_OUT), help="dossier des PDF, du manifeste et des résultats")
     parser.add_argument("--real", action="store_true", help="appels fournisseurs réels (estimation seule sans --confirm)")
     parser.add_argument("--confirm", action="store_true", help="avec --real : lance réellement les appels")
-    parser.add_argument("--only", nargs="*", help="limiter à ces case_id")
+    parser.add_argument("--only", nargs="*", help="limiter à ces case_id (prévaut sur le périmètre par défaut de l'OCR)")
+    parser.add_argument("--method", choices=METHODS, default="vlm", help="méthode d'extraction comparée")
     args = parser.parse_args(argv)
     ref, out_dir = load_reference(), Path(args.out)
     cases = [c for c in load_cases() if not args.only or c["case_id"] in args.only]
+    if args.method == "ocr" and not args.only:  # ailleurs la couche texte est propre : l'OCR coûte sans rien apporter
+        cases = [c for c in cases if c["category"] in OCR_DEFAULT_CATEGORIES]
     manifest = _load_manifest(cases, ref, out_dir)
     report = asyncio.run(run_bench(manifest, cases, ref, mode="real" if args.real else "simulated",
-                                   confirm=args.confirm, out_dir=out_dir))
+                                   confirm=args.confirm, out_dir=out_dir, method=args.method))
     if not report["confirmed"]:
-        print(f"Estimation (aucun appel) : {report['estimate_usd']:.4f} $ pour {len(cases)} cas ; "
+        print(f"Estimation (aucun appel, méthode {args.method}) : {report['estimate_usd']:.4f} $ pour {len(cases)} cas ; "
               f"part parser du registre : {PILOT_TARGETS['budget_usd']:.2f} $. Ajouter --confirm pour lancer.")
         return 0
     print(report["summary"])

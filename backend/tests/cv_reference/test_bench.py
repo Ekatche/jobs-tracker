@@ -10,7 +10,8 @@ from tests.cv_reference.cv_reference_fixtures import (  # noqa: F401  (fixtures 
     _no_network, cases, entry, generated, reference,
 )
 from app.services.cv_parser import DEFAULT_CV_PARSER_MODEL, DEFAULT_VLM_MODEL
-from scripts.cv_reference_bench import PRICES_USD_PER_M, compute_metrics, estimate_case_usd, run_bench
+from scripts.cv_reference_bench import (PRICES_USD_PER_M, compute_metrics, estimate_case_usd, make_ocr_stub,
+                                        make_oracle, run_bench)
 from tests.cv_reference.fixtures import (INVENTED_EXPERIENCE, INVENTED_ROLE_EXPERIENCE, inventing_oracle,
                                          llm_response, refusing_acompletion)
 
@@ -129,7 +130,7 @@ async def test_exhausted_budget_makes_no_call_and_keeps_partial_results(run, gen
     if not mid_loop:
         fake.assert_not_called()
         return
-    saved = json.loads((generated["out_dir"] / "bench_results_real.json").read_text())
+    saved = json.loads((generated["out_dir"] / "bench_results_real_vlm.json").read_text())
     assert saved["partial"] and [r["case_id"] for r in saved["results"]] == ["oc_p02"]
 
 
@@ -150,3 +151,29 @@ async def test_real_mode_records_completed_imports_only(run, monkeypatch, conten
         assert rows[0]["cost_usd"] == pytest.approx(r["cost_usd"])
     else:
         assert not llm_budget.LEDGER_PATH.exists()
+
+
+@pytest.mark.parametrize("method", ["vlm", "text", "ocr"])
+async def test_methods_run_offline_on_a_scanned_case(run, generated, method):
+    kinds, ocr_calls = [], []
+
+    def oracle_factory(truth, calls):
+        kinds.append(calls)
+        return make_oracle(truth, calls)
+
+    def ocr_factory(truth):
+        stub = make_ocr_stub(truth)
+        return lambda path: ocr_calls.append(path) or stub(path)
+
+    report = await run(["sc_p04"], method=method, oracle_factory=oracle_factory, ocr_factory=ocr_factory)
+    r = by_id(report)["sc_p04"]
+    called = {c["kind"] for c in kinds[0]}
+    assert r["method"] == report["method"] == method
+    assert ("vlm" in called) == (method == "vlm") and bool(ocr_calls) == (method == "ocr")
+    if method == "ocr":
+        pages = r["pages_by_method"]  # une page sans texte OCR reste « sautée », jamais attribuée au texte du PDF
+        assert pages["vlm"] == pages["text"] == [] and pages["ocr"]
+        assert sorted(pages["ocr"] + r["skipped_pages"]) == list(range(1, r["total_pages"] + 1))
+        entry = next(e for e in generated["manifest"] if e["case_id"] == "sc_p04")
+        assert estimate_case_usd(entry, DEFAULT_VLM_MODEL, DEFAULT_CV_PARSER_MODEL, "ocr") > entry["n_pages"] * 0.002
+        assert r["cost_usd"] >= r["total_pages"] * 0.002 and "OCR simulé" in report["summary"]
