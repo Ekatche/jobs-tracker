@@ -40,6 +40,12 @@ def test_conflicting_dates_for_same_role_keep_priority_source_dates():
             "website",
             experience("Helios Conseil", "Data Engineer", "2022-03", "2024-06"),
         ),
+        # Fin absente côté CV : « en cours » ne doit pas faire chevaucher une promotion.
+        (
+            experience("Orion Data", "Data Analyst", "2019-01", None),
+            "website",
+            experience("Orion Data", "Senior Data Engineer", "2021-03", None),
+        ),
         # Le réimport CV désigne un autre employeur réel : la correction manual n'est pas avalée.
         (
             experience("Helios Conseil", "Data Engineer", "2022-03", "2024-06"),

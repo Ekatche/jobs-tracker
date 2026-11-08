@@ -195,7 +195,6 @@ def _merge_one_experience(
     return merged
 
 
-_OPEN_END_INDEX = 10**6
 _MAX_START_GAP_MONTHS = 2
 _MIN_OVERLAP_MONTHS = 2
 
@@ -216,9 +215,11 @@ def _same_position_dates(
 ) -> bool:
     """Deux périodes d'un même employeur désignent-elles le même poste ?
 
-    Oui si les débuts sont à 2 mois au plus l'un de l'autre, ou si les périodes se
-    chevauchent d'au moins 2 mois (fin absente = en cours). Un seul mois commun est
-    la transition d'une promotion, pas un même poste. Une année seule, sans mois, est
+    Oui si les débuts sont à 2 mois au plus l'un de l'autre, ou si les deux fins sont
+    connues, à 2 mois au plus l'une de l'autre, et que les périodes se chevauchent d'au
+    moins 2 mois. Une fin absente ne prouve rien (promotion dont l'ancien poste a perdu
+    sa fin) : seule la règle des débuts joue. Un seul mois commun est la transition
+    d'une promotion, pas un même poste. Une année seule, sans mois, est
     trop imprécise pour mesurer un écart : on compare alors les années.
     """
     if len(start_a) < 7 or len(start_b) < 7:
@@ -226,8 +227,11 @@ def _same_position_dates(
     a0, b0 = _month_index(start_a), _month_index(start_b)
     if abs(a0 - b0) <= _MAX_START_GAP_MONTHS:
         return True
-    a1 = _month_index(end_a, end=True) if end_a else _OPEN_END_INDEX
-    b1 = _month_index(end_b, end=True) if end_b else _OPEN_END_INDEX
+    if not end_a or not end_b:
+        return False
+    a1, b1 = _month_index(end_a, end=True), _month_index(end_b, end=True)
+    if abs(a1 - b1) > _MAX_START_GAP_MONTHS:
+        return False
     return min(a1, b1) - max(a0, b0) + 1 >= _MIN_OVERLAP_MONTHS
 
 
@@ -263,7 +267,14 @@ def _merge_experiences(
                         break
                     if any(
                         _same_position_dates(
-                            existing_start, _end_of(payload), s_date, _end_of(experience)
+                            normalize_month(
+                                payload.get("start") or payload.get("start_date"),
+                                fallback_year=_end_of(payload),
+                            )
+                            or existing_start,
+                            _end_of(payload),
+                            s_date,
+                            _end_of(experience),
                         )
                         for _s, payload in grouped[key]
                     ):
