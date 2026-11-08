@@ -43,9 +43,9 @@ vide. Les sources ont le format consommé par `build_profile_from_sources`
 
 ```json
 {"offer_id": "o001", "poste": "Data Engineer", "entreprise": "Gamma", "localisation": "Paris",
- "type_contrat": "CDI", "mode_travail": "hybride", "description": "...",
- "competences_cles": ["Python"], "seniority_level": "junior", "sector": "tech",
- "company_size": "50-200", "canonical_title": "data engineer",
+ "type_contrat": "CDI", "mode_travail": "Hybride", "description": "...",
+ "competences_cles": ["Python"], "seniority_level": "junior", "sector": "tech_it",
+ "company_size": "pme", "canonical_title": "data engineer",
  "created_at": "2026-10-01T08:00:00Z", "source": "synthetic", "url": "https://example.test/o001"}
 ```
 
