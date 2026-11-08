@@ -263,7 +263,7 @@ async def test_rematch_user_no_profile_does_nothing():
 
 @pytest.mark.asyncio
 async def test_rematch_user_attaches_by_score_and_writes_relevance():
-    profile = make_profile()
+    profile = make_profile(preferences={"seniority_levels": ["senior"]})
     good_offer = {
         "_id": oid("10"),
         "poste": "Data Engineer",
@@ -310,7 +310,7 @@ async def test_rematch_user_attaches_by_score_and_writes_relevance():
     assert good_doc["level"] == "strong"
     assert good_doc["scoring_version"] == SCORING_VERSION
     assert "breakdown" in good_doc
-    assert "unknown_components" in good_doc
+    assert good_doc["unknown_components"] == ["seniority"]
     assert "failed_conditions" in good_doc
     assert "updated_at" in good_doc
 

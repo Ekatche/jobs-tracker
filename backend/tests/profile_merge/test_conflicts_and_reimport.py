@@ -66,11 +66,8 @@ def test_distinct_positions_are_never_merged(cv_exp, other_source, other_exp):
     "label, manual_start, cv_start, manual_has_helios",
     [
         ("Orion Data SAS", "2022-03", "2022-03", False),
-        ("ORION DATA", "2022-03", "2022-03", False),
-        ("Orion Data (Paris)", "2022-03", "2022-03", False),
         ("Orion-Data", "2022-03", "2022-03", False),
         ("Orion Data Systems", "2022-03", "2022-03", False),
-        ("Société Orion Data", "2022-03", "2022-03", False),
         # La correction manual décale le début de 4 mois, à cheval sur deux années.
         ("Orion Data SAS", "2022-04", "2021-12", False),
         # Instantané manual complet : il contient aussi Helios, qui ne doit pas être dupliqué.

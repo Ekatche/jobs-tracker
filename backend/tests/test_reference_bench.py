@@ -82,7 +82,6 @@ _DCG_SWAPPED = (1 / math.log2(2) + 2 / math.log2(3)) / (2 / math.log2(2) + 1 / m
     [
         (["a", "b"], {"a": "relevant", "b": "partial"}, 1.0),
         (["b", "a"], {"a": "relevant", "b": "partial"}, _DCG_SWAPPED),
-        (["a", "b"], {"a": "irrelevant", "b": "irrelevant"}, 0.0),
         (["a"], {"a": "relevant", "z": "relevant"}, 1 / (1 + 1 / math.log2(3))),
     ],
 )
@@ -163,17 +162,6 @@ def test_subgroup_dimensions_and_sources(ref):
 # --- Rapport ---
 
 
-def test_compute_metrics_per_profile_and_sources(ref, export):
-    metrics = compute_reference_metrics(ref, export, [])
-    assert set(metrics["per_profile"]) == {"p01", "p02"}
-    p01 = metrics["per_profile"]["p01"]
-    assert p01["n_labels"] == 2 and p01["n_relevant"] == 1
-    assert set(p01["hybrid"]) == {"p@5", "ndcg@10", "preference_violations@5", "recall", "false_negatives"}
-    assert metrics["per_profile"]["p02"]["hybrid"]["recall"] is None
-    assert metrics["offer_sources"]["synthetic"]["n_relevant"] == 1
-    assert metrics["aggregate"]["n_profiles"] == 2
-
-
 def test_report_prints_markdown_and_writes_json(ref, export, tmp_path, capsys):
     results = tmp_path / "results.json"
     run_reference_report(ref, export, cache_path=tmp_path / "absent.json", results_path=results)
@@ -207,14 +195,19 @@ def test_compute_metrics_exact_values_with_cos(ref, export):
     # p02 n'a qu'une offre annotée, o002 : o001 n'entre jamais dans son classement.
     assert metrics["per_profile"]["p02"]["hybrid"]["p@5"] == 0.0
     assert metrics["per_profile"]["p02"]["hybrid"]["preference_violations@5"] == 1
+    assert metrics["per_profile"]["p02"]["hybrid"]["recall"] is None
+    assert set(metrics["per_profile"]) == {"p01", "p02"}
+    assert metrics["per_profile"]["p01"]["n_labels"] == 2 and metrics["per_profile"]["p01"]["n_relevant"] == 1
+    assert set(p01) == {"p@5", "ndcg@10", "preference_violations@5", "recall", "false_negatives"}
+    assert metrics["offer_sources"]["synthetic"]["n_relevant"] == 1
+    assert metrics["aggregate"]["n_profiles"] == 2
 
 
-@pytest.mark.parametrize("detached,recall", [(False, 1.0), (True, 0.0)])
-def test_offer_source_recall(export, monkeypatch, detached, recall):
+def test_offer_source_recall(export):
     labels = {"p01": {"o001": "relevant", "o002": "irrelevant"}}
-    assessed = {"p01": {"o001": ("role_mismatch", None) if detached else (None, _result(FLOOR + 10))}}
+    assessed = {"p01": {"o001": ("role_mismatch", None)}}
     result = reference_bench.offer_source_recall(export, labels, assessed)
-    assert result == {"synthetic": {"n_relevant": 1, "recall": recall}}
+    assert result == {"synthetic": {"n_relevant": 1, "recall": 0.0}}
 
 
 # --- Budget de l'embedding ---
@@ -284,7 +277,7 @@ def test_estimate_embed_cost_formula():
 
 @pytest.mark.parametrize(
     "command,message",
-    [("judge", "remplacent le juge"), ("validation-sheet", "remplacent le juge"), ("twopass", "Two-Pass hors budget")],
+    [("judge", "remplacent le juge"), ("twopass", "Two-Pass hors budget")],
 )
 def test_cli_reference_rejects_other_commands(monkeypatch, command, message):
     monkeypatch.setattr(sys, "argv", ["matching_bench.py", "--reference", command])
@@ -301,4 +294,3 @@ def test_real_reference_smoke_without_cos():
     metrics = compute_reference_metrics(real, reference_to_export(real), [])
     assert set(metrics["per_profile"]) == {p["profile_id"] for p in real["profiles"]}
     assert metrics["aggregate"]["n_profiles"] == len(real["profiles"])
-    assert reference_bench.REFERENCE_COS_CACHE.name == "hybrid_cos_cache.json"

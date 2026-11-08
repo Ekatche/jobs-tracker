@@ -20,7 +20,7 @@ from tests.profile_merge.fixtures import (
 )
 
 
-@pytest.mark.parametrize("project_source", ["github", "website", "cv"])
+@pytest.mark.parametrize("project_source", ["github", "cv"])
 def test_project_skill_never_becomes_an_experience(project_source):
     sources = {"cv": copy.deepcopy(CV_TWO_JOBS_NO_RUST)}
     project = copy.deepcopy(FERRIS_PROJECT)

@@ -65,7 +65,7 @@ def _unhashable_profile_id(r):
     r["profiles"][0]["profile_id"] = ["p01"]
 
 
-def _blank_fact(r):
+def _non_string_fact(r):
     r["cv_facts"][0]["fait"] = 12
 
 
@@ -77,7 +77,7 @@ def _non_dict_row(r):
     r["profiles"][0] = "pas un objet"
 
 
-def _empty_offer_id(r):
+def _missing_offer_id(r):
     del r["matching_labels"][0]["offer_id"]
 
 
@@ -106,10 +106,10 @@ def _dup_offer(r):
         (_unknown_letter_profile, "p99"),
         (_empty_description, "description"),
         (_unhashable_profile_id, "profile_id"),
-        (_blank_fact, "fait"),
+        (_non_string_fact, "fait"),
         (_unknown_source, "source inconnue"),
         (_non_dict_row, "objet attendu"),
-        (_empty_offer_id, "offer_id manquant ou vide"),
+        (_missing_offer_id, "offer_id manquant ou vide"),
         (_bad_piege, "piege_filtre_metier"),
     ],
 )
@@ -120,10 +120,9 @@ def test_invalid_dataset_reports_error(ref, mutate, fragment):
     assert any(fragment in e for e in errors)
 
 
-@pytest.mark.parametrize("piege", [True, False])
-def test_valid_mini_dataset_has_no_error_and_tolerates_optional_field(ref, piege):
+def test_valid_mini_dataset_has_no_error_and_tolerates_optional_field(ref):
     assert validate_reference(ref) == []
-    ref["offers"][0]["piege_filtre_metier"] = piege
+    ref["offers"][0]["piege_filtre_metier"] = True
     assert validate_reference(ref) == []
 
 

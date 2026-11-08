@@ -1,4 +1,3 @@
-# ruff: noqa: F811  (fixtures importées depuis relevance_fixtures : le paramètre de test les « redéfinit »)
 """API offres : filtres secteur, taille, mots-clés, ville et entreprise (base Mongo de test)."""
 from datetime import datetime, timezone
 
@@ -14,7 +13,7 @@ from tests.job_offers_relevance.relevance_fixtures import (  # noqa: F401
 
 
 @requires_mongo
-def test_filter_by_sector_and_company_size(client, db, as_user_a, seeded_offers):
+def test_filter_by_sector_and_company_size(client, db, as_user_a, seeded_offers):  # noqa: F811
     res = client.get("/job-offers/", params={"sector": "tech_it", "company_size": "pme"})
     assert res.status_code == 200, res.text
     assert [o["poste"] for o in res.json()] == ["A3"]
@@ -29,7 +28,7 @@ def test_filter_by_sector_and_company_size(client, db, as_user_a, seeded_offers)
 
 
 @requires_mongo
-def test_response_has_no_internal_fields(client, db, as_user_a, seeded_offers):
+def test_response_has_no_internal_fields(client, db, as_user_a, seeded_offers):  # noqa: F811
     res = client.get("/job-offers/", params={"sort": "relevance"})
 
     assert res.status_code == 200, res.text
@@ -38,7 +37,7 @@ def test_response_has_no_internal_fields(client, db, as_user_a, seeded_offers):
 
 
 @requires_mongo
-def test_sector_filter_multi_value_is_union(client, db, as_user_a):
+def test_sector_filter_multi_value_is_union(client, db, as_user_a):  # noqa: F811
     """M21 : plusieurs valeurs de `sector` se combinent en `$in` (union), déjà
     correct via `_build_sector_filter`, figé ici."""
     o1 = _insert_offer(db, poste="SEC-IT", created_at=datetime.now(timezone.utc), sector="tech_it")
@@ -57,7 +56,7 @@ def test_sector_filter_multi_value_is_union(client, db, as_user_a):
 
 
 @requires_mongo
-def test_invalid_sector_and_company_size_return_422_on_list_and_count(client, db, as_user_a):
+def test_invalid_sector_and_company_size_return_422_on_list_and_count(client, db, as_user_a):  # noqa: F811
     """M21 : 422 déjà renvoyé par la validation `Literal[*SECTORS]` / `Literal[*COMPANY_SIZES]`
     sur la liste ET le count, comportement déjà correct, figé ici."""
     assert client.get("/job-offers/", params={"sector": "inconnu"}).status_code == 422
@@ -71,7 +70,7 @@ def test_invalid_sector_and_company_size_return_422_on_list_and_count(client, db
     "keywords",
     ["ingenieur donnees", "INGÉNIEUR DONNÉES", "Ingénieur", "ingénieur données", "developpeur", "DÉVELOPPEUR"],
 )
-def test_keywords_search_ignores_accents_and_case(client, db, as_user_a, keywords):
+def test_keywords_search_ignores_accents_and_case(client, db, as_user_a, keywords):  # noqa: F811
     """Recherche plein texte : « ingenieur » trouve « Ingénieur », en majuscules
     accentuées comme sans accent, sur la liste comme sur le count."""
     now = datetime.now(timezone.utc)
@@ -90,7 +89,7 @@ def test_keywords_search_ignores_accents_and_case(client, db, as_user_a, keyword
 
 @requires_mongo
 @pytest.mark.parametrize("location", ["orleans", "ORLÉANS", "Orléans (45)"])
-def test_location_filter_ignores_accents_and_case(client, db, as_user_a, location):
+def test_location_filter_ignores_accents_and_case(client, db, as_user_a, location):  # noqa: F811
     """Filtre ville : « orleans » trouve « Orléans (45) », et les parenthèses
     saisies sont du texte, pas un groupe regex ; sur la liste comme sur le count."""
     now = datetime.now(timezone.utc)
@@ -108,7 +107,7 @@ def test_location_filter_ignores_accents_and_case(client, db, as_user_a, locatio
 
 
 @requires_mongo
-def test_company_filter_treats_regex_characters_as_text(client, db, as_user_a):
+def test_company_filter_treats_regex_characters_as_text(client, db, as_user_a):  # noqa: F811
     """« C++ » est un nom saisi, pas une regex invalide (500 avant)."""
     now = datetime.now(timezone.utc)
     ids = [
