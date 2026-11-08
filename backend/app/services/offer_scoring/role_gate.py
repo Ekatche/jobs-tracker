@@ -52,6 +52,8 @@ _BILINGUAL_EQUIVALENCE_GROUPS: tuple[frozenset[str], ...] = (
     frozenset({"marketing", "marche", "marches", "market"}),
     frozenset({"supply", "logistique", "logistics", "achats", "procurement", "purchasing"}),
     frozenset({"hr", "rh", "ressources", "humaines", "human", "resources"}),
+    # Pas « avocat » (profession réglementée distincte) ni « droit » (polysémique).
+    frozenset({"juriste", "juristes", "juridique", "juridiques", "legal", "counsel", "lawyer"}),
 )
 
 _EQUIVALENT_TERMS: dict[str, frozenset[str]] = {
@@ -64,8 +66,14 @@ _MIN_PREFIX_LENGTH = 4
 
 
 def _title_tokens(text: Optional[str]) -> list[str]:
-    normalized = normalize_text(expand_title_acronyms(text or ""))
-    return [token for token in normalized.split() if token not in GENERIC_TITLE_WORDS]
+    """Jetons métier du texte d'origine ET de sa version à acronymes développés.
+
+    `expand_title_acronyms` remplace « SRE » par son développement : sans le
+    texte d'origine, le jeton « sre » d'un rôle ne retrouverait plus l'intitulé.
+    """
+    raw = text or ""
+    tokens = normalize_text(raw).split() + normalize_text(expand_title_acronyms(raw)).split()
+    return list(dict.fromkeys(token for token in tokens if token not in GENERIC_TITLE_WORDS))
 
 
 def role_terms(roles: Iterable[str]) -> frozenset[str]:

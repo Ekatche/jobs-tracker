@@ -98,6 +98,12 @@ def test_short_terms_need_exact_match():
         (["Contrôle de gestion FP&A", "Data analyste", "Finance project manager"], "Chef de Projet Monétique", False),
         (["Contrôle de gestion FP&A", "Data analyste", "Finance project manager"], "Project Manager IT", False),
         (["Contrôle de gestion FP&A", "Data analyste", "Finance project manager"], "Finance Project Manager", True),
+        # acronyme d'intitulé développé : le jeton d'origine reste côté offre, dans les deux casses
+        (["sre", "devops", "platform engineer"], "Ingénieur Fiabilité (SRE)", True),
+        (["SRE"], "sre platform", True),
+        # famille juridique FR <-> EN
+        (["juriste", "juriste contrats"], "Legal Counsel", True),
+        (["Juriste junior en droit des affaires"], "Assistant Juridique", True),
     ],
 )
 def test_bilingual_and_synonym_role_matching(roles, title, expected):

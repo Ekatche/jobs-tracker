@@ -274,17 +274,11 @@
       "n_labels": 18,
       "n_relevant": 4,
       "hybrid": {
-        "p@5": 0.6,
-        "ndcg@10": 0.9160810015353577,
+        "p@5": 0.4,
+        "ndcg@10": 0.903609820757186,
         "preference_violations@5": 2,
-        "recall": 0.75,
-        "false_negatives": [
-          {
-            "offer_id": "o098",
-            "reason": "role",
-            "score": null
-          }
-        ]
+        "recall": 1.0,
+        "false_negatives": []
       },
       "chronological": {
         "p@5": 0.0,
@@ -388,17 +382,11 @@
       "n_labels": 18,
       "n_relevant": 4,
       "hybrid": {
-        "p@5": 0.6,
-        "ndcg@10": 0.8838335619611913,
+        "p@5": 0.8,
+        "ndcg@10": 0.9540584903440761,
         "preference_violations@5": 0,
-        "recall": 0.75,
-        "false_negatives": [
-          {
-            "offer_id": "o099",
-            "reason": "role",
-            "score": null
-          }
-        ]
+        "recall": 1.0,
+        "false_negatives": []
       },
       "chronological": {
         "p@5": 0.0,
@@ -413,19 +401,8 @@
         "p@5": 0.8,
         "ndcg@10": 1.0,
         "preference_violations@5": 1,
-        "recall": 0.5,
-        "false_negatives": [
-          {
-            "offer_id": "o118",
-            "reason": "role",
-            "score": null
-          },
-          {
-            "offer_id": "o037",
-            "reason": "role",
-            "score": null
-          }
-        ]
+        "recall": 1.0,
+        "false_negatives": []
       },
       "chronological": {
         "p@5": 0.0,
@@ -462,10 +439,10 @@
     "small": false,
     "hybrid": {
       "p@5": 0.7181818181818183,
-      "ndcg@10": 0.9475864158978599,
+      "ndcg@10": 0.9502115862435286,
       "preference_violations@5": 0.7272727272727273,
-      "recall": 0.8287878787878789,
-      "n_false_negatives": 16
+      "recall": 0.8742424242424243,
+      "n_false_negatives": 12
     },
     "chronological": {
       "p@5": 0.21818181818181817,
@@ -619,8 +596,8 @@
           "p@5": 0.8,
           "ndcg@10": 0.9788161169982514,
           "preference_violations@5": 1.0,
-          "recall": 0.75,
-          "n_false_negatives": 2
+          "recall": 1.0,
+          "n_false_negatives": 0
         },
         "chronological": {
           "p@5": 0.0,
@@ -667,11 +644,11 @@
         "n_relevant": 8,
         "small": true,
         "hybrid": {
-          "p@5": 0.6,
-          "ndcg@10": 0.8999572817482745,
+          "p@5": 0.6000000000000001,
+          "ndcg@10": 0.928834155550631,
           "preference_violations@5": 1.0,
-          "recall": 0.75,
-          "n_false_negatives": 2
+          "recall": 1.0,
+          "n_false_negatives": 0
         },
         "chronological": {
           "p@5": 0.0,
@@ -720,11 +697,11 @@
         "n_relevant": 39,
         "small": false,
         "hybrid": {
-          "p@5": 0.7333333333333334,
-          "ndcg@10": 0.9344839293811034,
+          "p@5": 0.7111111111111111,
+          "ndcg@10": 0.9330982426279734,
           "preference_violations@5": 0.7777777777777778,
-          "recall": 0.825925925925926,
-          "n_false_negatives": 7
+          "recall": 0.8537037037037037,
+          "n_false_negatives": 6
         },
         "chronological": {
           "p@5": 0.06666666666666668,
@@ -737,11 +714,11 @@
         "n_relevant": 39,
         "small": false,
         "hybrid": {
-          "p@5": 0.7333333333333333,
-          "ndcg@10": 0.9552750547533011,
+          "p@5": 0.7555555555555555,
+          "ndcg@10": 0.9630778245736216,
           "preference_violations@5": 0.4444444444444444,
-          "recall": 0.9222222222222223,
-          "n_false_negatives": 3
+          "recall": 0.9500000000000001,
+          "n_false_negatives": 2
         },
         "chronological": {
           "p@5": 0.3333333333333333,
@@ -757,8 +734,8 @@
           "p@5": 0.65,
           "ndcg@10": 0.9597675731358188,
           "preference_violations@5": 1.25,
-          "recall": 0.625,
-          "n_false_negatives": 6
+          "recall": 0.75,
+          "n_false_negatives": 4
         },
         "chronological": {
           "p@5": 0.3,
@@ -791,10 +768,10 @@
         "small": false,
         "hybrid": {
           "p@5": 0.6941176470588236,
-          "ndcg@10": 0.943835096617583,
+          "ndcg@10": 0.9472323758884486,
           "preference_violations@5": 0.8235294117647058,
-          "recall": 0.788235294117647,
-          "n_false_negatives": 15
+          "recall": 0.8470588235294118,
+          "n_false_negatives": 11
         },
         "chronological": {
           "p@5": 0.22352941176470587,
@@ -810,10 +787,10 @@
         "small": false,
         "hybrid": {
           "p@5": 0.7111111111111111,
-          "ndcg@10": 0.9469947612819737,
+          "ndcg@10": 0.9502033028155689,
           "preference_violations@5": 0.7777777777777778,
-          "recall": 0.8157407407407408,
-          "n_false_negatives": 14
+          "recall": 0.8712962962962963,
+          "n_false_negatives": 10
         },
         "chronological": {
           "p@5": 0.18888888888888888,
@@ -845,11 +822,11 @@
         "n_relevant": 35,
         "small": false,
         "hybrid": {
-          "p@5": 0.725,
-          "ndcg@10": 0.9459619999278647,
+          "p@5": 0.75,
+          "ndcg@10": 0.9547401159757253,
           "preference_violations@5": 0.25,
-          "recall": 0.8625,
-          "n_false_negatives": 5
+          "recall": 0.89375,
+          "n_false_negatives": 4
         },
         "chronological": {
           "p@5": 0.225,
@@ -879,11 +856,11 @@
         "n_relevant": 43,
         "small": false,
         "hybrid": {
-          "p@5": 0.74,
-          "ndcg@10": 0.9477785017291666,
+          "p@5": 0.72,
+          "ndcg@10": 0.9465313836513494,
           "preference_violations@5": 1.1,
-          "recall": 0.8083333333333333,
-          "n_false_negatives": 8
+          "recall": 0.8833333333333334,
+          "n_false_negatives": 5
         },
         "chronological": {
           "p@5": 0.22000000000000003,
@@ -938,15 +915,15 @@
     },
     "indeed": {
       "n_relevant": 10,
-      "recall": 0.9
+      "recall": 1.0
     },
     "linkedin": {
       "n_relevant": 20,
-      "recall": 0.75
+      "recall": 0.85
     },
     "synthetic": {
       "n_relevant": 15,
-      "recall": 0.9333333333333333
+      "recall": 1.0
     },
     "wttj": {
       "n_relevant": 28,
