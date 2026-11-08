@@ -193,6 +193,38 @@ def test_report_prints_markdown_and_writes_json(ref, export, tmp_path, capsys):
     assert {"per_profile", "aggregate", "subgroups", "offer_sources"} <= set(payload)
 
 
+def _cos_record(alias, oid, cos):
+    return {"alias": alias, "offer_id": oid, "cos": cos}
+
+
+def test_compute_metrics_exact_values_with_cos(ref, export):
+    # p01 : o001 (pertinente) et o002 (hors sujet) ; un cos élevé sur o002 ne peut pas
+    # faire passer o002 devant o001 si le score l'en empêche, mais le classement reste
+    # restreint aux deux offres annotées de p01.
+    cos = [_cos_record("p01", "o001", 0.9), _cos_record("p01", "o002", 0.1)]
+    metrics = compute_reference_metrics(ref, export, cos)
+    p01 = metrics["per_profile"]["p01"]["hybrid"]
+    assigned = matching_bench.hybrid_scores(export, cos)["p01"]
+    expected_rank = matching_bench.rank_hybrid(["o001", "o002"], assigned, {"o001": 0.9, "o002": 0.1})
+    labels = {"o001": "relevant", "o002": "irrelevant"}
+    assert expected_rank[0] == "o001"
+    assert p01["p@5"] == pytest.approx(1 / 2)
+    assert p01["ndcg@10"] == pytest.approx(ndcg_at_k(expected_rank, labels, 10)) == pytest.approx(1.0)
+    recall, fns = recall_and_false_negatives(labels, assigned)
+    assert p01["recall"] == recall and p01["false_negatives"] == fns
+    # p02 n'a qu'une offre annotée, o002 : o001 n'entre jamais dans son classement.
+    assert metrics["per_profile"]["p02"]["hybrid"]["p@5"] == 0.0
+    assert metrics["per_profile"]["p02"]["hybrid"]["preference_violations@5"] == 1
+
+
+@pytest.mark.parametrize("detached,recall", [(False, 1.0), (True, 0.0)])
+def test_offer_source_recall(export, monkeypatch, detached, recall):
+    labels = {"p01": {"o001": "relevant", "o002": "irrelevant"}}
+    assessed = {"p01": {"o001": ("role_mismatch", None) if detached else (None, _result(FLOOR + 10))}}
+    result = reference_bench.offer_source_recall(export, labels, assessed)
+    assert result == {"synthetic": {"n_relevant": 1, "recall": recall}}
+
+
 def test_cached_hybrid_cos_records_reads_given_path(export, tmp_path):
     cache = tmp_path / "cos.json"
     cache.write_text("{}", encoding="utf-8")
@@ -248,6 +280,17 @@ def test_embed_without_confirm_has_no_call_nor_row(export, tmp_path, fake_embed,
     assert fake_embed == [] and not ledger.exists()
 
 
+def test_embed_failure_propagates_and_records_nothing(export, tmp_path, monkeypatch, ledger):
+    async def boom(texts):
+        raise RuntimeError("embedding indisponible")
+
+    monkeypatch.setattr(matching_bench, "embed_texts", boom)
+    with pytest.raises(RuntimeError, match="indisponible"):
+        _embed(export, tmp_path, confirm=True)
+    assert not ledger.exists()
+    assert not (tmp_path / "cos.json").exists()
+
+
 def test_estimate_embed_cost_formula():
     cost = matching_bench.estimate_embed_cost(
         [("a", "o1"), ("a", "o2"), ("b", "o1")],
@@ -260,12 +303,15 @@ def test_estimate_embed_cost_formula():
 # --- CLI ---
 
 
-@pytest.mark.parametrize("command", ["judge", "twopass", "validation-sheet"])
-def test_cli_reference_rejects_other_commands(monkeypatch, command):
+@pytest.mark.parametrize(
+    "command,message",
+    [("judge", "remplacent le juge"), ("validation-sheet", "remplacent le juge"), ("twopass", "Two-Pass hors budget")],
+)
+def test_cli_reference_rejects_other_commands(monkeypatch, command, message):
     monkeypatch.setattr(sys, "argv", ["matching_bench.py", "--reference", command])
     with pytest.raises(SystemExit) as exc:
         matching_bench.main()
-    assert exc.value.code not in (0, None)
+    assert message in str(exc.value.code)
 
 
 # --- Fumée sur le vrai jeu ---

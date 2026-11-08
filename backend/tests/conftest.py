@@ -231,3 +231,11 @@ def letter_db():
     )
     yield db
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def _isolated_llm_budget_ledger(tmp_path, monkeypatch):
+    """Aucun test n'écrit dans le vrai registre `scripts/data/llm_budget.jsonl`."""
+    from scripts import llm_budget
+
+    monkeypatch.setattr(llm_budget, "LEDGER_PATH", tmp_path / "llm_budget.jsonl")
