@@ -29,7 +29,8 @@ export default function CvImportReportNotice({ report, onDismiss }: CvImportRepo
       <FiAlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
       <div className="flex-1 space-y-1.5">
         <p className="font-semibold">
-          CV importé partiellement : {processed} page(s) analysée(s) sur {report.total_pages}.
+          {report.skipped_pages.length > 0 ? "CV importé partiellement" : "CV importé avec des limites"}{" "}
+          : {processed} page(s) analysée(s) sur {report.total_pages}.
         </p>
         {report.skipped_pages.length > 0 && (
           <p>

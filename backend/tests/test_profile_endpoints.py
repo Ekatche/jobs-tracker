@@ -5,11 +5,6 @@ import sys
 import pytest
 from bson import ObjectId
 
-from app.auth import get_current_user
-from app.database import get_database
-from app.models import UserModel
-from main import app
-
 
 def test_app_imports_without_pymupdf(monkeypatch):
     """L'absence de pymupdf ne doit pas empêcher l'API de démarrer."""
