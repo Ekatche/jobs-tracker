@@ -3,6 +3,11 @@
 Une ligne JSON par appel réel dans ``scripts/data/llm_budget.jsonl`` (non
 versionné). Aucun appel réseau : simple lecture/écriture de fichier. Usage :
 ``check_budget`` avant l'appel, ``record_call`` après.
+
+Un seul script payant doit tourner à la fois : le verrou (``_ledger_lock``)
+protège chaque accès au registre, pas la séquence contrôle, appel payant,
+écriture. Deux scripts concurrents peuvent donc passer le contrôle sur le même
+solde, puis dépasser ensemble la part du plan ou le plafond commun.
 """
 
 import fcntl

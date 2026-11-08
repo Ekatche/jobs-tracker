@@ -65,7 +65,7 @@ JUDGE_CACHE = DATA_DIR / "judge_cache.json"
 TWOPASS_CACHE = DATA_DIR / "twopass_cache.json"
 HYBRID_COS_CACHE = DATA_DIR / "hybrid_cos_cache.json"
 VALIDATION_CSV = DATA_DIR / "validation.csv"
-RESULTS_PATH = Path("scripts/matching_bench_results.json")
+RESULTS_PATH = Path(__file__).resolve().parent / "matching_bench_results.json"
 
 # Juge d'une autre famille que le Two-Pass (gemini), cf. spec §6.1.
 JUDGE_MODEL = "openai/gpt-6.1-sol"
