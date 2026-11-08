@@ -113,7 +113,26 @@ class TavilyJobBoardSearchTool(BaseTool):
             low = u.lower()
             if any(domain in low for domain in excluded_domains):
                 return False
-            # Exclure les pages génériques non pertinentes
+
+            try:
+                parsed = urlsplit(u.strip())
+                hostname = (parsed.hostname or parsed.netloc).lower()
+                path = (parsed.path or "").lower()
+
+                # Filtrer les sous-domaines techniques/support/documentation
+                support_prefixes = ("support.", "help.", "docs.", "blog.", "status.", "community.")
+                if any(hostname.startswith(prefix) for prefix in support_prefixes):
+                    return False
+
+                # Filtrer les pages vitrines/marketing des éditeurs ATS sans chemin d'offre
+                if hostname in ("recruitee.com", "www.recruitee.com") and not path.startswith("/o/"):
+                    return False
+                if hostname in ("teamtailor.com", "www.teamtailor.com") and not path.startswith("/jobs/"):
+                    return False
+            except Exception:
+                pass
+
+            # Exclure les pages génériques et articles non pertinents
             excluded_paths = (
                 "/blog/",
                 "/conseils/",
@@ -128,6 +147,16 @@ class TavilyJobBoardSearchTool(BaseTool):
                 "/cgu",
                 "/privacy",
                 "/conditions-generales",
+                "/articles/",
+                "/temoignages",
+                "/resources/",
+                "/help/",
+                "/support/",
+                "/pricing",
+                "/tarifs",
+                "jobsearch.ftl",
+                "joblist.ftl",
+                "/jobs/search",
             )
             if any(p in low for p in excluded_paths):
                 return False

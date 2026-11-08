@@ -4,6 +4,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../job_trackers/src/job_trackers")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from unittest.mock import MagicMock
 from models import OptimizedQueries, JobUrlItem, FilteredJobOffersResult
 from tools.custom_tool import TavilyJobBoardSearchTool, TavilySearchInput
 from app.services.job_offers import extract_urls_from_crew
@@ -128,6 +129,22 @@ class TestTavilyTool:
             "https://www.mairie-exemple.fr/offre-animateur-jeunesse",
             "https://boards.greenhouse.io/acme/jobs/123",
         ]
+
+    def test_ats_noise_filtering(self):
+        tool = TavilyJobBoardSearchTool()
+        mock_client = MagicMock()
+        mock_client.search.side_effect = lambda query, **kwargs: {
+            "results": [
+                {"url": "https://support.teamtailor.com/fr/articles/123"},
+                {"url": "https://recruitee.com/fr/temoignages-clients"},
+                {"url": "https://eulen.taleo.net/careersection/jobsearch.ftl"},
+                {"url": "https://www.bamboohr.com/resources/events/tour/"},
+                {"url": "https://francophoniecarrieres.recruitee.com/o/data-engineer"},
+            ]
+        }
+        tool.client = mock_client
+        results = tool._run(query="Data engineer Lyon")
+        assert results == ["https://francophoniecarrieres.recruitee.com/o/data-engineer"]
 
     def test_funnel_handles_partial_pass_failure(self):
         from unittest.mock import MagicMock
