@@ -30,7 +30,9 @@
     "exigences": [
       "Séries temporelles de capteurs industriels",
       "Traitement du signal",
-      "Maintenance prédictive sur plateforme IoT"
+      "Maintenance prédictive sur plateforme IoT",
+      "Séries temporelles",
+      "Détection de dérives"
     ],
     "preuves_exactes": [
       {
@@ -55,7 +57,8 @@
     "exigences": [
       "Capteurs industriels (SCADA, MQTT, OPC UA)",
       "Détection d'anomalies sur les mesures",
-      "InfluxDB"
+      "InfluxDB",
+      "Données temporelles"
     ],
     "preuves_exactes": [
       {
@@ -80,7 +83,10 @@
     "exigences": [
       "SQL",
       "Visualisations Metabase",
-      "Analyses ponctuelles pour les équipes métier"
+      "Analyses ponctuelles pour les équipes métier",
+      "Visualisations",
+      "Analyses pour les équipes métier",
+      "Statistiques"
     ],
     "preuves_exactes": [
       {
@@ -112,7 +118,9 @@
     "exigences": [
       "Python et TypeScript",
       "Tests automatisés",
-      "Comprendre les usages des soignants"
+      "Comprendre les usages des soignants",
+      "Python",
+      "Usages des soignants"
     ],
     "preuves_exactes": [
       {
@@ -130,8 +138,8 @@
         "element": "Tenue du dossier de soins informatisé et transmissions à l'équipe"
       },
       {
-        "exigence": "TypeScript",
-        "element": "JavaScript"
+        "exigence": "Usages des soignants",
+        "element": "Application web de planification des gardes pour une équipe soignante"
       }
     ],
     "lacunes": [
@@ -144,7 +152,8 @@
     "exigences": [
       "API Node.js et TypeScript",
       "MongoDB",
-      "Correction d'anomalies"
+      "Correction d'anomalies",
+      "Rigueur de conception"
     ],
     "preuves_exactes": [
       {
@@ -227,7 +236,10 @@
     "exigences": [
       "Terraform et Ansible",
       "Kubernetes",
-      "Supervision Prometheus et Grafana"
+      "Supervision Prometheus et Grafana",
+      "Terraform",
+      "Ansible",
+      "Supervision"
     ],
     "preuves_exactes": [
       {
@@ -256,7 +268,8 @@
     "exigences": [
       "Dashboards Looker",
       "SQL",
-      "Analyses d'A/B tests"
+      "Analyses d'A/B tests",
+      "A/B tests"
     ],
     "preuves_exactes": [
       {
@@ -281,7 +294,10 @@
     "exigences": [
       "Démonstrations",
       "Négociation des contrats",
-      "Suivi du pipeline"
+      "Suivi du pipeline",
+      "Négociation",
+      "Pipeline",
+      "Premiers rendez-vous"
     ],
     "preuves_exactes": [
       {
@@ -310,7 +326,9 @@
     "exigences": [
       "Pipelines Airflow",
       "Qualité des données",
-      "BigQuery"
+      "BigQuery",
+      "Airflow",
+      "Spark"
     ],
     "preuves_exactes": [
       {
@@ -342,7 +360,8 @@
     "exigences": [
       "Java et Spring Boot",
       "Accompagner les développeurs",
-      "PostgreSQL"
+      "PostgreSQL",
+      "Accompagnement"
     ],
     "preuves_exactes": [
       {
@@ -368,7 +387,9 @@
       "Feuille de route",
       "Discovery",
       "Pilotage des indicateurs de rétention",
-      "Manager un product owner"
+      "Manager un product owner",
+      "Rétention",
+      "Management"
     ],
     "preuves_exactes": [
       {

@@ -108,13 +108,17 @@
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": [
-            "hybride",
-            "full-remote"
-          ],
+          "remote_policy": "flexible",
           "seniority_levels": [
-            "confirme",
+            "mid",
             "senior"
+          ],
+          "preferred_industries": [
+            "consulting_services",
+            "retail_ecommerce"
+          ],
+          "preferred_company_sizes": [
+            "eti"
           ]
         }
       }
@@ -221,12 +225,10 @@
             "CDI",
             "CDD"
           ],
-          "remote_policy": [
-            "hybride"
-          ],
+          "remote_policy": "hybrid",
           "seniority_levels": [
             "junior",
-            "confirme"
+            "mid"
           ]
         }
       }
@@ -375,13 +377,18 @@
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": [
-            "hybride",
-            "full-remote"
-          ],
+          "remote_policy": "flexible",
           "seniority_levels": [
-            "confirme",
+            "mid",
             "senior"
+          ],
+          "preferred_industries": [
+            "finance_insurance",
+            "tech_it"
+          ],
+          "preferred_company_sizes": [
+            "eti",
+            "grand_groupe"
           ]
         }
       }
@@ -595,13 +602,10 @@
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": [
-            "hybride",
-            "full-remote"
-          ],
+          "remote_policy": "flexible",
           "seniority_levels": [
             "senior",
-            "confirme"
+            "mid"
           ]
         }
       }
@@ -633,20 +637,16 @@
             "Rennes",
             "Nantes",
             "Paris",
-            "Lyon",
-            "Remote"
+            "Lyon"
           ],
           "contract_types": [
             "CDI",
             "Alternance"
           ],
-          "remote_policy": [
-            "hybrid",
-            "full-remote"
-          ],
+          "remote_policy": "flexible",
           "seniority_levels": [
             "junior",
-            "confirme"
+            "mid"
           ]
         },
         "experiences": [
@@ -863,13 +863,17 @@
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": [
-            "hybrid",
-            "full-remote"
-          ],
+          "remote_policy": "flexible",
           "seniority_levels": [
-            "confirme",
+            "mid",
             "senior"
+          ],
+          "preferred_industries": [
+            "tech_it"
+          ],
+          "preferred_company_sizes": [
+            "pme",
+            "eti"
           ]
         }
       }
@@ -1033,13 +1037,10 @@
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": [
-            "hybride",
-            "full-remote"
-          ],
+          "remote_policy": "flexible",
           "seniority_levels": [
             "senior",
-            "confirme"
+            "mid"
           ]
         }
       }
@@ -1070,18 +1071,14 @@
           ],
           "locations": [
             "Lyon",
-            "Remote",
             "Lille"
           ],
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": [
-            "hybrid",
-            "full-remote"
-          ],
+          "remote_policy": "flexible",
           "seniority_levels": [
-            "confirme",
+            "mid",
             "senior"
           ]
         },
@@ -1275,12 +1272,13 @@
             "CDD",
             "Alternance"
           ],
-          "remote_policy": [
-            "hybride"
-          ],
+          "remote_policy": "hybrid",
           "seniority_levels": [
             "junior",
-            "confirme"
+            "mid"
+          ],
+          "preferred_industries": [
+            "retail_ecommerce"
           ]
         }
       }
@@ -1315,12 +1313,9 @@
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": [
-            "sur site",
-            "hybride"
-          ],
+          "remote_policy": "hybrid",
           "seniority_levels": [
-            "confirme",
+            "mid",
             "senior"
           ]
         },
@@ -1434,13 +1429,10 @@
             "CDD",
             "Alternance"
           ],
-          "remote_policy": [
-            "hybride",
-            "sur site"
-          ],
+          "remote_policy": "hybrid",
           "seniority_levels": [
             "junior",
-            "confirme"
+            "mid"
           ]
         },
         "experiences": [
@@ -1773,12 +1765,17 @@
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": [
-            "hybride"
-          ],
+          "remote_policy": "hybrid",
           "seniority_levels": [
             "senior",
-            "confirme"
+            "mid"
+          ],
+          "preferred_industries": [
+            "tech_it",
+            "public_education"
+          ],
+          "preferred_company_sizes": [
+            "grand_groupe"
           ]
         }
       }
@@ -1876,11 +1873,9 @@
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": [
-            "hybride"
-          ],
+          "remote_policy": "hybrid",
           "seniority_levels": [
-            "confirme",
+            "mid",
             "senior"
           ]
         }
@@ -1994,13 +1989,10 @@
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": [
-            "hybride",
-            "sur site"
-          ],
+          "remote_policy": "hybrid",
           "seniority_levels": [
             "junior",
-            "confirme"
+            "mid"
           ]
         }
       }
@@ -2030,18 +2022,14 @@
             "analytics engineer"
           ],
           "locations": [
-            "Paris",
-            "Remote"
+            "Paris"
           ],
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": [
-            "hybrid",
-            "full-remote"
-          ],
+          "remote_policy": "flexible",
           "seniority_levels": [
-            "confirme"
+            "mid"
           ]
         },
         "experiences": [
@@ -2207,19 +2195,15 @@
           "locations": [
             "Grenoble",
             "Lyon",
-            "Remote",
             "Rennes"
           ],
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": [
-            "hybride",
-            "full-remote"
-          ],
+          "remote_policy": "flexible",
           "seniority_levels": [
             "junior",
-            "confirme"
+            "mid"
           ]
         }
       }
@@ -2251,7 +2235,6 @@
           ],
           "locations": [
             "Nantes",
-            "Remote",
             "Paris",
             "Lille"
           ],
@@ -2259,13 +2242,10 @@
             "CDI",
             "CDD"
           ],
-          "remote_policy": [
-            "hybride",
-            "full-remote"
-          ],
+          "remote_policy": "flexible",
           "seniority_levels": [
             "junior",
-            "confirme"
+            "mid"
           ]
         },
         "experiences": [
@@ -2610,13 +2590,17 @@
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": [
-            "hybride",
-            "full-remote"
-          ],
+          "remote_policy": "flexible",
           "seniority_levels": [
             "senior",
-            "confirme"
+            "mid"
+          ],
+          "preferred_industries": [
+            "finance_insurance",
+            "tech_it"
+          ],
+          "preferred_company_sizes": [
+            "eti"
           ]
         }
       }
@@ -2723,12 +2707,18 @@
           "contract_types": [
             "CDI"
           ],
-          "remote_policy": [
-            "hybrid"
-          ],
+          "remote_policy": "hybrid",
           "seniority_levels": [
-            "confirme",
+            "mid",
             "senior"
+          ],
+          "preferred_industries": [
+            "logistics_transport",
+            "tech_it"
+          ],
+          "preferred_company_sizes": [
+            "pme",
+            "eti"
           ]
         }
       }

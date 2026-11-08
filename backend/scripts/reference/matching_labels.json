@@ -3,2353 +3,2443 @@
     "profile_id": "p01",
     "offer_id": "o001",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Data Scientist Séries Temporelles (Lyon, CDI, Hybride, niveau mid) face à un profil data scientist séries temporelles confirme : même métier ou métier voisin (data scientist) ; compétences communes : Python, séries temporelles, statsmodels, scikit-learn, détection d'anomalies ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p01",
     "offer_id": "o006",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Senior Data Scientist - Forecasting (Remote France, CDI, Télétravail total, niveau senior) face à un profil data scientist séries temporelles confirme : même métier ou métier voisin (data scientist) ; compétences communes : Python ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p01",
     "offer_id": "o005",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Machine Learning Engineer (Paris, CDI, Télétravail total, niveau mid) face à un profil data scientist séries temporelles confirme : même métier ou métier voisin (ml engineer) ; compétences communes : Python, Docker, scikit-learn ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p01",
     "offer_id": "o018",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Data Scientist NLP (Paris, CDI, Hybride, niveau mid) face à un profil data scientist séries temporelles confirme : même métier ou métier voisin (data scientist) ; compétences communes : Python ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p01",
     "offer_id": "o002",
     "label": "partiel",
-    "motif": "Séries temporelles couvertes mais aucune expérience de capteurs industriels ni de traitement du signal.",
-    "preference_violee": false
+    "preference_violee": true,
+    "motif": "Data Scientist Maintenance Prédictive (Toulouse, CDI, Hybride, niveau mid) face à un profil data scientist séries temporelles confirme : Séries temporelles couvertes mais aucune expérience de capteurs industriels ni de traitement du signal ; compétences communes : Python, séries temporelles ; préférence déclarée violée : ville Toulouse hors des villes visées (Lyon, Paris)"
   },
   {
     "profile_id": "p01",
     "offer_id": "o007",
     "label": "partiel",
-    "motif": "Métier voisin (analyse) mais moins de modélisation.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Data Analyst (Paris, CDI, Hybride, niveau mid) face à un profil data scientist séries temporelles confirme : Métier voisin (analyse) mais moins de modélisation ; compétences communes : SQL, Python ; aucune préférence violée."
   },
   {
     "profile_id": "p01",
     "offer_id": "o012",
     "label": "partiel",
-    "motif": "Métier voisin, compétences dbt et SQL à confirmer.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Analytics Engineer (Paris, CDI, Hybride, niveau mid) face à un profil data scientist séries temporelles confirme : Métier voisin, compétences dbt et SQL à confirmer ; compétences communes : SQL, Git, modélisation, Python ; aucune préférence violée."
   },
   {
     "profile_id": "p01",
     "offer_id": "o003",
     "label": "partiel",
-    "motif": "Capteurs industriels et SCADA non couverts ; poste sur site alors que le profil vise hybride ou full-remote.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Ingénieur Data IoT - Capteurs industriels (Grenoble, CDI, Présentiel, niveau mid) face à un profil data scientist séries temporelles confirme : métier ingénieur data iot proche du parcours ; compétences communes : Python ; préférence déclarée violée : ville Grenoble hors des villes visées (Lyon, Paris)"
   },
   {
     "profile_id": "p01",
     "offer_id": "o004",
     "label": "partiel",
-    "motif": "Poste junior alors que le profil vise confirmé ou senior.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Data Scientist Junior - Prévision de la demande (Paris, CDI, Hybride, niveau junior) face à un profil data scientist séries temporelles confirme : métier data scientist proche du parcours ; compétences communes : Python, prévision, SQL ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p01",
     "offer_id": "o020",
     "label": "partiel",
-    "motif": "CDD sur site à Marseille, hors localisation, contrat et mode de travail visés.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Chargé d'études statistiques (Marseille, CDD, Présentiel, niveau junior) face à un profil data scientist séries temporelles confirme : métier statisticien proche du parcours ; compétences communes : R ; préférence déclarée violée : ville Marseille hors des villes visées (Lyon, Paris) ; contrat CDD hors des contrats visés (CDI) ; niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p01",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil data scientist séries temporelles confirme : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
   },
   {
     "profile_id": "p01",
     "offer_id": "o022",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Professeur de mathématiques (contractuel) (Lyon, CDD, Présentiel, niveau mid) face à un profil data scientist séries temporelles confirme : le titre ressemble à un poste voisin mais le métier réel est professeur de mathématiques (public_education) ; compétences clés (mathématiques, pédagogie) étrangères au profil."
   },
   {
     "profile_id": "p01",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil data scientist séries temporelles confirme : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p01",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil data scientist séries temporelles confirme : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p01",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil data scientist séries temporelles confirme : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p01",
     "offer_id": "o055",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil data scientist séries temporelles confirme : métier ux designer (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Figma, recherche utilisateur) absentes du profil."
   },
   {
     "profile_id": "p01",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil data scientist séries temporelles confirme : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
   },
   {
     "profile_id": "p01",
     "offer_id": "o042",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil data scientist séries temporelles confirme : métier ingénieur embarqué (industry_aerospace) sans lien avec le parcours ; compétences clés de l'offre (C++, embarqué) absentes du profil."
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o106",
+    "label": "pertinent",
+    "motif": "Data Analyst (Lyon, CDI, Hybride, niveau junior) face à un profil data analyst junior : même métier ou métier voisin (data analyst) ; compétences communes : SQL, Power BI, Excel, statistiques ; niveau, lieu et contrat compatibles."
+  },
+  {
+    "profile_id": "p02",
+    "offer_id": "o107",
+    "label": "pertinent",
+    "motif": "Analyste BI Junior (Paris, CDI, Hybride, niveau junior) face à un profil data analyst junior : même métier ou métier voisin (bi analyst) ; compétences communes : SQL, Power BI, Excel ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p02",
     "offer_id": "o008",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Data Analyst Junior (Lille, CDI, Hybride, niveau junior) face à un profil data analyst junior : même métier ou métier voisin (data analyst) ; compétences communes : SQL, Excel, statistiques ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p02",
     "offer_id": "o004",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Data Scientist Junior - Prévision de la demande (Paris, CDI, Hybride, niveau junior) face à un profil data analyst junior : même métier ou métier voisin (data scientist) ; compétences communes : Python, statistiques, pandas, SQL ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p02",
     "offer_id": "o007",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Data Analyst (Paris, CDI, Hybride, niveau mid) face à un profil data analyst junior : même métier ou métier voisin (data analyst) ; compétences communes : SQL, Power BI, Excel, Python ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p02",
     "offer_id": "o011",
     "label": "partiel",
-    "motif": "Offre en anglais et 2 ans d'expérience demandés, niveau d'anglais B2.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Data Analyst (English-speaking) (Paris, CDI, Hybride, niveau mid) face à un profil data analyst junior : Offre en anglais et 2 ans d'expérience demandés, niveau d'anglais B2 ; compétences communes : SQL, Python ; aucune préférence violée."
   },
   {
     "profile_id": "p02",
     "offer_id": "o012",
     "label": "partiel",
-    "motif": "Métier voisin mais dbt et ingénierie analytique non couverts.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Analytics Engineer (Paris, CDI, Hybride, niveau mid) face à un profil data analyst junior : Métier voisin mais dbt et ingénierie analytique non couverts ; compétences communes : SQL, Python ; aucune préférence violée."
   },
   {
     "profile_id": "p02",
     "offer_id": "o009",
     "label": "partiel",
-    "motif": "Stage alors que le profil vise CDI ou CDD.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Stage Data Analyst (6 mois) (Lyon, Stage, Hybride, niveau intern) face à un profil data analyst junior : métier data analyst proche du parcours ; compétences communes : SQL, Python, Excel ; préférence déclarée violée : contrat Stage hors des contrats visés (CDI, CDD) ; niveau intern hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p02",
     "offer_id": "o010",
     "label": "partiel",
-    "motif": "Poste à Nantes, hors localisations visées.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Business Intelligence Analyst (Nantes, CDI, Hybride, niveau mid) face à un profil data analyst junior : métier bi analyst proche du parcours ; compétences communes : SQL, Power BI ; préférence déclarée violée : ville Nantes hors des villes visées (Lyon, Paris, Lille)"
   },
   {
     "profile_id": "p02",
     "offer_id": "o020",
     "label": "partiel",
-    "motif": "Poste à Marseille sur site, hors localisation et mode de travail visés.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Chargé d'études statistiques (Marseille, CDD, Présentiel, niveau junior) face à un profil data analyst junior : métier statisticien proche du parcours ; compétences communes : R, statistiques ; préférence déclarée violée : ville Marseille hors des villes visées (Lyon, Paris, Lille)"
   },
   {
     "profile_id": "p02",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil data analyst junior : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
   },
   {
     "profile_id": "p02",
     "offer_id": "o024",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Opérateur de saisie de données (Roubaix, CDD, Présentiel, niveau junior) face à un profil data analyst junior : le titre ressemble à un poste voisin mais le métier réel est opérateur de saisie (consulting_services) ; compétences clés (saisie de données, rigueur) étrangères au profil."
   },
   {
     "profile_id": "p02",
     "offer_id": "o022",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Professeur de mathématiques (contractuel) (Lyon, CDD, Présentiel, niveau mid) face à un profil data analyst junior : le titre ressemble à un poste voisin mais le métier réel est professeur de mathématiques (public_education) ; compétences clés (mathématiques, pédagogie) étrangères au profil."
   },
   {
     "profile_id": "p02",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil data analyst junior : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p02",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil data analyst junior : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p02",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil data analyst junior : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p02",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil data analyst junior : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
   },
   {
     "profile_id": "p02",
     "offer_id": "o036",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "DevOps Engineer (Paris, CDI, Hybride, niveau mid) face à un profil data analyst junior : métier devops (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Terraform, Kubernetes) absentes du profil."
   },
   {
     "profile_id": "p03",
     "offer_id": "o013",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Data Engineer (Paris, CDI, Hybride, niveau mid) face à un profil data engineer confirme : même métier ou métier voisin (data engineer) ; compétences communes : Python, SQL, Airflow, Spark, BigQuery ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p03",
     "offer_id": "o017",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Data Engineer - Full remote (lieu non précisé, CDI, Télétravail total, niveau mid) face à un profil data engineer confirme : même métier ou métier voisin (data engineer) ; compétences communes : Python, SQL, Airflow, Terraform ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p03",
     "offer_id": "o015",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Senior Data Engineer - Streaming (Paris, CDI, Hybride, niveau senior) face à un profil data engineer confirme : même métier ou métier voisin (data engineer) ; compétences communes : Python, Scala ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p03",
     "offer_id": "o012",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Analytics Engineer (Paris, CDI, Hybride, niveau mid) face à un profil data engineer confirme : même métier ou métier voisin (analytics engineer) ; compétences communes : SQL, dbt, Git, Python ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p03",
     "offer_id": "o005",
     "label": "partiel",
-    "motif": "Métier voisin, orientation modèles plus qu'ingénierie.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Machine Learning Engineer (Paris, CDI, Télétravail total, niveau mid) face à un profil data engineer confirme : Métier voisin, orientation modèles plus qu'ingénierie ; compétences communes : Python, Docker ; aucune préférence violée."
   },
   {
     "profile_id": "p03",
     "offer_id": "o019",
     "label": "partiel",
-    "motif": "Poste de management au-delà de l'expérience.",
-    "preference_violee": false
+    "preference_violee": true,
+    "motif": "Head of Data (Lyon, CDI, Hybride, niveau senior) face à un profil data engineer confirme : Poste de management au-delà de l'expérience ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Lyon hors des villes visées (Paris, Rennes)"
   },
   {
     "profile_id": "p03",
     "offer_id": "o010",
     "label": "partiel",
-    "motif": "Métier voisin (BI), moins d'ingénierie.",
-    "preference_violee": false
+    "preference_violee": true,
+    "motif": "Business Intelligence Analyst (Nantes, CDI, Hybride, niveau mid) face à un profil data engineer confirme : Métier voisin (BI), moins d'ingénierie ; compétences communes : SQL ; préférence déclarée violée : ville Nantes hors des villes visées (Paris, Rennes)"
   },
   {
     "profile_id": "p03",
     "offer_id": "o018",
     "label": "partiel",
-    "motif": "Métier voisin, NLP non couvert.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Data Scientist NLP (Paris, CDI, Hybride, niveau mid) face à un profil data engineer confirme : Métier voisin, NLP non couvert ; compétences communes : Python ; aucune préférence violée."
   },
   {
     "profile_id": "p03",
     "offer_id": "o014",
     "label": "partiel",
-    "motif": "Poste junior alors que le profil vise confirmé ou senior.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Data Engineer Junior (Rennes, CDI, Hybride, niveau junior) face à un profil data engineer confirme : métier data engineer proche du parcours ; compétences communes : Python, SQL, Airflow, Git ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p03",
     "offer_id": "o016",
     "label": "partiel",
-    "motif": "Alternance sur site à Annecy, contrat, ville et mode de travail hors préférences.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Data Engineer en alternance (Annecy, Alternance, Présentiel, niveau junior) face à un profil data engineer confirme : métier data engineer proche du parcours ; compétences communes : Python, SQL, ETL ; préférence déclarée violée : ville Annecy hors des villes visées (Paris, Rennes) ; contrat Alternance hors des contrats visés (CDI) ; niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p03",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil data engineer confirme : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
   },
   {
     "profile_id": "p03",
     "offer_id": "o024",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Opérateur de saisie de données (Roubaix, CDD, Présentiel, niveau junior) face à un profil data engineer confirme : le titre ressemble à un poste voisin mais le métier réel est opérateur de saisie (consulting_services) ; compétences clés (saisie de données, rigueur) étrangères au profil."
   },
   {
     "profile_id": "p03",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil data engineer confirme : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p03",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil data engineer confirme : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p03",
     "offer_id": "o055",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil data engineer confirme : métier ux designer (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Figma, recherche utilisateur) absentes du profil."
   },
   {
     "profile_id": "p03",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil data engineer confirme : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
   },
   {
     "profile_id": "p03",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil data engineer confirme : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p04",
     "offer_id": "o027",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Développeur Backend Java Senior (Lyon, CDI, Hybride, niveau senior) face à un profil développeur backend senior : même métier ou métier voisin (développeur backend) ; compétences communes : Java, Spring Boot, PostgreSQL ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p04",
     "offer_id": "o044",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Architecte Logiciel (Lyon, CDI, Hybride, niveau senior) face à un profil développeur backend senior : même métier ou métier voisin (architecte logiciel) ; compétences communes : architecture, Java ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p04",
     "offer_id": "o026",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Développeur Backend Python (Paris, CDI, Hybride, niveau mid) face à un profil développeur backend senior : même métier ou métier voisin (développeur backend) ; compétences communes : Python, FastAPI, PostgreSQL, Docker, tests ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p04",
     "offer_id": "o029",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Backend Engineer (Go) (Remote France, CDI, Télétravail total, niveau mid) face à un profil développeur backend senior : même métier ou métier voisin (backend engineer) ; compétences communes : Go, PostgreSQL, Kubernetes ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p04",
     "offer_id": "o030",
     "label": "partiel",
-    "motif": "Full stack TypeScript, la partie frontend et TypeScript est peu couverte.",
-    "preference_violee": false
+    "preference_violee": true,
+    "motif": "Développeur Full Stack TypeScript (Lille, CDI, Hybride, niveau mid) face à un profil développeur backend senior : Full stack TypeScript, la partie frontend et TypeScript est peu couverte ; compétences communes : PostgreSQL ; préférence déclarée violée : ville Lille hors des villes visées (Lyon, Paris)"
   },
   {
     "profile_id": "p04",
     "offer_id": "o005",
     "label": "partiel",
-    "motif": "Métier voisin, orientation machine learning.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Machine Learning Engineer (Paris, CDI, Télétravail total, niveau mid) face à un profil développeur backend senior : Métier voisin, orientation machine learning ; compétences communes : Python, Docker, Kubernetes ; aucune préférence violée."
   },
   {
     "profile_id": "p04",
     "offer_id": "o035",
     "label": "partiel",
-    "motif": "Métier voisin, poste frontend.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Lead Developer Frontend (Paris, CDI, Hybride, niveau senior) face à un profil développeur backend senior : Métier voisin, poste frontend ; compétences communes : architecture ; aucune préférence violée."
   },
   {
     "profile_id": "p04",
     "offer_id": "o028",
     "label": "partiel",
-    "motif": "Poste junior à Rennes, niveau et ville hors préférences.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Développeur Backend Junior (Node.js) (Rennes, CDI, Hybride, niveau junior) face à un profil développeur backend senior : métier développeur backend proche du parcours ; compétences communes : Git ; préférence déclarée violée : ville Rennes hors des villes visées (Lyon, Paris) ; niveau junior hors des niveaux visés (senior, mid)"
   },
   {
     "profile_id": "p04",
     "offer_id": "o041",
     "label": "partiel",
-    "motif": "Développement mobile à Rennes, hors ville visée.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Développeur Mobile Flutter (Rennes, CDI, Hybride, niveau mid) face à un profil développeur backend senior : métier développeur mobile proche du parcours ; compétences communes : API REST, Git ; préférence déclarée violée : ville Rennes hors des villes visées (Lyon, Paris)"
   },
   {
     "profile_id": "p04",
     "offer_id": "o042",
     "label": "partiel",
-    "motif": "Embarqué C++ sur site à Toulouse, hors ville et mode de travail.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil développeur backend senior : métier ingénieur embarqué proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Toulouse hors des villes visées (Lyon, Paris)"
   },
   {
     "profile_id": "p04",
     "offer_id": "o045",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Commercial Solutions Cloud (Paris, CDI, Hybride, niveau mid) face à un profil développeur backend senior : le titre ressemble à un poste voisin mais le métier réel est commercial cloud (tech_it) ; compétences clés (vente B2B, cloud) étrangères au profil."
   },
   {
     "profile_id": "p04",
     "offer_id": "o046",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Support Informatique N1 (Lille, CDI, Présentiel, niveau junior) face à un profil développeur backend senior : le titre ressemble à un poste voisin mais le métier réel est technicien support (consulting_services) ; compétences clés (support, Windows) étrangères au profil."
   },
   {
     "profile_id": "p04",
     "offer_id": "o047",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Formateur Bureautique et Web (Nantes, CDI, Présentiel, niveau mid) face à un profil développeur backend senior : le titre ressemble à un poste voisin mais le métier réel est formateur (public_education) ; compétences clés (pédagogie, bureautique) étrangères au profil."
   },
   {
     "profile_id": "p04",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil développeur backend senior : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p04",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil développeur backend senior : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p04",
     "offer_id": "o055",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil développeur backend senior : métier ux designer (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Figma, recherche utilisateur) absentes du profil."
   },
   {
     "profile_id": "p04",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil développeur backend senior : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
   },
   {
     "profile_id": "p04",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil développeur backend senior : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
+  },
+  {
+    "profile_id": "p05",
+    "offer_id": "o108",
+    "label": "pertinent",
+    "motif": "Développeur Frontend React Junior (Rennes, CDI, Hybride, niveau junior) face à un profil développeur frontend junior : même métier ou métier voisin (développeur frontend) ; compétences communes : React, TypeScript, Jest, CSS ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p05",
     "offer_id": "o032",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Développeur Frontend Junior (Lyon, CDI, Hybride, niveau junior) face à un profil développeur frontend junior : même métier ou métier voisin (développeur frontend) ; compétences communes : JavaScript, Vue.js, HTML, CSS ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p05",
     "offer_id": "o031",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Développeur Frontend React (Paris, CDI, Hybride, niveau mid) face à un profil développeur frontend junior : même métier ou métier voisin (développeur frontend) ; compétences communes : React, TypeScript, CSS, Jest ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p05",
     "offer_id": "o033",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Frontend Developer (Vue.js) (Remote, CDI, Télétravail total, niveau mid) face à un profil développeur frontend junior : même métier ou métier voisin (frontend developer) ; compétences communes : Vue.js, TypeScript ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p05",
     "offer_id": "o035",
     "label": "partiel",
-    "motif": "Poste de lead senior, niveau trop élevé.",
-    "preference_violee": false
+    "preference_violee": true,
+    "motif": "Lead Developer Frontend (Paris, CDI, Hybride, niveau senior) face à un profil développeur frontend junior : Poste de lead senior, niveau trop élevé ; compétences communes : React, TypeScript ; préférence déclarée violée : niveau senior hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p05",
     "offer_id": "o028",
     "label": "partiel",
-    "motif": "Métier voisin (backend), stack différente.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Développeur Backend Junior (Node.js) (Rennes, CDI, Hybride, niveau junior) face à un profil développeur frontend junior : Métier voisin (backend), stack différente ; compétences communes : TypeScript, Git ; aucune préférence violée."
   },
   {
     "profile_id": "p05",
     "offer_id": "o056",
     "label": "partiel",
-    "motif": "Métier voisin (UX/UI), peu de développement.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "UX/UI Designer Junior (Rennes, CDI, Hybride, niveau junior) face à un profil développeur frontend junior : Métier voisin (UX/UI), peu de développement ; compétences communes : Figma ; aucune préférence violée."
   },
   {
     "profile_id": "p05",
     "offer_id": "o034",
     "label": "partiel",
-    "motif": "Alternance à Annecy, hors localisations visées.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Développeur Frontend - Alternance (Annecy, Alternance, Hybride, niveau junior) face à un profil développeur frontend junior : métier développeur frontend proche du parcours ; compétences communes : React, JavaScript, HTML, CSS ; préférence déclarée violée : ville Annecy hors des villes visées (Rennes, Nantes, Paris, Lyon)"
   },
   {
     "profile_id": "p05",
     "offer_id": "o030",
     "label": "partiel",
-    "motif": "Full stack à Lille, hors localisations visées.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Développeur Full Stack TypeScript (Lille, CDI, Hybride, niveau mid) face à un profil développeur frontend junior : métier développeur full stack proche du parcours ; compétences communes : TypeScript, React ; préférence déclarée violée : ville Lille hors des villes visées (Rennes, Nantes, Paris, Lyon)"
   },
   {
     "profile_id": "p05",
     "offer_id": "o043",
     "label": "partiel",
-    "motif": "Stage Python, hors contrats visés.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Stage Développeur Python (Lyon, Stage, Hybride, niveau intern) face à un profil développeur frontend junior : métier développeur python proche du parcours ; compétences communes : Git, tests ; préférence déclarée violée : contrat Stage hors des contrats visés (CDI, Alternance) ; niveau intern hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p05",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil développeur frontend junior : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
   },
   {
     "profile_id": "p05",
     "offer_id": "o046",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Support Informatique N1 (Lille, CDI, Présentiel, niveau junior) face à un profil développeur frontend junior : le titre ressemble à un poste voisin mais le métier réel est technicien support (consulting_services) ; compétences clés (support, Windows) étrangères au profil."
   },
   {
     "profile_id": "p05",
     "offer_id": "o047",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Formateur Bureautique et Web (Nantes, CDI, Présentiel, niveau mid) face à un profil développeur frontend junior : le titre ressemble à un poste voisin mais le métier réel est formateur (public_education) ; compétences clés (pédagogie, bureautique) étrangères au profil."
   },
   {
     "profile_id": "p05",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil développeur frontend junior : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p05",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil développeur frontend junior : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p05",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil développeur frontend junior : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
   },
   {
     "profile_id": "p05",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil développeur frontend junior : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p05",
     "offer_id": "o036",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "DevOps Engineer (Paris, CDI, Hybride, niveau mid) face à un profil développeur frontend junior : métier devops (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Terraform, Kubernetes) absentes du profil."
+  },
+  {
+    "profile_id": "p06",
+    "offer_id": "o109",
+    "label": "pertinent",
+    "motif": "Ingénieur DevOps Cloud (Paris, CDI, Hybride, niveau mid) face à un profil devops confirme : même métier ou métier voisin (devops) ; compétences communes : Terraform, Kubernetes, GitLab CI, Prometheus ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p06",
     "offer_id": "o036",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "DevOps Engineer (Paris, CDI, Hybride, niveau mid) face à un profil devops confirme : même métier ou métier voisin (devops) ; compétences communes : Terraform, Kubernetes, Docker, GitLab CI, Linux ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p06",
     "offer_id": "o037",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Site Reliability Engineer (SRE) (Paris, CDI, Hybride, niveau senior) face à un profil devops confirme : même métier ou métier voisin (sre) ; compétences communes : Kubernetes, Terraform, Python, SLO ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p06",
     "offer_id": "o039",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Platform Engineer (Kubernetes) (Remote, CDI, Télétravail total, niveau mid) face à un profil devops confirme : même métier ou métier voisin (platform engineer) ; compétences communes : Kubernetes, Terraform, ArgoCD ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p06",
     "offer_id": "o044",
     "label": "partiel",
-    "motif": "Métier voisin, architecture logicielle plus que infrastructure.",
-    "preference_violee": false
+    "preference_violee": true,
+    "motif": "Architecte Logiciel (Lyon, CDI, Hybride, niveau senior) face à un profil devops confirme : Métier voisin, architecture logicielle plus que infrastructure ; compétences communes : cloud ; préférence déclarée violée : ville Lyon hors des villes visées (Paris)"
   },
   {
     "profile_id": "p06",
     "offer_id": "o026",
     "label": "partiel",
-    "motif": "Métier voisin, backend.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Développeur Backend Python (Paris, CDI, Hybride, niveau mid) face à un profil devops confirme : Métier voisin, backend ; compétences communes : Python, Docker ; aucune préférence violée."
   },
   {
     "profile_id": "p06",
     "offer_id": "o013",
     "label": "partiel",
-    "motif": "Métier voisin, ingénierie des données.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Data Engineer (Paris, CDI, Hybride, niveau mid) face à un profil devops confirme : Métier voisin, ingénierie des données ; compétences communes : Python ; aucune préférence violée."
   },
   {
     "profile_id": "p06",
     "offer_id": "o038",
     "label": "partiel",
-    "motif": "Poste junior sur site à Grenoble, niveau, ville et mode de travail hors préférences.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Ingénieur DevOps Junior (Grenoble, CDI, Présentiel, niveau junior) face à un profil devops confirme : métier devops proche du parcours ; compétences communes : Linux, Docker, Jenkins, Bash ; préférence déclarée violée : ville Grenoble hors des villes visées (Paris) ; niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p06",
     "offer_id": "o040",
     "label": "partiel",
-    "motif": "Administration systèmes sur site à Lille, hors ville et mode de travail.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Administrateur systèmes et réseaux (Lille, contrat non précisé, Présentiel, niveau mid) face à un profil devops confirme : métier administrateur systèmes proche du parcours ; compétences communes : Linux ; préférence déclarée violée : ville Lille hors des villes visées (Paris)"
   },
   {
     "profile_id": "p06",
     "offer_id": "o042",
     "label": "partiel",
-    "motif": "Embarqué sur site à Toulouse, hors préférences.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil devops confirme : métier ingénieur embarqué proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Toulouse hors des villes visées (Paris)"
   },
   {
     "profile_id": "p06",
     "offer_id": "o045",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Commercial Solutions Cloud (Paris, CDI, Hybride, niveau mid) face à un profil devops confirme : le titre ressemble à un poste voisin mais le métier réel est commercial cloud (tech_it) ; compétences clés (vente B2B, cloud) étrangères au profil."
   },
   {
     "profile_id": "p06",
     "offer_id": "o046",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Support Informatique N1 (Lille, CDI, Présentiel, niveau junior) face à un profil devops confirme : le titre ressemble à un poste voisin mais le métier réel est technicien support (consulting_services) ; compétences clés (support, Windows) étrangères au profil."
   },
   {
     "profile_id": "p06",
     "offer_id": "o047",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Formateur Bureautique et Web (Nantes, CDI, Présentiel, niveau mid) face à un profil devops confirme : le titre ressemble à un poste voisin mais le métier réel est formateur (public_education) ; compétences clés (pédagogie, bureautique) étrangères au profil."
   },
   {
     "profile_id": "p06",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil devops confirme : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p06",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil devops confirme : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p06",
     "offer_id": "o055",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil devops confirme : métier ux designer (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Figma, recherche utilisateur) absentes du profil."
   },
   {
     "profile_id": "p06",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil devops confirme : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
   },
   {
     "profile_id": "p06",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil devops confirme : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
+  },
+  {
+    "profile_id": "p07",
+    "offer_id": "o110",
+    "label": "pertinent",
+    "motif": "Product Manager Senior - Marketplace (Paris, CDI, Hybride, niveau senior) face à un profil product manager senior : même métier ou métier voisin (product manager) ; compétences communes : roadmap, discovery, B2B ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p07",
     "offer_id": "o051",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Senior Product Manager - B2B SaaS (Paris, CDI, Hybride, niveau senior) face à un profil product manager senior : même métier ou métier voisin (product manager) ; compétences communes : roadmap, B2B SaaS, discovery, management ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p07",
     "offer_id": "o054",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Product Manager (Platform) (Remote France, CDI, Télétravail total, niveau senior) face à un profil product manager senior : même métier ou métier voisin (product manager) ; compétences communes : roadmap, discovery ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p07",
     "offer_id": "o050",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Product Manager (Paris, CDI, Hybride, niveau mid) face à un profil product manager senior : même métier ou métier voisin (product manager) ; compétences communes : priorisation, backlog, analytics ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p07",
     "offer_id": "o065",
     "label": "partiel",
-    "motif": "Directeur de programme sur site, métier voisin.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Directeur de Programme Transformation (Paris, CDI, Présentiel, niveau senior) face à un profil product manager senior : Directeur de programme sur site, métier voisin ; compétences communes : management, budget ; aucune préférence violée."
   },
   {
     "profile_id": "p07",
     "offer_id": "o060",
     "label": "partiel",
-    "motif": "Chef de projet IT, métier voisin à Lyon.",
-    "preference_violee": false
+    "preference_violee": true,
+    "motif": "Chef de Projet IT (Lyon, CDI, Hybride, niveau senior) face à un profil product manager senior : Chef de projet IT, métier voisin à Lyon ; compétences communes : budget, agilité, pilotage ; préférence déclarée violée : ville Lyon hors des villes visées (Paris)"
   },
   {
     "profile_id": "p07",
     "offer_id": "o064",
     "label": "partiel",
-    "motif": "Métier voisin (agilité), moins de stratégie produit.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Scrum Master (Paris, CDI, Hybride, niveau mid) face à un profil product manager senior : Métier voisin (agilité), moins de stratégie produit ; compétences communes : Scrum, agilité, Jira ; aucune préférence violée."
   },
   {
     "profile_id": "p07",
     "offer_id": "o061",
     "label": "partiel",
-    "motif": "Chef de projet digital, métier voisin.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Chef de Projet Digital (Paris, CDI, Hybride, niveau mid) face à un profil product manager senior : Chef de projet digital, métier voisin ; compétences communes : Jira, agilité ; aucune préférence violée."
   },
   {
     "profile_id": "p07",
     "offer_id": "o052",
     "label": "partiel",
-    "motif": "Poste à Lyon, hors localisation visée.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Product Owner (Lyon, CDI, Hybride, niveau mid) face à un profil product manager senior : métier product owner proche du parcours ; compétences communes : Scrum, backlog, Jira ; préférence déclarée violée : ville Lyon hors des villes visées (Paris)"
   },
   {
     "profile_id": "p07",
     "offer_id": "o053",
     "label": "partiel",
-    "motif": "Poste junior (Associate PM), niveau hors préférences.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Associate Product Manager (Paris, CDI, Hybride, niveau junior) face à un profil product manager senior : métier product manager proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : niveau junior hors des niveaux visés (senior, mid)"
   },
   {
     "profile_id": "p07",
     "offer_id": "o074",
     "label": "partiel",
-    "motif": "Responsable marketing à Lyon, hors localisation et métier voisin.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Responsable Marketing (Lyon, CDI, Hybride, niveau senior) face à un profil product manager senior : métier responsable marketing proche du parcours ; compétences communes : management, budget, digital ; préférence déclarée violée : ville Lyon hors des villes visées (Paris)"
   },
   {
     "profile_id": "p07",
     "offer_id": "o067",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Chef de produit agroalimentaire (Lille, CDI, Présentiel, niveau mid) face à un profil product manager senior : le titre ressemble à un poste voisin mais le métier réel est chef de produit (agri_food) ; compétences clés (marketing produit, gamme) étrangères au profil."
   },
   {
     "profile_id": "p07",
     "offer_id": "o063",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Chef de Projet Travaux (BTP) (Lyon, CDI, Présentiel, niveau senior) face à un profil product manager senior : le titre ressemble à un poste voisin mais le métier réel est chef de projet btp (construction_realestate) ; compétences clés (gestion de chantier, planification) étrangères au profil."
   },
   {
     "profile_id": "p07",
     "offer_id": "o066",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Architecte d'intérieur / Designer d'espaces (Nantes, CDI, Présentiel, niveau mid) face à un profil product manager senior : le titre ressemble à un poste voisin mais le métier réel est architecte d'intérieur (media_communication) ; compétences clés (AutoCAD, SketchUp) étrangères au profil."
   },
   {
     "profile_id": "p07",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil product manager senior : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p07",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil product manager senior : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p07",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil product manager senior : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p07",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil product manager senior : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
   },
   {
     "profile_id": "p07",
     "offer_id": "o042",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil product manager senior : métier ingénieur embarqué (industry_aerospace) sans lien avec le parcours ; compétences clés de l'offre (C++, embarqué) absentes du profil."
+  },
+  {
+    "profile_id": "p08",
+    "offer_id": "o111",
+    "label": "pertinent",
+    "motif": "UX Designer - Design System (Lyon, CDI, Hybride, niveau mid) face à un profil ux designer confirme : même métier ou métier voisin (ux designer) ; compétences communes : Figma, design system ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p08",
     "offer_id": "o055",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil ux designer confirme : même métier ou métier voisin (ux designer) ; compétences communes : Figma, design system ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p08",
     "offer_id": "o057",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Senior Product Designer (Remote, CDI, Télétravail total, niveau senior) face à un profil ux designer confirme : même métier ou métier voisin (product designer) ; compétences communes : product design, Figma, design system, user research ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p08",
     "offer_id": "o058",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "UX Researcher (Lille, CDI, Hybride, niveau mid) face à un profil ux designer confirme : même métier ou métier voisin (ux researcher) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p08",
     "offer_id": "o031",
     "label": "partiel",
-    "motif": "Métier voisin (frontend), moins de recherche utilisateur.",
-    "preference_violee": false
+    "preference_violee": true,
+    "motif": "Développeur Frontend React (Paris, CDI, Hybride, niveau mid) face à un profil ux designer confirme : Métier voisin (frontend), moins de recherche utilisateur ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Paris hors des villes visées (Lyon, Lille)"
   },
   {
     "profile_id": "p08",
     "offer_id": "o050",
     "label": "partiel",
-    "motif": "Métier voisin (produit), peu de conception.",
-    "preference_violee": false
+    "preference_violee": true,
+    "motif": "Product Manager (Paris, CDI, Hybride, niveau mid) face à un profil ux designer confirme : Métier voisin (produit), peu de conception ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Paris hors des villes visées (Lyon, Lille)"
   },
   {
     "profile_id": "p08",
     "offer_id": "o052",
     "label": "partiel",
-    "motif": "Métier voisin, orienté backlog.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Product Owner (Lyon, CDI, Hybride, niveau mid) face à un profil ux designer confirme : Métier voisin, orienté backlog ; compétences communes : aucune compétence clé citée dans les sources ; aucune préférence violée."
   },
   {
     "profile_id": "p08",
     "offer_id": "o056",
     "label": "partiel",
-    "motif": "Poste junior à Rennes, niveau et ville hors préférences.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "UX/UI Designer Junior (Rennes, CDI, Hybride, niveau junior) face à un profil ux designer confirme : métier ux designer proche du parcours ; compétences communes : Figma ; préférence déclarée violée : ville Rennes hors des villes visées (Lyon, Lille) ; niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p08",
     "offer_id": "o059",
     "label": "partiel",
-    "motif": "Graphisme sur site à Nantes, hors ville et mode de travail.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Graphiste Webdesigner (Nantes, CDI, Présentiel, niveau mid) face à un profil ux designer confirme : métier graphiste proche du parcours ; compétences communes : Photoshop, Illustrator, Figma ; préférence déclarée violée : ville Nantes hors des villes visées (Lyon, Lille)"
   },
   {
     "profile_id": "p08",
     "offer_id": "o053",
     "label": "partiel",
-    "motif": "Associate PM junior à Paris, hors ville et niveau.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Associate Product Manager (Paris, CDI, Hybride, niveau junior) face à un profil ux designer confirme : métier product manager proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Paris hors des villes visées (Lyon, Lille) ; niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p08",
     "offer_id": "o066",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Architecte d'intérieur / Designer d'espaces (Nantes, CDI, Présentiel, niveau mid) face à un profil ux designer confirme : le titre ressemble à un poste voisin mais le métier réel est architecte d'intérieur (media_communication) ; compétences clés (AutoCAD, SketchUp) étrangères au profil."
   },
   {
     "profile_id": "p08",
     "offer_id": "o067",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Chef de produit agroalimentaire (Lille, CDI, Présentiel, niveau mid) face à un profil ux designer confirme : le titre ressemble à un poste voisin mais le métier réel est chef de produit (agri_food) ; compétences clés (marketing produit, gamme) étrangères au profil."
   },
   {
     "profile_id": "p08",
     "offer_id": "o046",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Support Informatique N1 (Lille, CDI, Présentiel, niveau junior) face à un profil ux designer confirme : le titre ressemble à un poste voisin mais le métier réel est technicien support (consulting_services) ; compétences clés (support, Windows) étrangères au profil."
   },
   {
     "profile_id": "p08",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil ux designer confirme : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p08",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil ux designer confirme : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p08",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil ux designer confirme : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
   },
   {
     "profile_id": "p08",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil ux designer confirme : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p08",
     "offer_id": "o036",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "DevOps Engineer (Paris, CDI, Hybride, niveau mid) face à un profil ux designer confirme : métier devops (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Terraform, Kubernetes) absentes du profil."
   },
   {
     "profile_id": "p09",
     "offer_id": "o069",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Chargé de Marketing Digital Junior (Lille, CDI, Hybride, niveau junior) face à un profil chargé de marketing digital junior : même métier ou métier voisin (chargé de marketing digital) ; compétences communes : e-mailing, réseaux sociaux, SEO, rédaction ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p09",
     "offer_id": "o070",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Marketing Digital - Alternance (Lyon, Alternance, Hybride, niveau junior) face à un profil chargé de marketing digital junior : même métier ou métier voisin (marketing digital) ; compétences communes : réseaux sociaux, rédaction, analytics, SEO ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p09",
     "offer_id": "o068",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Chargé de Marketing Digital (Paris, CDI, Hybride, niveau mid) face à un profil chargé de marketing digital junior : même métier ou métier voisin (chargé de marketing digital) ; compétences communes : SEA, Google Analytics, e-mailing, réseaux sociaux, SEO ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p09",
     "offer_id": "o071",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Traffic Manager / Spécialiste SEA (Paris, CDI, Hybride, niveau mid) face à un profil chargé de marketing digital junior : même métier ou métier voisin (traffic manager) ; compétences communes : Google Ads, Analytics, SEA ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p09",
     "offer_id": "o075",
     "label": "partiel",
-    "motif": "Marketing opérationnel événementiel, localisation inconnue, métier voisin.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Chargé de Marketing Opérationnel - Événementiel (lieu non précisé, CDI, Présentiel, niveau mid) face à un profil chargé de marketing digital junior : Marketing opérationnel événementiel, localisation inconnue, métier voisin ; compétences communes : e-mailing ; aucune préférence violée."
   },
   {
     "profile_id": "p09",
     "offer_id": "o074",
     "label": "partiel",
-    "motif": "Poste senior de responsable marketing, niveau trop élevé.",
-    "preference_violee": false
+    "preference_violee": true,
+    "motif": "Responsable Marketing (Lyon, CDI, Hybride, niveau senior) face à un profil chargé de marketing digital junior : Poste senior de responsable marketing, niveau trop élevé ; compétences communes : budget, digital ; préférence déclarée violée : niveau senior hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p09",
     "offer_id": "o072",
     "label": "partiel",
-    "motif": "Poste full-remote alors que le profil vise hybride.",
-    "preference_violee": true
+    "preference_violee": false,
+    "motif": "Content & SEO Manager (Remote France, CDI, Télétravail total, niveau mid) face à un profil chargé de marketing digital junior : Content et SEO manager : le SEO est couvert (articles de blog optimisés) mais la responsabilité de manager dépasse une alternance ; compétences communes : SEO, analytics ; aucune préférence violée."
   },
   {
     "profile_id": "p09",
     "offer_id": "o073",
     "label": "partiel",
-    "motif": "Community manager à Nantes, hors localisations visées.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Community Manager (Nantes, CDD, Hybride, niveau junior) face à un profil chargé de marketing digital junior : métier community manager proche du parcours ; compétences communes : réseaux sociaux, Canva ; préférence déclarée violée : ville Nantes hors des villes visées (Lille, Paris, Lyon)"
   },
   {
     "profile_id": "p09",
     "offer_id": "o076",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Téléconseiller Marketing Direct (Roubaix, CDI, Présentiel, niveau junior) face à un profil chargé de marketing digital junior : le titre ressemble à un poste voisin mais le métier réel est téléconseiller (consulting_services) ; compétences clés (phoning, prospection téléphonique) étrangères au profil."
   },
   {
     "profile_id": "p09",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil chargé de marketing digital junior : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
   },
   {
     "profile_id": "p09",
     "offer_id": "o022",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Professeur de mathématiques (contractuel) (Lyon, CDD, Présentiel, niveau mid) face à un profil chargé de marketing digital junior : le titre ressemble à un poste voisin mais le métier réel est professeur de mathématiques (public_education) ; compétences clés (mathématiques, pédagogie) étrangères au profil."
   },
   {
     "profile_id": "p09",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil chargé de marketing digital junior : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p09",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil chargé de marketing digital junior : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p09",
     "offer_id": "o036",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "DevOps Engineer (Paris, CDI, Hybride, niveau mid) face à un profil chargé de marketing digital junior : métier devops (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Terraform, Kubernetes) absentes du profil."
   },
   {
     "profile_id": "p09",
     "offer_id": "o042",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil chargé de marketing digital junior : métier ingénieur embarqué (industry_aerospace) sans lien avec le parcours ; compétences clés de l'offre (C++, embarqué) absentes du profil."
   },
   {
     "profile_id": "p09",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil chargé de marketing digital junior : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
+  },
+  {
+    "profile_id": "p10",
+    "offer_id": "o112",
+    "label": "pertinent",
+    "motif": "Comptable PME (Lyon, CDI, Présentiel, niveau mid) face à un profil comptable confirme : même métier ou métier voisin (comptable) ; compétences communes : comptabilité générale, TVA, bilan, Sage ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p10",
     "offer_id": "o077",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil comptable confirme : même métier ou métier voisin (comptable) ; compétences communes : comptabilité générale, TVA, bilan, rapprochements bancaires ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p10",
     "offer_id": "o078",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Expert-Comptable Collaborateur (Lyon, CDI, Hybride, niveau senior) face à un profil comptable confirme : même métier ou métier voisin (expert-comptable) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p10",
     "offer_id": "o081",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Contrôleur de Gestion (Lyon, CDI, Hybride, niveau mid) face à un profil comptable confirme : même métier ou métier voisin (contrôleur de gestion) ; compétences communes : Excel ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p10",
     "offer_id": "o007",
     "label": "partiel",
-    "motif": "Chiffres et Excel en commun, SQL et BI non couverts.",
-    "preference_violee": false
+    "preference_violee": true,
+    "motif": "Data Analyst (Paris, CDI, Hybride, niveau mid) face à un profil comptable confirme : Chiffres et Excel en commun, SQL et BI non couverts ; compétences communes : Excel ; préférence déclarée violée : ville Paris hors des villes visées (Lyon)"
   },
   {
     "profile_id": "p10",
     "offer_id": "o079",
     "label": "partiel",
-    "motif": "Assistant comptable à Paris, hors localisation et niveau inférieur.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Assistant Comptable (Paris, CDI, Présentiel, niveau junior) face à un profil comptable confirme : métier assistant comptable proche du parcours ; compétences communes : lettrage, Excel ; préférence déclarée violée : ville Paris hors des villes visées (Lyon) ; niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p10",
     "offer_id": "o082",
     "label": "partiel",
-    "motif": "Paie à Paris, hors localisation et métier voisin.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Gestionnaire de Paie (Paris, CDI, Hybride, niveau mid) face à un profil comptable confirme : métier gestionnaire de paie proche du parcours ; compétences communes : paie ; préférence déclarée violée : ville Paris hors des villes visées (Lyon)"
   },
   {
     "profile_id": "p10",
     "offer_id": "o025",
     "label": "partiel",
-    "motif": "Actuariat à Paris, hors localisation et métier voisin.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Actuaire / Statisticien assurance (Paris, CDI, Présentiel, niveau senior) face à un profil comptable confirme : métier actuaire proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Paris hors des villes visées (Lyon)"
   },
   {
     "profile_id": "p10",
     "offer_id": "o010",
     "label": "partiel",
-    "motif": "BI à Nantes, hors localisation.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Business Intelligence Analyst (Nantes, CDI, Hybride, niveau mid) face à un profil comptable confirme : métier bi analyst proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Nantes hors des villes visées (Lyon)"
   },
   {
     "profile_id": "p10",
     "offer_id": "o080",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Commercial Logiciels de Comptabilité (Paris, CDI, Hybride, niveau mid) face à un profil comptable confirme : le titre ressemble à un poste voisin mais le métier réel est commercial logiciels (tech_it) ; compétences clés (vente B2B, démonstration logiciel) étrangères au profil."
   },
   {
     "profile_id": "p10",
     "offer_id": "o101",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Conseiller Commercial Protection Juridique (Paris, CDI, Hybride, niveau junior) face à un profil comptable confirme : le titre ressemble à un poste voisin mais le métier réel est conseiller commercial (finance_insurance) ; compétences clés (vente d'assurance, prospection) étrangères au profil."
   },
   {
     "profile_id": "p10",
     "offer_id": "o024",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Opérateur de saisie de données (Roubaix, CDD, Présentiel, niveau junior) face à un profil comptable confirme : le titre ressemble à un poste voisin mais le métier réel est opérateur de saisie (consulting_services) ; compétences clés (saisie de données, rigueur) étrangères au profil."
   },
   {
     "profile_id": "p10",
     "offer_id": "o045",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Commercial Solutions Cloud (Paris, CDI, Hybride, niveau mid) face à un profil comptable confirme : le titre ressemble à un poste voisin mais le métier réel est commercial cloud (tech_it) ; compétences clés (vente B2B, cloud) étrangères au profil."
   },
   {
     "profile_id": "p10",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil comptable confirme : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p10",
     "offer_id": "o036",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "DevOps Engineer (Paris, CDI, Hybride, niveau mid) face à un profil comptable confirme : métier devops (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Terraform, Kubernetes) absentes du profil."
   },
   {
     "profile_id": "p10",
     "offer_id": "o055",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil comptable confirme : métier ux designer (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Figma, recherche utilisateur) absentes du profil."
   },
   {
     "profile_id": "p10",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil comptable confirme : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p10",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil comptable confirme : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
   },
   {
     "profile_id": "p11",
     "offer_id": "o084",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Assistant RH Junior (Lille, CDI, Présentiel, niveau junior) face à un profil chargé rh junior : même métier ou métier voisin (assistant rh) ; compétences communes : administration du personnel, contrats de travail, paie, formation ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p11",
     "offer_id": "o083",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil chargé rh junior : même métier ou métier voisin (chargé rh) ; compétences communes : recrutement, administration du personnel, formation ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p11",
     "offer_id": "o085",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Chargé de Recrutement (Lyon, CDI, Hybride, niveau mid) face à un profil chargé rh junior : même métier ou métier voisin (chargé de recrutement) ; compétences communes : recrutement, entretiens ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p11",
     "offer_id": "o048",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Recruteur IT - Chargé de recrutement tech (Paris, CDI, Hybride, niveau mid) face à un profil chargé rh junior : même métier ou métier voisin (recruteur it) ; compétences communes : recrutement, entretiens, ATS ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p11",
     "offer_id": "o082",
     "label": "partiel",
-    "motif": "Paie, métier voisin, paie en simples notions.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Gestionnaire de Paie (Paris, CDI, Hybride, niveau mid) face à un profil chargé rh junior : Paie, métier voisin, paie en simples notions ; compétences communes : paie, droit du travail ; aucune préférence violée."
   },
   {
     "profile_id": "p11",
     "offer_id": "o087",
     "label": "partiel",
-    "motif": "Alternance à Annecy, hors localisations visées.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Chargé RH - Alternance (Annecy, Alternance, Présentiel, niveau junior) face à un profil chargé rh junior : métier chargé rh proche du parcours ; compétences communes : recrutement, administration du personnel ; préférence déclarée violée : ville Annecy hors des villes visées (Paris, Lille, Lyon)"
   },
   {
     "profile_id": "p11",
     "offer_id": "o086",
     "label": "partiel",
-    "motif": "Poste senior, niveau hors préférences.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "HR Business Partner (Paris, CDI, Hybride, niveau senior) face à un profil chargé rh junior : métier hrbp proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : niveau senior hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p11",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil chargé rh junior : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
   },
   {
     "profile_id": "p11",
     "offer_id": "o024",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Opérateur de saisie de données (Roubaix, CDD, Présentiel, niveau junior) face à un profil chargé rh junior : le titre ressemble à un poste voisin mais le métier réel est opérateur de saisie (consulting_services) ; compétences clés (saisie de données, rigueur) étrangères au profil."
   },
   {
     "profile_id": "p11",
     "offer_id": "o022",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Professeur de mathématiques (contractuel) (Lyon, CDD, Présentiel, niveau mid) face à un profil chargé rh junior : le titre ressemble à un poste voisin mais le métier réel est professeur de mathématiques (public_education) ; compétences clés (mathématiques, pédagogie) étrangères au profil."
   },
   {
     "profile_id": "p11",
     "offer_id": "o045",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Commercial Solutions Cloud (Paris, CDI, Hybride, niveau mid) face à un profil chargé rh junior : le titre ressemble à un poste voisin mais le métier réel est commercial cloud (tech_it) ; compétences clés (vente B2B, cloud) étrangères au profil."
   },
   {
     "profile_id": "p11",
     "offer_id": "o046",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Support Informatique N1 (Lille, CDI, Présentiel, niveau junior) face à un profil chargé rh junior : le titre ressemble à un poste voisin mais le métier réel est technicien support (consulting_services) ; compétences clés (support, Windows) étrangères au profil."
   },
   {
     "profile_id": "p11",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil chargé rh junior : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p11",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil chargé rh junior : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p11",
     "offer_id": "o036",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "DevOps Engineer (Paris, CDI, Hybride, niveau mid) face à un profil chargé rh junior : métier devops (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Terraform, Kubernetes) absentes du profil."
   },
   {
     "profile_id": "p11",
     "offer_id": "o055",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil chargé rh junior : métier ux designer (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Figma, recherche utilisateur) absentes du profil."
   },
   {
     "profile_id": "p11",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil chargé rh junior : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p12",
     "offer_id": "o089",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Commercial B2B SaaS (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (commercial b2b) ; compétences communes : négociation, prospection ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p12",
     "offer_id": "o091",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Business Developer (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (business developer) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p12",
     "offer_id": "o045",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Commercial Solutions Cloud (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (commercial cloud) ; compétences communes : négociation, prospection ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p12",
     "offer_id": "o023",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Commercial Data & Analytics Solutions (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (commercial data) ; compétences communes : prospection, négociation ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p12",
     "offer_id": "o080",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Commercial Logiciels de Comptabilité (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (commercial logiciels) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p12",
     "offer_id": "o092",
     "label": "partiel",
-    "motif": "Poste senior de grands comptes, niveau supérieur.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Responsable Grands Comptes (Paris, CDI, Hybride, niveau senior) face à un profil commercial b2b confirme : Poste senior de grands comptes, niveau supérieur ; compétences communes : négociation ; aucune préférence violée."
   },
   {
     "profile_id": "p12",
     "offer_id": "o093",
     "label": "partiel",
-    "motif": "SDR junior, niveau inférieur.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "SDR / Business Developer Junior (Paris, CDI, Hybride, niveau junior) face à un profil commercial b2b confirme : SDR junior, niveau inférieur ; compétences communes : prospection, LinkedIn, qualification ; aucune préférence violée."
   },
   {
     "profile_id": "p12",
     "offer_id": "o090",
     "label": "partiel",
-    "motif": "Ingénieur d'affaires itinérant à Grenoble, vente plus technique.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Ingénieur d'Affaires (Grenoble, CDI, Présentiel, niveau mid) face à un profil commercial b2b confirme : Ingénieur d'affaires itinérant à Grenoble, vente plus technique ; compétences communes : négociation ; aucune préférence violée."
   },
   {
     "profile_id": "p12",
     "offer_id": "o049",
     "label": "partiel",
-    "motif": "Technico-commercial réseaux, vente plus technique.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Technico-commercial Réseaux et Télécoms (Lyon, CDI, Présentiel, niveau mid) face à un profil commercial b2b confirme : Technico-commercial réseaux, vente plus technique ; compétences communes : négociation ; aucune préférence violée."
   },
   {
     "profile_id": "p12",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil commercial b2b confirme : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p12",
     "offer_id": "o076",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Téléconseiller Marketing Direct (Roubaix, CDI, Présentiel, niveau junior) face à un profil commercial b2b confirme : le titre ressemble à un poste voisin mais le métier réel est téléconseiller (consulting_services) ; compétences clés (phoning, prospection téléphonique) étrangères au profil."
   },
   {
     "profile_id": "p12",
     "offer_id": "o101",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Conseiller Commercial Protection Juridique (Paris, CDI, Hybride, niveau junior) face à un profil commercial b2b confirme : le titre ressemble à un poste voisin mais le métier réel est conseiller commercial (finance_insurance) ; compétences clés (vente d'assurance, prospection) étrangères au profil."
   },
   {
     "profile_id": "p12",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil commercial b2b confirme : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p12",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil commercial b2b confirme : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p12",
     "offer_id": "o036",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "DevOps Engineer (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : métier devops (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Terraform, Kubernetes) absentes du profil."
   },
   {
     "profile_id": "p12",
     "offer_id": "o055",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : métier ux designer (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Figma, recherche utilisateur) absentes du profil."
   },
   {
     "profile_id": "p12",
     "offer_id": "o026",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Développeur Backend Python (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : métier développeur backend (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Python, FastAPI) absentes du profil."
   },
   {
     "profile_id": "p13",
     "offer_id": "o060",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Chef de Projet IT (Lyon, CDI, Hybride, niveau senior) face à un profil chef de projet senior : même métier ou métier voisin (chef de projet it) ; compétences communes : gestion de projet, planification, budget, agilité, pilotage ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p13",
     "offer_id": "o061",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Chef de Projet Digital (Paris, CDI, Hybride, niveau mid) face à un profil chef de projet senior : même métier ou métier voisin (chef de projet digital) ; compétences communes : gestion de projet, Jira, agilité ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p13",
     "offer_id": "o052",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Product Owner (Lyon, CDI, Hybride, niveau mid) face à un profil chef de projet senior : même métier ou métier voisin (product owner) ; compétences communes : Scrum, Jira ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p13",
     "offer_id": "o051",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Senior Product Manager - B2B SaaS (Paris, CDI, Hybride, niveau senior) face à un profil chef de projet senior : même métier ou métier voisin (product manager) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p13",
     "offer_id": "o064",
     "label": "partiel",
-    "motif": "Scrum master, métier voisin.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Scrum Master (Paris, CDI, Hybride, niveau mid) face à un profil chef de projet senior : Scrum master, métier voisin ; compétences communes : Scrum, agilité, Jira ; aucune préférence violée."
   },
   {
     "profile_id": "p13",
     "offer_id": "o044",
     "label": "partiel",
-    "motif": "Architecte logiciel, métier voisin.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Architecte Logiciel (Lyon, CDI, Hybride, niveau senior) face à un profil chef de projet senior : Architecte logiciel, métier voisin ; compétences communes : Java, cloud ; aucune préférence violée."
   },
   {
     "profile_id": "p13",
     "offer_id": "o019",
     "label": "partiel",
-    "motif": "Head of Data à Lyon, métier voisin et domaine data.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Head of Data (Lyon, CDI, Hybride, niveau senior) face à un profil chef de projet senior : Head of Data à Lyon, métier voisin et domaine data ; compétences communes : aucune compétence clé citée dans les sources ; aucune préférence violée."
   },
   {
     "profile_id": "p13",
     "offer_id": "o065",
     "label": "partiel",
-    "motif": "Directeur de programme sur site, mode de travail hors préférences.",
-    "preference_violee": true
+    "preference_violee": false,
+    "motif": "Directeur de Programme Transformation (Paris, CDI, Présentiel, niveau senior) face à un profil chef de projet senior : Directeur de programme : marche de responsabilité au-dessus de chef de projet senior (pilotage d'un portefeuille de projets, direction) ; compétences communes : budget ; aucune préférence violée."
   },
   {
     "profile_id": "p13",
     "offer_id": "o062",
     "label": "partiel",
-    "motif": "Poste junior d'assistant chef de projet, niveau hors préférences.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Assistant Chef de Projet (junior) (Lyon, CDI, Hybride, niveau junior) face à un profil chef de projet senior : métier chef de projet proche du parcours ; compétences communes : planification, Jira, Excel, coordination ; préférence déclarée violée : niveau junior hors des niveaux visés (senior, mid)"
   },
   {
     "profile_id": "p13",
     "offer_id": "o063",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Chef de Projet Travaux (BTP) (Lyon, CDI, Présentiel, niveau senior) face à un profil chef de projet senior : le titre ressemble à un poste voisin mais le métier réel est chef de projet btp (construction_realestate) ; compétences clés (gestion de chantier, planification) étrangères au profil."
   },
   {
     "profile_id": "p13",
     "offer_id": "o066",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Architecte d'intérieur / Designer d'espaces (Nantes, CDI, Présentiel, niveau mid) face à un profil chef de projet senior : le titre ressemble à un poste voisin mais le métier réel est architecte d'intérieur (media_communication) ; compétences clés (AutoCAD, SketchUp) étrangères au profil."
   },
   {
     "profile_id": "p13",
     "offer_id": "o067",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Chef de produit agroalimentaire (Lille, CDI, Présentiel, niveau mid) face à un profil chef de projet senior : le titre ressemble à un poste voisin mais le métier réel est chef de produit (agri_food) ; compétences clés (marketing produit, gamme) étrangères au profil."
   },
   {
     "profile_id": "p13",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil chef de projet senior : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p13",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil chef de projet senior : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p13",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil chef de projet senior : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p13",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil chef de projet senior : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
   },
   {
     "profile_id": "p13",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil chef de projet senior : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
+  },
+  {
+    "profile_id": "p14",
+    "offer_id": "o113",
+    "label": "pertinent",
+    "motif": "Juriste Droit des Sociétés (Lyon, CDI, Hybride, niveau mid) face à un profil juriste confirme : même métier ou métier voisin (juriste) ; compétences communes : droit des sociétés, contrats, veille juridique ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p14",
     "offer_id": "o095",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Juriste d'Entreprise (Lyon, CDI, mode non précisé, niveau mid) face à un profil juriste confirme : même métier ou métier voisin (juriste) ; compétences communes : droit des contrats, droit des affaires, veille juridique, négociation ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p14",
     "offer_id": "o098",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Legal Counsel (Paris, CDI, Hybride, niveau senior) face à un profil juriste confirme : même métier ou métier voisin (legal counsel) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p14",
     "offer_id": "o100",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Juriste Protection des Données (DPO) (Paris, CDI, Hybride, niveau mid) face à un profil juriste confirme : même métier ou métier voisin (dpo) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p14",
     "offer_id": "o086",
     "label": "partiel",
-    "motif": "Droit du travail proche mais métier RH.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "HR Business Partner (Paris, CDI, Hybride, niveau senior) face à un profil juriste confirme : Droit du travail proche mais métier RH ; compétences communes : aucune compétence clé citée dans les sources ; aucune préférence violée."
   },
   {
     "profile_id": "p14",
     "offer_id": "o096",
     "label": "partiel",
-    "motif": "Poste junior, niveau hors préférences.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Juriste Contrats Junior (Paris, CDI, Hybride, niveau junior) face à un profil juriste confirme : métier juriste contrats proche du parcours ; compétences communes : droit des contrats ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p14",
     "offer_id": "o097",
     "label": "partiel",
-    "motif": "Alternance junior, contrat et niveau hors préférences.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Juriste - Alternance (Lyon, Alternance, Présentiel, niveau junior) face à un profil juriste confirme : métier juriste proche du parcours ; compétences communes : droit des sociétés ; préférence déclarée violée : contrat Alternance hors des contrats visés (CDI) ; niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p14",
     "offer_id": "o099",
     "label": "partiel",
-    "motif": "Assistant juridique junior sur site, niveau et mode de travail hors préférences.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Assistant Juridique (Lyon, CDI, Présentiel, niveau junior) face à un profil juriste confirme : métier assistant juridique proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p14",
     "offer_id": "o101",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Conseiller Commercial Protection Juridique (Paris, CDI, Hybride, niveau junior) face à un profil juriste confirme : le titre ressemble à un poste voisin mais le métier réel est conseiller commercial (finance_insurance) ; compétences clés (vente d'assurance, prospection) étrangères au profil."
   },
   {
     "profile_id": "p14",
     "offer_id": "o045",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Commercial Solutions Cloud (Paris, CDI, Hybride, niveau mid) face à un profil juriste confirme : le titre ressemble à un poste voisin mais le métier réel est commercial cloud (tech_it) ; compétences clés (vente B2B, cloud) étrangères au profil."
   },
   {
     "profile_id": "p14",
     "offer_id": "o046",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Support Informatique N1 (Lille, CDI, Présentiel, niveau junior) face à un profil juriste confirme : le titre ressemble à un poste voisin mais le métier réel est technicien support (consulting_services) ; compétences clés (support, Windows) étrangères au profil."
   },
   {
     "profile_id": "p14",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil juriste confirme : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
   },
   {
     "profile_id": "p14",
     "offer_id": "o024",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Opérateur de saisie de données (Roubaix, CDD, Présentiel, niveau junior) face à un profil juriste confirme : le titre ressemble à un poste voisin mais le métier réel est opérateur de saisie (consulting_services) ; compétences clés (saisie de données, rigueur) étrangères au profil."
   },
   {
     "profile_id": "p14",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil juriste confirme : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p14",
     "offer_id": "o036",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "DevOps Engineer (Paris, CDI, Hybride, niveau mid) face à un profil juriste confirme : métier devops (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Terraform, Kubernetes) absentes du profil."
   },
   {
     "profile_id": "p14",
     "offer_id": "o055",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil juriste confirme : métier ux designer (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Figma, recherche utilisateur) absentes du profil."
   },
   {
     "profile_id": "p14",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil juriste confirme : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p14",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil juriste confirme : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
+  },
+  {
+    "profile_id": "p15",
+    "offer_id": "o114",
+    "label": "pertinent",
+    "motif": "Développeur Backend Python Junior (Lyon, CDI, Hybride, niveau junior) face à un profil développeur backend junior : même métier ou métier voisin (développeur backend) ; compétences communes : Python, FastAPI, PostgreSQL, Docker ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p15",
     "offer_id": "o105",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Développeur Logiciel Santé (Dossier Patient) (Lyon, CDI, Hybride, niveau junior) face à un profil développeur backend junior : même métier ou métier voisin (développeur) ; compétences communes : Python, SQL ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p15",
     "offer_id": "o026",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Développeur Backend Python (Paris, CDI, Hybride, niveau mid) face à un profil développeur backend junior : même métier ou métier voisin (développeur backend) ; compétences communes : Python, FastAPI, PostgreSQL, Docker, tests ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p15",
     "offer_id": "o104",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Consultant Applicatif Dossier Patient (Lyon, CDI, Hybride, niveau mid) face à un profil développeur backend junior : même métier ou métier voisin (consultant applicatif) ; compétences communes : dossier patient informatisé, formation ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p15",
     "offer_id": "o027",
     "label": "partiel",
-    "motif": "Poste senior Java, niveau et stack trop éloignés.",
-    "preference_violee": false
+    "preference_violee": true,
+    "motif": "Développeur Backend Java Senior (Lyon, CDI, Hybride, niveau senior) face à un profil développeur backend junior : Poste senior Java, niveau et stack trop éloignés ; compétences communes : Java, PostgreSQL ; préférence déclarée violée : niveau senior hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p15",
     "offer_id": "o032",
     "label": "partiel",
-    "motif": "Métier voisin (frontend), stack Vue.js.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Développeur Frontend Junior (Lyon, CDI, Hybride, niveau junior) face à un profil développeur backend junior : Métier voisin (frontend), stack Vue.js ; compétences communes : JavaScript ; aucune préférence violée."
   },
   {
     "profile_id": "p15",
     "offer_id": "o028",
     "label": "partiel",
-    "motif": "Backend Node.js à Rennes, hors localisations visées.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Développeur Backend Junior (Node.js) (Rennes, CDI, Hybride, niveau junior) face à un profil développeur backend junior : métier développeur backend proche du parcours ; compétences communes : Git ; préférence déclarée violée : ville Rennes hors des villes visées (Lyon, Paris)"
   },
   {
     "profile_id": "p15",
     "offer_id": "o043",
     "label": "partiel",
-    "motif": "Stage Python, hors contrats visés.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Stage Développeur Python (Lyon, Stage, Hybride, niveau intern) face à un profil développeur backend junior : métier développeur python proche du parcours ; compétences communes : Python, Git, tests ; préférence déclarée violée : contrat Stage hors des contrats visés (CDI) ; niveau intern hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p15",
     "offer_id": "o030",
     "label": "partiel",
-    "motif": "Full stack à Lille, hors localisations visées.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Développeur Full Stack TypeScript (Lille, CDI, Hybride, niveau mid) face à un profil développeur backend junior : métier développeur full stack proche du parcours ; compétences communes : PostgreSQL ; préférence déclarée violée : ville Lille hors des villes visées (Lyon, Paris)"
   },
   {
     "profile_id": "p15",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil développeur backend junior : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p15",
     "offer_id": "o103",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Coordinateur (Lyon, CDI, Présentiel, niveau senior) face à un profil développeur backend junior : métier infirmier coordinateur (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (coordination des soins, management) absentes du profil."
   },
   {
     "profile_id": "p15",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil développeur backend junior : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
   },
   {
     "profile_id": "p15",
     "offer_id": "o046",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Support Informatique N1 (Lille, CDI, Présentiel, niveau junior) face à un profil développeur backend junior : le titre ressemble à un poste voisin mais le métier réel est technicien support (consulting_services) ; compétences clés (support, Windows) étrangères au profil."
   },
   {
     "profile_id": "p15",
     "offer_id": "o047",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Formateur Bureautique et Web (Nantes, CDI, Présentiel, niveau mid) face à un profil développeur backend junior : le titre ressemble à un poste voisin mais le métier réel est formateur (public_education) ; compétences clés (pédagogie, bureautique) étrangères au profil."
   },
   {
     "profile_id": "p15",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil développeur backend junior : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p15",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil développeur backend junior : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p15",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil développeur backend junior : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
   },
   {
     "profile_id": "p15",
     "offer_id": "o042",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil développeur backend junior : métier ingénieur embarqué (industry_aerospace) sans lien avec le parcours ; compétences clés de l'offre (C++, embarqué) absentes du profil."
+  },
+  {
+    "profile_id": "p16",
+    "offer_id": "o115",
+    "label": "pertinent",
+    "motif": "Data Analyst Produit (lieu non précisé, CDI, Télétravail total, niveau mid) face à un profil data analyst confirme : même métier ou métier voisin (data analyst) ; compétences communes : SQL, Looker, A/B testing, Python ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p16",
     "offer_id": "o007",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Data Analyst (Paris, CDI, Hybride, niveau mid) face à un profil data analyst confirme : même métier ou métier voisin (data analyst) ; compétences communes : SQL, Excel, Python ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p16",
     "offer_id": "o011",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Data Analyst (English-speaking) (Paris, CDI, Hybride, niveau mid) face à un profil data analyst confirme : même métier ou métier voisin (data analyst) ; compétences communes : SQL, Python, Looker, A/B testing ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p16",
     "offer_id": "o012",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Analytics Engineer (Paris, CDI, Hybride, niveau mid) face à un profil data analyst confirme : même métier ou métier voisin (analytics engineer) ; compétences communes : SQL, dbt, Python ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p16",
     "offer_id": "o017",
     "label": "partiel",
-    "motif": "Métier voisin (ingénierie des données).",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Data Engineer - Full remote (lieu non précisé, CDI, Télétravail total, niveau mid) face à un profil data analyst confirme : Métier voisin (ingénierie des données) ; compétences communes : Python, SQL ; aucune préférence violée."
   },
   {
     "profile_id": "p16",
     "offer_id": "o005",
     "label": "partiel",
-    "motif": "Métier voisin, orienté machine learning.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Machine Learning Engineer (Paris, CDI, Télétravail total, niveau mid) face à un profil data analyst confirme : Métier voisin, orienté machine learning ; compétences communes : Python ; aucune préférence violée."
   },
   {
     "profile_id": "p16",
     "offer_id": "o018",
     "label": "partiel",
-    "motif": "Métier voisin, NLP non couvert.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Data Scientist NLP (Paris, CDI, Hybride, niveau mid) face à un profil data analyst confirme : Métier voisin, NLP non couvert ; compétences communes : Python ; aucune préférence violée."
   },
   {
     "profile_id": "p16",
     "offer_id": "o010",
     "label": "partiel",
-    "motif": "BI à Nantes, hors localisations visées.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Business Intelligence Analyst (Nantes, CDI, Hybride, niveau mid) face à un profil data analyst confirme : métier bi analyst proche du parcours ; compétences communes : SQL ; préférence déclarée violée : ville Nantes hors des villes visées (Paris)"
   },
   {
     "profile_id": "p16",
     "offer_id": "o008",
     "label": "partiel",
-    "motif": "Poste junior à Lille, niveau et ville hors préférences.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Data Analyst Junior (Lille, CDI, Hybride, niveau junior) face à un profil data analyst confirme : métier data analyst proche du parcours ; compétences communes : SQL, Excel ; préférence déclarée violée : ville Lille hors des villes visées (Paris) ; niveau junior hors des niveaux visés (mid)"
   },
   {
     "profile_id": "p16",
     "offer_id": "o009",
     "label": "partiel",
-    "motif": "Stage à Lyon, hors contrats visés.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Stage Data Analyst (6 mois) (Lyon, Stage, Hybride, niveau intern) face à un profil data analyst confirme : métier data analyst proche du parcours ; compétences communes : SQL, Python, Excel, reporting ; préférence déclarée violée : ville Lyon hors des villes visées (Paris) ; contrat Stage hors des contrats visés (CDI) ; niveau intern hors des niveaux visés (mid)"
   },
   {
     "profile_id": "p16",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil data analyst confirme : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
   },
   {
     "profile_id": "p16",
     "offer_id": "o022",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Professeur de mathématiques (contractuel) (Lyon, CDD, Présentiel, niveau mid) face à un profil data analyst confirme : le titre ressemble à un poste voisin mais le métier réel est professeur de mathématiques (public_education) ; compétences clés (mathématiques, pédagogie) étrangères au profil."
   },
   {
     "profile_id": "p16",
     "offer_id": "o023",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Commercial Data & Analytics Solutions (Paris, CDI, Hybride, niveau mid) face à un profil data analyst confirme : le titre ressemble à un poste voisin mais le métier réel est commercial data (tech_it) ; compétences clés (vente B2B, prospection) étrangères au profil."
   },
   {
     "profile_id": "p16",
     "offer_id": "o024",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Opérateur de saisie de données (Roubaix, CDD, Présentiel, niveau junior) face à un profil data analyst confirme : le titre ressemble à un poste voisin mais le métier réel est opérateur de saisie (consulting_services) ; compétences clés (saisie de données, rigueur) étrangères au profil."
   },
   {
     "profile_id": "p16",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil data analyst confirme : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p16",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil data analyst confirme : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p16",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil data analyst confirme : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p16",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil data analyst confirme : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
+  },
+  {
+    "profile_id": "p17",
+    "offer_id": "o116",
+    "label": "pertinent",
+    "motif": "Développeur Backend Node.js Junior (Grenoble, CDI, Hybride, niveau junior) face à un profil développeur backend junior : même métier ou métier voisin (développeur backend) ; compétences communes : Node.js, TypeScript, MongoDB, Git ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p17",
     "offer_id": "o028",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Développeur Backend Junior (Node.js) (Rennes, CDI, Hybride, niveau junior) face à un profil développeur backend junior : même métier ou métier voisin (développeur backend) ; compétences communes : Node.js, TypeScript, MongoDB, Git ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p17",
     "offer_id": "o029",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Backend Engineer (Go) (Remote France, CDI, Télétravail total, niveau mid) face à un profil développeur backend junior : même métier ou métier voisin (backend engineer) ; compétences communes : Go, PostgreSQL ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p17",
     "offer_id": "o105",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Développeur Logiciel Santé (Dossier Patient) (Lyon, CDI, Hybride, niveau junior) face à un profil développeur backend junior : même métier ou métier voisin (développeur) ; compétences communes : Python, TypeScript, SQL ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p17",
     "offer_id": "o027",
     "label": "partiel",
-    "motif": "Poste senior Java, niveau trop élevé.",
-    "preference_violee": false
+    "preference_violee": true,
+    "motif": "Développeur Backend Java Senior (Lyon, CDI, Hybride, niveau senior) face à un profil développeur backend junior : Poste senior Java, niveau trop élevé ; compétences communes : Java, PostgreSQL ; préférence déclarée violée : niveau senior hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p17",
     "offer_id": "o032",
     "label": "partiel",
-    "motif": "Métier voisin (frontend).",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Développeur Frontend Junior (Lyon, CDI, Hybride, niveau junior) face à un profil développeur backend junior : Métier voisin (frontend) ; compétences communes : JavaScript ; aucune préférence violée."
   },
   {
     "profile_id": "p17",
     "offer_id": "o030",
     "label": "partiel",
-    "motif": "Full stack à Lille, hors localisations visées.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Développeur Full Stack TypeScript (Lille, CDI, Hybride, niveau mid) face à un profil développeur backend junior : métier développeur full stack proche du parcours ; compétences communes : TypeScript, Node.js, PostgreSQL ; préférence déclarée violée : ville Lille hors des villes visées (Grenoble, Lyon, Rennes)"
   },
   {
     "profile_id": "p17",
     "offer_id": "o026",
     "label": "partiel",
-    "motif": "Backend Python à Paris, hors localisations visées.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Développeur Backend Python (Paris, CDI, Hybride, niveau mid) face à un profil développeur backend junior : métier développeur backend proche du parcours ; compétences communes : Python, PostgreSQL, Docker, tests ; préférence déclarée violée : ville Paris hors des villes visées (Grenoble, Lyon, Rennes)"
   },
   {
     "profile_id": "p17",
     "offer_id": "o043",
     "label": "partiel",
-    "motif": "Stage Python, hors contrats visés.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Stage Développeur Python (Lyon, Stage, Hybride, niveau intern) face à un profil développeur backend junior : métier développeur python proche du parcours ; compétences communes : Python, Git, tests ; préférence déclarée violée : contrat Stage hors des contrats visés (CDI) ; niveau intern hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p17",
     "offer_id": "o038",
     "label": "partiel",
-    "motif": "DevOps junior sur site, mode de travail hors préférences.",
-    "preference_violee": true
+    "preference_violee": false,
+    "motif": "Ingénieur DevOps Junior (Grenoble, CDI, Présentiel, niveau junior) face à un profil développeur backend junior : DevOps junior : métier voisin du backend, mais infrastructure et CI/CD à peine couverts (Docker seulement) ; compétences communes : Docker ; aucune préférence violée."
   },
   {
     "profile_id": "p17",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil développeur backend junior : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
   },
   {
     "profile_id": "p17",
     "offer_id": "o046",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Support Informatique N1 (Lille, CDI, Présentiel, niveau junior) face à un profil développeur backend junior : le titre ressemble à un poste voisin mais le métier réel est technicien support (consulting_services) ; compétences clés (support, Windows) étrangères au profil."
   },
   {
     "profile_id": "p17",
     "offer_id": "o047",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Formateur Bureautique et Web (Nantes, CDI, Présentiel, niveau mid) face à un profil développeur backend junior : le titre ressemble à un poste voisin mais le métier réel est formateur (public_education) ; compétences clés (pédagogie, bureautique) étrangères au profil."
   },
   {
     "profile_id": "p17",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil développeur backend junior : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p17",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil développeur backend junior : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p17",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil développeur backend junior : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p17",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil développeur backend junior : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
   },
   {
     "profile_id": "p17",
     "offer_id": "o055",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil développeur backend junior : métier ux designer (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Figma, recherche utilisateur) absentes du profil."
   },
   {
     "profile_id": "p18",
     "offer_id": "o073",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Community Manager (Nantes, CDD, Hybride, niveau junior) face à un profil chargé de marketing digital junior : même métier ou métier voisin (community manager) ; compétences communes : réseaux sociaux, Canva ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p18",
     "offer_id": "o072",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Content & SEO Manager (Remote France, CDI, Télétravail total, niveau mid) face à un profil chargé de marketing digital junior : même métier ou métier voisin (seo manager) ; compétences communes : SEO, analytics ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p18",
     "offer_id": "o068",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Chargé de Marketing Digital (Paris, CDI, Hybride, niveau mid) face à un profil chargé de marketing digital junior : même métier ou métier voisin (chargé de marketing digital) ; compétences communes : SEA, Google Analytics, e-mailing, réseaux sociaux, SEO ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p18",
     "offer_id": "o069",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Chargé de Marketing Digital Junior (Lille, CDI, Hybride, niveau junior) face à un profil chargé de marketing digital junior : même métier ou métier voisin (chargé de marketing digital) ; compétences communes : e-mailing, réseaux sociaux, SEO, rédaction ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p18",
     "offer_id": "o071",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Traffic Manager / Spécialiste SEA (Paris, CDI, Hybride, niveau mid) face à un profil chargé de marketing digital junior : même métier ou métier voisin (traffic manager) ; compétences communes : Analytics, SEA ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p18",
     "offer_id": "o074",
     "label": "partiel",
-    "motif": "Poste senior de responsable marketing, niveau trop élevé.",
-    "preference_violee": false
+    "preference_violee": true,
+    "motif": "Responsable Marketing (Lyon, CDI, Hybride, niveau senior) face à un profil chargé de marketing digital junior : Poste senior de responsable marketing, niveau trop élevé ; compétences communes : digital ; préférence déclarée violée : ville Lyon hors des villes visées (Nantes, Paris, Lille) ; niveau senior hors des niveaux visés (junior, mid)"
   },
   {
     "profile_id": "p18",
     "offer_id": "o070",
     "label": "partiel",
-    "motif": "Alternance à Lyon, hors localisations et contrats visés.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Marketing Digital - Alternance (Lyon, Alternance, Hybride, niveau junior) face à un profil chargé de marketing digital junior : métier marketing digital proche du parcours ; compétences communes : réseaux sociaux, rédaction, analytics, SEO ; préférence déclarée violée : ville Lyon hors des villes visées (Nantes, Paris, Lille) ; contrat Alternance hors des contrats visés (CDI, CDD)"
   },
   {
     "profile_id": "p18",
     "offer_id": "o075",
     "label": "partiel",
-    "motif": "Marketing opérationnel sur site, mode de travail hors préférences.",
-    "preference_violee": true
+    "preference_violee": false,
+    "motif": "Chargé de Marketing Opérationnel - Événementiel (lieu non précisé, CDI, Présentiel, niveau mid) face à un profil chargé de marketing digital junior : Marketing opérationnel événementiel : métier voisin du marketing digital, l'événementiel n'est pas couvert ; compétences communes : e-mailing ; aucune préférence violée."
   },
   {
     "profile_id": "p18",
     "offer_id": "o076",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Téléconseiller Marketing Direct (Roubaix, CDI, Présentiel, niveau junior) face à un profil chargé de marketing digital junior : le titre ressemble à un poste voisin mais le métier réel est téléconseiller (consulting_services) ; compétences clés (phoning, prospection téléphonique) étrangères au profil."
   },
   {
     "profile_id": "p18",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil chargé de marketing digital junior : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
   },
   {
     "profile_id": "p18",
     "offer_id": "o022",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Professeur de mathématiques (contractuel) (Lyon, CDD, Présentiel, niveau mid) face à un profil chargé de marketing digital junior : le titre ressemble à un poste voisin mais le métier réel est professeur de mathématiques (public_education) ; compétences clés (mathématiques, pédagogie) étrangères au profil."
   },
   {
     "profile_id": "p18",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil chargé de marketing digital junior : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p18",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil chargé de marketing digital junior : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p18",
     "offer_id": "o036",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "DevOps Engineer (Paris, CDI, Hybride, niveau mid) face à un profil chargé de marketing digital junior : métier devops (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Terraform, Kubernetes) absentes du profil."
   },
   {
     "profile_id": "p18",
     "offer_id": "o042",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil chargé de marketing digital junior : métier ingénieur embarqué (industry_aerospace) sans lien avec le parcours ; compétences clés de l'offre (C++, embarqué) absentes du profil."
   },
   {
     "profile_id": "p18",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil chargé de marketing digital junior : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p18",
     "offer_id": "o055",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil chargé de marketing digital junior : métier ux designer (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Figma, recherche utilisateur) absentes du profil."
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o106",
+    "label": "pertinent",
+    "motif": "Data Analyst (Lyon, CDI, Hybride, niveau junior) face à un profil data analyst junior : même métier ou métier voisin (data analyst) ; compétences communes : SQL, Excel ; niveau, lieu et contrat compatibles."
+  },
+  {
+    "profile_id": "p19",
+    "offer_id": "o107",
+    "label": "pertinent",
+    "motif": "Analyste BI Junior (Paris, CDI, Hybride, niveau junior) face à un profil data analyst junior : même métier ou métier voisin (bi analyst) ; compétences communes : SQL, Excel ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p19",
     "offer_id": "o008",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Data Analyst Junior (Lille, CDI, Hybride, niveau junior) face à un profil data analyst junior : même métier ou métier voisin (data analyst) ; compétences communes : SQL, Excel ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p19",
     "offer_id": "o009",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Stage Data Analyst (6 mois) (Lyon, Stage, Hybride, niveau intern) face à un profil data analyst junior : même métier ou métier voisin (data analyst) ; compétences communes : SQL, Python, Excel ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p19",
     "offer_id": "o004",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Data Scientist Junior - Prévision de la demande (Paris, CDI, Hybride, niveau junior) face à un profil data analyst junior : même métier ou métier voisin (data scientist) ; compétences communes : Python, SQL ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p19",
     "offer_id": "o007",
     "label": "partiel",
-    "motif": "Poste confirmé, expérience insuffisante.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Data Analyst (Paris, CDI, Hybride, niveau mid) face à un profil data analyst junior : Poste confirmé, expérience insuffisante ; compétences communes : SQL, Excel, analyse de données, Python ; aucune préférence violée."
   },
   {
     "profile_id": "p19",
     "offer_id": "o014",
     "label": "partiel",
-    "motif": "Métier voisin (ingénierie des données), compétences à construire.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Data Engineer Junior (Rennes, CDI, Hybride, niveau junior) face à un profil data analyst junior : Métier voisin (ingénierie des données), compétences à construire ; compétences communes : Python, SQL ; aucune préférence violée."
   },
   {
     "profile_id": "p19",
     "offer_id": "o010",
     "label": "partiel",
-    "motif": "Poste confirmé en BI.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Business Intelligence Analyst (Nantes, CDI, Hybride, niveau mid) face à un profil data analyst junior : Poste confirmé en BI ; compétences communes : SQL ; aucune préférence violée."
   },
   {
     "profile_id": "p19",
     "offer_id": "o012",
     "label": "partiel",
-    "motif": "Poste confirmé en analytics engineering.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Analytics Engineer (Paris, CDI, Hybride, niveau mid) face à un profil data analyst junior : Poste confirmé en analytics engineering ; compétences communes : SQL, Python ; aucune préférence violée."
   },
   {
     "profile_id": "p19",
     "offer_id": "o020",
     "label": "partiel",
-    "motif": "Statistiques en CDD, outils différents.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Chargé d'études statistiques (Marseille, CDD, Présentiel, niveau junior) face à un profil data analyst junior : Statistiques en CDD, outils différents ; compétences communes : R ; aucune préférence violée."
   },
   {
     "profile_id": "p19",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil data analyst junior : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
   },
   {
     "profile_id": "p19",
     "offer_id": "o024",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Opérateur de saisie de données (Roubaix, CDD, Présentiel, niveau junior) face à un profil data analyst junior : le titre ressemble à un poste voisin mais le métier réel est opérateur de saisie (consulting_services) ; compétences clés (saisie de données, rigueur) étrangères au profil."
   },
   {
     "profile_id": "p19",
     "offer_id": "o022",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Professeur de mathématiques (contractuel) (Lyon, CDD, Présentiel, niveau mid) face à un profil data analyst junior : le titre ressemble à un poste voisin mais le métier réel est professeur de mathématiques (public_education) ; compétences clés (mathématiques, pédagogie) étrangères au profil."
   },
   {
     "profile_id": "p19",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil data analyst junior : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p19",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil data analyst junior : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p19",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil data analyst junior : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p19",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil data analyst junior : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
   },
   {
     "profile_id": "p19",
     "offer_id": "o055",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil data analyst junior : métier ux designer (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Figma, recherche utilisateur) absentes du profil."
+  },
+  {
+    "profile_id": "p20",
+    "offer_id": "o117",
+    "label": "pertinent",
+    "motif": "Juriste Junior - Droit des Contrats (Lyon, CDI, Hybride, niveau junior) face à un profil juriste junior : même métier ou métier voisin (juriste contrats) ; compétences communes : recherches juridiques, rédaction ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p20",
     "offer_id": "o096",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Juriste Contrats Junior (Paris, CDI, Hybride, niveau junior) face à un profil juriste junior : même métier ou métier voisin (juriste contrats) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p20",
     "offer_id": "o097",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Juriste - Alternance (Lyon, Alternance, Présentiel, niveau junior) face à un profil juriste junior : même métier ou métier voisin (juriste) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p20",
     "offer_id": "o099",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Assistant Juridique (Lyon, CDI, Présentiel, niveau junior) face à un profil juriste junior : même métier ou métier voisin (assistant juridique) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p20",
     "offer_id": "o095",
     "label": "partiel",
-    "motif": "Poste confirmé, expérience insuffisante.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Juriste d'Entreprise (Lyon, CDI, mode non précisé, niveau mid) face à un profil juriste junior : Poste confirmé, expérience insuffisante ; compétences communes : droit des affaires ; aucune préférence violée."
   },
   {
     "profile_id": "p20",
     "offer_id": "o100",
     "label": "partiel",
-    "motif": "Spécialisation données personnelles, à acquérir.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Juriste Protection des Données (DPO) (Paris, CDI, Hybride, niveau mid) face à un profil juriste junior : Spécialisation données personnelles, à acquérir ; compétences communes : aucune compétence clé citée dans les sources ; aucune préférence violée."
   },
   {
     "profile_id": "p20",
     "offer_id": "o098",
     "label": "partiel",
-    "motif": "Poste senior de legal counsel.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Legal Counsel (Paris, CDI, Hybride, niveau senior) face à un profil juriste junior : Poste senior de legal counsel ; compétences communes : aucune compétence clé citée dans les sources ; aucune préférence violée."
   },
   {
     "profile_id": "p20",
     "offer_id": "o101",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Conseiller Commercial Protection Juridique (Paris, CDI, Hybride, niveau junior) face à un profil juriste junior : le titre ressemble à un poste voisin mais le métier réel est conseiller commercial (finance_insurance) ; compétences clés (vente d'assurance, prospection) étrangères au profil."
   },
   {
     "profile_id": "p20",
     "offer_id": "o045",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Commercial Solutions Cloud (Paris, CDI, Hybride, niveau mid) face à un profil juriste junior : le titre ressemble à un poste voisin mais le métier réel est commercial cloud (tech_it) ; compétences clés (vente B2B, cloud) étrangères au profil."
   },
   {
     "profile_id": "p20",
     "offer_id": "o046",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Support Informatique N1 (Lille, CDI, Présentiel, niveau junior) face à un profil juriste junior : le titre ressemble à un poste voisin mais le métier réel est technicien support (consulting_services) ; compétences clés (support, Windows) étrangères au profil."
   },
   {
     "profile_id": "p20",
     "offer_id": "o047",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Formateur Bureautique et Web (Nantes, CDI, Présentiel, niveau mid) face à un profil juriste junior : le titre ressemble à un poste voisin mais le métier réel est formateur (public_education) ; compétences clés (pédagogie, bureautique) étrangères au profil."
   },
   {
     "profile_id": "p20",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil juriste junior : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p20",
     "offer_id": "o036",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "DevOps Engineer (Paris, CDI, Hybride, niveau mid) face à un profil juriste junior : métier devops (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Terraform, Kubernetes) absentes du profil."
   },
   {
     "profile_id": "p20",
     "offer_id": "o055",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil juriste junior : métier ux designer (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Figma, recherche utilisateur) absentes du profil."
   },
   {
     "profile_id": "p20",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil juriste junior : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p20",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil juriste junior : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p20",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil juriste junior : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
   },
   {
     "profile_id": "p20",
     "offer_id": "o024",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Opérateur de saisie de données (Roubaix, CDD, Présentiel, niveau junior) face à un profil juriste junior : le titre ressemble à un poste voisin mais le métier réel est opérateur de saisie (consulting_services) ; compétences clés (saisie de données, rigueur) étrangères au profil."
+  },
+  {
+    "profile_id": "p21",
+    "offer_id": "o118",
+    "label": "pertinent",
+    "motif": "Ingénieur Fiabilité (SRE) (Paris, CDI, Hybride, niveau senior) face à un profil devops senior : même métier ou métier voisin (sre) ; compétences communes : Kubernetes, SLO, ArgoCD, Terraform ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p21",
     "offer_id": "o037",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Site Reliability Engineer (SRE) (Paris, CDI, Hybride, niveau senior) face à un profil devops senior : même métier ou métier voisin (sre) ; compétences communes : Kubernetes, Terraform, Python, SLO, observabilité ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p21",
     "offer_id": "o036",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "DevOps Engineer (Paris, CDI, Hybride, niveau mid) face à un profil devops senior : même métier ou métier voisin (devops) ; compétences communes : Terraform, Kubernetes, Docker, GitLab CI, Linux ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p21",
     "offer_id": "o039",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Platform Engineer (Kubernetes) (Remote, CDI, Télétravail total, niveau mid) face à un profil devops senior : même métier ou métier voisin (platform engineer) ; compétences communes : Kubernetes, Terraform, ArgoCD, CI/CD ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p21",
     "offer_id": "o026",
     "label": "partiel",
-    "motif": "Métier voisin, backend.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Développeur Backend Python (Paris, CDI, Hybride, niveau mid) face à un profil devops senior : Métier voisin, backend ; compétences communes : Python, Docker ; aucune préférence violée."
   },
   {
     "profile_id": "p21",
     "offer_id": "o013",
     "label": "partiel",
-    "motif": "Métier voisin, ingénierie des données.",
-    "preference_violee": false
+    "preference_violee": false,
+    "motif": "Data Engineer (Paris, CDI, Hybride, niveau mid) face à un profil devops senior : Métier voisin, ingénierie des données ; compétences communes : Python ; aucune préférence violée."
   },
   {
     "profile_id": "p21",
     "offer_id": "o044",
     "label": "partiel",
-    "motif": "Architecte logiciel à Lyon, hors localisation.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Architecte Logiciel (Lyon, CDI, Hybride, niveau senior) face à un profil devops senior : métier architecte logiciel proche du parcours ; compétences communes : cloud ; préférence déclarée violée : ville Lyon hors des villes visées (Paris)"
   },
   {
     "profile_id": "p21",
     "offer_id": "o040",
     "label": "partiel",
-    "motif": "Administration systèmes sur site à Lille, hors ville et mode de travail.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Administrateur systèmes et réseaux (Lille, contrat non précisé, Présentiel, niveau mid) face à un profil devops senior : métier administrateur systèmes proche du parcours ; compétences communes : Linux, réseaux ; préférence déclarée violée : ville Lille hors des villes visées (Paris)"
   },
   {
     "profile_id": "p21",
     "offer_id": "o038",
     "label": "partiel",
-    "motif": "Poste junior sur site à Grenoble, niveau et mode de travail hors préférences.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Ingénieur DevOps Junior (Grenoble, CDI, Présentiel, niveau junior) face à un profil devops senior : métier devops proche du parcours ; compétences communes : Linux, Docker, Jenkins, Bash ; préférence déclarée violée : ville Grenoble hors des villes visées (Paris) ; niveau junior hors des niveaux visés (senior, mid)"
   },
   {
     "profile_id": "p21",
     "offer_id": "o045",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Commercial Solutions Cloud (Paris, CDI, Hybride, niveau mid) face à un profil devops senior : le titre ressemble à un poste voisin mais le métier réel est commercial cloud (tech_it) ; compétences clés (vente B2B, cloud) étrangères au profil."
   },
   {
     "profile_id": "p21",
     "offer_id": "o046",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Support Informatique N1 (Lille, CDI, Présentiel, niveau junior) face à un profil devops senior : le titre ressemble à un poste voisin mais le métier réel est technicien support (consulting_services) ; compétences clés (support, Windows) étrangères au profil."
   },
   {
     "profile_id": "p21",
     "offer_id": "o047",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Formateur Bureautique et Web (Nantes, CDI, Présentiel, niveau mid) face à un profil devops senior : le titre ressemble à un poste voisin mais le métier réel est formateur (public_education) ; compétences clés (pédagogie, bureautique) étrangères au profil."
   },
   {
     "profile_id": "p21",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil devops senior : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p21",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil devops senior : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p21",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil devops senior : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p21",
     "offer_id": "o083",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Chargé de Ressources Humaines Généraliste (Paris, CDI, Hybride, niveau mid) face à un profil devops senior : métier chargé rh (consulting_services) sans lien avec le parcours ; compétences clés de l'offre (recrutement, administration du personnel) absentes du profil."
   },
   {
     "profile_id": "p21",
     "offer_id": "o055",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil devops senior : métier ux designer (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Figma, recherche utilisateur) absentes du profil."
   },
   {
     "profile_id": "p21",
     "offer_id": "o021",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Technicien Data Center (Lille, CDI, Présentiel, niveau junior) face à un profil devops senior : le titre ressemble à un poste voisin mais le métier réel est technicien data center (tech_it) ; compétences clés (data center, câblage) étrangères au profil."
   },
   {
     "profile_id": "p22",
     "offer_id": "o089",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Commercial B2B SaaS (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (commercial b2b) ; compétences communes : SaaS ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p22",
     "offer_id": "o091",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Business Developer (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (business developer) ; compétences communes : B2B sales, prospecting, negotiation ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p22",
     "offer_id": "o092",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Responsable Grands Comptes (Paris, CDI, Hybride, niveau senior) face à un profil commercial b2b confirme : même métier ou métier voisin (key account manager) ; compétences communes : management ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p22",
     "offer_id": "o045",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Commercial Solutions Cloud (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (commercial cloud) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p22",
     "offer_id": "o023",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Commercial Data & Analytics Solutions (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (commercial data) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p22",
     "offer_id": "o080",
     "label": "pertinent",
-    "motif": "Même métier ou métier voisin, niveau et préférences cohérents."
+    "motif": "Commercial Logiciels de Comptabilité (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : même métier ou métier voisin (commercial logiciels) ; compétences communes : aucune compétence clé citée dans les sources ; niveau, lieu et contrat compatibles."
   },
   {
     "profile_id": "p22",
     "offer_id": "o093",
     "label": "partiel",
-    "motif": "SDR junior, niveau hors préférences.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "SDR / Business Developer Junior (Paris, CDI, Hybride, niveau junior) face à un profil commercial b2b confirme : métier sdr proche du parcours ; compétences communes : LinkedIn ; préférence déclarée violée : niveau junior hors des niveaux visés (mid, senior)"
   },
   {
     "profile_id": "p22",
     "offer_id": "o090",
     "label": "partiel",
-    "motif": "Ingénieur d'affaires itinérant à Grenoble, hors ville et mode de travail.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Ingénieur d'Affaires (Grenoble, CDI, Présentiel, niveau mid) face à un profil commercial b2b confirme : métier ingénieur d'affaires proche du parcours ; compétences communes : industrie ; préférence déclarée violée : ville Grenoble hors des villes visées (Paris)"
   },
   {
     "profile_id": "p22",
     "offer_id": "o049",
     "label": "partiel",
-    "motif": "Technico-commercial itinérant à Lyon, hors ville et mode de travail.",
-    "preference_violee": true
+    "preference_violee": true,
+    "motif": "Technico-commercial Réseaux et Télécoms (Lyon, CDI, Présentiel, niveau mid) face à un profil commercial b2b confirme : métier technico-commercial proche du parcours ; compétences communes : aucune compétence clé citée dans les sources ; préférence déclarée violée : ville Lyon hors des villes visées (Paris)"
   },
   {
     "profile_id": "p22",
     "offer_id": "o094",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Vendeur en magasin (prêt-à-porter) (Lyon, CDI, Présentiel, niveau junior) face à un profil commercial b2b confirme : le titre ressemble à un poste voisin mais le métier réel est vendeur (retail_ecommerce) ; compétences clés (vente en magasin, conseil client) étrangères au profil."
   },
   {
     "profile_id": "p22",
     "offer_id": "o076",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Téléconseiller Marketing Direct (Roubaix, CDI, Présentiel, niveau junior) face à un profil commercial b2b confirme : le titre ressemble à un poste voisin mais le métier réel est téléconseiller (consulting_services) ; compétences clés (phoning, prospection téléphonique) étrangères au profil."
   },
   {
     "profile_id": "p22",
     "offer_id": "o101",
     "label": "hors_sujet",
-    "motif": "Titre voisin mais métier différent (piège du filtre métier)."
+    "motif": "Conseiller Commercial Protection Juridique (Paris, CDI, Hybride, niveau junior) face à un profil commercial b2b confirme : le titre ressemble à un poste voisin mais le métier réel est conseiller commercial (finance_insurance) ; compétences clés (vente d'assurance, prospection) étrangères au profil."
   },
   {
     "profile_id": "p22",
     "offer_id": "o102",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Infirmier Diplômé d'État (IDE) (Lyon, CDI, Présentiel, niveau mid) face à un profil commercial b2b confirme : métier infirmier (healthcare_pharma) sans lien avec le parcours ; compétences clés de l'offre (soins infirmiers, surveillance clinique) absentes du profil."
   },
   {
     "profile_id": "p22",
     "offer_id": "o077",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Comptable Général (Lyon, CDI, Présentiel, niveau mid) face à un profil commercial b2b confirme : métier comptable (finance_insurance) sans lien avec le parcours ; compétences clés de l'offre (comptabilité générale, TVA) absentes du profil."
   },
   {
     "profile_id": "p22",
     "offer_id": "o036",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "DevOps Engineer (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : métier devops (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Terraform, Kubernetes) absentes du profil."
   },
   {
     "profile_id": "p22",
     "offer_id": "o055",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "UX Designer (Lyon, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : métier ux designer (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Figma, recherche utilisateur) absentes du profil."
   },
   {
     "profile_id": "p22",
     "offer_id": "o026",
     "label": "hors_sujet",
-    "motif": "Autre métier : aucun recoupement sérieux avec le profil."
+    "motif": "Développeur Backend Python (Paris, CDI, Hybride, niveau mid) face à un profil commercial b2b confirme : métier développeur backend (tech_it) sans lien avec le parcours ; compétences clés de l'offre (Python, FastAPI) absentes du profil."
   }
 ]

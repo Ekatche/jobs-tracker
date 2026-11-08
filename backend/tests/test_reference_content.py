@@ -10,6 +10,10 @@ from collections import Counter
 
 import pytest
 
+from app.models import CandidatePreferences, RemotePolicy
+from app.services.company_profiles import COMPANY_SIZES, SECTORS
+from app.services.evaluation.offer_fit import SENIORITY_ORDER
+from app.services.offer_scoring.assess import KNOWN_WORK_MODES
 from app.services.profile.merge import build_profile_from_sources
 from scripts.reference_dataset import (
     coverage_report,
@@ -250,3 +254,47 @@ def test_letter_proofs_are_literal_source_substrings():
             assert any(proof["preuve"] in t for t in texts), (r["profile_id"], proof)
         for tr in r["transferables"]:
             assert any(tr["element"] in t for t in texts), (r["profile_id"], tr)
+
+
+def test_offers_use_stored_vocabularies():
+    modes = KNOWN_WORK_MODES | {""}
+    for o in REF["offers"]:
+        oid = o["offer_id"]
+        assert o["mode_travail"] in modes, oid
+        assert o["seniority_level"] in SENIORITY_ORDER, oid
+        assert o["sector"] in SECTORS, oid
+        assert o["company_size"] in COMPANY_SIZES, oid
+        assert o["type_contrat"] in {"CDI", "CDD", "Alternance", "Stage", ""}, oid
+
+
+def _source_preferences(profile):
+    for src in profile["sources"].values():
+        if isinstance(src, dict) and src.get("preferences"):
+            yield src["preferences"]
+
+
+@pytest.mark.parametrize("pid", PROFILE_IDS)
+def test_preferences_match_stored_models(pid):
+    profile = _profile(pid)
+    allowed = {m.value for m in RemotePolicy}
+    for prefs in _source_preferences(profile):
+        if "remote_policy" in prefs:
+            assert prefs["remote_policy"] in allowed
+        assert "Remote" not in prefs.get("locations", [])
+        assert set(prefs.get("seniority_levels", [])) <= set(SENIORITY_ORDER)
+    merged, _ = build_profile_from_sources(profile["sources"])
+    CandidatePreferences(**(merged.get("preferences") or {}))
+
+
+def test_label_motifs_are_specific():
+    counts = Counter(r["motif"] for r in REF["matching_labels"])
+    assert max(counts.values()) <= 3, counts.most_common(2)
+
+
+def test_letter_exigences_and_transferables_are_consistent():
+    for r in REF["letter_requirements"]:
+        exigences = set(r["exigences"])
+        for item in r["preuves_exactes"] + r["transferables"]:
+            assert item["exigence"] in exigences, (r["profile_id"], r["offer_id"], item)
+        for tr in r["transferables"]:
+            assert len(tr["element"]) >= 15, tr
