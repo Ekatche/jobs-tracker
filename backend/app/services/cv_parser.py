@@ -512,14 +512,19 @@ def _normalize(value: Any) -> str:
 
 
 def _find_excerpt(page_text: str, needle: str) -> Optional[str]:
-    """Ligne de la page où figure `needle` (déjà normalisé), tronquée ; None si absent."""
-    if needle not in _normalize(page_text):
+    """Ligne de la page contenant `needle` (déjà normalisé) en mots entiers, tronquée.
+
+    None si la valeur fait moins de 3 caractères, est absente, ou coupée par un retour à la
+    ligne : seule une correspondance vérifiable sur une ligne produit un extrait.
+    """
+    if len(needle) < 3:
         return None
-    lines = [line.strip() for line in page_text.splitlines() if line.strip()]
-    for i, line in enumerate(lines):
-        # Une correspondance peut chevaucher deux lignes : on garde celle où elle commence.
-        if needle in _normalize(line) or needle in _normalize(" ".join(lines[i:i + 2])):
-            return line[:160]
+    pattern = re.compile(rf"(?<!\w){re.escape(needle)}(?!\w)")
+    if not pattern.search(_normalize(page_text)):
+        return None
+    for line in page_text.splitlines():
+        if pattern.search(_normalize(line)):
+            return line.strip()[:160]
     return None
 
 

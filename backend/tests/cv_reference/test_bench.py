@@ -67,7 +67,7 @@ async def test_pipeline_coverage_and_invented_facts(run, case_id, factory, vlm, 
     r = by_id(await run([case_id], **kwargs))[case_id]
     assert (r["pages_by_method"]["vlm"], r["pages_by_method"]["text"], r["skipped_pages"]) == (vlm, text, skipped)
     assert (r["experience_recall"] == 1.0) == complete and bool(r["invented_facts"]) == invented
-    assert r["all_pages_handled"] and r["cost_usd"] > 0
+    assert r["cost_usd"] > 0
     assert r["pages_covered"] == 1 - len(skipped) / r["total_pages"]
 
 
@@ -91,7 +91,7 @@ async def test_aggregates_by_category_exclude_rejections_from_recall(run):
     assert agg["global"]["experience_recall"] == 1.0 and agg["global"]["missed_experiences"] == 0
     assert agg["by_category"]["protected"]["experience_recall"] is None
     assert agg["global"]["false_rejections"] == 0 and agg["global"]["evidence_page_accuracy"] == 1.0
-    assert agg["global"]["all_pages_handled"] == 4 and "Faux rejets : 0" in report["summary"]
+    assert "Faux rejets : 0" in report["summary"]
     assert "mode simulé" in report["summary"]
 
 

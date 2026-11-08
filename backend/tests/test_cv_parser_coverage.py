@@ -285,12 +285,21 @@ def test_merge_cv_complement_keeps_distinct_experiences_and_dedups_the_rest(base
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("scanned, page", [(frozenset(), 2), (frozenset({2}), None)])
-async def test_evidence_points_to_the_page_text_never_to_a_scan(tmp_path, mistral_key, scanned, page):
+@pytest.mark.parametrize(
+    "texts, company, scanned, page, excerpt",
+    [
+        (["Profil data", "Initech - Data Engineer"], "Initech", frozenset(), 2, "Initech - Data Engineer"),
+        (["Profil data", "Initech - Data Engineer"], "Initech", frozenset({2}), None, None),
+        # Mot entier et ligne exacte : « Acmeology » ne vaut pas « Acme », l'extrait est la 2e ligne.
+        (["Acmeology Labs\nAcme - Data Engineer", "Fin"], "Acme", frozenset(), 1, "Acme - Data Engineer"),
+        (["Acmeology Labs", "Fin"], "Acme", frozenset(), None, None),
+    ],
+)
+async def test_evidence_points_to_the_page_text_never_to_a_scan(tmp_path, mistral_key, texts, company, scanned, page, excerpt):
     from app.services.cv_parser import parse_cv_with_llm
 
-    pdf = _make_pdf(tmp_path, 2, scanned=scanned, texts=["Profil data", "Initech - Data Engineer"])
-    vlm = _vlm_payload(experiences=[{"company": "Initech", "role": "Data Engineer", "start": "2020"}])
+    pdf = _make_pdf(tmp_path, 2, scanned=scanned, texts=texts)
+    vlm = _vlm_payload(experiences=[{"company": company, "role": "Data Engineer", "start": "2020"}])
     with patch("app.services.cv_parser.parse_cv_with_vlm", new_callable=AsyncMock, return_value=vlm):
         result = await parse_cv_with_llm(cv_text="texte", pdf_path=pdf)
 
@@ -298,5 +307,4 @@ async def test_evidence_points_to_the_page_text_never_to_a_scan(tmp_path, mistra
     if page is None:
         assert evidence == []
     else:
-        assert [(e["section"], e["index"], e["page"]) for e in evidence] == [("experiences", 0, page)]
-        assert "Initech" in evidence[0]["excerpt"]
+        assert [(e["section"], e["index"], e["page"], e["excerpt"]) for e in evidence] == [("experiences", 0, page, excerpt)]

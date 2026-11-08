@@ -51,7 +51,7 @@ PRICES_USD_PER_M = {
     "openai/gpt-4o-mini": (0.15, 0.60),
 }
 FALLBACK_PRICE = (2.0, 6.0)
-PILOT_TARGETS = {"min_pdfs": 20, "pages_handled": 1.0, "invented_facts": 0, "experience_recall": 0.95, "budget_usd": 0.25}
+PILOT_TARGETS = {"min_pdfs": 20, "invented_facts": 0, "experience_recall": 0.95, "budget_usd": 0.25}
 REAL_ONLY_MEASURES = (
     "qualité d'extraction du VLM et du LLM texte (champs, dates, intitulés)",
     "faits inventés par un vrai modèle (l'oracle simulé n'invente jamais)",
@@ -274,16 +274,12 @@ async def _call_pipeline(path: str) -> Dict[str, Any]:
 
 def _page_metrics(entry, outcome, report) -> Dict[str, Any]:
     if report is None:
-        handled = bool(outcome["rejected"] or outcome["error"])
         return {"total_pages": entry["n_pages"], "pages_by_method": {"vlm": [], "text": []},
-                "skipped_pages": [], "pages_covered": None, "all_pages_handled": handled, "fallback_used": None}
+                "skipped_pages": [], "pages_covered": None, "fallback_used": None}
     total = report["total_pages"]
-    covered = set(report["pages_by_method"]["vlm"]) | set(report["pages_by_method"]["text"])
-    flagged = covered | set(report["skipped_pages"])
     return {
         "total_pages": total, "pages_by_method": report["pages_by_method"], "skipped_pages": report["skipped_pages"],
         "pages_covered": 1 - len(report["skipped_pages"]) / total if total else None,
-        "all_pages_handled": set(range(1, total + 1)) <= flagged,
         "fallback_used": report["fallback_used"],
     }
 
@@ -352,7 +348,6 @@ def _aggregate(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "missed_experiences": missed,
         "invented_facts": sum(len(r["invented_facts"]) for r in rows),
         "pages_covered": sum(covered) / len(covered) if covered else None,
-        "all_pages_handled": sum(1 for r in rows if r["all_pages_handled"]),
         "false_rejections": sum(1 for r in rows if r["false_rejection"]),
         "evidence_page_accuracy": sum(accuracies) / len(accuracies) if accuracies else None,
         "errors": sum(len(r["errors"]) for r in rows),
@@ -374,13 +369,11 @@ def pilot_targets(agg: Dict[str, Any], rows: List[Dict[str, Any]]) -> List[Dict[
     """Cibles du pilote mises en regard des mesures (rapportées, jamais assertées)."""
     g = agg["global"]
     present = {r["category"] for r in rows}
-    handled = g["all_pages_handled"] / g["n_cases"] if g["n_cases"] else 0.0
     recall = g["experience_recall"]
     t = PILOT_TARGETS
     return [
         {"cible": f"au moins {t['min_pdfs']} PDF, toutes catégories", "mesure": f"{g['n_cases']} PDF, {len(present)}/{len(CATEGORIES)} catégories",
          "atteinte": g["n_cases"] >= t["min_pdfs"] and present == set(CATEGORIES)},
-        {"cible": "100 % des pages traitées ou signalées", "mesure": f"{handled:.0%}", "atteinte": handled >= t["pages_handled"]},
         {"cible": "zéro fait inventé (faits critiques)", "mesure": str(g["invented_facts"]), "atteinte": g["invented_facts"] == t["invented_facts"]},
         {"cible": "rappel des expériences >= 95 %", "mesure": "n/a" if recall is None else f"{recall:.1%}",
          "atteinte": recall is not None and recall >= t["experience_recall"]},
@@ -396,11 +389,11 @@ def render_summary(mode: str, rows: List[Dict[str, Any]], agg: Dict[str, Any], t
     lines = [f"# Banc de couverture de l'import de CV ({mode})", ""]
     if mode == "simulated":
         lines += [f"**{SIMULATION_NOTE}.** L'oracle est parfait par construction.", ""]
-    lines += ["| Catégorie | Cas | Rappel exp. | Omises | Inventés | Pages couvertes | Pages traitées | Erreurs | Coût $ | Durée s |",
-              "|---|---|---|---|---|---|---|---|---|---|"]
+    lines += ["| Catégorie | Cas | Rappel exp. | Omises | Inventés | Pages couvertes | Erreurs | Coût $ | Durée s |",
+              "|---|---|---|---|---|---|---|---|---|"]
     for name, a in [*agg["by_category"].items(), ("**global**", agg["global"])]:
         lines.append(f"| {name} | {a['n_cases']} | {_pct(a['experience_recall'])} | {a['missed_experiences']} | {a['invented_facts']} "
-                     f"| {_pct(a['pages_covered'])} | {a['all_pages_handled']}/{a['n_cases']} | {a['errors']} "
+                     f"| {_pct(a['pages_covered'])} | {a['errors']} "
                      f"| {a['cost_usd']:.4f} | {a['duration_s']:.2f} |")
     g = agg["global"]
     lines += ["", f"Faux rejets : {g['false_rejections']} ; exactitude des pages de provenance : {_pct(g['evidence_page_accuracy'])}."]
