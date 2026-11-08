@@ -23,10 +23,11 @@ from tests.profile_merge.fixtures import (
 @pytest.mark.parametrize("project_source", ["github", "website", "cv"])
 def test_project_skill_never_becomes_an_experience(project_source):
     sources = {"cv": copy.deepcopy(CV_TWO_JOBS_NO_RUST)}
+    project = copy.deepcopy(FERRIS_PROJECT)
     if project_source == "cv":
-        sources["cv"]["projects"] = [FERRIS_PROJECT]
+        sources["cv"]["projects"] = [project]
     else:
-        sources[project_source] = {"projects": [FERRIS_PROJECT]}
+        sources[project_source] = {"projects": [project]}
 
     profile, _ = build_profile_from_sources(sources)
     context = build_candidate_context(profile)
@@ -46,7 +47,8 @@ def test_explicit_preferences_survive_conflicts_reimport_and_refusion():
     profile, _ = build_profile_from_sources(sources)
     assert profile["preferences"] == PREFS_MANUAL  # manual gagne entièrement
 
-    reimported, _ = build_profile_from_sources({**sources, "cv": CV})
+    # Le cv réimporté porte ses propres préférences, contradictoires avec manual.
+    reimported, _ = build_profile_from_sources({**sources, "cv": {**CV, "preferences": PREFS_WEBSITE}})
     assert reimported["preferences"] == PREFS_MANUAL
 
     refused, _ = build_profile_from_sources(
