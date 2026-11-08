@@ -1,6 +1,7 @@
 import importlib
 import io
 import sys
+from unittest.mock import AsyncMock
 
 import pytest
 from bson import ObjectId
@@ -46,7 +47,7 @@ def test_uploaded_file_is_deleted_after_parsing(client, profile_db, monkeypatch,
 
     res = client.post(
         "/profile/candidate/sources/cv",
-        files={"file": ("cv.pdf", io.BytesIO(b"%PDF-1.7 contenu"), "application/pdf")},
+        files={"file": ("cv.pdf", io.BytesIO(_pdf_bytes("blank")), "application/pdf")},
     )
     assert res.status_code == 200
     assert list(tmp_path.iterdir()) == []
@@ -269,28 +270,42 @@ def test_suggested_roles_empty_when_profile_missing(client, profile_db, monkeypa
     assert res.json()["roles"] == []
 
 
-def test_password_protected_pdf_is_rejected_without_profile(client, profile_db, monkeypatch, tmp_path):
+def _pdf_bytes(kind: str) -> bytes:
     import fitz
+    if kind == "unreadable":
+        return b"%PDF-1.7 octets corrompus"
+    doc = fitz.open()
+    doc.new_page()
+    options = {"encryption": fitz.PDF_ENCRYPT_AES_256, "user_pw": "secret", "owner_pw": "owner"} if kind == "protected" else {}
+    try:
+        return doc.tobytes(**options)
+    finally:
+        doc.close()
 
+
+@pytest.mark.parametrize("kind, expected", [
+    ("protected", "mot de passe"), ("unreadable", "illisible"), ("blank", "Aucun contenu exploitable"),
+])
+def test_unusable_pdf_is_rejected_without_profile_or_usage(client, profile_db, monkeypatch, tmp_path, kind, expected):
     import app.routers.cover_letters as router
 
     monkeypatch.setattr(router, "UPLOAD_DIR", str(tmp_path / "up"))
-    doc = fitz.open()
-    doc.new_page()
-    pdf_bytes = doc.tobytes(encryption=fitz.PDF_ENCRYPT_AES_256, user_pw="secret", owner_pw="owner")
-    doc.close()
+    record = AsyncMock()
+    async def fake_parse(_text, pdf_path=None):
+        if kind != "blank":
+            raise AssertionError("aucun appel LLM pour un PDF protégé ou illisible")
+        return {"headline": "", "experiences": [], "skills": {}, "_usage": [{"model": "m1", "input_tokens": 700}]}
 
-    async def must_not_parse(*_args, **_kwargs):
-        raise AssertionError("aucun appel LLM pour un PDF protégé")
-
-    monkeypatch.setattr(router, "parse_cv_with_llm", must_not_parse)
+    monkeypatch.setattr(router, "record_api_usage", record)
+    monkeypatch.setattr(router, "parse_cv_with_llm", fake_parse)
     res = client.post(
         "/profile/candidate/sources/cv",
-        files={"file": ("cv.pdf", io.BytesIO(pdf_bytes), "application/pdf")},
+        files={"file": ("cv.pdf", io.BytesIO(_pdf_bytes(kind)), "application/pdf")},
     )
     assert res.status_code == 400
-    assert "mot de passe" in res.json()["detail"]
+    assert expected in res.json()["detail"]
     assert profile_db == {}
+    record.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -322,7 +337,7 @@ def test_cv_import_records_a_single_usage_entry(
 
     res = client.post(
         "/profile/candidate/sources/cv",
-        files={"file": ("cv.pdf", io.BytesIO(b"%PDF-1.7 contenu"), "application/pdf")},
+        files={"file": ("cv.pdf", io.BytesIO(_pdf_bytes("blank")), "application/pdf")},
     )
     assert res.status_code == 200
     assert len(recorded) == 1
@@ -354,7 +369,7 @@ def test_cv_import_returns_report_but_never_persists_it(client, profile_db, monk
 
     res = client.post(
         "/profile/candidate/sources/cv",
-        files={"file": ("cv.pdf", io.BytesIO(b"%PDF-1.7 contenu"), "application/pdf")},
+        files={"file": ("cv.pdf", io.BytesIO(_pdf_bytes("blank")), "application/pdf")},
     )
     assert res.status_code == 200
     body = res.json()
@@ -378,7 +393,7 @@ def test_cv_import_without_report_keeps_legacy_response(client, profile_db, monk
     monkeypatch.setattr(router, "parse_cv_with_llm", fake_parse)
     res = client.post(
         "/profile/candidate/sources/cv",
-        files={"file": ("cv.pdf", io.BytesIO(b"%PDF-1.7 contenu"), "application/pdf")},
+        files={"file": ("cv.pdf", io.BytesIO(_pdf_bytes("blank")), "application/pdf")},
     )
     assert res.status_code == 200
     assert "import_report" not in res.json()

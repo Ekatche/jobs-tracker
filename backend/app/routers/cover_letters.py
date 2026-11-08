@@ -19,7 +19,10 @@ from app.llm.provider_errors import llm_http_exception
 from app.models import ApiUsageAction, CandidateProfile, UserModel
 from app.utils import serialize_mongodb_doc
 from app.routers.applications import _generate_cover_letter_bg
-from app.services.cv_parser import extract_text_from_pdf, is_pdf_password_protected, parse_cv_with_llm
+from app.services.cv_parser import (
+    EMPTY_CV_MESSAGE, PROTECTED_PDF_MESSAGE, UNREADABLE_PDF_MESSAGE, extract_text_from_pdf,
+    is_empty_extraction, is_pdf_password_protected, is_pdf_readable, parse_cv_with_llm,
+)
 from app.services.cv_pdf_renderer import generate_cv_pdf
 from app.services.letter_guards import evaluate_letter_guards
 from app.services.letter_pdf import render_letter_html, build_candidate_info, slugify
@@ -562,15 +565,17 @@ async def import_cv_source(
         with open(file_path, "wb") as buffer:
             buffer.write(content)
         if await asyncio.to_thread(is_pdf_password_protected, file_path):
-            raise HTTPException(
-                status_code=400,
-                detail="Ce PDF est protégé par un mot de passe : exportez une version non protégée puis réessayez",
-            )
+            raise HTTPException(status_code=400, detail=PROTECTED_PDF_MESSAGE)
+        if not await asyncio.to_thread(is_pdf_readable, file_path):
+            raise HTTPException(status_code=400, detail=UNREADABLE_PDF_MESSAGE)
         text = await asyncio.to_thread(extract_text_from_pdf, file_path)
         try:
             payload = await parse_cv_with_llm(text, pdf_path=file_path)
         except TypeError:
             payload = await parse_cv_with_llm(text)
+        # Profil vide : rejet avant tout enregistrement d'usage ou de source (le cv précédent reste intact).
+        if is_empty_extraction(payload):
+            raise HTTPException(status_code=400, detail=EMPTY_CV_MESSAGE)
         await _record_cv_parsing_usage(db, current_user.id, payload.pop("_usage", None))
         # Le rapport accompagne la réponse mais n'est jamais persisté dans sources.cv.
         import_report = payload.pop("_import_report", None)

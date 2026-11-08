@@ -117,6 +117,28 @@ def extract_text_from_pdf(pdf_path: str, start_page: int = 0) -> str:
     return "\n\n".join(extract_page_texts(pdf_path)[start_page:])
 
 
+PROTECTED_PDF_MESSAGE = "Ce PDF est protégé par un mot de passe : exportez une version non protégée puis réessayez"
+UNREADABLE_PDF_MESSAGE = "Ce PDF est illisible ou endommagé : exportez-le de nouveau puis réessayez"
+EMPTY_CV_MESSAGE = (
+    "Aucun contenu exploitable n'a été trouvé dans ce PDF : "
+    "vérifiez qu'il contient du texte ou une image lisible"
+)
+
+
+def is_pdf_readable(pdf_path: str) -> bool:
+    """Vrai si le PDF s'ouvre et contient au moins une page."""
+    import fitz  # PyMuPDF
+
+    try:
+        doc = fitz.open(pdf_path)
+    except Exception:
+        return False
+    try:
+        return doc.page_count > 0
+    finally:
+        doc.close()
+
+
 def is_pdf_password_protected(pdf_path: str) -> bool:
     """Vrai si le PDF exige un mot de passe d'ouverture (un mot de passe propriétaire seul ne compte pas)."""
     import fitz  # PyMuPDF
@@ -447,6 +469,28 @@ Schéma JSON attendu :
     data, usage = _read_json_response(response, chosen_model)
     data["_usage"] = [usage]
     return _clean_parsed_cv(data)
+
+
+_EMPTINESS_FIELDS = (
+    "headline", "summary", "experiences", "projects", "education", "certifications", "languages", "skills",
+)
+
+
+def _is_filled(value: Any) -> bool:
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, dict):
+        return any(_is_filled(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_is_filled(v) for v in value)
+    return bool(value)
+
+
+def is_empty_extraction(payload: Any) -> bool:
+    """Vrai si aucune section du profil n'a de contenu (un CV de formations seules reste exploitable)."""
+    if not isinstance(payload, dict):
+        return True
+    return not any(_is_filled(payload.get(field)) for field in _EMPTINESS_FIELDS)
 
 
 def _build_import_report(
