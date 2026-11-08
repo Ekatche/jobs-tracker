@@ -98,22 +98,22 @@ async def _generate_description_bg(application_id: ObjectId, user_id: ObjectId, 
         logger.error(f"[description_bg] Erreur: {str(e)}")
 
 
-async def _append_letter_version(db, letter_id, version: dict) -> None:
+async def _append_letter_version(db, letter_id, version: dict, guard_context: dict | None = None) -> None:
     """Ajoute une version numérotée sans jamais écraser les précédentes."""
     letter = await db["cover_letters"].find_one({"_id": letter_id})
     version["n"] = len(letter.get("versions", [])) + 1
     # Un rapport de garde encore bloquant (après révisions) ne rend pas la lettre prête.
     blocking = (version.get("guard_report") or {}).get("is_blocking")
+    update_set = {
+        "status": "needs_review" if blocking else "ready",
+        "current_version": version["n"],
+        "updated_at": datetime.now(timezone.utc),
+    }
+    if guard_context:
+        update_set["guard_context"] = guard_context
     await db["cover_letters"].update_one(
         {"_id": letter_id},
-        {
-            "$set": {
-                "status": "needs_review" if blocking else "ready",
-                "current_version": version["n"],
-                "updated_at": datetime.now(timezone.utc),
-            },
-            "$push": {"versions": version},
-        },
+        {"$set": update_set, "$push": {"versions": version}},
     )
 
 
@@ -204,12 +204,9 @@ async def _generate_cover_letter_bg(application_id: ObjectId, user_id: ObjectId,
             "revised": pipeline_res["revised"],
             "created_at": datetime.now(timezone.utc),
         }
-        guard_context = pipeline_res.get("guard_context")
-        if guard_context:
-            await db["cover_letters"].update_one(
-                {"_id": letter_id}, {"$set": {"guard_context": guard_context}}
-            )
-        await _append_letter_version(db, letter_id, version_entry)
+        await _append_letter_version(
+            db, letter_id, version_entry, pipeline_res.get("guard_context")
+        )
 
         usage = pipeline_res.get("usage") or {}
         if usage.get("input_tokens") or usage.get("output_tokens"):

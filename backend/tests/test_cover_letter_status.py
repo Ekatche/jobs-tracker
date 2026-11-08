@@ -81,7 +81,9 @@ async def test_blocking_guard_report_yields_needs_review_with_text_and_history(c
     assert data["status"] == "needs_review"
     assert data["versions"][0]["body"] == DIRTY_BODY
     assert data["versions"][0]["guard_report"]["violations"] == BLOCKING["violations"]
-    assert data["guard_context"] == {"analyst_data": ANALYST}
+    assert "guard_context" not in data
+    stored = await letter_db["cover_letters"].find_one({"application_id": app_id})
+    assert stored["guard_context"] == {"analyst_data": ANALYST}
 
 
 @pytest.mark.asyncio

@@ -68,6 +68,7 @@ async def get_cover_letter(
     letter = await db["cover_letters"].find_one({"application_id": ObjectId(application_id)})
     if not letter:
         return {"status": "none"}
+    letter.pop("guard_context", None)
     return serialize_mongodb_doc(letter)
 
 @cover_letters_router.post("/applications/{application_id}/cover-letter/regenerate")
@@ -136,6 +137,7 @@ async def edit_cover_letter(
         {"$set": update_set, "$push": {"versions": new_version}}
     )
     updated = await db["cover_letters"].find_one({"_id": letter["_id"]})
+    updated.pop("guard_context", None)
     return serialize_mongodb_doc(updated)
 
 

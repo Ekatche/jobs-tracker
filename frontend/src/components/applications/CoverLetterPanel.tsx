@@ -51,6 +51,7 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
   const [pollingTimeout, setPollingTimeout] = useState<boolean>(false);
   const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
   const [confirmingExport, setConfirmingExport] = useState<boolean>(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   // Partial rewrite states
   const [selection, setSelection] = useState<{
@@ -152,6 +153,7 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
     setStaleError(null);
     setCustomInstruction("");
     setRewriteError(null);
+    setConfirmingExport(false);
     try {
       const updated = await coverLetterApi.edit(applicationId, textBody);
       setLetterData(updated);
@@ -170,11 +172,19 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
   const handleDownloadPdf = async (acknowledgeReview = false) => {
     if (downloadingPdf) return;
     setConfirmingExport(false);
+    setExportError(null);
     setDownloadingPdf(true);
     try {
       await coverLetterApi.downloadPdf(applicationId, undefined, acknowledgeReview);
     } catch (err) {
       console.error("Erreur téléchargement PDF:", err);
+      if ((err as { status?: number }).status === 409) {
+        // La lettre a été réévaluée ailleurs : on recharge puis on demande confirmation
+        await fetchLetter();
+        setConfirmingExport(true);
+      } else {
+        setExportError("Le téléchargement du PDF a échoué. Réessayez dans un instant.");
+      }
     } finally {
       setDownloadingPdf(false);
     }
@@ -415,7 +425,10 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
               </button>
               <button
                 type="button"
-                onClick={() => setViewMode("edit")}
+                onClick={() => {
+                  setConfirmingExport(false);
+                  setViewMode("edit");
+                }}
                 className={`px-2.5 py-1 text-xs font-medium rounded-md flex items-center gap-1 transition-all ${
                   viewMode === "edit"
                     ? "bg-blue-600 text-white shadow-sm"
@@ -514,7 +527,10 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
             {viewMode !== "edit" && (
               <button
                 type="button"
-                onClick={() => setViewMode("edit")}
+                onClick={() => {
+                  setConfirmingExport(false);
+                  setViewMode("edit");
+                }}
                 className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors"
               >
                 <FiEdit3 />
@@ -532,7 +548,8 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
                 <button
                   type="button"
                   onClick={() => handleDownloadPdf(true)}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-medium transition-colors"
+                  disabled={isDirty || downloadingPdf}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
                 >
                   Exporter malgré tout
                 </button>
@@ -546,6 +563,13 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {exportError && (
+        <div className="mx-4 sm:mx-6 mt-4 p-2.5 rounded-lg bg-red-950/40 border border-red-800/50 text-xs text-red-300 flex items-center gap-2">
+          <FiAlertCircle className="shrink-0 text-red-400" />
+          <span>{exportError}</span>
         </div>
       )}
 

@@ -831,7 +831,10 @@ export const coverLetterApi = {
     });
 
     if (!response.ok) {
-      throw new Error(`Erreur lors du téléchargement de la lettre en PDF (${response.status})`);
+      throw Object.assign(
+        new Error(`Erreur lors du téléchargement de la lettre en PDF (${response.status})`),
+        { status: response.status },
+      );
     }
 
     let resolvedFilename = filename;
