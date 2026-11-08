@@ -132,7 +132,7 @@ export interface CoverLetter {
   id?: string;
   user_id: string;
   application_id: string;
-  status: "none" | "pending" | "ready" | "failed";
+  status: "none" | "pending" | "ready" | "needs_review" | "failed";
   versions: CoverLetterVersion[];
   current_version: number;
   error?: string;

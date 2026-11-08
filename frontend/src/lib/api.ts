@@ -817,10 +817,15 @@ export const coverLetterApi = {
     fetchApi<CandidateProfile>("/profile/candidate/sources/github", "POST", { url }),
   importWebsite: async (url: string): Promise<CandidateProfile> =>
     fetchApi<CandidateProfile>("/profile/candidate/sources/website", "POST", { url }),
-  downloadPdf: async (applicationId: string, filename?: string): Promise<void> => {
+  downloadPdf: async (
+    applicationId: string,
+    filename?: string,
+    acknowledgeReview = false,
+  ): Promise<void> => {
     const token = getToken();
     const baseUrl = getApiBaseUrl();
-    const response = await fetch(`${baseUrl}/applications/${applicationId}/cover-letter/pdf`, {
+    const query = acknowledgeReview ? "?acknowledge_review=true" : "";
+    const response = await fetch(`${baseUrl}/applications/${applicationId}/cover-letter/pdf${query}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
 

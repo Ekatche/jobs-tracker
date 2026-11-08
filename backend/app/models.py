@@ -648,7 +648,8 @@ class CoverLetter(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     user_id: PyObjectId
     application_id: PyObjectId
-    status: Literal["pending", "ready", "failed"] = "pending"
+    status: Literal["pending", "ready", "needs_review", "failed"] = "pending"
+    guard_context: Optional[Dict[str, Any]] = None
     versions: List[CoverLetterVersion] = Field(default_factory=list)
     current_version: int = 1
     error: Optional[str] = None

@@ -50,6 +50,7 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
   const [showReport, setShowReport] = useState<boolean>(false);
   const [pollingTimeout, setPollingTimeout] = useState<boolean>(false);
   const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
+  const [confirmingExport, setConfirmingExport] = useState<boolean>(false);
 
   // Partial rewrite states
   const [selection, setSelection] = useState<{
@@ -102,7 +103,11 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
           return;
         }
         const updated = await fetchLetter();
-        if (updated?.status === "ready" || updated?.status === "failed") {
+        if (
+          updated?.status === "ready" ||
+          updated?.status === "needs_review" ||
+          updated?.status === "failed"
+        ) {
           setGenerating(false);
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         }
@@ -162,11 +167,12 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownloadPdf = async () => {
+  const handleDownloadPdf = async (acknowledgeReview = false) => {
     if (downloadingPdf) return;
+    setConfirmingExport(false);
     setDownloadingPdf(true);
     try {
-      await coverLetterApi.downloadPdf(applicationId);
+      await coverLetterApi.downloadPdf(applicationId, undefined, acknowledgeReview);
     } catch (err) {
       console.error("Erreur téléchargement PDF:", err);
     } finally {
@@ -363,6 +369,8 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
   );
   const savedBody = currentVersionData?.body || "";
   const isDirty = textBody !== savedBody;
+  const needsReview = letterData.status === "needs_review";
+  const reviewViolations = currentVersionData?.guard_report?.violations ?? [];
   const wordCount = textBody.trim() ? textBody.trim().split(/\s+/).length : 0;
 
   return (
@@ -431,7 +439,7 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
 
             <button
               type="button"
-              onClick={handleDownloadPdf}
+              onClick={() => (needsReview ? setConfirmingExport(true) : handleDownloadPdf())}
               disabled={isDirty || downloadingPdf || isPending}
               className={`px-2.5 py-1.5 text-xs rounded-lg border transition-colors flex items-center gap-1.5 ${
                 isDirty
@@ -477,6 +485,69 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
           </div>
         </div>
       </div>
+
+      {needsReview && (
+        <div
+          role="alert"
+          className="p-4 sm:p-5 border-b border-amber-700/50 bg-amber-950/30 text-amber-200 space-y-3"
+        >
+          <div className="flex items-start gap-3">
+            <FiAlertCircle className="text-amber-400 text-lg mt-0.5 shrink-0" />
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold text-white">
+                Cette lettre doit être relue avant envoi
+              </p>
+              <p className="text-xs text-amber-300/90">
+                Les contrôles qualité détectent encore des points à corriger. Modifiez le texte
+                ou améliorez un passage ciblé : le contrôle est refait à l'enregistrement.
+              </p>
+              {reviewViolations.length > 0 && (
+                <ul className="list-disc pl-4 text-xs text-amber-200 space-y-0.5">
+                  {reviewViolations.map((violation, i) => (
+                    <li key={i}>{violation}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {viewMode !== "edit" && (
+              <button
+                type="button"
+                onClick={() => setViewMode("edit")}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors"
+              >
+                <FiEdit3 />
+                <span>Corriger</span>
+              </button>
+            )}
+          </div>
+          {confirmingExport && (
+            <div className="p-3 rounded-lg bg-gray-900/80 border border-amber-700/50 text-xs text-amber-200 space-y-2">
+              <p>
+                Exporter quand même ? La lettre contient encore des points à corriger et ne sera
+                pas marquée comme prête.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadPdf(true)}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-medium transition-colors"
+                >
+                  Exporter malgré tout
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingExport(false)}
+                  className="px-3 py-1.5 text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 transition-colors"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Corps du document : Aperçu ou Éditeur */}
       <div className="p-4 sm:p-6">

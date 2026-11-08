@@ -606,6 +606,7 @@ async def run_letter_pipeline_async(
         "revised": revised,
         "critic_verdict": critic_verdict,
         "guard_report": guard_report.model_dump(),
+        "guard_context": {"analyst_data": analyst_output},
         "provider_failures": provider_failures,
         "prompt_version": PROMPT_VERSION,
         "models": models,

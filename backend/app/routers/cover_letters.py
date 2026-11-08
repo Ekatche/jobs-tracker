@@ -21,6 +21,7 @@ from app.utils import serialize_mongodb_doc
 from app.routers.applications import _generate_cover_letter_bg
 from app.services.cv_parser import extract_text_from_pdf, is_pdf_password_protected, parse_cv_with_llm
 from app.services.cv_pdf_renderer import generate_cv_pdf
+from app.services.letter_guards import evaluate_letter_guards
 from app.services.letter_pdf import render_letter_html, build_candidate_info, slugify
 from app.services.profile.collectors.github import collect_github
 from app.services.profile.collectors.website import collect_website
@@ -105,19 +106,30 @@ async def edit_cover_letter(
         raise HTTPException(status_code=403, detail="Accès non autorisé")
 
     new_version_num = len(letter.get("versions", [])) + 1
+    body = body_data.get("body", "")
     new_version = {
         "n": new_version_num,
-        "body": body_data.get("body", ""),
+        "body": body,
         "origin": "edited",
         "models": {},
         "created_at": datetime.now(timezone.utc)
     }
+    update_set = {"current_version": new_version_num, "updated_at": datetime.now(timezone.utc)}
+
+    # Réévaluation déterministe (sans LLM) : sortie de needs_review si plus rien ne bloque.
+    # Sans guard_context (lettres antérieures), le statut reste inchangé.
+    guard_context = letter.get("guard_context")
+    if guard_context:
+        app_doc = await db["applications"].find_one({"_id": letter["application_id"]}) or {}
+        report = evaluate_letter_guards(
+            body, app_doc.get("description") or "", guard_context.get("analyst_data") or {}
+        )
+        new_version["guard_report"] = report.model_dump()
+        update_set["status"] = "needs_review" if report.is_blocking else "ready"
+
     await db["cover_letters"].update_one(
         {"_id": letter["_id"]},
-        {
-            "$set": {"current_version": new_version_num, "updated_at": datetime.now(timezone.utc)},
-            "$push": {"versions": new_version}
-        }
+        {"$set": update_set, "$push": {"versions": new_version}}
     )
     updated = await db["cover_letters"].find_one({"_id": letter["_id"]})
     return serialize_mongodb_doc(updated)
@@ -126,6 +138,7 @@ async def edit_cover_letter(
 @cover_letters_router.get("/applications/{application_id}/cover-letter/pdf")
 async def get_cover_letter_pdf(
     application_id: str,
+    acknowledge_review: bool = False,
     db=Depends(get_database),
     current_user: UserModel = Depends(get_current_user),
 ):
@@ -140,8 +153,14 @@ async def get_cover_letter_pdf(
         raise HTTPException(status_code=403, detail="Accès non autorisé à cette candidature")
 
     letter = await db["cover_letters"].find_one({"application_id": ObjectId(application_id)})
-    if not letter or letter.get("status") != "ready":
+    status = letter.get("status") if letter else None
+    if status not in ("ready", "needs_review"):
         raise HTTPException(status_code=404, detail="Lettre de motivation non disponible ou non prête")
+    if status == "needs_review" and not acknowledge_review:
+        raise HTTPException(
+            status_code=409,
+            detail="Cette lettre contient encore des points à corriger. Confirmez l'export pour la télécharger malgré tout.",
+        )
 
     # Résolution de la version courante
     versions = letter.get("versions") or []

@@ -1,3 +1,4 @@
+import copy
 import pytest
 import os
 import uuid
@@ -11,6 +12,7 @@ from app.database import get_database
 from app.auth import get_current_user
 from app.models import UserModel
 from bson import ObjectId
+from unittest.mock import MagicMock
 
 dotenv_path = pathlib.Path(__file__).parent.parent.parent / ".env"
 load_dotenv(dotenv_path=dotenv_path)
@@ -177,4 +179,55 @@ def profile_db(monkeypatch):
         id=USER_ID, username="tester", email="t@example.com", hashed_password="x"
     )
     yield stored
+    app.dependency_overrides.clear()
+
+
+class FakeCollection:
+    """Collection en mémoire : find_one/insert_one/update_one($set, $push)/delete_many."""
+
+    def __init__(self):
+        self.docs = []
+
+    @staticmethod
+    def _match(doc, query):
+        return all(doc.get(k) == v for k, v in query.items())
+
+    async def find_one(self, query):
+        found = next((d for d in self.docs if self._match(d, query)), None)
+        return copy.deepcopy(found) if found else None
+
+    async def insert_one(self, doc):
+        doc.setdefault("_id", ObjectId())
+        self.docs.append(copy.deepcopy(doc))
+        return MagicMock(inserted_id=doc["_id"])
+
+    async def update_one(self, query, update, upsert=False):
+        doc = next((d for d in self.docs if self._match(d, query)), None)
+        if doc is not None:
+            doc.update(update.get("$set", {}))
+            for key, value in update.get("$push", {}).items():
+                doc.setdefault(key, []).append(value)
+        return MagicMock()
+
+    async def delete_many(self, query):
+        self.docs[:] = [d for d in self.docs if not self._match(d, query)]
+
+
+class FakeDb:
+    def __init__(self):
+        self.collections = {}
+
+    def __getitem__(self, name):
+        return self.collections.setdefault(name, FakeCollection())
+
+
+@pytest.fixture
+def letter_db():
+    """Base en mémoire + utilisateur courant simulé pour les tests de lettres."""
+    db = FakeDb()
+    app.dependency_overrides[get_database] = lambda: db
+    app.dependency_overrides[get_current_user] = lambda: UserModel(
+        id=USER_ID, username="tester", email="t@example.com", hashed_password="x"
+    )
+    yield db
     app.dependency_overrides.clear()

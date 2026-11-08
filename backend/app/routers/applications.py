@@ -102,11 +102,13 @@ async def _append_letter_version(db, letter_id, version: dict) -> None:
     """Ajoute une version numérotée sans jamais écraser les précédentes."""
     letter = await db["cover_letters"].find_one({"_id": letter_id})
     version["n"] = len(letter.get("versions", [])) + 1
+    # Un rapport de garde encore bloquant (après révisions) ne rend pas la lettre prête.
+    blocking = (version.get("guard_report") or {}).get("is_blocking")
     await db["cover_letters"].update_one(
         {"_id": letter_id},
         {
             "$set": {
-                "status": "ready",
+                "status": "needs_review" if blocking else "ready",
                 "current_version": version["n"],
                 "updated_at": datetime.now(timezone.utc),
             },
@@ -123,8 +125,8 @@ async def _generate_cover_letter_bg(application_id: ObjectId, user_id: ObjectId,
         existing = await db["cover_letters"].find_one(
             {"application_id": ObjectId(application_id)}
         )
-        if existing and existing.get("status") == "ready":
-            logger.info(f"[cover_letter_bg] Lettre déjà prête pour {application_id}, pas de relance.")
+        if existing and existing.get("status") in ("ready", "needs_review"):
+            logger.info(f"[cover_letter_bg] Lettre déjà générée pour {application_id}, pas de relance.")
             return
         if existing and existing.get("status") == "failed":
             await db["cover_letters"].delete_many(
@@ -202,6 +204,11 @@ async def _generate_cover_letter_bg(application_id: ObjectId, user_id: ObjectId,
             "revised": pipeline_res["revised"],
             "created_at": datetime.now(timezone.utc),
         }
+        guard_context = pipeline_res.get("guard_context")
+        if guard_context:
+            await db["cover_letters"].update_one(
+                {"_id": letter_id}, {"$set": {"guard_context": guard_context}}
+            )
         await _append_letter_version(db, letter_id, version_entry)
 
         usage = pipeline_res.get("usage") or {}
