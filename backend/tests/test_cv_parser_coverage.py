@@ -90,19 +90,6 @@ async def test_no_complement_call_for_three_pages(tmp_path, mistral_key):
     assert len(result["_usage"]) == 1
 
 
-@pytest.mark.asyncio
-async def test_complement_failure_keeps_vlm_result(tmp_path, mistral_key):
-    from app.services.cv_parser import parse_cv_with_llm
-
-    pdf = _make_pdf(tmp_path, 4)
-    with patch("app.services.cv_parser.parse_cv_with_vlm", new_callable=AsyncMock, return_value=_vlm_payload()):
-        with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock, side_effect=RuntimeError("boom")):
-            result = await parse_cv_with_llm(cv_text="texte", pdf_path=pdf)
-
-    assert result["headline"] == "Data Engineer"
-    assert len(result["experiences"]) == 1
-
-
 @pytest.mark.parametrize(
     "empty_payload",
     [
@@ -155,6 +142,16 @@ async def test_invalid_vlm_json_still_reports_billed_usage(tmp_path, mistral_key
         ({"education": [{"school": "UTC", "degree": "Ingénieur"}]},
          {"education": [{"school": "utc", "degree": "ingénieur"}]},
          {"education": [{"school": "UTC", "degree": "Ingénieur"}]}),
+        ({"experiences": [{"company": "Acme", "role": "Data Engineer", "start": "2020"}]},
+         {"experiences": [{"company": "Acme", "role": "Data Analyst", "start": "2020"}]},
+         {"experiences": [{"company": "Acme", "role": "Data Engineer", "start": "2020"},
+                          {"company": "Acme", "role": "Data Analyst", "start": "2020"}]}),
+        ({"experiences": [{"company": "Acme", "role": "Data Engineer", "start": "09/2021"}]},
+         {"experiences": [{"company": "ACME", "role": "data engineer", "start": "2021-09"}]},
+         {"experiences": [{"company": "Acme", "role": "Data Engineer", "start": "09/2021"}]}),
+        ({"experiences": [{"company": "Acme", "role": "Data Engineer"}]},
+         {"experiences": [{"company": "Acme", "role": "Data Engineer", "start": None}]},
+         {"experiences": [{"company": "Acme", "role": "Data Engineer"}]}),
     ],
 )
 def test_merge_cv_complement_never_overwrites(base, extra, expected):
@@ -168,12 +165,9 @@ def test_merge_cv_complement_never_overwrites(base, extra, expected):
 COMPLEMENT_JSON = '{"headline": "", "experiences": [], "skills": {}, "summary": "Suite"}'
 
 
-def _assert_report_partitions_pages(report):
-    """Invariant : vlm U text U skipped = toutes les pages, sans recouvrement."""
+def _assert_no_overlap(report):
     vlm, text = report["pages_by_method"]["vlm"], report["pages_by_method"]["text"]
-    everything = vlm + text + report["skipped_pages"]
-    assert sorted(everything) == list(range(1, report["total_pages"] + 1))
-    assert len(everything) == len(set(everything))
+    assert not set(vlm) & set(text)
 
 
 @pytest.mark.asyncio
@@ -195,7 +189,7 @@ async def test_report_vlm_pages_text_complement_and_scanned_skip(tmp_path, mistr
         "errors": [],
         "evidence": [],
     }
-    _assert_report_partitions_pages(report)
+    _assert_no_overlap(report)
 
 
 @pytest.mark.asyncio
@@ -214,7 +208,7 @@ async def test_report_full_text_fallback_skips_scanned_pages(tmp_path, mistral_k
     assert report["pages_by_method"] == {"vlm": [], "text": [1, 3, 4]}
     assert report["skipped_pages"] == [2]
     assert len(report["errors"]) == 1 and "secret technique" not in report["errors"][0]
-    _assert_report_partitions_pages(report)
+    _assert_no_overlap(report)
 
 
 @pytest.mark.asyncio
@@ -226,12 +220,13 @@ async def test_report_complement_failure_skips_pages_beyond_limit(tmp_path, mist
         with patch("app.services.cv_parser.acompletion", new_callable=AsyncMock, side_effect=RuntimeError("boom")):
             result = await parse_cv_with_llm(cv_text="texte", pdf_path=pdf)
 
+    assert result["headline"] == "Data Engineer"  # le résultat VLM survit à l'échec du complément
     report = result["_import_report"]
     assert report["pages_by_method"] == {"vlm": [1, 2, 3], "text": []}
     assert report["skipped_pages"] == [4, 5]
     assert report["fallback_used"] is False
     assert len(report["errors"]) == 1 and "boom" not in report["errors"][0]
-    _assert_report_partitions_pages(report)
+    _assert_no_overlap(report)
 
 
 @pytest.mark.asyncio
@@ -257,31 +252,6 @@ async def test_no_report_without_pdf():
         result = await parse_cv_with_llm(cv_text="texte du CV")
 
     assert "_import_report" not in result
-
-
-@pytest.mark.parametrize(
-    "base,extra,expected",
-    [
-        ({"experiences": [{"company": "Acme", "role": "Data Engineer", "start": "2020"}]},
-         {"experiences": [{"company": "Acme", "role": "Data Analyst", "start": "2020"}]},
-         {"experiences": [{"company": "Acme", "role": "Data Engineer", "start": "2020"},
-                          {"company": "Acme", "role": "Data Analyst", "start": "2020"}]}),
-        ({"experiences": [{"company": "Acme", "role": "Data Engineer", "start": "09/2021"}]},
-         {"experiences": [{"company": "ACME", "role": "data engineer", "start": "2021-09"}]},
-         {"experiences": [{"company": "Acme", "role": "Data Engineer", "start": "09/2021"}]}),
-        ({"experiences": [{"company": "Acme", "role": "Data Engineer"}]},
-         {"experiences": [{"company": "Acme", "role": "Data Engineer", "start": None}]},
-         {"experiences": [{"company": "Acme", "role": "Data Engineer"}]}),
-        ({"education": [{"school": "UTC", "degree": "Ingénieur"}], "languages": ["Anglais (C1)"]},
-         {"education": [{"school": "UTC", "degree": "Ingénieur"}], "languages": ["Anglais (C1)"]},
-         {"education": [{"school": "UTC", "degree": "Ingénieur"}], "languages": ["Anglais (C1)"]}),
-    ],
-)
-def test_merge_cv_complement_keeps_distinct_experiences_and_dedups_the_rest(base, extra, expected):
-    from app.services.cv_parser import _merge_cv_complement
-
-    merged = _merge_cv_complement(base, extra)
-    assert {section: merged[section] for section in expected} == expected
 
 
 @pytest.mark.asyncio

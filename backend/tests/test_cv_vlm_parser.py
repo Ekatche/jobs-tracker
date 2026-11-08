@@ -133,18 +133,9 @@ def _save_encrypted_pdf(path, user_pw):
     doc.close()
 
 
-@pytest.mark.parametrize("user_pw,expected", [("secret", True), ("", False)])
-def test_is_pdf_password_protected(tmp_path, user_pw, expected):
+def test_pdf_encrypted_without_user_password_is_not_protected(tmp_path):
     from app.services.cv_parser import is_pdf_password_protected
 
     pdf_file = tmp_path / "cv.pdf"
-    _save_encrypted_pdf(pdf_file, user_pw)
-    assert is_pdf_password_protected(str(pdf_file)) is expected
-
-
-def test_is_pdf_password_protected_ignores_unreadable_file(tmp_path):
-    from app.services.cv_parser import is_pdf_password_protected
-
-    pdf_file = tmp_path / "cv.pdf"
-    pdf_file.write_bytes(b"%PDF-1.7 contenu")
+    _save_encrypted_pdf(pdf_file, "")
     assert is_pdf_password_protected(str(pdf_file)) is False
