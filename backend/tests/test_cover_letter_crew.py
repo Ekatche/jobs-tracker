@@ -34,12 +34,17 @@ async def test_pipeline_executes_revision_when_critic_requests():
         result = await run_letter_pipeline_async(
             offer_description="Offre Biomérieux Lead Data",
             candidate_profile={"headline": "Data Engineer"},
-            company_name="Biomérieux"
+            company_name="Biomérieux",
+            job_title="Lead Data Engineer",
         )
 
         assert result["body"] == mock_revised_letter
         assert result["revised"] is True
         assert result["critic_verdict"]["verdict"] == "revise"
+        context = result["guard_context"]["analyst_data"]
+        assert context["stacks"] == ["Nextflow", "Kafka"]
+        assert context["company_name"] == "Biomérieux"
+        assert context["job_title"] == "Lead Data Engineer"
 
 @pytest.mark.asyncio
 async def test_completion_uses_max_completion_tokens():

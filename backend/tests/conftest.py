@@ -222,7 +222,7 @@ class FakeDb:
 
 
 @pytest.fixture
-def letter_db():
+def letter_db(client):
     """Base en mémoire + utilisateur courant simulé pour les tests de lettres."""
     db = FakeDb()
     app.dependency_overrides[get_database] = lambda: db
@@ -239,3 +239,44 @@ def _isolated_llm_budget_ledger(tmp_path, monkeypatch):
     from scripts import llm_budget
 
     monkeypatch.setattr(llm_budget, "LEDGER_PATH", tmp_path / "llm_budget.jsonl")
+
+
+_LLM_ENTRYPOINTS = ("acompletion", "completion", "aembedding", "embedding")
+
+
+@pytest.fixture(autouse=True)
+def _forbid_real_llm_calls(monkeypatch):
+    """Aucun test n'atteint un fournisseur LLM réel (réseau, facturé).
+
+    Patche `litellm.*` et les noms importés directement dans les modules
+    déjà chargés. Un patch posé par le test lui-même passe après cette
+    fixture et reste prioritaire.
+    """
+    import sys
+
+    import litellm
+
+    message = "Appel LLM réel interdit en test : patchez l'appelant"
+
+    def _forbidden_sync(*args, **kwargs):
+        raise RuntimeError(message)
+
+    # Async pour les points d'entrée async : `patch()` choisit AsyncMock
+    # d'après la nature de la cible, un garde sync casserait ces patchs.
+    async def _forbidden_async(*args, **kwargs):
+        raise RuntimeError(message)
+
+    originals = {}
+    guards = {}
+    for name in _LLM_ENTRYPOINTS:
+        original = getattr(litellm, name, None)
+        if original is not None:
+            originals[name] = original
+            guards[name] = _forbidden_async if name.startswith("a") else _forbidden_sync
+            monkeypatch.setattr(litellm, name, guards[name])
+    for mod in list(sys.modules.values()):
+        if mod is litellm or "site-packages" in (getattr(mod, "__file__", None) or "site-packages"):
+            continue
+        for name, original in originals.items():
+            if vars(mod).get(name) is original:
+                monkeypatch.setattr(mod, name, guards[name])
