@@ -3,6 +3,9 @@ import pymupdf
 import pytest
 
 from app.services.cv_parser import extract_page_texts
+from tests.cv_reference.cv_reference_fixtures import (  # noqa: F401  (fixtures pytest)
+    _no_network, cases, entry, generated, reference,
+)
 from scripts.cv_reference_pdfs import CATEGORIES, PageInvariantError, check_page_invariant, generate_cases
 
 ABSENT_FACT = {"fait": "Absente SARL", "champ": "experiences.company", "page": 1, "critique": True}

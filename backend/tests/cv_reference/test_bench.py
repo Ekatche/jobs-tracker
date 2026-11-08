@@ -5,6 +5,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from scripts import llm_budget
+from tests.cv_reference.cv_reference_fixtures import (  # noqa: F401  (fixtures pytest)
+    _no_network, cases, entry, generated, reference,
+)
 from app.services.cv_parser import DEFAULT_CV_PARSER_MODEL, DEFAULT_VLM_MODEL
 from scripts.cv_reference_bench import PRICES_USD_PER_M, compute_metrics, estimate_case_usd, run_bench
 from tests.cv_reference.fixtures import (INVENTED_EXPERIENCE, INVENTED_ROLE_EXPERIENCE, inventing_oracle,

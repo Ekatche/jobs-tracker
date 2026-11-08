@@ -1,4 +1,4 @@
-"""Fixtures communes : jeu de référence et PDF générés une fois par session (hors réseau)."""
+"""Fixtures communes (module au nom unique : un `conftest` ici masquerait celui de tests/) : jeu de référence et PDF générés une fois par session (hors réseau)."""
 import socket
 
 import pytest
