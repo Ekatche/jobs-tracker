@@ -127,3 +127,28 @@ record_call("profil", "matching_bench.py", "mistral-small", 0.008, "billed")
 
 `plan` : `parser` | `profil` | `lettres` ; `cost_kind` : `estimated` | `billed`. Un registre
 illisible fait refuser l'appel plutôt que de sous-compter.
+
+## Banc lettres
+
+`scripts/letter_bakeoff.py` mesure les lettres (`run_letter_pipeline_async`, chemin de production) et le
+CV adapté (`generate_tailored_cv_content`) sur les 14 couples de `letter_requirements.json`. Il compare
+des versions de prompts à modèles et entrées constants. Depuis `backend` :
+
+```bash
+uv run python scripts/letter_bakeoff.py                          # estimation seule, aucun appel
+uv run python scripts/letter_bakeoff.py --simulated              # chaîne complète hors réseau (pas une référence)
+uv run python scripts/letter_bakeoff.py --real --limit 10        # estimation seule
+uv run python scripts/letter_bakeoff.py --real --confirm --limit 10 --label base      # appels réels, payants
+uv run python scripts/letter_bakeoff.py --real --confirm --label v2 --prompts-dir DIR --reuse-analyst
+uv run python scripts/letter_bakeoff.py --summarize scripts/data/letters_bench/base/feuille_evaluation.csv
+uv run python scripts/letter_bakeoff.py --compare base v2
+```
+
+`--no-cv` coupe le complément CV. Neutralisé : la recherche entreprise (contexte entreprise vide, entrée
+constante, pas de Tavily). Un modèle sans prix connu refuse le mode réel. Budget : `check_budget("lettres", ...)`
+avant chaque couple, `record_call` seulement pour un document généré avec succès (un échec, `CVHonestyError`
+compris, n'inscrit rien). Sorties dans `scripts/data/letters_bench/<label>/` (non versionné) :
+`results.json`, `rapport.md`, `feuille_evaluation.csv` et `feuille_violations.csv`. Évaluation humaine :
+remplir les colonnes `inventees_*`, `mauvais_poste_*`, `exigences_couvertes_*`, `affirmations_valides`,
+`naturel_1_5` de la première feuille, et `faux_rejet` (oui/non) de la seconde ; `--summarize` en tire fidélité,
+couverture, faux rejets et naturel, avec dénominateurs, global et par métier.
