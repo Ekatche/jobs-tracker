@@ -113,6 +113,17 @@ Signale :
 * les formulations qui exagèrent le niveau de responsabilité ;
 * les compétences qui semblent ajoutées uniquement pour correspondre à l'offre.
 
+### 8. Fidélité
+
+Compare la lettre aux faits du candidat et au lien exigence-preuve fournis plus bas. Relève dans "fidelity_flaws", en une phrase chacun, sans recopier la lettre :
+
+* un fait, un chiffre ou une technologie attribué au mauvais poste ou au mauvais projet ;
+* un transfert présenté comme une expérience directe : la lettre dit que le candidat a fait chez ou dans X ce qu'il a fait ailleurs ;
+* une lacune (`gap`) présentée comme acquise ;
+* un fait absent des faits fournis.
+
+Une exigence `transferable` doit se lire comme un transfert explicite (ce qui a été fait ailleurs et pourquoi cela s'applique). Si "fidelity_flaws" n'est pas vide, le verdict est obligatoirement « revise ».
+
 ## Règle importante
 
 Ne demande jamais d'ajouter une information qui n'est pas présente dans les faits fournis.
@@ -128,6 +139,12 @@ Signale uniquement les défauts qui nécessitent réellement une correction.
 Missions du poste :
 {missions}
 
+Faits du candidat (seule source de vérité) :
+{candidate_facts}
+
+Lien exigence-preuve (direct, transferable ou gap) :
+{requirement_evidence}
+
 Lettre à évaluer :
 
 {letter_text}
@@ -141,6 +158,9 @@ Retourne exclusivement le JSON suivant :
 "flaws": [
 "Description précise du défaut 1",
 "Description précise du défaut 2"
+],
+"fidelity_flaws": [
+"Description précise du défaut de fidélité 1"
 ]
 }}
 
@@ -148,5 +168,6 @@ Si la lettre ne présente pas de défaut important, utilise :
 
 {{
 "verdict": "pass",
-"flaws": []
+"flaws": [],
+"fidelity_flaws": []
 }}

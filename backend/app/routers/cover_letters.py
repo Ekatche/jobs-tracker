@@ -123,6 +123,10 @@ async def edit_cover_letter(
 
     # Réévaluation déterministe (sans LLM) : sortie de needs_review si plus rien ne bloque.
     # Sans guard_context (lettres antérieures), le statut reste inchangé.
+    # Les violations « Fidélité : » viennent du critique LLM (pipeline) et ne sont pas
+    # recalculées ici : après une modification manuelle, le candidat a corrigé son texte,
+    # elles disparaissent. L'attribution par phrase (letter_guards) reste déterministe
+    # et s'applique de nouveau.
     guard_context = letter.get("guard_context")
     if guard_context:
         app_doc = await db["applications"].find_one({"_id": letter["application_id"]}) or {}

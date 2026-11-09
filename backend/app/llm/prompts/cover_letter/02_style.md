@@ -33,6 +33,13 @@ Idée directrice (à montrer par les faits, jamais à énoncer comme une maxime)
 Angle spécifique sur l'expérience ou le projet pivot :
 {career_thread}
 
+## Exigences de l'offre et preuves
+
+Lien exigence-preuve établi par l'analyse :
+{requirement_evidence}
+
+Une exigence `direct` se raconte avec le fait nommé. Une exigence `transferable` se formule explicitement comme un transfert : ce que le candidat a fait ailleurs, nommé, et pourquoi cela s'applique ici ; jamais comme une expérience du poste visé. Une exigence `gap` n'est jamais affirmée.
+
 ## Voix et style
 
 Si des lettres du candidat sont fournies plus haut, leur rythme et leur vocabulaire priment sur les consignes de style ci-dessous. Les interdictions restent valables.

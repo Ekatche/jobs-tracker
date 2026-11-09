@@ -46,7 +46,7 @@ PROMPTS_DIR = Path(__file__).resolve().parents[3] / "app" / "llm" / "prompts" / 
 # fenêtre d'acceptation plus large des garde-fous côté letter_guards.py).
 MIN_WORDS = 230
 MAX_WORDS = 320
-PROMPT_VERSION = "01_fond+02_style+03_critique+04_revision-v9"
+PROMPT_VERSION = "01_fond+02_style+03_critique+04_revision-v10"
 
 
 _NAME_PARTICLES = {"de", "du", "des", "la", "le", "van", "von", "der", "den", "da", "di"}
@@ -91,6 +91,36 @@ def _track_usage(usage_acc: Optional[List[Tuple[int, int]]], resp: Any) -> None:
         getattr(resp_usage, "prompt_tokens", 0) or 0,
         getattr(resp_usage, "completion_tokens", 0) or 0,
     ))
+
+
+EVIDENCE_KINDS = ("direct", "transferable", "gap")
+
+
+def _clean_requirement_evidence(raw: Any) -> List[Dict[str, str]]:
+    """Liens exigence-preuve valides de la sortie de l'analyste ; le reste est écarté.
+
+    `evidence` nomme le fait du candidat et reste vide pour une lacune. Une
+    liste absente ou mal formée donne `[]` : le cache `--reuse-analyst` de
+    `letter_bakeoff.py` n'a pas cette clé.
+    """
+    if not isinstance(raw, list):
+        return []
+    cleaned: List[Dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        requirement, evidence, kind = (
+            item.get(key).strip() if isinstance(item.get(key), str) else ""
+            for key in ("requirement", "evidence", "kind")
+        )
+        if not requirement or kind not in EVIDENCE_KINDS:
+            continue
+        if kind == "gap":
+            evidence = ""
+        elif not evidence:
+            continue
+        cleaned.append({"requirement": requirement, "evidence": evidence, "kind": kind})
+    return cleaned
 
 
 def _find_anchor_exp(anchor_company_str: str, exps: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -167,8 +197,13 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
     "target_challenge": "Défi central du poste",
     "guiding_thesis": "Idée directrice du candidat face à ce défi",
     "career_thread": "Les 2 ou 3 faits nommés (formation, projet, expérience) dans l'ordre du récit, et le lien factuel de chacun avec le sujet de l'offre",
-    "offer_terms": ["Terme 1", "Terme 2", "Terme 3"]
-}}"""
+    "offer_terms": ["Terme 1", "Terme 2", "Terme 3"],
+    "requirement_evidence": [
+        {{"requirement": "Exigence de l'offre", "evidence": "Fait du candidat : entreprise ou projet, et ce qui y a été fait", "kind": "direct | transferable | gap"}}
+    ]
+}}
+
+Pour requirement_evidence, relie 3 à 6 exigences de l'offre à une preuve. kind = "direct" si le candidat a fait cela dans un poste ou un projet nommé ; "transferable" si le candidat a fait autre chose, ailleurs, dont la méthode ou le domaine s'applique ; "gap" si aucun fait ne la couvre (evidence vide). N'invente aucune preuve."""
 
     # Aucun fallback silencieux ici : une panne de l'analyste ne doit jamais
     # produire de fausses missions génériques qui masqueraient l'échec réel.
@@ -202,6 +237,7 @@ Réponds UNIQUEMENT par un objet JSON valide avec cette structure :
         "guiding_thesis": guiding_thesis,
         "career_thread": career_thread,
         "offer_terms": data.get("offer_terms", []),
+        "requirement_evidence": _clean_requirement_evidence(data.get("requirement_evidence")),
         "selected_experiences": selected_exps,
         "stacks": list(candidate_stacks),
         "companies": selected_companies,
@@ -375,6 +411,7 @@ async def _call_writer(
         company_name=company_name,
         job_title=analyst_json.get("job_title", ""),
         offer_terms=", ".join(analyst_json.get("offer_terms", [])),
+        requirement_evidence=json.dumps(analyst_json.get("requirement_evidence", []), ensure_ascii=False),
         min_words=MIN_WORDS,
         max_words=MAX_WORDS,
         target_challenge=analyst_json.get("target_challenge", ""),
@@ -409,16 +446,32 @@ async def _call_writer(
         content = stripped if stripped else content
     return content
 
+def _critic_candidate_facts(analyst_output: Dict[str, Any]) -> Dict[str, Any]:
+    """Faits compacts transmis au critique : de quoi juger la fidélité, pas le CV entier."""
+    return {
+        "experiences": [
+            {k: e[k] for k in ("company", "title", "role", "start", "end", "start_date", "end_date", "missions", "stack") if e.get(k)}
+            for e in analyst_output.get("selected_experiences", [])
+        ],
+        "projects": analyst_output.get("selected_projects", []),
+        "education": analyst_output.get("selected_education", []),
+    }
+
+
 async def _call_critic(
     letter_text: str,
     missions: list,
     usage_acc: Optional[List[Tuple[int, int]]] = None,
+    candidate_facts: Optional[Dict[str, Any]] = None,
+    requirement_evidence: Optional[List[Dict[str, str]]] = None,
 ) -> Dict[str, Any]:
     llm = get_letter_llm("critic")
     prompt = load_prompt(
         "03_critique",
         missions=json.dumps(missions, ensure_ascii=False),
         letter_text=letter_text,
+        candidate_facts=json.dumps(candidate_facts or {}, ensure_ascii=False),
+        requirement_evidence=json.dumps(requirement_evidence or [], ensure_ascii=False),
     )
 
     try:
@@ -437,9 +490,14 @@ async def _call_critic(
         if "{" in clean:
             clean = clean[clean.find("{"):clean.rfind("}")+1]
         data = json.loads(clean)
+        fidelity_flaws = data.get("fidelity_flaws")
         return {
             "verdict": data.get("verdict", "pass"),
             "flaws": data.get("flaws", []),
+            "fidelity_flaws": (
+                [f for f in fidelity_flaws if isinstance(f, str) and f.strip()]
+                if isinstance(fidelity_flaws, list) else []
+            ),
         }
     except Exception as e:
         # Jamais un verdict "pass" implicite sur panne réelle : ça masquerait
@@ -450,6 +508,7 @@ async def _call_critic(
         return {
             "verdict": "error",
             "flaws": [],
+            "fidelity_flaws": [],
             "provider": get_model_provider(llm.model),
             "role": "critic",
             "detail": str(e),
@@ -542,7 +601,16 @@ async def run_letter_pipeline_async(
 
     # 3. Évaluation parallèle : Garde-fous en code + Critique inter-modèle
     guard_report = evaluate_letter_guards(draft_letter, offer_description, analyst_output)
-    critic_verdict = await _call_critic(draft_letter, analyst_output.get("missions", []), usage_acc=usage_acc)
+    critic_facts = _critic_candidate_facts(analyst_output)
+    critic_evidence = analyst_output.get("requirement_evidence", [])
+    critic_verdict = await _call_critic(
+        draft_letter,
+        analyst_output.get("missions", []),
+        usage_acc=usage_acc,
+        candidate_facts=critic_facts,
+        requirement_evidence=critic_evidence,
+    )
+    fidelity_flaws = critic_verdict.get("fidelity_flaws") or []
 
     # 4. Passe de révision conditionnelle : une panne du critique ("error")
     # déclenche aussi une révision, au même titre qu'un verdict "revise" — un
@@ -550,6 +618,7 @@ async def run_letter_pipeline_async(
     needs_revision = (
         guard_report.is_blocking
         or critic_verdict.get("verdict") in ("revise", "error")
+        or bool(fidelity_flaws)
     )
     revised = False
     final_letter = draft_letter
@@ -558,7 +627,7 @@ async def run_letter_pipeline_async(
         final_letter = await _call_reviser(
             draft_letter,
             analyst_output,
-            critic_verdict.get("flaws", []),
+            [*critic_verdict.get("flaws", []), *fidelity_flaws],
             guard_report.model_dump(),
             voice_style=candidate_profile.get("writing_style") or "",
             usage_acc=usage_acc,
@@ -576,7 +645,7 @@ async def run_letter_pipeline_async(
             second_letter = await _call_reviser(
                 final_letter,
                 analyst_output,
-                [],
+                list(fidelity_flaws),
                 guard_report.model_dump(),
                 voice_style=candidate_profile.get("writing_style") or "",
                 usage_acc=usage_acc,
@@ -593,6 +662,32 @@ async def run_letter_pipeline_async(
             "role": critic_verdict.get("role", "critic"),
             "detail": critic_verdict.get("detail"),
         })
+
+    # Aucune violation de fidélité masquée : le critique est rappelé une fois
+    # sur la lettre finale, seulement s'il en avait signalé. Ce qui subsiste
+    # (ou tout, si ce second appel tombe en panne) bloque la lettre.
+    if fidelity_flaws:
+        recheck = await _call_critic(
+            final_letter,
+            analyst_output.get("missions", []),
+            usage_acc=usage_acc,
+            candidate_facts=critic_facts,
+            requirement_evidence=critic_evidence,
+        )
+        if recheck.get("verdict") == "error":
+            persistent = list(fidelity_flaws)
+            provider_failures.append({
+                "provider": recheck.get("provider"),
+                "role": recheck.get("role", "critic"),
+                "detail": recheck.get("detail"),
+            })
+        else:
+            persistent = list(recheck.get("fidelity_flaws") or [])
+        if persistent:
+            guard_report = guard_report.model_copy(update={
+                "is_blocking": True,
+                "violations": [*guard_report.violations, *(f"Fidélité : {flaw}" for flaw in persistent)],
+            })
 
     models = {
         "analyst": get_letter_llm("offer_analyst").model,

@@ -78,6 +78,7 @@ PRICES_USD_PER_M = {
 }
 # Estimation prudente : 3 caractères par token (le français en fait plutôt 3,5 à 4).
 CHARS_PER_TOKEN = 3
+ESTIMATE_CRITIC_CALLS = 2  # majorant : le second appel (fidélité persistante) est rare
 ESTIMATE_OUT_TOKENS = {"analyst": 800, "writer": 1500, "critic": 500, "reviser": 1500, "cv": 2500}
 ESTIMATE_LETTER_CHARS = 2200  # lettre de 320 mots, majorée
 ESTIMATE_ANALYSIS_CHARS = 3000  # JSON d'analyse transmis au rédacteur et au réviseur
@@ -171,8 +172,9 @@ def _tokens(chars: float) -> int:
 def estimate_pair_usd(pair: Dict[str, Any], mods, prompts_dir: Path, with_cv: bool = True,
                       analyst_cached: bool = False) -> float:
     """Estimation prudente du coût d'un couple. Entrées : taille réelle des prompts et du profil, à 3 caractères
-    par token. Sorties forfaitaires (analyste 800, rédacteur 1 500, critique 500, réviseur 1 500 x 2
-    passes, CV 2 500 x 2 essais), au prix du modèle de chaque rôle. Le CV utilise la taille réelle du
+    par token. Sorties forfaitaires (analyste 800, rédacteur 1 500, critique 500 x 2 appels majorants
+    (le second, sur la lettre finale, n'a lieu que si le premier signale des défauts de fidélité),
+    réviseur 1 500 x 2 passes, CV 2 500 x 2 essais), au prix du modèle de chaque rôle. Le CV utilise la taille réelle du
     prompt rendu. Les jetons de raisonnement cachés ne sont pas couverts au-delà de ces forfaits."""
     models = letter_models(mods)
     profile_chars = sum(len(json.dumps(pair["profile"].get(k) or [], ensure_ascii=False))
@@ -188,7 +190,8 @@ def estimate_pair_usd(pair: Dict[str, Any], mods, prompts_dir: Path, with_cv: bo
         parts.append((models["analyst"], _tokens(profile_chars + offer_chars + 1500), out["analyst"]))
     parts.append((models["writer"], _tokens(sizes["01_fond"] + sizes["02_style"] + profile_chars
                                             + ESTIMATE_ANALYSIS_CHARS), out["writer"]))
-    parts.append((models["critic"], _tokens(sizes["03_critique"] + ESTIMATE_LETTER_CHARS + 500), out["critic"]))
+    parts.extend([(models["critic"], _tokens(sizes["03_critique"] + ESTIMATE_LETTER_CHARS + profile_chars + 500),
+                   out["critic"])] * ESTIMATE_CRITIC_CALLS)
     parts.extend([(models["reviser"], _tokens(sizes["04_revision"] + ESTIMATE_LETTER_CHARS + ESTIMATE_ANALYSIS_CHARS
                                               + profile_chars), out["reviser"])] * ESTIMATE_REVISER_PASSES)
     if with_cv:
@@ -233,20 +236,22 @@ def _reply(content: str, prompt: str) -> SimpleNamespace:
 
 def make_letter_oracle(pair: Dict[str, Any], fault: Optional[str] = None):
     """Faux ``acompletion`` de la lettre, un par couple. Les deux appels JSON sont l'analyste et le critique
-    (le prompt du critique contient ``verdict``) ; les appels texte sont
+    (le prompt du critique contient ``verdict``, et il ne signale jamais de défaut de fidélité : le second
+    appel critique n'a donc jamais lieu en simulation) ; les appels texte sont
     le rédacteur puis le réviseur. ``needs_review`` : brouillon fautif que le réviseur ne corrige pas."""
 
     async def fake(*, model=None, messages=None, **kwargs):
         prompt = messages[0]["content"]
         if kwargs.get("response_format") and "verdict" in prompt:
-            return _reply(json.dumps({"verdict": "pass", "flaws": []}), prompt)
+            return _reply(json.dumps({"verdict": "pass", "flaws": [], "fidelity_flaws": []}), prompt)
         if kwargs.get("response_format"):  # analyste : seul autre appel JSON
             proofs = pair["req"]["preuves_exactes"]
             return _reply(json.dumps({
                 "missions": list(pair["req"]["exigences"][:3]), "target_challenge": pair["offer"]["poste"],
                 "guiding_thesis": proofs[0]["preuve"] if proofs else "",
                 "career_thread": " ; ".join(p["preuve"] for p in proofs[:2]),
-                "offer_terms": list(pair["offer"].get("competences_cles") or [])[:3]}, ensure_ascii=False), prompt)
+                "offer_terms": list(pair["offer"].get("competences_cles") or [])[:3],
+                "requirement_evidence": []}, ensure_ascii=False), prompt)
         if fault == "letter_error":
             raise RuntimeError("panne simulée du fournisseur")
         return _reply(simulated_letter(pair, flawed=fault == "needs_review"), prompt)

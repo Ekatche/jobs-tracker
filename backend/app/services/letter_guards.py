@@ -4,6 +4,9 @@ import math
 from typing import Dict, Any, List
 from pydantic import BaseModel, Field
 
+from app.services.cv_guards import (
+    _AMBIGUOUS_TERMS, _ClaimContext, _clean_str, _collect_strings, _short_term_in, _stack_terms, _extract_metrics,
+)
 from app.services.profile.periods import company_slug as _normalize_entity
 
 BANNED_LEXICON = [
@@ -185,6 +188,82 @@ def _check_entities(letter_text: str, offer_description: str, analyst_data: Dict
     return violations
 
 
+def _attribution_sources(analyst_data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """Postes (clé `company`) et projets (clé `name`) du candidat, regroupés par nom.
+
+    L'entreprise destinataire n'est jamais une source. Deux postes d'un même
+    employeur forment une seule source : citer l'employeur ne dit pas lequel.
+    """
+    target = (analyst_data.get("company_name") or "").strip().casefold()
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    for items, key in (
+        (analyst_data.get("selected_experiences") or [], "company"),
+        (analyst_data.get("selected_projects") or [], "name"),
+    ):
+        for item in items:
+            name = str(item.get(key) or "").strip() if isinstance(item, dict) else ""
+            if name and name.casefold() != target:
+                grouped.setdefault(name, []).append(item)
+    return {
+        name: {
+            "context": _ClaimContext.from_strings(
+                [s for item in items for s in _collect_strings(item)],
+                tuple(s for item in items for k in ("stack", "technologies") for s in _collect_strings(item.get(k))),
+            ),
+            "terms": {t: raw for item in items for t, raw in _stack_terms(item).items()},
+        }
+        for name, items in grouped.items()
+    }
+
+
+def _check_attribution(letter_text: str, analyst_data: Dict[str, Any]) -> List[str]:
+    """Une phrase qui cite exactement une source ne lui attribue rien qui vienne d'une autre.
+
+    Nombre (hors années) ou technologie absents de la source citée et présents
+    dans une autre. Une phrase qui cite deux sources ou plus n'est pas
+    contrôlée : elle peut légitimement les relier. Faux rejets possibles quand
+    un fait est vrai de plusieurs postes mais n'est écrit que dans l'un d'eux.
+    """
+    sources = _attribution_sources(analyst_data)
+    if len(sources) < 2:
+        return []
+    violations: List[str] = []
+    seen = set()
+    for sentence in re.split(r"(?<=[.!?…])\s+|\n+", letter_text):
+        cited = [
+            name for name in sources
+            if re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", sentence, re.IGNORECASE)
+        ]
+        if len(cited) != 1:
+            continue
+        name, own = cited[0], sources[cited[0]]["context"]
+        others = [(other, data) for other, data in sources.items() if other != name]
+        found: List[tuple] = []  # (élément, source d'origine)
+        for metric in _extract_metrics(sentence):
+            if own.has_metric(metric):
+                continue
+            origin = next((other for other, data in others if data["context"].has_canon(metric)), None)
+            if origin:
+                found.append((metric.raw, origin))
+        clean_sentence = _clean_str(sentence)
+        for other, data in others:
+            for term, raw in data["terms"].items():
+                if term in _AMBIGUOUS_TERMS:
+                    continue
+                if len(term) <= 3:
+                    hit = not own.supports(raw) and _short_term_in(raw, sentence)
+                else:
+                    pattern = rf"(?<!\w){re.escape(term)}(?!\w)"
+                    hit = not re.search(pattern, own.corpus) and re.search(pattern, clean_sentence)
+                if hit:
+                    found.append((raw, other))
+        for element, origin in found:
+            if (element, name, origin) not in seen:
+                seen.add((element, name, origin))
+                violations.append(f"Attribution erronée : « {element} » rattaché à {name} mais issu de {origin}")
+    return violations
+
+
 class GuardReport(BaseModel):
     is_blocking: bool = False
     violations: List[str] = Field(default_factory=list)
@@ -355,6 +434,10 @@ def evaluate_letter_guards(
         if number in (offer_description or "") or number in experiences_json:
             continue
         violations.append(f"Chiffre non vérifiable cité dans la lettre : '{number}'")
+
+    # 13b. Attribution par phrase : un fait d'un autre poste ou projet rattaché
+    # à l'entreprise ou au projet cité dans la même phrase.
+    violations.extend(_check_attribution(letter_text, analyst_data))
 
     # 14. Débuts de paragraphe centrés sur un employeur
     for p in paragraphs:
