@@ -693,7 +693,8 @@ async def run_letter_pipeline_async(
         )
         if recheck.get("verdict") == "error" or not recheck.get("fidelity_valid", True):
             # Panne, ou clé `fidelity_flaws` absente/invalide : jamais un feu vert.
-            persistent = list(fidelity_flaws)
+            # Les défauts valides du second appel s'ajoutent : un défaut nouveau reste visible.
+            persistent = list(dict.fromkeys([*fidelity_flaws, *(recheck.get("fidelity_flaws") or [])]))
             if recheck.get("verdict") == "error":
                 provider_failures.append({
                     "provider": recheck.get("provider"),

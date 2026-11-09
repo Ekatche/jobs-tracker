@@ -257,14 +257,19 @@ def _check_attribution(letter_text: str, analyst_data: Dict[str, Any], offer_des
     violations: List[str] = []
     seen = set()
     for sentence in re.split(r"(?<=[.!?…])\s+(?=[A-ZÀ-ÖØ-Þ«\"“])|\n+", letter_text):
-        cited = [
+        # Toutes les sources nommées comptent, citables ou non : une phrase qui
+        # nomme un poste et un projet les relie peut-être. Elle n'est contrôlée
+        # que si elle nomme une seule source et que celle-ci est citable.
+        named = [
             name for name, data in sources.items()
-            if data["citable"] and (
-                re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", sentence, 0 if data["project"] else re.IGNORECASE)
-                or (data["project"] and re.search(r"(?<!\w)" + re.escape(name.upper()) + r"(?!\w)", sentence))
+            if re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", sentence, 0 if data["project"] else re.IGNORECASE)
+            or (
+                data["project"] and len(name) >= 5
+                and re.search(r"(?<!\w)" + re.escape(name.upper()) + r"(?!\w)", sentence)
             )
         ]
-        if len(cited) != 1:
+        cited = [name for name in named if sources[name]["citable"]]
+        if len(named) != 1 or len(cited) != 1:
             continue
         transfer = bool(target) and re.search(
             r"(?<!\w)" + re.escape(target) + r"(?!\w)", sentence, re.IGNORECASE
