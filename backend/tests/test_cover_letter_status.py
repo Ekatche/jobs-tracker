@@ -50,8 +50,8 @@ async def _seed_application(db):
     return app_id
 
 
-async def _seed_letter(db, app_id, status, guard_context=True, guard_report=None):
-    version = {"n": 1, "body": DIRTY_BODY, "origin": "generated", "guard_report": guard_report or {}}
+async def _seed_letter(db, app_id, status, guard_context=True, guard_report=None, body=DIRTY_BODY):
+    version = {"n": 1, "body": body, "origin": "generated", "guard_report": guard_report or {}}
     letter = {
         "_id": ObjectId(), "user_id": ObjectId(USER_ID), "application_id": app_id,
         "status": status, "current_version": 1, "versions": [version],
@@ -115,6 +115,27 @@ async def test_edit_reevaluates_guards_without_llm(
     assert latest["guard_report"]["is_blocking"] is (expected_status == "needs_review")
     assert latest["guard_report"]["violations"] == expected_violations
     assert len(data["versions"]) == 2
+
+
+FIDELITY = {"is_blocking": True, "violations": ["Fidélité : invention de Kubernetes chez Acme"], "warnings": [], "stats": {}}
+
+
+@pytest.mark.parametrize("new_body, expected_status", [
+    (CLEAN_BODY, "needs_review"),
+    (CLEAN_BODY + "\n", "needs_review"),
+    (CLEAN_BODY.replace("robustes", "solides"), "ready"),
+])
+@pytest.mark.asyncio
+async def test_edit_without_change_keeps_fidelity_violations(client, letter_db, new_body, expected_status):
+    app_id = await _seed_application(letter_db)
+    await _seed_letter(letter_db, app_id, "needs_review", guard_report=FIDELITY, body=CLEAN_BODY)
+
+    data = client.patch(f"/applications/{app_id}/cover-letter", json={"body": new_body}).json()
+
+    assert data["status"] == expected_status
+    assert (FIDELITY["violations"][0] in data["versions"][-1]["guard_report"]["violations"]) is (
+        expected_status == "needs_review"
+    )
 
 
 @pytest.mark.asyncio

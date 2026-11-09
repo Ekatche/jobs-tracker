@@ -494,7 +494,7 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
               <button
                 type="button"
                 onClick={handleSaveEdit}
-                disabled={saving}
+                disabled={saving || !isDirty}
                 className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors shadow-sm"
               >
                 <FiSave />

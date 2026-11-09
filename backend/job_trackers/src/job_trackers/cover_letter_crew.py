@@ -627,6 +627,8 @@ async def run_letter_pipeline_async(
         requirement_evidence=critic_evidence,
     )
     fidelity_flaws = critic_verdict.get("fidelity_flaws") or []
+    if critic_verdict.get("verdict") != "error" and not critic_verdict.get("fidelity_valid", True):
+        logger.warning("Critique de fidélité : clé fidelity_flaws absente ou invalide au premier appel")
 
     # 4. Passe de révision conditionnelle : une panne du critique ("error")
     # déclenche aussi une révision, au même titre qu'un verdict "revise" — un
