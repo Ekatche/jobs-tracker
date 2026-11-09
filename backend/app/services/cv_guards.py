@@ -202,6 +202,10 @@ _SKIPPED_KEYS = {
 }
 # Termes de pile qui sont aussi des mots courants ou des méthodologies : leur mention dans une puce reste non vérifiable.
 _AMBIGUOUS_TERMS = {"agile", "scrum", "kanban", "lean", "teams", "notion", "excel", "word", "office"}
+# Mots qui qualifient un nom de technologie sans en faire un autre produit (éditeur, suffixe) : « Apache Kafka » est Kafka,
+# « React.js » est React, « Microsoft Azure » est Azure. « AWS Lambda », « Azure Data Factory » ou « Spring Boot » restent
+# des produits distincts de AWS, Azure ou Spring.
+_NAME_QUALIFIERS = {"apache", "microsoft", "google", "amazon", "js", "platform"}
 
 _NUMBER_WORDS = {
     **{w: i for i, w in enumerate(
@@ -341,17 +345,30 @@ class _ClaimContext:
         if not clean:
             return True
         if len(clean) <= 3:
-            # « Go » : jamais le corpus normalisé (« 500 Go », « go-live », « R&D », C# ≠ C++) ; entrée déclarée ou occurrence brute
+            # « Go » : jamais le corpus normalisé (« 500 Go », « go-live », « R&D », C# ≠ C++) ; entrée déclarée,
+            # composant d'une entrée de pile du poste (SQL dans T-SQL, .NET dans ASP.NET) ou occurrence brute
             raw_skill = skill.strip()
-            return raw_skill.lower() in {k.lower() for k in self.known} or any(_short_term_in(raw_skill, t) for t in self.raw)
+            parts = {p for s in self.stack for p in re.split(r"[-./\s]+", s.lower()) if p}
+            return (
+                raw_skill.lower() in {k.lower() for k in self.known}
+                or raw_skill.lower().lstrip(".") in parts
+                or any(_short_term_in(raw_skill, t) for t in self.raw)
+            )
         if re.search(rf"(?<!\w){re.escape(clean)}(?!\w)", self.corpus):
             return True
         # Jamais de sous-chaîne (« data » dans « databricks », « ans » dans « ansible ») : égalité ou quasi-égalité (NodeJS / Node.js)
         if any(SequenceMatcher(None, clean, c).ratio() >= 0.85 for c in map(_clean_str, self.known) if c):
             return True
-        # Forme qualifiée d'une entrée de pile du poste (« Apache Kafka » pour Kafka) : inclusion de mots entiers
-        words = set(clean.split())
-        return any(len(c) >= 3 and set(c.split()) <= words for c in map(_clean_str, self.stack) if c)
+        # Forme qualifiée d'une entrée de pile du poste : les mots en plus sont des qualificatifs (« Apache Kafka » pour Kafka),
+        # ou l'entrée est leur sigle (GCP pour Google Cloud Platform). « AWS Glue » n'est pas AWS, « Spring Boot » n'est pas Spring.
+        words = clean.split()
+        for c in map(_clean_str, self.stack):
+            if len(c) < 3 or not set(c.split()) <= set(words):
+                continue
+            extras = [w for w in words if w not in c.split()]
+            if set(extras) <= _NAME_QUALIFIERS or "".join(w[0] for w in extras) == c.replace(" ", ""):
+                return True
+        return False
 
 
 def _significant_tokens(text: str) -> Set[str]:
@@ -372,11 +389,12 @@ def _all_tokens(text: str) -> Set[str]:
 
 
 def _level_safe(a: str, b: str) -> bool:
-    """Deux libellés proches ne diffèrent ni par un nombre, une lettre isolée, un chiffre romain ni un mot de niveau.
+    """La certification du CV (a) n'ajoute au libellé du profil (b) ni nombre, ni lettre isolée, ni chiffre romain, ni mot de niveau.
 
     « Permis C » ≠ « Permis B », « cat. 5 » ≠ « cat. 3 », « PSM II » ≠ « PSM I », « Professional » ≠ « Associate ». Les années ne comptent pas.
+    Un jeton que seul le profil porte (code d'examen AZ-900, score TOEIC 905, version ITIL 4, seconde catégorie « Permis B et C ») ne bloque pas.
     """
-    for tok in _all_tokens(a) ^ _all_tokens(b):
+    for tok in _all_tokens(a) - _all_tokens(b):
         if re.fullmatch(r"(?:19|20)\d\d", tok):
             continue
         if any(ch.isdigit() for ch in tok) or len(tok) == 1 or tok in _ROMAN_NUMERALS or tok in _LEVEL_WORDS:
@@ -503,7 +521,7 @@ def _audit_experience(
             ambiguous: List[str] = []
             for t, raw in terms.items():
                 if len(t) <= 3:
-                    if any(_short_term_in(raw, text) for text in own.raw):
+                    if own.supports(raw):  # même règle que les technologies : composants de pile compris (SQL dans T-SQL)
                         continue
                     hit = _short_term_in(raw, bullet)
                 else:
