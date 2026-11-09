@@ -146,9 +146,11 @@ uv run python scripts/letter_bakeoff.py --compare base v2
 
 `--no-cv` coupe le complément CV. Neutralisé : la recherche entreprise (contexte entreprise vide, entrée
 constante, pas de Tavily). Un modèle sans prix connu refuse le mode réel. Budget : `check_budget("lettres", ...)`
-avant chaque couple, `record_call` seulement pour un document généré avec succès (un échec, `CVHonestyError`
-compris, n'inscrit rien). Sorties dans `scripts/data/letters_bench/<label>/` (non versionné) :
+avant chaque couple (estimation prudente du couple plus le coût mesuré des échecs non inscrits depuis le début),
+`record_call` seulement pour un document généré avec succès (un échec, `CVHonestyError` compris, n'inscrit rien).
+Le CV du banc est généré sans évaluation Bloc B (`evaluation=None`) ; `rapport.md` liste les modèles effectifs
+par rôle. `--limit` doit être un entier >= 1. Sorties dans `scripts/data/letters_bench/<label>/` (non versionné) :
 `results.json`, `rapport.md`, `feuille_evaluation.csv` et `feuille_violations.csv`. Évaluation humaine :
-remplir les colonnes `inventees_*`, `mauvais_poste_*`, `exigences_couvertes_*`, `affirmations_valides`,
+remplir les colonnes `inventees_*`, `mauvais_poste_*`, `exigences_avec_preuve_couvertes_*` (plafonné à `exigences_avec_preuve` de la ligne), `affirmations_valides`,
 `naturel_1_5` de la première feuille, et `faux_rejet` (oui/non) de la seconde ; `--summarize` en tire fidélité,
 couverture, faux rejets et naturel, avec dénominateurs, global et par métier.
