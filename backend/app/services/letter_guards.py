@@ -257,9 +257,10 @@ def _check_attribution(letter_text: str, analyst_data: Dict[str, Any], offer_des
     violations: List[str] = []
     seen = set()
     for sentence in re.split(r"(?<=[.!?…])\s+(?=[A-ZÀ-ÖØ-Þ«\"“])|\n+", letter_text):
-        # Toutes les sources nommées comptent, citables ou non : une phrase qui
-        # nomme un poste et un projet les relie peut-être. Elle n'est contrôlée
-        # que si elle nomme une seule source et que celle-ci est citable.
+        # La phrase n'est contrôlée que si elle cite exactement une source
+        # citable. Un projet non citable qu'elle nomme (mot courant ou terme de
+        # pile) n'écarte que les faits dont il est l'origine : ceux des autres
+        # sources restent contrôlés.
         named = [
             name for name, data in sources.items()
             if re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", sentence, 0 if data["project"] else re.IGNORECASE)
@@ -269,8 +270,9 @@ def _check_attribution(letter_text: str, analyst_data: Dict[str, Any], offer_des
             )
         ]
         cited = [name for name in named if sources[name]["citable"]]
-        if len(named) != 1 or len(cited) != 1:
+        if len(cited) != 1:
             continue
+        muted = {n for n in named if not sources[n]["citable"]}
         transfer = bool(target) and re.search(
             r"(?<!\w)" + re.escape(target) + r"(?!\w)", sentence, re.IGNORECASE
         )
@@ -297,6 +299,7 @@ def _check_attribution(letter_text: str, analyst_data: Dict[str, Any], offer_des
                     hit = not own.supports(raw) and re.search(pattern, clean_sentence)
                 if hit:
                     found.append((raw, other))
+        found = [(e, o) for e, o in found if o not in muted]
         for element, origin in found:
             if (element, name, origin) not in seen:
                 seen.add((element, name, origin))
