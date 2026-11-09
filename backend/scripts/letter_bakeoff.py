@@ -172,7 +172,7 @@ def _tokens(chars: float) -> int:
 def estimate_pair_usd(pair: Dict[str, Any], mods, prompts_dir: Path, with_cv: bool = True,
                       analyst_cached: bool = False) -> float:
     """Estimation prudente du coût d'un couple. Entrées : taille réelle des prompts et du profil, à 3 caractères
-    par token. Sorties forfaitaires (analyste 800, rédacteur 1 500, critique 500 x 2 appels majorants
+    par token. Sorties forfaitaires (analyste 1 200, rédacteur 1 500, critique 500 x 2 appels majorants
     (le second, sur la lettre finale, n'a lieu que si le premier signale des défauts de fidélité),
     réviseur 1 500 x 2 passes, CV 2 500 x 2 essais), au prix du modèle de chaque rôle. Le CV utilise la taille réelle du
     prompt rendu. Les jetons de raisonnement cachés ne sont pas couverts au-delà de ces forfaits."""

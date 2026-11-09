@@ -449,18 +449,17 @@ async def _call_writer(
 def _critic_candidate_facts(analyst_output: Dict[str, Any]) -> Dict[str, Any]:
     """Faits transmis au critique : tout ce que voit le rédacteur sur le candidat.
 
-    Un fait écrit dans `achievements`, `description`, `sector`, `stacks` ou les
-    compétences est légitime dans la lettre : le critique ne doit pas le juger
-    inventé.
+    Chaque expérience entière (sauf les métadonnées `sources` et
+    `missions_source`), les compétences et l'intitulé du candidat : un fait
+    écrit dans `missions_alt`, `location`, `achievements`, etc. est légitime
+    dans la lettre et le critique ne doit pas le juger inventé.
     """
-    keys = (
-        "company", "title", "role", "start", "end", "start_date", "end_date",
-        "missions", "stack", "achievements", "description", "sector", "stacks",
-    )
     return {
+        "headline": analyst_output.get("candidate_headline", ""),
         "experiences": [
-            {k: e[k] for k in keys if e.get(k)}
+            {k: v for k, v in e.items() if k not in ("sources", "missions_source") and v}
             for e in analyst_output.get("selected_experiences", [])
+            if isinstance(e, dict)
         ],
         "skills": analyst_output.get("stacks", []),
         "projects": analyst_output.get("selected_projects", []),
@@ -500,17 +499,21 @@ async def _call_critic(
         if "{" in clean:
             clean = clean[clean.find("{"):clean.rfind("}")+1]
         data = json.loads(clean)
-        fidelity_flaws = data.get("fidelity_flaws")
+        raw_flaws = data.get("fidelity_flaws")
+        # Une entrée qui n'est pas une chaîne est convertie en texte, jamais perdue.
+        kept = []
+        if isinstance(raw_flaws, list):
+            for f in raw_flaws:
+                text = f if isinstance(f, str) else json.dumps(f, ensure_ascii=False)
+                if text.strip() and f is not None:
+                    kept.append(text)
         return {
             "verdict": data.get("verdict", "pass"),
             "flaws": data.get("flaws", []),
-            "fidelity_flaws": (
-                [f for f in fidelity_flaws if isinstance(f, str) and f.strip()]
-                if isinstance(fidelity_flaws, list) else []
-            ),
-            # Clé absente ou invalide : le second appel ne doit pas la lire
-            # comme « aucun défaut ».
-            "fidelity_valid": isinstance(fidelity_flaws, list),
+            "fidelity_flaws": kept,
+            # Clé absente, invalide ou dont une entrée est vide : le second appel
+            # ne doit pas la lire comme « aucun défaut ».
+            "fidelity_valid": isinstance(raw_flaws, list) and len(kept) == len(raw_flaws),
         }
     except Exception as e:
         # Jamais un verdict "pass" implicite sur panne réelle : ça masquerait

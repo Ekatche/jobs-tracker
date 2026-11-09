@@ -188,15 +188,21 @@ def _check_entities(letter_text: str, offer_description: str, analyst_data: Dict
     return violations
 
 
+def _whole_word_in(needle: str, haystack: str) -> bool:
+    return bool(needle) and re.search(r"(?<!\w)" + re.escape(needle) + r"(?!\w)", haystack) is not None
+
+
 def _attribution_sources(analyst_data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     """Postes (clé `company`) et projets (clé `name`) du candidat, regroupés par nom.
 
-    L'entreprise destinataire n'est jamais une source (égalité, ou nom contenu
-    dans l'autre : « Acme » / « Acme Corp »). Deux postes d'un même employeur
+    L'entreprise destinataire n'est jamais une source (égalité, ou un nom est un
+    ou plusieurs mots entiers de l'autre : « Acme » / « Acme Corp », mais pas
+    « Free » / « Freelance »). Deux postes d'un même employeur
     forment une seule source (regroupement insensible à la casse, premier
     libellé gardé). Un nom de projet qui est un terme de pile ou une compétence,
-    ou un mot isolé en minuscules (dépôt « terraform », « dashboard »), n'identifie
-    aucune source : il ne désigne pas un projet dans une phrase.
+    ou un mot isolé en minuscules (dépôt « terraform », « dashboard »), n'est pas
+    citable (`citable: False`) : il ne désigne pas un projet dans une phrase,
+    mais ses faits restent une origine possible.
     """
     target = (analyst_data.get("company_name") or "").strip().casefold()
     groups: Dict[str, List[Any]] = {}  # casefold -> [libellé, items, est un projet]
@@ -207,7 +213,7 @@ def _attribution_sources(analyst_data: Dict[str, Any]) -> Dict[str, Dict[str, An
         for item in items:
             name = str(item.get(key) or "").strip() if isinstance(item, dict) else ""
             folded = name.casefold()
-            if not name or (target and (folded in target or target in folded)):
+            if not name or (target and (_whole_word_in(folded, target) or _whole_word_in(target, folded))):
                 continue
             group = groups.setdefault(folded, [name, [], is_project])
             group[1].append(item)
@@ -218,10 +224,11 @@ def _attribution_sources(analyst_data: Dict[str, Any]) -> Dict[str, Dict[str, An
             known_tech.update(_stack_terms(item))
     sources: Dict[str, Dict[str, Any]] = {}
     for label, items, is_project in groups.values():
-        if is_project and (_clean_str(label) in known_tech or re.fullmatch(r"[a-zà-ÿ]+", label)):
-            continue
         sources[label] = {
             "project": is_project,
+            "citable": not (
+                is_project and (_clean_str(label) in known_tech or re.fullmatch(r"[a-zà-ÿ]+", label))
+            ),
             "context": _ClaimContext.from_strings(
                 [s for item in items for s in _collect_strings(item)],
                 tuple(s for item in items for k in ("stack", "technologies") for s in _collect_strings(item.get(k))),
@@ -252,8 +259,9 @@ def _check_attribution(letter_text: str, analyst_data: Dict[str, Any], offer_des
     for sentence in re.split(r"(?<=[.!?…])\s+(?=[A-ZÀ-ÖØ-Þ«\"“])|\n+", letter_text):
         cited = [
             name for name, data in sources.items()
-            if re.search(
-                r"(?<!\w)" + re.escape(name) + r"(?!\w)", sentence, 0 if data["project"] else re.IGNORECASE
+            if data["citable"] and (
+                re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", sentence, 0 if data["project"] else re.IGNORECASE)
+                or (data["project"] and re.search(r"(?<!\w)" + re.escape(name.upper()) + r"(?!\w)", sentence))
             )
         ]
         if len(cited) != 1:
