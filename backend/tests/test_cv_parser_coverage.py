@@ -274,3 +274,21 @@ async def test_evidence_points_to_the_page_text_never_to_a_scan(tmp_path, mistra
         assert evidence == []
     else:
         assert [(e["section"], e["index"], e["page"], e["excerpt"]) for e in evidence] == [("experiences", 0, page, excerpt)]
+
+
+@pytest.mark.asyncio
+async def test_blank_pdf_skips_vlm_and_returns_empty_profile(tmp_path, mistral_key):
+    import fitz
+    from app.services.cv_parser import is_empty_extraction, parse_cv_with_llm
+
+    doc = fitz.open()
+    doc.new_page(width=300, height=300)
+    path = tmp_path / "blank.pdf"
+    doc.save(str(path))
+    doc.close()
+    vlm = AsyncMock(return_value=_vlm_payload())
+    with patch("app.services.cv_parser.parse_cv_with_vlm", vlm), patch("app.services.cv_parser.acompletion", AsyncMock()):
+        result = await parse_cv_with_llm(pdf_path=str(path))  # pas de CVVisionUnavailable : ce n'est pas une panne
+
+    vlm.assert_not_called()
+    assert is_empty_extraction(result) and "_usage" not in result
