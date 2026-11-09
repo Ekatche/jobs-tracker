@@ -119,7 +119,7 @@ async def test_tailored_cv_schema_flattens_certification_dicts_from_llm():
     with patch("app.services.cv_tailor.acompletion", new_callable=AsyncMock) as mock_acompletion:
         mock_acompletion.return_value = mock_response
         result = await generate_tailored_cv_content(
-            profile=SAMPLE_PROFILE,
+            profile={**SAMPLE_PROFILE, "certifications": [c["name"] for c in llm_payload["certifications"] if c["name"]]},
             offer=SAMPLE_OFFER,
             evaluation=SAMPLE_EVALUATION,
         )

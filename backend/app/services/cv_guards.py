@@ -1,9 +1,17 @@
+import logging
 import re
 import unicodedata
+from dataclasses import dataclass, field as dc_field
 from difflib import SequenceMatcher
 from typing import Tuple, List, Dict, Any, Optional, Set
 from app.models import TailoredCVSchema
 from app.services.cv_templates import _cumulative_career_years, _date_key, _end_key
+
+logger = logging.getLogger(__name__)
+
+# Champs dont une violation se corrige en retirant un seul élément (cf. cv_tailor) ;
+# les autres (entreprise, intitulé, dates, formation, résumé) sont structurels.
+ATOMIC_FIELDS = frozenset({"prioritized_skills", "relevant_technologies", "bullet_points", "certifications"})
 
 # « 8 ans d'expérience », « 8+ ans d'expérience », « 8 years of experience »
 SENIORITY_CLAIM_RE = re.compile(
@@ -140,15 +148,274 @@ def _dates_agree(tailored: Optional[str], known: Optional[str], is_end: bool) ->
     return tailored_year == known_year and (not tailored_month or not known_month or tailored_month == known_month)
 
 
+@dataclass
+class Finding:
+    """Une affirmation du CV adapté, avec son emplacement (expérience, puce, champ)."""
+
+    message: str
+    field: str
+    experience_index: Optional[int] = None
+    group_index: Optional[int] = None
+    item_index: Optional[int] = None
+
+    @property
+    def atomic(self) -> bool:
+        return self.field in ATOMIC_FIELDS
+
+    def __str__(self) -> str:
+        return self.message
+
+
+@dataclass
+class CVAudit:
+    """violations : inventions confirmées. unverifiable : formulations que le profil ne permet ni de confirmer ni d'infirmer."""
+
+    violations: List[Finding] = dc_field(default_factory=list)
+    unverifiable: List[Finding] = dc_field(default_factory=list)
+
+
+# --- Contrôles par expérience : métriques, technologies et puces -------------------------------------------------
+
+_NUM = r"\d+(?:[.,]\d+)?"
+_PCT_RE = re.compile(rf"(?<![\w.,])({_NUM})\s?%")
+_MONEY_RE = re.compile(rf"(?<![\w.,])({_NUM})\s?(k|md|m|b)?\s?(?:€|\$|£|\b(?:eur|euros?|usd)\b)", re.IGNORECASE)
+_SCALED_RE = re.compile(rf"(?<![\w.,])({_NUM})([kK]|M)(?![A-Za-z€$£])")
+_MULT_PRE_RE = re.compile(rf"(?<![\w.,])[x×]\s?({_NUM})(?![\w%])", re.IGNORECASE)
+_MULT_POST_RE = re.compile(rf"(?<![\w.,])({_NUM})[x×](?!\w)", re.IGNORECASE)
+_COUNT_RE = re.compile(rf"(?<![\w.,/-])({_NUM})\s+([^\W\d_][\w'’-]*)")
+_NUMBER_RE = re.compile(_NUM)
+_SCALES = {"": 1.0, "k": 1e3, "m": 1e6, "md": 1e9, "b": 1e9}
+
+# Un entier suivi de l'un de ces mots n'est pas un effectif ou un volume (durées, mois, mots-outils).
+_NON_CLAIM_NOUNS: Set[str] = STOPWORDS | {
+    "an", "ans", "annee", "annees", "mois", "semaine", "semaines", "jour", "jours", "heure", "heures", "h",
+    "minute", "minutes", "min", "seconde", "secondes", "sec", "ms", "s", "year", "years", "month", "months",
+    "week", "weeks", "day", "days", "hour", "hours", "second", "seconds", "ou", "or", "mais", "but", "que", "qui",
+    "janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "septembre", "octobre", "novembre",
+    "decembre",
+}
+
+# Clés qui ne portent pas de fait métier : dates, coordonnées, identifiants.
+_SKIPPED_KEYS = {"start", "end", "start_date", "end_date", "year", "date", "dates", "phone", "email", "url", "id", "_id"}
+_POST_TEXT_KEYS = ("description", "missions", "missions_alt", "achievements", "stack", "technologies", "role", "title")
+
+
+@dataclass(frozen=True)
+class _Metric:
+    raw: str
+    canon: Tuple[str, float]
+    mantissa: float
+    context: str = ""  # mot précédent + nombre (« python 3 ») : sert à écarter un nom de version
+
+
+def _normalize_digits(text: str) -> str:
+    text = re.sub("[\u00a0\u202f\u2009]", " ", text)
+    while True:
+        joined = re.sub(r"(?<=\d) (?=\d{3}(?!\d))", "", text)
+        if joined == text:
+            return text
+        text = joined
+
+
+def _to_float(raw: str) -> float:
+    return round(float(raw.replace(",", ".")), 6)
+
+
+def _extract_metrics(text: str) -> List[_Metric]:
+    """Valeurs chiffrées porteuses d'une affirmation : %, montants, multiplicateurs, effectifs et volumes. Ni années ni durées."""
+    text = _normalize_digits(text)
+    consumed: List[Tuple[int, int]] = []
+    found: List[_Metric] = []
+
+    def free(span: Tuple[int, int]) -> bool:
+        return not any(span[0] < end and start < span[1] for start, end in consumed)
+
+    def add(match: "re.Match[str]", canon: Tuple[str, float], context: str = "") -> None:
+        consumed.append(match.span(1))
+        found.append(_Metric(match.group(0).strip(), canon, _to_float(match.group(1)), context))
+
+    for rx, kind in ((_PCT_RE, "pct"), (_MONEY_RE, "money"), (_SCALED_RE, "scaled"), (_MULT_PRE_RE, "mult"), (_MULT_POST_RE, "mult")):
+        for m in rx.finditer(text):
+            if not free(m.span(1)):
+                continue
+            value = _to_float(m.group(1))
+            if kind == "money":
+                add(m, ("n", value * _SCALES[(m.group(2) or "").lower()]))
+            elif kind == "scaled":
+                add(m, ("n", value * _SCALES[m.group(2).lower()]))
+            else:
+                add(m, (kind, value))
+
+    for m in _COUNT_RE.finditer(text):
+        raw_number, noun = m.group(1), _clean_str(m.group(2)).split(" ")[0]
+        if not free(m.span(1)) or noun in _NON_CLAIM_NOUNS or not noun:
+            continue
+        if re.fullmatch(r"(?:19|20)\d\d", raw_number):
+            continue
+        words = re.findall(r"[\w.+#'’-]+", text[: m.start(1)])
+        # Seul un nom propre en milieu de texte (« Python 3 », « ISO 27001 ») peut être un nom de version
+        context = _clean_str(f"{words[-1]} {raw_number}") if len(words) > 1 and words[-1][:1].isupper() else ""
+        add(m, ("n", _to_float(raw_number)), context)
+    return found
+
+
+def _collect_strings(data: Any) -> List[str]:
+    if isinstance(data, str):
+        return [data] if data.strip() else []
+    if isinstance(data, list):
+        return [s for item in data for s in _collect_strings(item)]
+    if isinstance(data, dict):
+        return [s for k, v in data.items() if k not in _SKIPPED_KEYS for s in _collect_strings(v)]
+    return []
+
+
+@dataclass
+class _ClaimContext:
+    """Ce que le texte d'un poste (ou de tout le profil) permet d'étayer : termes, corpus normalisé, valeurs chiffrées."""
+
+    known: Set[str]
+    corpus: str
+    tokens: Set[str]
+    numbers: Set[float]
+    canons: Set[Tuple[str, float]]
+
+    @classmethod
+    def from_strings(cls, strings: List[str]) -> "_ClaimContext":
+        known: Set[str] = set()
+        for text in strings:
+            known.add(text.strip())
+            known.update(tok for tok in re.findall(r"[\w\.\+#\-]+", text) if len(tok) > 1)
+        joined = " ".join(strings)
+        corpus = _clean_str(joined)
+        return cls(
+            known=known,
+            corpus=corpus,
+            tokens=set(re.findall(r"[\w\.\+#\-]+", corpus)),
+            numbers={_to_float(n) for n in _NUMBER_RE.findall(_normalize_digits(joined))},
+            canons={m.canon for m in _extract_metrics(joined)},
+        )
+
+    def has_metric(self, metric: _Metric) -> bool:
+        return metric.canon in self.canons or metric.mantissa in self.numbers
+
+    def supports(self, skill: str) -> bool:
+        return _is_skill_supported(skill, self.known, self.corpus, self.tokens)
+
+
+def _post_strings(posts: List[Dict[str, Any]]) -> List[str]:
+    return [s for p in posts for key in _POST_TEXT_KEYS for s in _collect_strings(p.get(key))]
+
+
+def _post_label(post: Dict[str, Any]) -> str:
+    return f"{_profile_title(post) or '?'} chez {post.get('company') or post.get('entreprise') or '?'}"
+
+
+def _stack_terms(post: Dict[str, Any]) -> Dict[str, str]:
+    """Technologies déclarées d'un poste : forme normalisée -> forme d'origine."""
+    terms: Dict[str, str] = {}
+    for raw in _collect_strings(post.get("stack")) + _collect_strings(post.get("technologies")):
+        term = _clean_str(raw)
+        if len(term) >= 2 and term not in STOPWORDS and not term.isdigit():
+            terms[term] = raw.strip()
+    return terms
+
+
+def _audit_experience(
+    exp: Any,
+    exp_idx: int,
+    own_posts: List[Dict[str, Any]],
+    other_posts: List[Dict[str, Any]],
+    global_ctx: _ClaimContext,
+    known_skills: Set[str],
+    profile_corpus: str,
+    profile_tokens: Set[str],
+    audit: CVAudit,
+) -> None:
+    """Technologies, puces et métriques d'une expérience contre son poste du profil, puis contre les autres postes."""
+    own = _ClaimContext.from_strings(_post_strings(own_posts))
+    others = [(p, _ClaimContext.from_strings(_post_strings([p]))) for p in other_posts]
+    where = f"'{exp.title}' chez '{exp.company}'"
+
+    for tech_idx, tech in enumerate(exp.relevant_technologies):
+        if own.supports(tech):
+            continue
+        source = next((_post_label(p) for p, ctx in others if ctx.supports(tech)), None)
+        if source:
+            audit.violations.append(Finding(
+                f"Technologie '{tech}' du poste {where} issue d'un autre poste du profil ({source}) : retire-la de ce poste.",
+                "relevant_technologies", exp_idx, item_index=tech_idx,
+            ))
+        elif _is_skill_supported(tech, known_skills, profile_corpus, profile_tokens):
+            audit.unverifiable.append(Finding(
+                f"Technologie '{tech}' du poste {where} absente de ce poste, présente ailleurs dans le profil (compétences, projets, formation).",
+                "relevant_technologies", exp_idx, item_index=tech_idx,
+            ))
+        else:
+            audit.violations.append(Finding(
+                f"Technologie '{tech}' du poste {where} absente du profil candidat vérifié.",
+                "relevant_technologies", exp_idx, item_index=tech_idx,
+            ))
+
+    other_terms = [(p, _stack_terms(p)) for p, _ in others]
+    for bullet_idx, bullet in enumerate(exp.bullet_points):
+        for metric in _extract_metrics(bullet):
+            if metric.context and metric.context in global_ctx.corpus:
+                continue  # « Python 3 », « ISO 27001 » : un nom, pas une mesure
+            if own.has_metric(metric):
+                continue
+            source = next((_post_label(p) for p, ctx in others if ctx.has_metric(metric)), None)
+            if source:
+                audit.violations.append(Finding(
+                    f"Métrique '{metric.raw}' de la puce {bullet_idx + 1} du poste {where} d'un autre poste du profil ({source}) : "
+                    "ne transfère aucune métrique d'un poste à l'autre.",
+                    "bullet_points", exp_idx, item_index=bullet_idx,
+                ))
+            elif global_ctx.has_metric(metric):
+                audit.unverifiable.append(Finding(
+                    f"Métrique '{metric.raw}' de la puce {bullet_idx + 1} du poste {where} absente de ce poste, présente ailleurs dans le profil.",
+                    "bullet_points", exp_idx, item_index=bullet_idx,
+                ))
+            else:
+                audit.violations.append(Finding(
+                    f"Métrique '{metric.raw}' de la puce {bullet_idx + 1} du poste {where} inventée : absente du profil.",
+                    "bullet_points", exp_idx, item_index=bullet_idx,
+                ))
+
+        clean_bullet = _clean_str(bullet)
+        for post, terms in other_terms:
+            leaked = sorted(
+                raw for t, raw in terms.items()
+                if re.search(rf"(?<!\w){re.escape(t)}(?!\w)", clean_bullet)
+                and not re.search(rf"(?<!\w){re.escape(t)}(?!\w)", own.corpus)
+            )
+            if leaked:
+                audit.violations.append(Finding(
+                    f"Puce {bullet_idx + 1} du poste {where} cite {', '.join(leaked)}, technologie(s) d'un autre poste du profil "
+                    f"({_post_label(post)}) : ne transfère aucune technologie d'un poste à l'autre.",
+                    "bullet_points", exp_idx, item_index=bullet_idx,
+                ))
+
+
 def verify_cv_honesty(
     tailored: TailoredCVSchema,
     source_profile: Dict[str, Any],
 ) -> Tuple[bool, List[str]]:
+    """Inventions confirmées seulement : les formulations non vérifiables sont journalisées par audit_cv_claims."""
+    violations = [f.message for f in audit_cv_claims(tailored, source_profile).violations]
+    return not violations, violations
+
+
+def audit_cv_claims(
+    tailored: TailoredCVSchema,
+    source_profile: Dict[str, Any],
+) -> CVAudit:
     """
     Anti-hallucination guardrail for tailored CV generation.
-    Verifies that no invented company, degree, or unsupported skill was injected by the LLM.
+    Verifies that no invented company, degree, skill, metric, technology or certification was injected by the LLM,
+    experience by experience (a metric or technology never transfers from one position to another).
     """
-    violations: List[str] = []
+    audit = CVAudit()
+    violations = audit.violations
 
     # 1. Extraction of known companies
     known_companies: Set[str] = set()
@@ -157,11 +424,13 @@ def verify_cv_honesty(
         if comp:
             known_companies.add(str(comp).strip())
 
-    for exp in tailored.experiences:
+    matched_posts: Dict[int, List[Dict[str, Any]]] = {}
+    for exp_idx, exp in enumerate(tailored.experiences):
         if not _is_fuzzy_match(exp.company, known_companies):
-            violations.append(
-                f"Entreprise '{exp.company}' non trouvée dans les expériences du profil candidat."
-            )
+            violations.append(Finding(
+                f"Entreprise '{exp.company}' non trouvée dans les expériences du profil candidat.",
+                "company", exp_idx,
+            ))
             continue
 
         # Intitulé et dates : chaque entrée doit reprendre un poste du profil chez le même employeur
@@ -176,21 +445,24 @@ def verify_cv_honesty(
         )
         candidates = [p for p in same_employer if not _profile_title(p) or _is_fuzzy_match(exp.title, {_profile_title(p)})]
         if not candidates:
-            violations.append(
+            violations.append(Finding(
                 f"Intitulé '{exp.title}' chez '{exp.company}' absent du profil (postes connus : {known_stints}). "
-                "Reprends l'intitulé et les dates du profil, un poste par entrée, sans supprimer le poste."
-            )
+                "Reprends l'intitulé et les dates du profil, un poste par entrée, sans supprimer le poste.",
+                "title", exp_idx,
+            ))
             continue
+        matched_posts[exp_idx] = candidates
         if not any(
             _dates_agree(exp.start_date, p.get("start") or p.get("start_date"), is_end=False)
             and _dates_agree(exp.end_date, p.get("end") or p.get("end_date"), is_end=True)
             for p in candidates
         ):
-            violations.append(
+            violations.append(Finding(
                 f"Dates {exp.start_date} → {exp.end_date} du poste '{exp.title}' chez '{exp.company}' absentes du profil "
                 f"(postes connus : {known_stints}). "
-                "Reprends l'intitulé et les dates du profil, un poste par entrée, sans supprimer le poste."
-            )
+                "Reprends l'intitulé et les dates du profil, un poste par entrée, sans supprimer le poste.",
+                "dates", exp_idx,
+            ))
 
     # 2. Comprehensive extraction of candidate skills, technologies, missions, and text corpus
     known_skills: Set[str] = set()
@@ -273,12 +545,37 @@ def verify_cv_honesty(
     profile_tokens = set(re.findall(r"[\w\.\+#\-]+", profile_corpus))
 
     # Validate each skill in tailored prioritized skills
-    for group in tailored.prioritized_skills:
-        for skill in group.skills:
+    for group_idx, group in enumerate(tailored.prioritized_skills):
+        for skill_idx, skill in enumerate(group.skills):
             if not _is_skill_supported(skill, known_skills, profile_corpus, profile_tokens):
-                violations.append(
-                    f"Compétence '{skill}' (catégorie '{group.category}') absente du profil candidat vérifié."
-                )
+                violations.append(Finding(
+                    f"Compétence '{skill}' (catégorie '{group.category}') absente du profil candidat vérifié.",
+                    "prioritized_skills", group_index=group_idx, item_index=skill_idx,
+                ))
+
+    # Puces, métriques, technologies : poste par poste
+    global_ctx = _ClaimContext.from_strings(_collect_strings(source_profile))
+    for exp_idx, candidates in matched_posts.items():
+        others = [p for p in source_profile.get("experiences", []) or [] if not any(p is c for c in candidates)]
+        _audit_experience(
+            tailored.experiences[exp_idx], exp_idx, candidates, others, global_ctx, known_skills, profile_corpus,
+            profile_tokens, audit,
+        )
+
+    # Certifications : nom présent dans le profil, ou titre réglementaire déclaré (permis) dans la mobilité
+    known_certs: Set[str] = set()
+    for cert in source_profile.get("certifications", []) or []:
+        name = cert.get("name") if isinstance(cert, dict) else cert
+        if name and isinstance(name, str):
+            known_certs.add(name.strip())
+    if isinstance(contact, dict) and isinstance(contact.get("mobility"), str):
+        known_certs.add(contact["mobility"].strip())
+    for cert_idx, cert in enumerate(tailored.certifications):
+        if not known_certs or not _is_fuzzy_match(cert, known_certs):
+            violations.append(Finding(
+                f"Certification '{cert}' absente du profil candidat vérifié.",
+                "certifications", item_index=cert_idx,
+            ))
 
     # 3. Extraction of education and degrees
     known_schools: Set[str] = set()
@@ -295,9 +592,10 @@ def verify_cv_honesty(
         school_match = _is_fuzzy_match(edu.institution, known_schools)
         degree_match = _is_fuzzy_match(edu.degree, known_degrees)
         if not (school_match or degree_match):
-            violations.append(
-                f"Formation '{edu.degree}' à '{edu.institution}' absente du cursus du profil candidat."
-            )
+            violations.append(Finding(
+                f"Formation '{edu.degree}' à '{edu.institution}' absente du cursus du profil candidat.",
+                "education",
+            ))
 
     # 4. Validation of claimed experience seniority in summary
     if tailored.professional_summary:
@@ -306,9 +604,11 @@ def verify_cv_honesty(
         for match in SENIORITY_CLAIM_RE.finditer(tailored.professional_summary):
             claimed_years = int(match.group(1))
             if claimed_years > int(actual_years):
-                violations.append(
-                    f"Résumé professionnel mentionne {claimed_years} ans d'expérience alors que le profil en totalise {actual_years:.1f} ans."
-                )
+                violations.append(Finding(
+                    f"Résumé professionnel mentionne {claimed_years} ans d'expérience alors que le profil en totalise {actual_years:.1f} ans.",
+                    "professional_summary",
+                ))
 
-    is_valid = len(violations) == 0
-    return is_valid, violations
+    for item in audit.unverifiable:
+        logger.info(f"CV claim not verifiable (kept): {item.message}")
+    return audit

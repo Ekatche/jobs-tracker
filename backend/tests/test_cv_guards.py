@@ -7,13 +7,17 @@ from app.models import (
     TailoredEducationItem,
     TailoredLanguage,
 )
-from app.services.cv_guards import verify_cv_honesty
+from app.services.cv_guards import audit_cv_claims, verify_cv_honesty
+from tests.cv_claims.fixtures import CLAIM_CASES, CLAIMS_PROFILE, build_cv
 
 
 def test_verify_cv_honesty_valid():
     source_profile = {
         "experiences": [
-            {"company": "Deloitte", "title": "Data Scientist", "description": "Consulting"}
+            {
+                "company": "Deloitte", "title": "Data Scientist", "description": "Consulting",
+                "missions": ["Service LLM à haut débit, latence réduite de 35%.", "Encadrement de 3 ingénieurs juniors sur PyTorch."],
+            }
         ],
         "education": [
             {"degree": "Master IA", "school": "Centrale Lyon"}
@@ -357,3 +361,15 @@ def test_verify_cv_honesty_accepts_shortened_title_without_profile_dates():
     profile = {"experiences": [{"company": "Leo Lagrange", "role": "Animatrice Permanente 3-11 ans"}], "skills": ["Animation"]}
     is_valid, violations = verify_cv_honesty(_stint_cv("Animatrice", "2018", "2022"), profile)
     assert is_valid is True, violations
+
+
+@pytest.mark.parametrize("build_args, violations, unverifiable", CLAIM_CASES.values(), ids=list(CLAIM_CASES))
+def test_audit_cv_claims_per_experience(build_args, violations, unverifiable):
+    audit = audit_cv_claims(build_cv(**build_args), CLAIMS_PROFILE)
+
+    messages = [f.message for f in audit.violations]
+    assert len(messages) == len(violations)
+    assert all(any(fragment in m for m in messages) for fragment in violations)
+    assert len(audit.unverifiable) == len(unverifiable)
+    assert all(any(fragment in f.message for f in audit.unverifiable) for fragment in unverifiable)
+    assert verify_cv_honesty(build_cv(**build_args), CLAIMS_PROFILE) == (not messages, messages)
