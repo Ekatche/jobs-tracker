@@ -25,10 +25,15 @@ Modes (depuis ``backend``) :
 
 Coût : chaque appel ``acompletion`` (``cover_letter_crew`` et ``cv_tailor``) est enveloppé ;
 coût = somme des ``price_usd`` par (modèle, tokens). Un modèle sans prix connu refuse le mode
-réel. Estimation par couple (majorant) : voir ``estimate_pair_usd``. Avant chaque couple en
-réel confirmé : ``check_budget("lettres", estimation)``. Après : ``record_call`` seulement
+réel. Estimation par couple (estimation prudente) : voir ``estimate_pair_usd``. Avant chaque couple
+en réel confirmé : ``check_budget("lettres", estimation du couple + coût mesuré des échecs non inscrits
+depuis le début de l'exécution)``. Après : ``record_call`` seulement
 pour une génération complète réussie (la lettre si produite, le CV s'il est produit) ; une
 génération en échec, ``CVHonestyError`` compris, n'inscrit aucun coût.
+
+Le CV du banc est généré sans évaluation Bloc B (``evaluation=None``) : il mesure le chemin du
+complément seul, pas celui de l'application, qui peut y joindre une évaluation. ``rapport.md`` et
+``results.json`` donnent les modèles effectifs par rôle.
 
 Sorties (non versionnées) sous ``scripts/data/letters_bench/<label>/`` : ``results.json``,
 ``rapport.md``, ``feuille_evaluation.csv`` et ``feuille_violations.csv`` (évaluation humaine).
@@ -71,7 +76,7 @@ PRICES_USD_PER_M = {
     "gemini/gemini-3.7-flash": (0.75, 3.75),
     "openai/gpt-6.1-sol": (2.00, 10.00),
 }
-# Majorant d'estimation : 3 caractères par token (le français en fait plutôt 3,5 à 4).
+# Estimation prudente : 3 caractères par token (le français en fait plutôt 3,5 à 4).
 CHARS_PER_TOKEN = 3
 ESTIMATE_OUT_TOKENS = {"analyst": 800, "writer": 1500, "critic": 500, "reviser": 1500, "cv": 2500}
 ESTIMATE_LETTER_CHARS = 2200  # lettre de 320 mots, majorée
@@ -88,7 +93,7 @@ SIMULATION_NOTE = ("mode simulé : prouve que la chaîne tourne (oracle détermi
 SHEET_FIXED = ["profile_id", "offer_id", "metier", "lettre_acceptee", "cv_accepte", "lettre", "cv", "exigences",
                "preuves_exactes", "transferables", "lacunes", "violations", "exigences_avec_preuve"]
 SHEET_FILL = ["inventees_lettre", "mauvais_poste_lettre", "inventees_cv", "mauvais_poste_cv",
-              "exigences_couvertes_lettre", "exigences_couvertes_cv", "affirmations_valides", "naturel_1_5", "notes"]
+              "exigences_avec_preuve_couvertes_lettre", "exigences_avec_preuve_couvertes_cv", "affirmations_valides", "naturel_1_5", "notes"]
 VIOLATION_COLUMNS = ["profile_id", "offer_id", "document", "violation", "faux_rejet"]
 
 
@@ -165,7 +170,7 @@ def _tokens(chars: float) -> int:
 
 def estimate_pair_usd(pair: Dict[str, Any], mods, prompts_dir: Path, with_cv: bool = True,
                       analyst_cached: bool = False) -> float:
-    """Majorant du coût d'un couple. Entrées : taille réelle des prompts et du profil, à 3 caractères
+    """Estimation prudente du coût d'un couple. Entrées : taille réelle des prompts et du profil, à 3 caractères
     par token. Sorties forfaitaires (analyste 800, rédacteur 1 500, critique 500, réviseur 1 500 x 2
     passes, CV 2 500 x 2 essais), au prix du modèle de chaque rôle. Le CV utilise la taille réelle du
     prompt rendu. Les jetons de raisonnement cachés ne sont pas couverts au-delà de ces forfaits."""
@@ -350,7 +355,8 @@ async def _run_letter(pair, mods, inner, prompts_dir, analyst_cache, reuse) -> D
     out.update({"produced": True, "body": res["body"], "words": _word_count(res["body"]),
                 "needs_review": bool(guard["is_blocking"]), "violations": list(guard["violations"]),
                 "violation_codes": [violation_code(v) for v in guard["violations"]],
-                "provider_failures": res.get("provider_failures", []), "revised": res.get("revised", False),
+                "provider_failures": [{**f, "detail": _SECRET.sub("[masqué]", str(f.get("detail") or ""))[:200]}
+                                      for f in res.get("provider_failures", [])], "revised": res.get("revised", False),
                 "critic_verdict": (res.get("critic_verdict") or {}).get("verdict"),
                 "prompt_version": res.get("prompt_version"), "models": res.get("models"),
                 "latency_s": round(time.perf_counter() - started, 3), "cost_usd": calls_cost_usd(calls)})
@@ -401,14 +407,40 @@ def _record_row(row: Dict[str, Any], label: str, prompt_version: Optional[str]) 
     return recorded
 
 
-async def run_bench(pairs, mods, mode: str = "estimate", confirm: bool = False, out_dir: Path = DATA_DIR,
-                    label: Optional[str] = None, prompts_dir: Optional[Path] = None, with_cv: bool = True,
-                    reuse_analyst: bool = False, faults: Optional[Dict[int, str]] = None,
-                    letter_inner: Optional[Callable] = None, cv_inner: Optional[Callable] = None) -> Dict[str, Any]:
+SIM_MODELS = {"analyst": "gemini/gemini-3.8-flash", "critic": "gemini/gemini-3.8-flash",
+              "writer": "openai/gpt-6.1-sol", "reviser": "openai/gpt-6.1-sol"}
+SIM_CV_MODEL = "gemini/gemini-3.7-flash"
+
+
+@contextlib.contextmanager
+def _simulated_env(mods):
+    """Modèles tarifés fixes (lettre via l'environnement, CV via l'attribut lu à l'import) et clés factices :
+    estimations et résultat ne dépendent ni de l'environnement local ni de la CI."""
+    env = {"GEMINI_API_KEY": SIMULATED_KEY, "OPENAI_API_KEY": SIMULATED_KEY}
+    env.update({ROLE_ENV[role][0]: model for role, model in SIM_MODELS.items()})
+    with patch.dict(os.environ, env), patch.object(mods.cv, "DEFAULT_CV_MODEL", SIM_CV_MODEL):
+        yield
+
+
+async def run_bench(pairs, mods, mode: str = "estimate", **kwargs) -> Dict[str, Any]:
     """``mode`` : ``estimate`` | ``simulated`` | ``real``. ``real`` sans ``confirm`` : estimation seule.
-    ``letter_inner`` / ``cv_inner`` : points d'appel injectables (tests) ; sinon oracle (simulé) ou litellm (réel)."""
+    ``letter_inner`` / ``cv_inner`` : points d'appel injectables (tests) ; sinon oracle (simulé) ou litellm (réel).
+    En simulé, les modèles sont figés avant le calcul des estimations."""
     if mode not in ("estimate", "simulated", "real"):
         raise ValueError(f"mode inconnu : {mode!r}")
+    with _simulated_env(mods) if mode == "simulated" else contextlib.nullcontext():
+        return await _run_bench(pairs, mods, mode, **kwargs)
+
+
+def _unrecorded_usd(row: Dict[str, Any]) -> float:
+    """Coût mesuré des générations en échec : dépensé, mais volontairement non inscrit au registre."""
+    return sum(part["cost_usd"] for part in (row["letter"], row["cv"]) if part and not part["produced"])
+
+
+async def _run_bench(pairs, mods, mode, confirm: bool = False, out_dir: Path = DATA_DIR,
+                     label: Optional[str] = None, prompts_dir: Optional[Path] = None, with_cv: bool = True,
+                     reuse_analyst: bool = False, faults: Optional[Dict[int, str]] = None,
+                     letter_inner: Optional[Callable] = None, cv_inner: Optional[Callable] = None) -> Dict[str, Any]:
     prompts_dir = Path(prompts_dir) if prompts_dir else mods.crew.PROMPTS_DIR
     label = label or mode
     out_dir = Path(out_dir)
@@ -426,30 +458,27 @@ async def run_bench(pairs, mods, mode: str = "estimate", confirm: bool = False, 
         raise SystemExit(f"le label {label!r} contient déjà un résultat réel ({run_dir}) : choisir un autre --label")
     faults = DEFAULT_SIM_FAULTS if (faults is None and mode == "simulated") else (faults or {})
     rows: List[Dict[str, Any]] = []
-    env = {"GEMINI_API_KEY": SIMULATED_KEY, "OPENAI_API_KEY": SIMULATED_KEY} if mode == "simulated" else {}
-    with patch.dict(os.environ, env):
-        if mode == "simulated":  # modèles tarifés fixes : le résultat ne dépend pas de l'environnement local
-            for role, (name, _) in ROLE_ENV.items():
-                os.environ[name] = "gemini/gemini-3.8-flash" if role in ("analyst", "critic") else "openai/gpt-6.1-sol"
-        prompt_version = None
-        for index, pair in enumerate(pairs):
-            key = f"{pair['profile_id']}/{pair['offer_id']}"
-            if mode == "real":
-                try:
-                    llm_budget.check_budget(PLAN, estimates[key])
-                except llm_budget.BudgetExceeded:
-                    _write_run(run_dir, mode, label, rows, prompts_dir, partial=True)
-                    raise
-            fault = faults.get(index)
-            l_inner = letter_inner or (make_letter_oracle(pair, fault) if mode == "simulated" else _real_acompletion)
-            c_inner = cv_inner or (make_cv_oracle(pair, fault) if mode == "simulated" else _real_acompletion)
-            row = await run_pair(pair, mods, l_inner, c_inner, prompts_dir, with_cv, cache_path(pair), reuse_analyst)
-            row["pair"] = key
-            row["estimate_usd"] = estimates[key]
-            prompt_version = row["letter"].get("prompt_version") or prompt_version
-            row["recorded_usd"] = _record_row(row, label, prompt_version) if mode == "real" else 0.0
-            rows.append(row)
-    return _write_run(run_dir, mode, label, rows, prompts_dir, prompt_version=prompt_version)
+    prompt_version = None
+    unrecorded = 0.0  # dépensé en échecs depuis le début de l'exécution, absent du registre
+    for index, pair in enumerate(pairs):
+        key = f"{pair['profile_id']}/{pair['offer_id']}"
+        if mode == "real":
+            try:
+                llm_budget.check_budget(PLAN, estimates[key] + unrecorded)
+            except llm_budget.BudgetExceeded:
+                _write_run(run_dir, mode, label, rows, prompts_dir, mods, partial=True)
+                raise
+        fault = faults.get(index)
+        l_inner = letter_inner or (make_letter_oracle(pair, fault) if mode == "simulated" else _real_acompletion)
+        c_inner = cv_inner or (make_cv_oracle(pair, fault) if mode == "simulated" else _real_acompletion)
+        row = await run_pair(pair, mods, l_inner, c_inner, prompts_dir, with_cv, cache_path(pair), reuse_analyst)
+        row["pair"] = key
+        row["estimate_usd"] = estimates[key]
+        prompt_version = row["letter"].get("prompt_version") or prompt_version
+        row["recorded_usd"] = _record_row(row, label, prompt_version) if mode == "real" else 0.0
+        unrecorded += _unrecorded_usd(row)
+        rows.append(row)
+    return _write_run(run_dir, mode, label, rows, prompts_dir, mods, prompt_version=prompt_version)
 
 
 # --------------------------------------------------------------------------- agrégats et feuilles
@@ -512,10 +541,19 @@ def _lines(items, fmt=str) -> str:
     return "\n".join(fmt(i) for i in items)
 
 
+def _cell(value: Any) -> Any:
+    """Neutralise l'injection de formule : une cellule texte qui commence par = + - @ tab ou CR est préfixée d'une apostrophe."""
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
+
+
 def write_sheets(run_dir: Path, rows: List[Dict[str, Any]], reqs_by_key: Dict[str, Dict[str, Any]]) -> None:
     with (run_dir / "feuille_evaluation.csv").open("w", encoding="utf-8", newline="") as f1, \
             (run_dir / "feuille_violations.csv").open("w", encoding="utf-8", newline="") as f2:
-        sheet, viol = csv.writer(f1), csv.writer(f2)
+        sheet_w, viol_w = csv.writer(f1), csv.writer(f2)
+        sheet = SimpleNamespace(writerow=lambda row: sheet_w.writerow([_cell(c) for c in row]))
+        viol = SimpleNamespace(writerow=lambda row: viol_w.writerow([_cell(c) for c in row]))
         sheet.writerow(SHEET_FIXED + SHEET_FILL)
         viol.writerow(VIOLATION_COLUMNS)
         for r in rows:
@@ -539,12 +577,13 @@ def write_sheets(run_dir: Path, rows: List[Dict[str, Any]], reqs_by_key: Dict[st
                     viol.writerow([r["profile_id"], r["offer_id"], doc, v, ""])
 
 
-def _write_run(run_dir: Path, mode: str, label: str, rows, prompts_dir: Path, partial: bool = False,
+def _write_run(run_dir: Path, mode: str, label: str, rows, prompts_dir: Path, mods, partial: bool = False,
                prompt_version: Optional[str] = None) -> Dict[str, Any]:
     run_dir.mkdir(parents=True, exist_ok=True)
     agg = aggregates(rows) if rows else {"global": _aggregate([]), "by_metier": {}}
+    models = {**letter_models(mods), "cv": mods.cv.DEFAULT_CV_MODEL}
     report = {"mode": mode, "label": label, "confirmed": True, "partial": partial, "prompts_dir": str(prompts_dir),
-              "prompt_version": prompt_version, "neutralised": ["recherche entreprise (contexte vide)"],
+              "prompt_version": prompt_version, "models": models, "neutralised": ["recherche entreprise (contexte vide)"],
               "results": rows, "aggregates": agg}
     (run_dir / "results.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str),
                                           encoding="utf-8")
@@ -554,7 +593,8 @@ def _write_run(run_dir: Path, mode: str, label: str, rows, prompts_dir: Path, pa
         "mode réel : mesures automatiques ; l'évaluation humaine reste à faire (feuille_evaluation.csv)"
     (run_dir / "rapport.md").write_text(
         f"# Banc lettres : {label}\n\n- mode : {mode}{' (partiel)' if partial else ''}\n- prompts : {prompts_dir}"
-        f" (version {prompt_version})\n- neutralisé : recherche entreprise (contexte entreprise vide, entrée constante)\n"
+        f" (version {prompt_version})\n- modèles effectifs : {', '.join(f'{r} = {m}' for r, m in models.items())}\n"
+        f"- CV généré sans évaluation Bloc B\n- neutralisé : recherche entreprise (contexte entreprise vide, entrée constante)\n"
         f"- {note}\n\n## Agrégats (dénominateurs explicites)\n\n{render_aggregates(agg)}\n", encoding="utf-8")
     report["summary"] = render_aggregates(agg)
     report["run_dir"] = str(run_dir)
@@ -605,10 +645,11 @@ def _metrics(rows: List[Dict[str, str]], violations: List[Dict[str, str]]) -> Di
         bad = [r for r in rated if (_int(r[inv]) or 0) + (_int(r[wrong]) or 0) > 0]
         m[f"fidelite_{doc}"] = {"documents_avec_affirmation_critique": len(bad),
                                 "documents_acceptes_evalues": len(rated)}
-        cover = [r for r in rows if _int(r[f"exigences_couvertes_{doc}"]) is not None
-                 and (_int(r["exigences_avec_preuve"]) or 0) > 0]
-        m[f"couverture_{doc}"] = {"couvertes": sum(_int(r[f"exigences_couvertes_{doc}"]) for r in cover),
-                                  "exigences_avec_preuve": sum(_int(r["exigences_avec_preuve"]) for r in cover)}
+        col = f"exigences_avec_preuve_couvertes_{doc}"
+        cover = [r for r in rows if _int(r[col]) is not None and (_int(r["exigences_avec_preuve"]) or 0) > 0]
+        m[f"couverture_{doc}"] = {
+            "couvertes": sum(min(_int(r[col]), _int(r["exigences_avec_preuve"])) for r in cover),
+            "exigences_avec_preuve": sum(_int(r["exigences_avec_preuve"]) for r in cover)}
     naturel = [v for v in (_float(r["naturel_1_5"]) for r in rows) if v is not None]
     m["naturel"] = {"moyenne": (sum(naturel) / len(naturel)) if naturel else None, "lettres_notees": len(naturel)}
     judged = [v for v in violations if v["faux_rejet"].strip().lower() in ("oui", "non")]
@@ -645,8 +686,8 @@ def _resolve_run(name: str) -> Path:
 def compare_runs(run_a: str, run_b: str) -> str:
     reports = [json.loads((_resolve_run(r) / "results.json").read_text(encoding="utf-8")) for r in (run_a, run_b)]
     ga, gb = (r["aggregates"]["global"] for r in reports)
-    lines = [f"A = {reports[0]['label']} (prompts {reports[0].get('prompt_version')}) ; "
-             f"B = {reports[1]['label']} (prompts {reports[1].get('prompt_version')})"]
+    lines = [f"{tag} = {r['label']} (prompts {r.get('prompt_version')}, dossier {r.get('prompts_dir')})"
+             for tag, r in zip("AB", reports)]
     for key in ("pairs", "letters_produced", "letters_needs_review", "needs_review_rate", "cv_honesty_errors",
                 "letter_errors", "provider_failures", "mean_words", "mean_letter_latency_s", "measured_cost_usd"):
         a, b = ga[key], gb[key]
@@ -657,12 +698,19 @@ def compare_runs(run_a: str, run_b: str) -> str:
 
 # --------------------------------------------------------------------------- CLI
 
+def _positive_int(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError("doit être un entier >= 1")
+    return value
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--simulated", action="store_true", help="pipeline complet hors réseau, oracle déterministe")
     parser.add_argument("--real", action="store_true", help="appels réels (estimation seule sans --confirm)")
     parser.add_argument("--confirm", action="store_true", help="avec --real : lance réellement les appels, payants")
-    parser.add_argument("--limit", type=int, help="N premiers couples du fichier")
+    parser.add_argument("--limit", type=_positive_int, help="N premiers couples du fichier (entier >= 1)")
     parser.add_argument("--label", help="nom de l'exécution (défaut : le mode)")
     parser.add_argument("--prompts-dir", help="dossier de prompts de lettre (défaut : production)")
     parser.add_argument("--reuse-analyst", action="store_true", help="réutilise la sortie de l'analyste en cache")
@@ -701,13 +749,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         report = asyncio.run(run_bench(pairs, mods, mode=mode, confirm=args.confirm, out_dir=Path(args.out),
                                        label=args.label, prompts_dir=args.prompts_dir, with_cv=with_cv,
                                        reuse_analyst=args.reuse_analyst))
+    except UnknownPriceError as exc:
+        print(f"Estimation impossible : {exc}", file=sys.stderr)
+        return 2
     except llm_budget.BudgetExceeded as exc:
         print(f"Budget lettres refusé, exécution interrompue (résultats partiels écrits) : {exc}", file=sys.stderr)
         return 3
     if not report["confirmed"]:
         for key, usd in report["estimates"].items():
             print(f"  {key} : {usd:.4f} $")
-        print(f"Estimation (majorant, aucun appel) : {report['estimate_usd']:.4f} $ pour {len(pairs)} couples ; "
+        print(f"Estimation (prudente, aucun appel) : {report['estimate_usd']:.4f} $ pour {len(pairs)} couples ; "
               f"part lettres du registre : {llm_budget.PLAN_CAPS_USD[PLAN]:.2f} $. "
               "Ajouter --real --confirm pour lancer les appels réels.")
         return 0
