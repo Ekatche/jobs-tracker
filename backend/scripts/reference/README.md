@@ -154,3 +154,60 @@ par rôle. `--limit` doit être un entier >= 1. Sorties dans `scripts/data/lette
 remplir les colonnes `inventees_*`, `mauvais_poste_*`, `exigences_avec_preuve_couvertes_*` (plafonné à `exigences_avec_preuve` de la ligne), `affirmations_valides`,
 `naturel_1_5` de la première feuille, et `faux_rejet` (oui/non) de la seconde ; `--summarize` en tire fidélité,
 couverture, faux rejets et naturel, avec dénominateurs, global et par métier.
+
+## Simulation avant recalcul
+
+Avant tout `rematch_all_users.py --apply` (décision de l'utilisateur, jamais automatique), on mesure
+l'effet des changements de rattachement de la branche sur l'export privé figé
+(`scripts/data/matching_bench/`, non versionné). Hors réseau : aucun embedding ni LLM, seulement les
+caches `hybrid_cos_cache.json` et `judge_cache.json`. Ne jamais lancer `--confirm`, `--apply` ni
+`rematch_all_users.py` pour cette mesure. `matching_bench.py report` n'est pas utilisé : il réécrit
+`matching_bench_results.json`, versionné.
+
+Méthode. « Avant » = base de fusion, dans un worktree détaché temporaire ; « après » = HEAD :
+
+```bash
+git worktree add --detach <tmp>/before 871c87a        # puis copier l'export et les caches dans <tmp>/before/backend/scripts/data/matching_bench/
+# dans chaque arbre, avec le même interpréteur : sys.path[0] = <arbre>/backend, puis
+#   cos = cached_hybrid_cos_records(export); assessed = hybrid_scores(export, cos)
+#   rattachée = not _is_detached(assessed[offer_id], FLOOR)
+git worktree remove --force <tmp>/before
+```
+
+Sont comparés, par profil : offres rattachées (échantillon plus offres d'interaction, soit les ids de
+`_hybrid_assessment_ids`) avant et après, ajoutées, retirées, répartition par label du juge en cache,
+faux négatifs (offres `relevant` détachées), P@10, P@20, FP@20 du classement hybride, candidatures
+(`applied`) et interactions sous le plancher.
+
+Résultat du 2026-11-09 (base `871c87a`, HEAD `b5d4ef2`), agrégats seulement :
+
+| Mesure | Avant | Après |
+|---|---|---|
+| Profils dans l'export | 1 | 1 |
+| Paires évaluées (profil x offre) | 100 | 100 |
+| Offres rattachées | 52 | 52 |
+| Ajoutées / retirées / inchangées | | 0 / 0 / 52 |
+| Faux négatifs (`relevant` détachées, sur 21) | 1 | 1 |
+| `partial` détachées | 20 | 20 |
+| `irrelevant` rattachées | 2 | 2 |
+| P@10 / P@20 / FP@20 hybride | 0,20 / 0,25 / 0,00 | 0,20 / 0,25 / 0,00 |
+| Candidatures (20) sous le plancher | 2 | 2 |
+| Offres d'interaction (30) sous le plancher | 7 | 7 |
+
+Limites.
+
+- L'export ne contient qu'un profil et 100 paires : l'absence d'effet est observée, pas démontrée. Elle
+  s'explique si le profil n'est pas juridique et n'a pas de rôle à acronyme ; le chemin modifié est
+  actif (`title_matches_roles("Legal Counsel", role_terms(["juriste"]))` passe de faux à vrai), mais
+  l'export ne l'exerce pas. Les ajouts attendus (groupe juridique FR/EN, jetons bruts et développés)
+  restent donc non mesurés en volume réel.
+- Export figé à sa date : le stock d'offres de production a changé depuis. Ce n'est pas un échantillon
+  représentatif de la production.
+- Labels du juge LLM (modèle de repli compris), pas humains ; accord juge/humain limité à la feuille de
+  validation.
+- 4 paires sur 100 ont un vecteur d'offre en cache périmé (texte d'embedding modifié depuis) : elles sont
+  scorées avec `cos=None`, de façon identique avant et après, donc sans effet sur la comparaison, mais les
+  chiffres absolus sont légèrement biaisés tant que `embed --confirm` n'a pas été relancé (dépense, à
+  l'utilisateur).
+- La garde d'interaction (candidature ou interaction conservée sous le plancher) n'est pas simulée sur
+  l'export : `rematch_user` n'y tourne pas. Elle est couverte par `tests/test_offer_profile_matcher.py`.
