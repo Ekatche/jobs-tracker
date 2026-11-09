@@ -306,9 +306,10 @@ class _ClaimContext:
     numbers: Set[float]
     metrics: List[_Metric]
     raw: Tuple[str, ...] = ()
+    stack: Tuple[str, ...] = ()  # entrées de pile / technologies déclarées par le poste
 
     @classmethod
-    def from_strings(cls, strings: List[str]) -> "_ClaimContext":
+    def from_strings(cls, strings: List[str], stack: Tuple[str, ...] = ()) -> "_ClaimContext":
         known: Set[str] = set()
         for text in strings:
             known.add(text.strip())
@@ -324,6 +325,7 @@ class _ClaimContext:
             numbers={_to_float(n) for n in _NUMBER_RE.findall(_normalize_digits(joined))},
             metrics=_extract_metrics(joined),
             raw=tuple(strings),
+            stack=tuple(stack),
         )
 
     def has_metric(self, metric: _Metric) -> bool:
@@ -336,28 +338,70 @@ class _ClaimContext:
 
     def supports(self, skill: str) -> bool:
         clean = _clean_str(skill)
-        if not clean or re.search(rf"(?<!\w){re.escape(clean)}(?!\w)", self.corpus):
+        if not clean:
             return True
-        if len(clean) <= 3:  # « Go » : casse et contexte du texte brut (« 500 Go », « go-live », C# ≠ C++)
-            return any(_short_term_in(skill.strip(), text) for text in self.raw)
+        if len(clean) <= 3:
+            # « Go » : jamais le corpus normalisé (« 500 Go », « go-live », « R&D », C# ≠ C++) ; entrée déclarée ou occurrence brute
+            raw_skill = skill.strip()
+            return raw_skill.lower() in {k.lower() for k in self.known} or any(_short_term_in(raw_skill, t) for t in self.raw)
+        if re.search(rf"(?<!\w){re.escape(clean)}(?!\w)", self.corpus):
+            return True
         # Jamais de sous-chaîne (« data » dans « databricks », « ans » dans « ansible ») : égalité ou quasi-égalité (NodeJS / Node.js)
-        return any(
-            SequenceMatcher(None, clean, c).ratio() >= 0.85 for c in map(_clean_str, self.known) if c
-        )
+        if any(SequenceMatcher(None, clean, c).ratio() >= 0.85 for c in map(_clean_str, self.known) if c):
+            return True
+        # Forme qualifiée d'une entrée de pile du poste (« Apache Kafka » pour Kafka) : inclusion de mots entiers
+        words = set(clean.split())
+        return any(len(c) >= 3 and set(c.split()) <= words for c in map(_clean_str, self.stack) if c)
 
 
 def _significant_tokens(text: str) -> Set[str]:
     return {t for t in _clean_str(text).split() if t not in STOPWORDS and not re.fullmatch(r"(?:19|20)\d\d", t)}
 
 
+# Mots qui qualifient le niveau d'une certification : « Associate » n'est pas « Professional ».
+_LEVEL_WORDS = {
+    "associate", "professional", "expert", "foundation", "foundational", "practitioner", "advanced", "specialty",
+    "master", "senior", "junior",
+}
+_ROMAN_NUMERALS = {"i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"}
+
+
+def _all_tokens(text: str) -> Set[str]:
+    """Jetons normalisés, élisions (« d' », « l' ») écartées."""
+    return set(_clean_str(re.sub(r"\b[dDlL]['’]", " ", text)).split())
+
+
+def _level_safe(a: str, b: str) -> bool:
+    """Deux libellés proches ne diffèrent ni par un nombre, une lettre isolée, un chiffre romain ni un mot de niveau.
+
+    « Permis C » ≠ « Permis B », « cat. 5 » ≠ « cat. 3 », « PSM II » ≠ « PSM I », « Professional » ≠ « Associate ». Les années ne comptent pas.
+    """
+    for tok in _all_tokens(a) ^ _all_tokens(b):
+        if re.fullmatch(r"(?:19|20)\d\d", tok):
+            continue
+        if any(ch.isdigit() for ch in tok) or len(tok) == 1 or tok in _ROMAN_NUMERALS or tok in _LEVEL_WORDS:
+            return False
+    return True
+
+
 def _tokens_overlap(text: str, candidates: Set[str], both_ways: bool = True) -> bool:
     """Les jetons significatifs de l'un sont inclus dans ceux de l'autre (« Certified » ou une année en plus ne comptent pas).
 
     both_ways=False : l'entrée du profil doit couvrir toute la certification (« Kubernetes » ne vaut pas « Certified Kubernetes Administrator »).
+    Un écart de niveau (nombre, lettre, chiffre romain, mot de niveau) invalide l'appariement.
     """
     mine = _significant_tokens(text)
     return bool(mine) and any(
-        theirs and (mine <= theirs or (both_ways and theirs <= mine)) for theirs in map(_significant_tokens, candidates)
+        theirs and (mine <= theirs or (both_ways and theirs <= mine)) and _level_safe(text, cand)
+        for cand, theirs in ((c, _significant_tokens(c)) for c in candidates)
+    )
+
+
+def _cert_matches(cert: str, known_certs: Set[str]) -> bool:
+    """Certification du profil : proximité de libellé ou de jetons, sans écart de niveau."""
+    return any(
+        (_is_fuzzy_match(cert, {known}) and _level_safe(cert, known)) or _tokens_overlap(cert, {known})
+        for known in known_certs
     )
 
 
@@ -381,7 +425,7 @@ def _stack_terms(post: Dict[str, Any]) -> Dict[str, str]:
 
 def _short_term_in(raw: str, bullet: str) -> bool:
     """Terme de pile de 3 caractères ou moins (« Go ») : casse respectée, ni « go-live », « Go/No Go », « R&D » ni « 500 Go »."""
-    for m in re.finditer(rf"(?<![\w/&-]){re.escape(raw)}(?![\w/&-])", bullet):
+    for m in re.finditer(rf"(?<![\w&-]){re.escape(raw)}(?![\w&-])(?!(?i:\s*/\s*no\b))", bullet):
         if not re.search(r"(?:\d|\bno)\s*$", bullet[: m.start()], re.IGNORECASE):
             return True
     return False
@@ -399,8 +443,13 @@ def _audit_experience(
     audit: CVAudit,
 ) -> None:
     """Technologies, puces et métriques d'une expérience contre son poste du profil, puis contre les autres postes."""
-    own = _ClaimContext.from_strings(_post_strings(own_posts))
-    others = [(p, _ClaimContext.from_strings(_post_strings([p]))) for p in other_posts]
+    own_stack = tuple(s for p in own_posts for key in ("stack", "technologies") for s in _collect_strings(p.get(key)))
+    own = _ClaimContext.from_strings(_post_strings(own_posts), own_stack)
+    others = [
+        (p, _ClaimContext.from_strings(
+            _post_strings([p]), tuple(s for key in ("stack", "technologies") for s in _collect_strings(p.get(key)))))
+        for p in other_posts
+    ]
     where = f"'{exp.title}' chez '{exp.company}'"
 
     for tech_idx, tech in enumerate(exp.relevant_technologies):
@@ -453,11 +502,13 @@ def _audit_experience(
             leaked: List[str] = []
             ambiguous: List[str] = []
             for t, raw in terms.items():
-                if re.search(rf"(?<!\w){re.escape(t)}(?!\w)", own.corpus):
-                    continue
                 if len(t) <= 3:
+                    if any(_short_term_in(raw, text) for text in own.raw):
+                        continue
                     hit = _short_term_in(raw, bullet)
                 else:
+                    if re.search(rf"(?<!\w){re.escape(t)}(?!\w)", own.corpus):
+                        continue
                     hit = re.search(rf"(?<!\w){re.escape(t)}(?!\w)", clean_bullet)
                 if hit:
                     (ambiguous if t in _AMBIGUOUS_TERMS else leaked).append(raw)
@@ -657,7 +708,7 @@ def audit_cv_claims(
         elsewhere.extend(_collect_strings(lang) + ([" ".join(_collect_strings(lang))] if isinstance(lang, dict) else []))
     elsewhere.extend(_collect_strings(source_profile.get("skills")))
     for cert_idx, cert in enumerate(tailored.certifications):
-        if (known_certs and _is_fuzzy_match(cert, known_certs)) or _tokens_overlap(cert, known_certs):
+        if _cert_matches(cert, known_certs):
             continue
         if _tokens_overlap(cert, set(elsewhere), both_ways=False):
             audit.unverifiable.append(Finding(
