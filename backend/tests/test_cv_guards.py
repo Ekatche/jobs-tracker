@@ -8,7 +8,7 @@ from app.models import (
     TailoredLanguage,
 )
 from app.services.cv_guards import audit_cv_claims, verify_cv_honesty
-from tests.cv_claims.fixtures import CLAIM_CASES, CLAIMS_PROFILE, build_cv
+from tests.cv_guards.fixtures import CLAIM_CASES, CLAIMS_PROFILE, build_cv
 
 
 def test_verify_cv_honesty_valid():

@@ -195,8 +195,28 @@ _NON_CLAIM_NOUNS: Set[str] = STOPWORDS | {
     "decembre",
 }
 
-# Clés qui ne portent pas de fait métier : dates, coordonnées, identifiants.
-_SKIPPED_KEYS = {"start", "end", "start_date", "end_date", "year", "date", "dates", "phone", "email", "url", "id", "_id"}
+# Clés qui ne portent pas de fait métier : dates, coordonnées, identifiants, charges brutes des sources, valeurs écartées.
+_SKIPPED_KEYS = {
+    "start", "end", "start_date", "end_date", "year", "date", "dates", "phone", "email", "url", "id", "_id", "user_id",
+    "sources", "conflicts", "writing_samples",
+}
+# Termes de pile qui sont aussi des mots courants ou des méthodologies : leur mention dans une puce reste non vérifiable.
+_AMBIGUOUS_TERMS = {"agile", "scrum", "kanban", "lean", "teams", "notion", "excel", "word", "office"}
+
+_NUMBER_WORDS = {
+    **{w: i for i, w in enumerate(
+        "deux trois quatre cinq six sept huit neuf dix onze douze treize quatorze quinze seize dix-sept dix-huit dix-neuf vingt".split(), 2)},
+    **{w: i for i, w in enumerate(
+        "two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split(), 2)},
+}
+_NUMBER_WORDS_RE = re.compile(
+    r"(?<![\w-])(" + "|".join(sorted(map(re.escape, _NUMBER_WORDS), key=len, reverse=True)) + r")(?![\w-])", re.IGNORECASE
+)
+_ENGLISH_THOUSANDS_RE = re.compile(r"(?<![\w.,])\d{1,3}(?:,\d{3})+(?!\d)")
+
+
+def _is_skipped_key(key: Any) -> bool:
+    return key in _SKIPPED_KEYS or (isinstance(key, str) and key.startswith(("_", "excluded_")))
 _POST_TEXT_KEYS = ("description", "missions", "missions_alt", "achievements", "stack", "technologies", "role", "title")
 
 
@@ -206,10 +226,14 @@ class _Metric:
     canon: Tuple[str, float]
     mantissa: float
     context: str = ""  # mot précédent + nombre (« python 3 ») : sert à écarter un nom de version
+    noun: str = ""  # nom suivant un effectif ou un volume (« personnes ») : distingue « 15 personnes » de « 15 magasins »
 
 
 def _normalize_digits(text: str) -> str:
+    """Espaces insécables, nombres de deux à vingt écrits en lettres (FR/EN, jamais « un »), milliers « 1,500 » et « 1 500 »."""
     text = re.sub("[\u00a0\u202f\u2009]", " ", text)
+    text = _NUMBER_WORDS_RE.sub(lambda m: str(_NUMBER_WORDS[m.group(1).lower()]), text)
+    text = _ENGLISH_THOUSANDS_RE.sub(lambda m: m.group(0).replace(",", ""), text)
     while True:
         joined = re.sub(r"(?<=\d) (?=\d{3}(?!\d))", "", text)
         if joined == text:
@@ -230,9 +254,9 @@ def _extract_metrics(text: str) -> List[_Metric]:
     def free(span: Tuple[int, int]) -> bool:
         return not any(span[0] < end and start < span[1] for start, end in consumed)
 
-    def add(match: "re.Match[str]", canon: Tuple[str, float], context: str = "") -> None:
+    def add(match: "re.Match[str]", canon: Tuple[str, float], context: str = "", noun: str = "") -> None:
         consumed.append(match.span(1))
-        found.append(_Metric(match.group(0).strip(), canon, _to_float(match.group(1)), context))
+        found.append(_Metric(match.group(0).strip(), canon, _to_float(match.group(1)), context, noun))
 
     for rx, kind in ((_PCT_RE, "pct"), (_MONEY_RE, "money"), (_SCALED_RE, "scaled"), (_MULT_PRE_RE, "mult"), (_MULT_POST_RE, "mult")):
         for m in rx.finditer(text):
@@ -252,10 +276,10 @@ def _extract_metrics(text: str) -> List[_Metric]:
             continue
         if re.fullmatch(r"(?:19|20)\d\d", raw_number):
             continue
-        words = re.findall(r"[\w.+#'’-]+", text[: m.start(1)])
-        # Seul un nom propre en milieu de texte (« Python 3 », « ISO 27001 ») peut être un nom de version
-        context = _clean_str(f"{words[-1]} {raw_number}") if len(words) > 1 and words[-1][:1].isupper() else ""
-        add(m, ("n", _to_float(raw_number)), context)
+        words = re.findall(r"[\w.+#'’-]+", text[max(0, m.start(1) - 40): m.start(1)])
+        # Seul un mot capitalisé (« Python 3 », « Windows 10 », « ISO 27001 ») peut être un nom de version
+        context = _clean_str(f"{words[-1]} {raw_number}") if words and words[-1][:1].isupper() else ""
+        add(m, ("n", _to_float(raw_number)), context, noun)
     return found
 
 
@@ -265,7 +289,7 @@ def _collect_strings(data: Any) -> List[str]:
     if isinstance(data, list):
         return [s for item in data for s in _collect_strings(item)]
     if isinstance(data, dict):
-        return [s for k, v in data.items() if k not in _SKIPPED_KEYS for s in _collect_strings(v)]
+        return [s for k, v in data.items() if not _is_skipped_key(k) for s in _collect_strings(v)]
     return []
 
 
@@ -277,14 +301,16 @@ class _ClaimContext:
     corpus: str
     tokens: Set[str]
     numbers: Set[float]
-    canons: Set[Tuple[str, float]]
+    metrics: List[_Metric]
 
     @classmethod
     def from_strings(cls, strings: List[str]) -> "_ClaimContext":
         known: Set[str] = set()
         for text in strings:
             known.add(text.strip())
-            known.update(tok for tok in re.findall(r"[\w\.\+#\-]+", text) if len(tok) > 1)
+            known.update(
+                tok for tok in re.findall(r"[\w\.\+#\-]+", text) if len(tok) >= 3 and tok.lower() not in STOPWORDS
+            )
         joined = " ".join(strings)
         corpus = _clean_str(joined)
         return cls(
@@ -292,14 +318,35 @@ class _ClaimContext:
             corpus=corpus,
             tokens=set(re.findall(r"[\w\.\+#\-]+", corpus)),
             numbers={_to_float(n) for n in _NUMBER_RE.findall(_normalize_digits(joined))},
-            canons={m.canon for m in _extract_metrics(joined)},
+            metrics=_extract_metrics(joined),
         )
 
     def has_metric(self, metric: _Metric) -> bool:
-        return metric.canon in self.canons or metric.mantissa in self.numbers
+        """Poste courant et corpus global : valeur identique ou même nombre brut (indulgent)."""
+        return any(m.canon == metric.canon for m in self.metrics) or metric.mantissa in self.numbers
+
+    def has_canon(self, metric: _Metric) -> bool:
+        """Autres postes : même valeur canonique, et même nom pour un effectif (« 15 personnes » n'est pas « 15 magasins »)."""
+        return any(m.canon == metric.canon and m.noun == metric.noun for m in self.metrics)
 
     def supports(self, skill: str) -> bool:
-        return _is_skill_supported(skill, self.known, self.corpus, self.tokens)
+        clean = _clean_str(skill)
+        if not clean or re.search(rf"(?<!\w){re.escape(clean)}(?!\w)", self.corpus):
+            return True
+        # Pas de sous-chaîne pour un terme court (« go » dans « gouvernance ») ni dans le corpus du poste
+        return len(clean) > 3 and _is_skill_supported(skill, self.known, "", self.tokens)
+
+
+def _significant_tokens(text: str) -> Set[str]:
+    return {t for t in _clean_str(text).split() if len(t) >= 2 and t not in STOPWORDS and not re.fullmatch(r"(?:19|20)\d\d", t)}
+
+
+def _tokens_overlap(text: str, candidates: Set[str]) -> bool:
+    """Les jetons significatifs de l'un sont inclus dans ceux de l'autre (« Certified » ou une année en plus ne comptent pas)."""
+    mine = _significant_tokens(text)
+    return bool(mine) and any(
+        theirs and (mine <= theirs or theirs <= mine) for theirs in map(_significant_tokens, candidates)
+    )
 
 
 def _post_strings(posts: List[Dict[str, Any]]) -> List[str]:
@@ -318,6 +365,14 @@ def _stack_terms(post: Dict[str, Any]) -> Dict[str, str]:
         if len(term) >= 2 and term not in STOPWORDS and not term.isdigit():
             terms[term] = raw.strip()
     return terms
+
+
+def _short_term_in(raw: str, bullet: str) -> bool:
+    """Terme de pile de 3 caractères ou moins (« Go ») : casse respectée, ni « go-live » ni « 500 Go »."""
+    for m in re.finditer(rf"(?<![\w-]){re.escape(raw)}(?![\w-])", bullet):
+        if not re.search(r"\d\s*$", bullet[: m.start()]):
+            return True
+    return False
 
 
 def _audit_experience(
@@ -363,7 +418,7 @@ def _audit_experience(
                 continue  # « Python 3 », « ISO 27001 » : un nom, pas une mesure
             if own.has_metric(metric):
                 continue
-            source = next((_post_label(p) for p, ctx in others if ctx.has_metric(metric)), None)
+            source = next((_post_label(p) for p, ctx in others if ctx.has_canon(metric)), None)
             if source:
                 audit.violations.append(Finding(
                     f"Métrique '{metric.raw}' de la puce {bullet_idx + 1} du poste {where} d'un autre poste du profil ({source}) : "
@@ -383,15 +438,26 @@ def _audit_experience(
 
         clean_bullet = _clean_str(bullet)
         for post, terms in other_terms:
-            leaked = sorted(
-                raw for t, raw in terms.items()
-                if re.search(rf"(?<!\w){re.escape(t)}(?!\w)", clean_bullet)
-                and not re.search(rf"(?<!\w){re.escape(t)}(?!\w)", own.corpus)
-            )
+            leaked: List[str] = []
+            ambiguous: List[str] = []
+            for t, raw in terms.items():
+                if re.search(rf"(?<!\w){re.escape(t)}(?!\w)", own.corpus):
+                    continue
+                if len(t) <= 3:
+                    hit = _short_term_in(raw, bullet)
+                else:
+                    hit = re.search(rf"(?<!\w){re.escape(t)}(?!\w)", clean_bullet)
+                if hit:
+                    (ambiguous if t in _AMBIGUOUS_TERMS else leaked).append(raw)
             if leaked:
                 audit.violations.append(Finding(
-                    f"Puce {bullet_idx + 1} du poste {where} cite {', '.join(leaked)}, technologie(s) d'un autre poste du profil "
+                    f"Puce {bullet_idx + 1} du poste {where} cite {', '.join(sorted(leaked))}, technologie(s) d'un autre poste du profil "
                     f"({_post_label(post)}) : ne transfère aucune technologie d'un poste à l'autre.",
+                    "bullet_points", exp_idx, item_index=bullet_idx,
+                ))
+            if ambiguous:
+                audit.unverifiable.append(Finding(
+                    f"Puce {bullet_idx + 1} du poste {where} mentionne {', '.join(sorted(ambiguous))}, terme courant déclaré dans un autre poste.",
                     "bullet_points", exp_idx, item_index=bullet_idx,
                 ))
 
@@ -554,7 +620,7 @@ def audit_cv_claims(
                 ))
 
     # Puces, métriques, technologies : poste par poste
-    global_ctx = _ClaimContext.from_strings(_collect_strings(source_profile))
+    global_ctx = _ClaimContext.from_strings(_collect_strings(source_profile))  # clés écartées par _is_skipped_key
     for exp_idx, candidates in matched_posts.items():
         others = [p for p in source_profile.get("experiences", []) or [] if not any(p is c for c in candidates)]
         _audit_experience(
@@ -562,7 +628,7 @@ def audit_cv_claims(
             profile_tokens, audit,
         )
 
-    # Certifications : nom présent dans le profil, ou titre réglementaire déclaré (permis) dans la mobilité
+    # Certifications : nom du profil (jetons significatifs inclus d'un côté ou de l'autre) ou titre réglementaire (permis)
     known_certs: Set[str] = set()
     for cert in source_profile.get("certifications", []) or []:
         name = cert.get("name") if isinstance(cert, dict) else cert
@@ -570,8 +636,23 @@ def audit_cv_claims(
             known_certs.add(name.strip())
     if isinstance(contact, dict) and isinstance(contact.get("mobility"), str):
         known_certs.add(contact["mobility"].strip())
+    elsewhere: List[str] = []
+    for edu in source_profile.get("education", []) or []:
+        if isinstance(edu, dict):
+            for key in ("degree", "diplome", "title", "intitule"):
+                elsewhere.extend(_collect_strings(edu.get(key)))
+    for lang in source_profile.get("languages", []) or []:
+        elsewhere.extend(_collect_strings(lang) + ([" ".join(_collect_strings(lang))] if isinstance(lang, dict) else []))
+    elsewhere.extend(_collect_strings(source_profile.get("skills")))
     for cert_idx, cert in enumerate(tailored.certifications):
-        if not known_certs or not _is_fuzzy_match(cert, known_certs):
+        if (known_certs and _is_fuzzy_match(cert, known_certs)) or _tokens_overlap(cert, known_certs):
+            continue
+        if _tokens_overlap(cert, set(elsewhere)):
+            audit.unverifiable.append(Finding(
+                f"Certification '{cert}' absente des certifications du profil, présente en formation, langues ou compétences.",
+                "certifications", item_index=cert_idx,
+            ))
+        else:
             violations.append(Finding(
                 f"Certification '{cert}' absente du profil candidat vérifié.",
                 "certifications", item_index=cert_idx,

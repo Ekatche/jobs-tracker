@@ -237,7 +237,9 @@ def drop_unsupported_claims(cv: TailoredCVSchema, findings: List[Finding]) -> Ta
     """
     dropped: Dict[str, Dict[Optional[int], set]] = {}
     for f in findings:
-        logger.warning(f"CV claim dropped ({f.field}): {f.message}")
+        logger.warning(
+            f"CV claim dropped: field={f.field} experience={f.experience_index} group={f.group_index} item={f.item_index} kind=unsupported"
+        )
         key = f.group_index if f.field == "prioritized_skills" else f.experience_index
         dropped.setdefault(f.field, {}).setdefault(key, set()).add(f.item_index)
 

@@ -5,18 +5,21 @@ CLAIMS_PROFILE = {
     "experiences": [
         {
             "company": "Acme", "title": "Data Scientist", "start": "2021-01", "end": "2024-01",
-            "missions": ["Réduction de 30 % du temps de traitement de séries temporelles.", "Suivi d'un budget de 1,5 M€."],
+            "missions": ["Réduction de 30 % du temps de traitement de séries temporelles.", "Suivi d'un budget de 1,5 M€.",
+                         "Développement et maintenance de pipelines de données.", "Migration de 500 Go de données.",
+                         "Encadrement d'une équipe de cinq personnes."],
             "stack": ["Python", "Airflow"],
         },
         {
             "company": "Beta", "title": "Ingénieur Données", "start": "2018-01", "end": "2021-01",
             "missions": ["Pipelines temps réel pour 200 clients.", "Baisse de 40 % des incidents."],
-            "stack": ["Kafka", "Spark"],
+            "stack": ["Kafka", "Spark", "Kubernetes", "Go"],
         },
     ],
     "skills": ["Python", "Airflow", "Kafka", "Spark", "Rust"],
     "projects": [{"name": "Perso", "stack": ["Rust", "Julia"], "description": "Prototype de prévision en Julia."}],
-    "certifications": [{"name": "AWS Solutions Architect"}],
+    "certifications": [{"name": "AWS Certified Solutions Architect – Associate"}],
+    "education": [{"degree": "CACES R489 cat. 3", "school": "Centre de formation"}],
     "contact": {"mobility": "Permis B"},
 }
 
@@ -47,5 +50,10 @@ CLAIM_CASES = {
     "technology_unverifiable": ({"technologies": ["Rust"]}, [], ["Rust"]),
     "ok_bullet_reworded_without_figure": ({"bullets": ["Accélération mesurable du traitement des séries temporelles."]}, [], []),
     "ok_transferable_skill": ({"skills": ["Julia"]}, [], []),
+    "technology_from_other_post_despite_common_words": ({"technologies": ["Kubernetes"]}, ["issue d'un autre poste"], []),
+    "ok_short_stack_term_as_unit_or_compound": ({"bullets": ["Migration de 500 Go de données.", "Préparation du go-live."]}, [], []),
+    "ok_number_written_in_letters": ({"bullets": ["Encadrement de 5 personnes."]}, [], []),
+    "ok_certification_reworded": ({"certifications": ["AWS Solutions Architect Associate (2023)"]}, [], []),
+    "certification_only_in_education": ({"certifications": ["CACES R489 cat. 3"]}, [], ["CACES"]),
     "ok_metric_written_differently": ({"bullets": ["Traitement 30% plus rapide.", "Budget de 1.5 M€ suivi."]}, [], []),
 }
