@@ -447,12 +447,22 @@ async def _call_writer(
     return content
 
 def _critic_candidate_facts(analyst_output: Dict[str, Any]) -> Dict[str, Any]:
-    """Faits compacts transmis au critique : de quoi juger la fidélité, pas le CV entier."""
+    """Faits transmis au critique : tout ce que voit le rédacteur sur le candidat.
+
+    Un fait écrit dans `achievements`, `description`, `sector`, `stacks` ou les
+    compétences est légitime dans la lettre : le critique ne doit pas le juger
+    inventé.
+    """
+    keys = (
+        "company", "title", "role", "start", "end", "start_date", "end_date",
+        "missions", "stack", "achievements", "description", "sector", "stacks",
+    )
     return {
         "experiences": [
-            {k: e[k] for k in ("company", "title", "role", "start", "end", "start_date", "end_date", "missions", "stack") if e.get(k)}
+            {k: e[k] for k in keys if e.get(k)}
             for e in analyst_output.get("selected_experiences", [])
         ],
+        "skills": analyst_output.get("stacks", []),
         "projects": analyst_output.get("selected_projects", []),
         "education": analyst_output.get("selected_education", []),
     }
@@ -498,6 +508,9 @@ async def _call_critic(
                 [f for f in fidelity_flaws if isinstance(f, str) and f.strip()]
                 if isinstance(fidelity_flaws, list) else []
             ),
+            # Clé absente ou invalide : le second appel ne doit pas la lire
+            # comme « aucun défaut ».
+            "fidelity_valid": isinstance(fidelity_flaws, list),
         }
     except Exception as e:
         # Jamais un verdict "pass" implicite sur panne réelle : ça masquerait
@@ -639,7 +652,8 @@ async def run_letter_pipeline_async(
 
         # Seconde passe, bornée aux garde-fous : une seule révision laisse
         # souvent passer « Je serais heureuse » ou une ouverture « Chez X ».
-        # Le critique n'est pas rappelé. Résultat gardé seulement s'il ne
+        # Le critique n'est pas rappelé entre les deux passes (voir le second
+        # appel de fidélité plus bas). Résultat gardé seulement s'il ne
         # dégrade pas le rapport.
         if guard_report.is_blocking:
             second_letter = await _call_reviser(
@@ -674,13 +688,15 @@ async def run_letter_pipeline_async(
             candidate_facts=critic_facts,
             requirement_evidence=critic_evidence,
         )
-        if recheck.get("verdict") == "error":
+        if recheck.get("verdict") == "error" or not recheck.get("fidelity_valid", True):
+            # Panne, ou clé `fidelity_flaws` absente/invalide : jamais un feu vert.
             persistent = list(fidelity_flaws)
-            provider_failures.append({
-                "provider": recheck.get("provider"),
-                "role": recheck.get("role", "critic"),
-                "detail": recheck.get("detail"),
-            })
+            if recheck.get("verdict") == "error":
+                provider_failures.append({
+                    "provider": recheck.get("provider"),
+                    "role": recheck.get("role", "critic"),
+                    "detail": recheck.get("detail"),
+                })
         else:
             persistent = list(recheck.get("fidelity_flaws") or [])
         if persistent:

@@ -6,7 +6,7 @@ ATTRIBUTION_ANALYST = {
         {"company": "DataCorp", "title": "ML engineer", "missions": ["Modèles de scoring, 40% de gain"],
          "stack": ["PyTorch", "Airflow"]},
     ],
-    "selected_projects": [],
+    "selected_projects": [{"name": "Terraform", "description": "Modules d'infrastructure", "stack": ["Terraform"]}],
 }
 
 # (phrase, élément attendu dans la violation ou None)
@@ -15,5 +15,6 @@ ATTRIBUTION_CASES = [
     ("Chez Initech, j'ai déployé des modèles avec PyTorch.", "« PyTorch » rattaché à Initech mais issu de DataCorp"),
     ("Chez Initech, j'ai monté des pipelines Kafka pour une équipe de 12 personnes.", None),
     ("Entre Initech et DataCorp, j'ai utilisé PyTorch et Kafka, avec 40% de gain.", None),
-    ("Depuis 2021, je travaille chez Initech sur des pipelines.", None),
+    # Un nom de projet qui est un terme de pile n'est pas une source.
+    ("J'ai écrit du Terraform pour déployer Kafka.", None),
 ]

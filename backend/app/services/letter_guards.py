@@ -191,51 +191,76 @@ def _check_entities(letter_text: str, offer_description: str, analyst_data: Dict
 def _attribution_sources(analyst_data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     """Postes (clé `company`) et projets (clé `name`) du candidat, regroupés par nom.
 
-    L'entreprise destinataire n'est jamais une source. Deux postes d'un même
-    employeur forment une seule source : citer l'employeur ne dit pas lequel.
+    L'entreprise destinataire n'est jamais une source (égalité, ou nom contenu
+    dans l'autre : « Acme » / « Acme Corp »). Deux postes d'un même employeur
+    forment une seule source (regroupement insensible à la casse, premier
+    libellé gardé). Un nom de projet qui est un terme de pile ou une compétence,
+    ou un mot isolé en minuscules (dépôt « terraform », « dashboard »), n'identifie
+    aucune source : il ne désigne pas un projet dans une phrase.
     """
     target = (analyst_data.get("company_name") or "").strip().casefold()
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
-    for items, key in (
-        (analyst_data.get("selected_experiences") or [], "company"),
-        (analyst_data.get("selected_projects") or [], "name"),
+    groups: Dict[str, List[Any]] = {}  # casefold -> [libellé, items, est un projet]
+    for items, key, is_project in (
+        (analyst_data.get("selected_experiences") or [], "company", False),
+        (analyst_data.get("selected_projects") or [], "name", True),
     ):
         for item in items:
             name = str(item.get(key) or "").strip() if isinstance(item, dict) else ""
-            if name and name.casefold() != target:
-                grouped.setdefault(name, []).append(item)
-    return {
-        name: {
+            folded = name.casefold()
+            if not name or (target and (folded in target or target in folded)):
+                continue
+            group = groups.setdefault(folded, [name, [], is_project])
+            group[1].append(item)
+            group[2] = group[2] and is_project
+    known_tech = {_clean_str(str(t)) for t in analyst_data.get("stacks") or []}
+    for _, items, _ in groups.values():
+        for item in items:
+            known_tech.update(_stack_terms(item))
+    sources: Dict[str, Dict[str, Any]] = {}
+    for label, items, is_project in groups.values():
+        if is_project and (_clean_str(label) in known_tech or re.fullmatch(r"[a-zà-ÿ]+", label)):
+            continue
+        sources[label] = {
+            "project": is_project,
             "context": _ClaimContext.from_strings(
                 [s for item in items for s in _collect_strings(item)],
                 tuple(s for item in items for k in ("stack", "technologies") for s in _collect_strings(item.get(k))),
             ),
             "terms": {t: raw for item in items for t, raw in _stack_terms(item).items()},
         }
-        for name, items in grouped.items()
-    }
+    return sources
 
 
-def _check_attribution(letter_text: str, analyst_data: Dict[str, Any]) -> List[str]:
+def _check_attribution(letter_text: str, analyst_data: Dict[str, Any], offer_description: str = "") -> List[str]:
     """Une phrase qui cite exactement une source ne lui attribue rien qui vienne d'une autre.
 
     Nombre (hors années) ou technologie absents de la source citée et présents
     dans une autre. Une phrase qui cite deux sources ou plus n'est pas
-    contrôlée : elle peut légitimement les relier. Faux rejets possibles quand
-    un fait est vrai de plusieurs postes mais n'est écrit que dans l'un d'eux.
+    contrôlée : elle peut légitimement les relier. Le destinataire n'est pas
+    une citation ; dans une phrase qui le nomme (phrase de transfert), les
+    technologies de l'offre ne sont pas contrôlées, les nombres et les autres
+    technologies le restent. Faux rejets possibles quand un fait est vrai de
+    plusieurs postes mais n'est écrit que dans l'un d'eux.
     """
     sources = _attribution_sources(analyst_data)
     if len(sources) < 2:
         return []
+    target = (analyst_data.get("company_name") or "").strip()
+    offer_clean = _clean_str(offer_description or "")
     violations: List[str] = []
     seen = set()
-    for sentence in re.split(r"(?<=[.!?…])\s+|\n+", letter_text):
+    for sentence in re.split(r"(?<=[.!?…])\s+(?=[A-ZÀ-ÖØ-Þ«\"“])|\n+", letter_text):
         cited = [
-            name for name in sources
-            if re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", sentence, re.IGNORECASE)
+            name for name, data in sources.items()
+            if re.search(
+                r"(?<!\w)" + re.escape(name) + r"(?!\w)", sentence, 0 if data["project"] else re.IGNORECASE
+            )
         ]
         if len(cited) != 1:
             continue
+        transfer = bool(target) and re.search(
+            r"(?<!\w)" + re.escape(target) + r"(?!\w)", sentence, re.IGNORECASE
+        )
         name, own = cited[0], sources[cited[0]]["context"]
         others = [(other, data) for other, data in sources.items() if other != name]
         found: List[tuple] = []  # (élément, source d'origine)
@@ -250,11 +275,13 @@ def _check_attribution(letter_text: str, analyst_data: Dict[str, Any]) -> List[s
             for term, raw in data["terms"].items():
                 if term in _AMBIGUOUS_TERMS:
                     continue
+                pattern = rf"(?<!\w){re.escape(term)}(?!\w)"
+                if transfer and re.search(pattern, offer_clean):
+                    continue
                 if len(term) <= 3:
                     hit = not own.supports(raw) and _short_term_in(raw, sentence)
                 else:
-                    pattern = rf"(?<!\w){re.escape(term)}(?!\w)"
-                    hit = not re.search(pattern, own.corpus) and re.search(pattern, clean_sentence)
+                    hit = not own.supports(raw) and re.search(pattern, clean_sentence)
                 if hit:
                     found.append((raw, other))
         for element, origin in found:
@@ -437,7 +464,7 @@ def evaluate_letter_guards(
 
     # 13b. Attribution par phrase : un fait d'un autre poste ou projet rattaché
     # à l'entreprise ou au projet cité dans la même phrase.
-    violations.extend(_check_attribution(letter_text, analyst_data))
+    violations.extend(_check_attribution(letter_text, analyst_data, offer_description))
 
     # 14. Débuts de paragraphe centrés sur un employeur
     for p in paragraphs:

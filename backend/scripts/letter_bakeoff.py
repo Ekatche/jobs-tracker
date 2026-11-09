@@ -79,7 +79,7 @@ PRICES_USD_PER_M = {
 # Estimation prudente : 3 caractères par token (le français en fait plutôt 3,5 à 4).
 CHARS_PER_TOKEN = 3
 ESTIMATE_CRITIC_CALLS = 2  # majorant : le second appel (fidélité persistante) est rare
-ESTIMATE_OUT_TOKENS = {"analyst": 800, "writer": 1500, "critic": 500, "reviser": 1500, "cv": 2500}
+ESTIMATE_OUT_TOKENS = {"analyst": 1200, "writer": 1500, "critic": 500, "reviser": 1500, "cv": 2500}
 ESTIMATE_LETTER_CHARS = 2200  # lettre de 320 mots, majorée
 ESTIMATE_ANALYSIS_CHARS = 3000  # JSON d'analyse transmis au rédacteur et au réviseur
 ESTIMATE_REVISER_PASSES = 2
@@ -450,7 +450,10 @@ async def _run_bench(pairs, mods, mode, confirm: bool = False, out_dir: Path = D
     label = label or mode
     out_dir = Path(out_dir)
     run_dir = out_dir / label
-    cache_dir = out_dir / "analyst_cache" / ("real" if mode == "real" else "simulated")
+    # La version des prompts est dans le chemin : une analyse mise en cache avec d'autres
+    # prompts (v9) n'est jamais réutilisée sous la version courante.
+    version = str(getattr(mods.crew, "PROMPT_VERSION", "") or "unversioned")
+    cache_dir = out_dir / "analyst_cache" / version / ("real" if mode == "real" else "simulated")
 
     def cache_path(pair):
         return cache_dir / f"{pair['profile_id']}__{pair['offer_id']}.json"
