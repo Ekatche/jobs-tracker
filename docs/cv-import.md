@@ -11,7 +11,7 @@ PDF uniquement. La route ne regarde ni le type MIME ni l'extension du fichier : 
 - Les 3 premières pages (`VLM_MAX_PAGES`) passent par le modèle de vision.
 - Les pages suivantes sont complétées par le LLM texte, à partir de la couche texte du PDF.
 - Si le visuel est indisponible, échoue ou ne renvoie rien, tout le PDF passe par le LLM texte.
-- Garde PDF vierge : si toutes les pages rendues sont unicolores, aucun appel au modèle de vision n'est fait.
+- Garde PDF vierge : si les 3 premières pages (celles envoyées au modèle de vision), rendues à basse résolution, sont toutes unicolores, le PDF est traité comme vierge et aucun appel au modèle de vision n'est fait.
 - Une page scannée au-delà de la page 3 n'est pas couverte : elle n'a pas de couche texte et il n'y a pas d'OCR en production.
 - Pas d'OCR en production.
 

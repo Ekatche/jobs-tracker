@@ -193,18 +193,26 @@ def render_pdf_pages_to_base64_images(
         doc.close()
 
 
-def pdf_pages_all_blank(pdf_path: str, dpi: int = 150) -> bool:
-    """Vrai si toutes les pages du PDF sont unicolores (PDF vierge).
+def pdf_pages_all_blank(pdf_path: str, max_pages: int = VLM_MAX_PAGES, dpi: int = 15) -> bool:
+    """Vrai si les pages envoyées au VLM sont toutes unicolores (PDF vierge).
 
-    Un VLM qui reçoit une page vide invente un profil : on ne l'appelle pas. Illisible ou
-    sans page : faux (le parcours habituel décide).
+    Un VLM qui reçoit une page vide invente un profil : on ne l'appelle pas. Seules les
+    ``max_pages`` premières pages comptent, rendues à basse résolution, et la boucle s'arrête
+    à la première page non vierge. Illisible ou sans page : faux (le parcours habituel décide).
     """
     import fitz  # PyMuPDF
 
     try:
         doc = fitz.open(pdf_path)
         try:
-            return doc.page_count > 0 and all(page.get_pixmap(dpi=dpi).is_unicolor for page in doc)
+            if doc.page_count == 0:
+                return False
+            for i, page in enumerate(doc):
+                if i >= max_pages:
+                    break
+                if not page.get_pixmap(dpi=dpi).is_unicolor:
+                    return False
+            return True
         finally:
             doc.close()
     except Exception:

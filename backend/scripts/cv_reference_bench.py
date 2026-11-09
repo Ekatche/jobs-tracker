@@ -146,7 +146,8 @@ def _truth_payload(truth: Dict[str, Any], keep: Callable[[int, str], bool]) -> D
 
 def _cv_text_of(prompt: str) -> str:
     """Texte du CV dans le prompt texte (entre les balises <cv_text> et </cv_text>)."""
-    start, end = prompt.find("<cv_text>"), prompt.rfind("</cv_text>")
+    # rfind : la consigne mentionne elle-même la balise (« entre les balises <cv_text> »), avant le vrai bloc.
+    start, end = prompt.rfind("<cv_text>"), prompt.rfind("</cv_text>")
     return prompt[start + len("<cv_text>"):end] if 0 <= start < end else prompt
 
 
