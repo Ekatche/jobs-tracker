@@ -10,7 +10,7 @@ from tests.cv_reference.cv_reference_fixtures import (  # noqa: F401  (fixtures 
     _no_network, cases, entry, generated, reference,
 )
 from app.services.cv_parser import DEFAULT_CV_PARSER_MODEL, DEFAULT_VLM_MODEL
-from scripts.cv_reference_bench import (PRICES_USD_PER_M, compute_metrics, estimate_case_usd, make_ocr_stub,
+from scripts.cv_reference_bench import (PRICES_USD_PER_M, _cv_text_of, compute_metrics, estimate_case_usd, make_ocr_stub,
                                         make_oracle, run_bench)
 from tests.cv_reference.fixtures import (INVENTED_EXPERIENCE, INVENTED_ROLE_EXPERIENCE, inventing_oracle,
                                          llm_response, refusing_acompletion)
@@ -107,9 +107,9 @@ def test_price_table_knows_the_default_models():
 @pytest.mark.parametrize("mode, confirm", [("simulated", False), ("real", False)])
 async def test_ledger_untouched_and_no_call_without_confirmation(run, mode, confirm):
     fake = refusing_acompletion()
-    with patch("app.services.cv_parser.acompletion", fake):
-        report = await run(["lg_p04", "oc_p01"], mode=mode, confirm=confirm) if mode == "real" else None
     if mode == "real":
+        with patch("app.services.cv_parser.acompletion", fake):
+            report = await run(["lg_p04", "oc_p01"], mode=mode, confirm=confirm)
         fake.assert_not_called()
         assert report["estimate_usd"] > 0 and report["results"] == []
     else:
@@ -167,6 +167,7 @@ async def test_methods_run_offline_on_a_scanned_case(run, generated, method):
 
     report = await run(["sc_p04"], method=method, oracle_factory=oracle_factory, ocr_factory=ocr_factory)
     r = by_id(report)["sc_p04"]
+    assert _cv_text_of("Consigne CACES R489\n<cv_text>\nTexte du CV\n</cv_text>\n").strip() == "Texte du CV"
     called = {c["kind"] for c in kinds[0]}
     assert r["method"] == report["method"] == method
     assert r["completed"] or r["pages_covered"] == 0.0  # un import en échec compte 0 page couverte, pas « exclu »

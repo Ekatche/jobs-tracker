@@ -145,9 +145,9 @@ def _truth_payload(truth: Dict[str, Any], keep: Callable[[int, str], bool]) -> D
 
 
 def _cv_text_of(prompt: str) -> str:
-    """Texte du CV dans le prompt texte (entre les deux lignes de tirets)."""
-    parts = prompt.split("-----------------")
-    return parts[1] if len(parts) >= 3 else prompt
+    """Texte du CV dans le prompt texte (entre les balises <cv_text> et </cv_text>)."""
+    start, end = prompt.find("<cv_text>"), prompt.rfind("</cv_text>")
+    return prompt[start + len("<cv_text>"):end] if 0 <= start < end else prompt
 
 
 def make_oracle(truth: Dict[str, Any], calls: Optional[List[Dict[str, Any]]] = None):

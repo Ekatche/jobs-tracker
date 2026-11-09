@@ -11,7 +11,11 @@ PDF uniquement. La route ne regarde ni le type MIME ni l'extension du fichier : 
 - Les 3 premières pages (`VLM_MAX_PAGES`) passent par le modèle de vision.
 - Les pages suivantes sont complétées par le LLM texte, à partir de la couche texte du PDF.
 - Si le visuel est indisponible, échoue ou ne renvoie rien, tout le PDF passe par le LLM texte.
+- Garde PDF vierge : si toutes les pages rendues sont unicolores, aucun appel au modèle de vision n'est fait.
+- Une page scannée au-delà de la page 3 n'est pas couverte : elle n'a pas de couche texte et il n'y a pas d'OCR en production.
 - Pas d'OCR en production.
+
+Seules les clés du schéma de profil sont conservées de la sortie du modèle (liste blanche) ; toute autre clé est ignorée.
 
 La réponse porte `import_report` : pages traitées par méthode, pages non couvertes, repli utilisé, erreurs partielles et page de provenance des expériences et formations. Il n'est jamais enregistré dans le profil.
 
@@ -45,7 +49,7 @@ Colonne simulé : « simulé : couverture du pipeline, pas qualité du modèle �
 | Mesure | simulé : couverture du pipeline, pas qualité du modèle | réel |
 |---|---|---|
 | Rappel des expériences | 97 % | 97,3 % |
-| Faits inventés | 0 | 5 avant correctif, 0 après (voir ci-dessous) |
+| Faits inventés | 0 | 5 avant correctif, 0 sur la vérification ciblée (4 cas) (voir ci-dessous) |
 | Pages couvertes | 98 % | 98,1 % |
 | Faux rejets | 0 | 0 |
 | Durée moyenne par CV | 0,08 s | 7,2 s |
