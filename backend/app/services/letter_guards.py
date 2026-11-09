@@ -282,6 +282,8 @@ def _check_attribution(letter_text: str, analyst_data: Dict[str, Any], offer_des
         for metric in _extract_metrics(sentence):
             if own.has_metric(metric):
                 continue
+            if any(sources[m]["context"].has_canon(metric) for m in muted):
+                continue
             origin = next((other for other, data in others if data["context"].has_canon(metric)), None)
             if origin:
                 found.append((metric.raw, origin))
@@ -289,6 +291,8 @@ def _check_attribution(letter_text: str, analyst_data: Dict[str, Any], offer_des
         for other, data in others:
             for term, raw in data["terms"].items():
                 if term in _AMBIGUOUS_TERMS:
+                    continue
+                if any(sources[m]["context"].supports(raw) for m in muted):
                     continue
                 pattern = rf"(?<!\w){re.escape(term)}(?!\w)"
                 if transfer and re.search(pattern, offer_clean):

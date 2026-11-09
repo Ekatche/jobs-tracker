@@ -97,10 +97,14 @@ async def regenerate_cover_letter(
     )
     return {"status": "scheduled"}
 
+class CoverLetterEdit(BaseModel):
+    body: str
+
+
 @cover_letters_router.patch("/applications/{application_id}/cover-letter")
 async def edit_cover_letter(
     application_id: str,
-    body_data: dict = Body(...),
+    body_data: CoverLetterEdit,
     db=Depends(get_database),
     current_user: UserModel = Depends(get_current_user),
 ):
@@ -111,7 +115,7 @@ async def edit_cover_letter(
         raise HTTPException(status_code=403, detail="Accès non autorisé")
 
     new_version_num = len(letter.get("versions", [])) + 1
-    body = body_data.get("body", "")
+    body = body_data.body
     new_version = {
         "n": new_version_num,
         "body": body,
@@ -133,6 +137,20 @@ async def edit_cover_letter(
         report = evaluate_letter_guards(
             body, app_doc.get("description") or "", guard_context.get("analyst_data") or {}
         )
+        # Corps inchangé (à espaces près) : rien n'a été corrigé, les violations
+        # « Fidélité : » de la version courante restent et le rapport est bloquant.
+        current = next(
+            (v for v in letter.get("versions", []) if v.get("n") == letter.get("current_version")), {}
+        )
+        if " ".join(body.split()) == " ".join((current.get("body") or "").split()):
+            carried = [
+                v for v in (current.get("guard_report") or {}).get("violations", [])
+                if v.startswith("Fidélité :") and v not in report.violations
+            ]
+            if carried:
+                report = report.model_copy(
+                    update={"violations": report.violations + carried, "is_blocking": True}
+                )
         new_version["guard_report"] = report.model_dump()
         update_set["status"] = "needs_review" if report.is_blocking else "ready"
 

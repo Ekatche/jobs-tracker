@@ -47,7 +47,7 @@ CLAIM_CASES = {
     "metric_invented": ({"bullets": ["Réduction de 70 % des coûts."]}, ["inventée"], []),
     "technology_from_other_post": ({"technologies": ["Kafka"]}, ["issue d'un autre poste"], []),
     "technology_in_bullet_from_other_post": ({"bullets": ["Orchestration de flux avec Kafka."]}, ["Kafka"], []),
-    "certification_invented": ({"certifications": ["Google Cloud Professional"]}, ["Certification"], []),
+    "certification_invented": ({"certifications": ["Google Cloud Data Engineer"]}, ["Certification"], []),
     "technology_unverifiable": ({"technologies": ["Rust"]}, [], ["Rust"]),
     "ok_bullet_reworded_without_figure": ({"bullets": ["Accélération mesurable du traitement des séries temporelles."]}, [], []),
     "ok_transferable_skill": ({"skills": ["Julia"]}, [], []),

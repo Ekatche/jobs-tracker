@@ -525,7 +525,7 @@ def _audit_experience(
                         continue
                     hit = _short_term_in(raw, bullet)
                 else:
-                    if re.search(rf"(?<!\w){re.escape(t)}(?!\w)", own.corpus):
+                    if own.supports(raw):
                         continue
                     hit = re.search(rf"(?<!\w){re.escape(t)}(?!\w)", clean_bullet)
                 if hit:
