@@ -58,6 +58,7 @@ MODEL_COST_PER_1K_TOKENS: Dict[str, Dict[str, float]] = {
     "gpt-5.6-luna": {"input": 0.002, "output": 0.006},
     "gpt-5.6-sol": {"input": 0.003, "output": 0.012},
     "gpt-6.1-sol": {"input": 0.002, "output": 0.010},  # doc OpenAI, 2026-09-30
+    "gpt-5.6-terra": {"input": 0.002, "output": 0.012},  # platform.openai.com/docs/models/gpt-5.6-terra, 2026-11-09
     "gpt-5-nano": {"input": 0.0005, "output": 0.0015},
     "gpt-4o": {"input": 0.0025, "output": 0.010},
     "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},

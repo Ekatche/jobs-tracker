@@ -70,11 +70,13 @@ DATA_DIR = Path(__file__).resolve().parent / "data" / "letters_bench"
 SIMULATED_KEY = "dummy-simulated-key"
 # Prix en $ par million de tokens (entrée, sortie). Modèle absent : refus du mode réel.
 # Source : MODEL_COST_PER_1K_TOKENS de app/services/usage_tracker.py (x1000 ; gemini Standard tier vérifié
-# le 2026-09-16, valable jusqu'au 31/12/2026, puis 1,50 / 7,50 ; gpt-6.1-sol d'après la doc OpenAI du 2026-09-30).
+# le 2026-09-16, valable jusqu'au 31/12/2026, puis 1,50 / 7,50 ; gpt-6.1-sol d'après la doc OpenAI du 2026-09-30 ;
+# gpt-5.6-terra d'après platform.openai.com/docs/models/gpt-5.6-terra, 2026-11-09).
 PRICES_USD_PER_M = {
     "gemini/gemini-3.8-flash": (0.75, 3.75),
     "gemini/gemini-3.7-flash": (0.75, 3.75),
     "openai/gpt-6.1-sol": (2.00, 10.00),
+    "openai/gpt-5.6-terra": (2.00, 12.00),
 }
 # Estimation prudente : 3 caractères par token (le français en fait plutôt 3,5 à 4).
 CHARS_PER_TOKEN = 3
