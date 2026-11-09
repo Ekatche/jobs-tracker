@@ -34,7 +34,7 @@ Un import en échec n'enregistre ni coût ni source, sauf un profil dérivé inv
 
 Banc : `backend/scripts/cv_reference_bench.py --method vlm|text|ocr`, sur 29 PDF synthétiques (57 pages, 10 catégories). Les colonnes « simulé » viennent d'un oracle parfait par construction : elles mesurent la couverture du pipeline (pages, repli, complément), pas la qualité d'un modèle. Elles ne sont pas des mesures réelles. L'OCR simulé reconstruit le texte de chaque page depuis la vérité du cas (une page sans élément de vérité reste vide dans le stub).
 
-Les colonnes réelles se remplissent avec `--real --confirm` (registre `llm_budget`, part `parser` de 0,25 $). Estimations avant appel : vlm 0,0347 $ (29 cas), text 0,0334 $ (29 cas), ocr 0,0502 $ (10 cas).
+Les colonnes réelles se remplissent avec `--real --confirm` (registre `llm_budget`, part `parser` de 0,25 $). Estimations avant appel : vlm 0,0347 $ (29 cas), text 0,0334 $ (29 cas), ocr 0,0502 $ (10 cas). Mesures réelles du 8 au 9 novembre 2026 : vlm 0,0322 $, text 0,0129 $, ocr 0,0437 $, plus 0,0037 $ pour la vérification ciblée après correctif. Ces mesures portent sur un jeu synthétique, une seule passe par cas, et ne valent pas pour des CV réels.
 
 Périmètre de l'OCR par défaut : catégories `scanned`, `mixed_scanned` et `two_columns` (10 cas, 19 pages). Ailleurs la couche texte est propre et l'OCR coûterait sans rien apporter.
 
@@ -44,36 +44,40 @@ Colonne simulé : « simulé : couverture du pipeline, pas qualité du modèle �
 
 | Mesure | simulé : couverture du pipeline, pas qualité du modèle | réel |
 |---|---|---|
-| Rappel des expériences | 97 % | à mesurer (contrôleur, `--real --confirm`) |
-| Faits inventés | 0 | à mesurer (contrôleur, `--real --confirm`) |
-| Pages couvertes | 98 % | à mesurer (contrôleur, `--real --confirm`) |
-| Faux rejets | 0 | à mesurer (contrôleur, `--real --confirm`) |
-| Durée moyenne par CV | 0,08 s | à mesurer (contrôleur, `--real --confirm`) |
-| Coût moyen par CV | 0,0008 $ (jetons de l'oracle simulé) | à mesurer (contrôleur, `--real --confirm`) |
+| Rappel des expériences | 97 % | 97,3 % |
+| Faits inventés | 0 | 5 avant correctif, 0 après (voir ci-dessous) |
+| Pages couvertes | 98 % | 98,1 % |
+| Faux rejets | 0 | 0 |
+| Durée moyenne par CV | 0,08 s | 7,2 s |
+| Coût moyen par CV | 0,0008 $ (jetons de l'oracle simulé) | 0,0011 $ |
 
 Catégorie `long`, pages 4 et suivantes : 6 faits critiques sur 6 retrouvés par le complément texte, 0 perdu (simulé).
+
+Les 5 faits inventés de la mesure complète venaient de 2 cas. Sur le PDF vierge, le VLM inventait 3 entreprises. Sur un CV français, il traduisait 2 intitulés en anglais. Depuis le correctif (`fix(cv-parser): skip the VLM on blank PDFs…`), un PDF dont toutes les pages rendues sont unicolores n'est plus envoyé au VLM, et le prompt demande de recopier les libellés sans les traduire. Vérification réelle ciblée après correctif, sur ces 2 cas et sur les 2 scans : 0 fait inventé, rappel inchangé, PDF vierge rejeté comme vide sans coût.
 
 ### text (29 cas)
 
 | Mesure | simulé : couverture du pipeline, pas qualité du modèle | réel |
 |---|---|---|
-| Rappel des expériences | 85 % (les 3 scans n'ont pas de couche texte) | à mesurer (contrôleur, `--real --confirm`) |
-| Faits inventés | 0 | à mesurer (contrôleur, `--real --confirm`) |
-| Pages couvertes | 84 % | à mesurer (contrôleur, `--real --confirm`) |
-| Faux rejets | 3 (les scans) | à mesurer (contrôleur, `--real --confirm`) |
-| Durée moyenne par CV | 0,01 s | à mesurer (contrôleur, `--real --confirm`) |
-| Coût moyen par CV | 0,0003 $ (jetons de l'oracle simulé) | à mesurer (contrôleur, `--real --confirm`) |
+| Rappel des expériences | 85 % (les 3 scans n'ont pas de couche texte) | 84,9 % |
+| Faits inventés | 0 | 0 |
+| Pages couvertes | 84 % | 83,7 % |
+| Faux rejets | 3 (les scans) | 3 (les scans, en « analyse visuelle indisponible ») |
+| Durée moyenne par CV | 0,01 s | 8,2 s |
+| Coût moyen par CV | 0,0003 $ (jetons de l'oracle simulé) | 0,00045 $ |
+
+Avant le correctif, le PDF vierge levait lui aussi « analyse visuelle indisponible » au lieu d'être rejeté comme vide. Vérification réelle après correctif : rejeté comme vide, sans coût.
 
 ### ocr (10 cas)
 
 | Mesure | simulé : couverture du pipeline, pas qualité du modèle | réel |
 |---|---|---|
-| Rappel des expériences | 100 % | à mesurer (contrôleur, `--real --confirm`) |
-| Faits inventés | 0 | à mesurer (contrôleur, `--real --confirm`) |
-| Pages couvertes | 97,5 % | à mesurer (contrôleur, `--real --confirm`) |
-| Faux rejets | 0 | à mesurer (contrôleur, `--real --confirm`) |
-| Durée moyenne par CV | 0,005 s | à mesurer (contrôleur, `--real --confirm`) |
-| Coût moyen par CV | 0,0042 $ (jetons de l'oracle simulé, OCR compris) | à mesurer (contrôleur, `--real --confirm`) |
+| Rappel des expériences | 100 % | 100 % |
+| Faits inventés | 0 | 0 |
+| Pages couvertes | 97,5 % | 100 % |
+| Faux rejets | 0 | 0 |
+| Durée moyenne par CV | 0,005 s | 10,9 s |
+| Coût moyen par CV | 0,0042 $ (jetons de l'oracle simulé, OCR compris) | 0,0044 $ (OCR compris) |
 
 Le jeu simulé de l'OCR ne couvre que 10 cas : ses moyennes ne se comparent pas telles quelles à celles des deux autres méthodes.
 
