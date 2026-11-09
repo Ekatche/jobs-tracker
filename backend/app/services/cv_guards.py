@@ -192,7 +192,7 @@ _NON_CLAIM_NOUNS: Set[str] = STOPWORDS | {
     "minute", "minutes", "min", "seconde", "secondes", "sec", "ms", "s", "year", "years", "month", "months",
     "week", "weeks", "day", "days", "hour", "hours", "second", "seconds", "ou", "or", "mais", "but", "que", "qui",
     "janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "septembre", "octobre", "novembre",
-    "decembre",
+    "decembre", "new",
 }
 
 # Clés qui ne portent pas de fait métier : dates, coordonnées, identifiants, charges brutes des sources, valeurs écartées.
@@ -210,9 +210,12 @@ _NUMBER_WORDS = {
         "two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split(), 2)},
 }
 _NUMBER_WORDS_RE = re.compile(
-    r"(?<![\w-])(" + "|".join(sorted(map(re.escape, _NUMBER_WORDS), key=len, reverse=True)) + r")(?![\w-])", re.IGNORECASE
+    r"(?<![\w-])(" + "|".join(sorted(map(re.escape, _NUMBER_WORDS), key=len, reverse=True)) + r")(?![\w-])"
+    r"(?!\s+(?:mille|cents?|millions?|milliards?|hundred|thousand|million|billion)(?![\w-]))",
+    re.IGNORECASE,
 )
-_ENGLISH_THOUSANDS_RE = re.compile(r"(?<![\w.,])\d{1,3}(?:,\d{3})+(?!\d)")
+# « 1,500 » est un millier anglais, pas « 0,125 » (décimale française) ni « 1,500 % »
+_ENGLISH_THOUSANDS_RE = re.compile(r"(?<![\w.,])(?!0,)[1-9]\d{0,2}(?:,\d{3})+(?!\d)(?!,\d)(?!\s*%)")
 
 
 def _is_skipped_key(key: Any) -> bool:
@@ -302,6 +305,7 @@ class _ClaimContext:
     tokens: Set[str]
     numbers: Set[float]
     metrics: List[_Metric]
+    raw: Tuple[str, ...] = ()
 
     @classmethod
     def from_strings(cls, strings: List[str]) -> "_ClaimContext":
@@ -319,6 +323,7 @@ class _ClaimContext:
             tokens=set(re.findall(r"[\w\.\+#\-]+", corpus)),
             numbers={_to_float(n) for n in _NUMBER_RE.findall(_normalize_digits(joined))},
             metrics=_extract_metrics(joined),
+            raw=tuple(strings),
         )
 
     def has_metric(self, metric: _Metric) -> bool:
@@ -333,19 +338,26 @@ class _ClaimContext:
         clean = _clean_str(skill)
         if not clean or re.search(rf"(?<!\w){re.escape(clean)}(?!\w)", self.corpus):
             return True
-        # Pas de sous-chaîne pour un terme court (« go » dans « gouvernance ») ni dans le corpus du poste
-        return len(clean) > 3 and _is_skill_supported(skill, self.known, "", self.tokens)
+        if len(clean) <= 3:  # « Go » : casse et contexte du texte brut (« 500 Go », « go-live », C# ≠ C++)
+            return any(_short_term_in(skill.strip(), text) for text in self.raw)
+        # Jamais de sous-chaîne (« data » dans « databricks », « ans » dans « ansible ») : égalité ou quasi-égalité (NodeJS / Node.js)
+        return any(
+            SequenceMatcher(None, clean, c).ratio() >= 0.85 for c in map(_clean_str, self.known) if c
+        )
 
 
 def _significant_tokens(text: str) -> Set[str]:
-    return {t for t in _clean_str(text).split() if len(t) >= 2 and t not in STOPWORDS and not re.fullmatch(r"(?:19|20)\d\d", t)}
+    return {t for t in _clean_str(text).split() if t not in STOPWORDS and not re.fullmatch(r"(?:19|20)\d\d", t)}
 
 
-def _tokens_overlap(text: str, candidates: Set[str]) -> bool:
-    """Les jetons significatifs de l'un sont inclus dans ceux de l'autre (« Certified » ou une année en plus ne comptent pas)."""
+def _tokens_overlap(text: str, candidates: Set[str], both_ways: bool = True) -> bool:
+    """Les jetons significatifs de l'un sont inclus dans ceux de l'autre (« Certified » ou une année en plus ne comptent pas).
+
+    both_ways=False : l'entrée du profil doit couvrir toute la certification (« Kubernetes » ne vaut pas « Certified Kubernetes Administrator »).
+    """
     mine = _significant_tokens(text)
     return bool(mine) and any(
-        theirs and (mine <= theirs or theirs <= mine) for theirs in map(_significant_tokens, candidates)
+        theirs and (mine <= theirs or (both_ways and theirs <= mine)) for theirs in map(_significant_tokens, candidates)
     )
 
 
@@ -368,9 +380,9 @@ def _stack_terms(post: Dict[str, Any]) -> Dict[str, str]:
 
 
 def _short_term_in(raw: str, bullet: str) -> bool:
-    """Terme de pile de 3 caractères ou moins (« Go ») : casse respectée, ni « go-live » ni « 500 Go »."""
-    for m in re.finditer(rf"(?<![\w-]){re.escape(raw)}(?![\w-])", bullet):
-        if not re.search(r"\d\s*$", bullet[: m.start()]):
+    """Terme de pile de 3 caractères ou moins (« Go ») : casse respectée, ni « go-live », « Go/No Go », « R&D » ni « 500 Go »."""
+    for m in re.finditer(rf"(?<![\w/&-]){re.escape(raw)}(?![\w/&-])", bullet):
+        if not re.search(r"(?:\d|\bno)\s*$", bullet[: m.start()], re.IGNORECASE):
             return True
     return False
 
@@ -414,8 +426,8 @@ def _audit_experience(
     other_terms = [(p, _stack_terms(p)) for p, _ in others]
     for bullet_idx, bullet in enumerate(exp.bullet_points):
         for metric in _extract_metrics(bullet):
-            if metric.context and metric.context in global_ctx.corpus:
-                continue  # « Python 3 », « ISO 27001 » : un nom, pas une mesure
+            if metric.context and metric.context in global_ctx.corpus and not any(ctx.has_canon(metric) for _, ctx in others):
+                continue  # « Python 3 », « ISO 27001 » : un nom, pas une mesure (sauf valeur qui vient d'un autre poste)
             if own.has_metric(metric):
                 continue
             source = next((_post_label(p) for p, ctx in others if ctx.has_canon(metric)), None)
@@ -647,7 +659,7 @@ def audit_cv_claims(
     for cert_idx, cert in enumerate(tailored.certifications):
         if (known_certs and _is_fuzzy_match(cert, known_certs)) or _tokens_overlap(cert, known_certs):
             continue
-        if _tokens_overlap(cert, set(elsewhere)):
+        if _tokens_overlap(cert, set(elsewhere), both_ways=False):
             audit.unverifiable.append(Finding(
                 f"Certification '{cert}' absente des certifications du profil, présente en formation, langues ou compétences.",
                 "certifications", item_index=cert_idx,
