@@ -193,8 +193,8 @@ def render_pdf_pages_to_base64_images(
         doc.close()
 
 
-def pdf_pages_all_blank(pdf_path: str, max_pages: int = VLM_MAX_PAGES, dpi: int = 150) -> bool:
-    """Vrai si toutes les pages envoyées au VLM sont unicolores (PDF vierge).
+def pdf_pages_all_blank(pdf_path: str, dpi: int = 150) -> bool:
+    """Vrai si toutes les pages du PDF sont unicolores (PDF vierge).
 
     Un VLM qui reçoit une page vide invente un profil : on ne l'appelle pas. Illisible ou
     sans page : faux (le parcours habituel décide).
@@ -204,8 +204,7 @@ def pdf_pages_all_blank(pdf_path: str, max_pages: int = VLM_MAX_PAGES, dpi: int 
     try:
         doc = fitz.open(pdf_path)
         try:
-            pages = [page for i, page in enumerate(doc) if i < max_pages]
-            return bool(pages) and all(page.get_pixmap(dpi=dpi).is_unicolor for page in pages)
+            return doc.page_count > 0 and all(page.get_pixmap(dpi=dpi).is_unicolor for page in doc)
         finally:
             doc.close()
     except Exception:
@@ -237,6 +236,10 @@ def _flatten_contact_value(v: Any) -> Optional[str]:
         return " · ".join(parts) if parts else None
     s = str(v).strip()
     return s if s else None
+
+
+# Clés de profil qu'une sortie du modèle peut fournir (schéma + `languages`/`interests` des prompts).
+CV_OUTPUT_KEYS = frozenset(PROFILE_JSON_SCHEMA["properties"]) | {"languages", "interests"}
 
 
 def _clean_parsed_cv(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -282,8 +285,9 @@ def _clean_parsed_cv(data: Dict[str, Any]) -> Dict[str, Any]:
     else:
         data.pop("skills", None)
 
-    # Clés internes (`_usage`, `_import_report`) : ajoutées par le serveur, jamais reprises du LLM.
-    for key in [k for k in data if isinstance(k, str) and k.startswith("_")]:
+    # Liste blanche : toute autre clé (`writing_style`, `preferences`, `_usage`…) est retirée. Les clés
+    # internes sont ajoutées par le serveur après ce nettoyage, jamais reprises du LLM.
+    for key in [k for k in data if k not in CV_OUTPUT_KEYS]:
         del data[key]
 
     return data
@@ -478,7 +482,7 @@ Consignes importantes :
     return cleaned
 
 
-_CV_TAG_RE = re.compile(r"</?\s*cv_text\s*>", re.IGNORECASE)
+_CV_TAG_RE = re.compile(r"<\s*/?\s*cv_text\b[^>]*>", re.IGNORECASE)
 
 
 async def _parse_cv_text(cv_text: str, model: str) -> Dict[str, Any]:
