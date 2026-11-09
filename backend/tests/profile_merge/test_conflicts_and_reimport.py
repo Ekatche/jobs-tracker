@@ -63,27 +63,29 @@ def test_distinct_positions_are_never_merged(cv_exp, other_source, other_exp):
 
 
 @pytest.mark.parametrize(
-    "label, manual_start, cv_start, manual_has_helios",
+    "label, manual_start, cv_start, manual_has_helios, end",
     [
-        ("Orion Data SAS", "2022-03", "2022-03", False),
-        ("Orion-Data", "2022-03", "2022-03", False),
-        ("Orion Data Systems", "2022-03", "2022-03", False),
+        ("Orion Data SAS", "2022-03", "2022-03", False, "2024-06"),
+        ("Orion-Data", "2022-03", "2022-03", False, "2024-06"),
+        ("Orion Data Systems", "2022-03", "2022-03", False, "2024-06"),
         # La correction manual décale le début de 4 mois, à cheval sur deux années.
-        ("Orion Data SAS", "2022-04", "2021-12", False),
+        ("Orion Data SAS", "2022-04", "2021-12", False, "2024-06"),
         # Instantané manual complet : il contient aussi Helios, qui ne doit pas être dupliqué.
-        ("Orion Data SAS", "2022-03", "2022-03", True),
+        ("Orion Data SAS", "2022-03", "2022-03", True, "2024-06"),
+        # Poste en cours : la correction manual décale le début de 4 mois dans la même année.
+        ("Orion Data SAS", "2022-05", "2022-01", False, None),
     ],
 )
 def test_manual_correction_survives_reimport_with_different_employer_label(
-    label, manual_start, cv_start, manual_has_helios
+    label, manual_start, cv_start, manual_has_helios, end
 ):
     cv_v2 = {
         "experiences": [
-            experience(label, "Data Engineer", cv_start, "2024-06"),
+            experience(label, "Data Engineer", cv_start, end),
             experience("Helios Conseil", "Analyste", "2020-01", "2021-12"),
         ]
     }
-    manual_exps = [experience("Orion Data", "Lead Data Engineer", manual_start, "2024-06")]
+    manual_exps = [experience("Orion Data", "Lead Data Engineer", manual_start, end)]
     if manual_has_helios:
         manual_exps.append(experience("Helios Conseil", "Analyste", "2020-01", "2021-12"))
     manual = {"experiences": manual_exps}

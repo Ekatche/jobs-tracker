@@ -199,7 +199,7 @@ def test_compute_metrics_exact_values_with_cos(ref, export):
     assert set(metrics["per_profile"]) == {"p01", "p02"}
     assert metrics["per_profile"]["p01"]["n_labels"] == 2 and metrics["per_profile"]["p01"]["n_relevant"] == 1
     assert set(p01) == {"p@5", "ndcg@10", "preference_violations@5", "recall", "false_negatives"}
-    assert metrics["offer_sources"]["synthetic"]["n_relevant"] == 1
+    assert metrics["offer_sources"]["synthetic"] == {"n_relevant": 1, "recall": 1.0}
     assert metrics["aggregate"]["n_profiles"] == 2
 
 

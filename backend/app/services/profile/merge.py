@@ -218,7 +218,8 @@ def _same_position_dates(
     Oui si les débuts sont à 2 mois au plus l'un de l'autre, ou si les deux fins sont
     connues, à 2 mois au plus l'une de l'autre, et que les périodes se chevauchent d'au
     moins 2 mois. Une fin absente ne prouve rien (promotion dont l'ancien poste a perdu
-    sa fin) : seule la règle des débuts joue. Un seul mois commun est la transition
+    sa fin) : les débuts doivent alors tomber la même année (poste en cours dont le début
+    a été corrigé). Un seul mois commun est la transition
     d'une promotion, pas un même poste. Une année seule, sans mois, est
     trop imprécise pour mesurer un écart : on compare alors les années.
     """
@@ -228,7 +229,7 @@ def _same_position_dates(
     if abs(a0 - b0) <= _MAX_START_GAP_MONTHS:
         return True
     if not end_a or not end_b:
-        return False
+        return start_a[:4] == start_b[:4]
     a1, b1 = _month_index(end_a, end=True), _month_index(end_b, end=True)
     if abs(a1 - b1) > _MAX_START_GAP_MONTHS:
         return False
