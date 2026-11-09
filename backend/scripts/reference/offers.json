@@ -1941,29 +1941,6 @@
     "url": "https://example.com/offres/o087"
   },
   {
-    "offer_id": "o088",
-    "poste": "Chargé de mission ressources en eau",
-    "entreprise": "Agence de Bassin Sud",
-    "localisation": "Marseille",
-    "type_contrat": "CDD",
-    "mode_travail": "Présentiel",
-    "description": "L'Agence de Bassin Sud recrute un chargé de mission pour la gestion des ressources en eau.\nVous suivez la qualité des eaux souterraines et superficielles du bassin.\nMissions : réaliser des campagnes de prélèvement et analyser les résultats.\nInstruire les dossiers de financement de travaux.\nRédiger les bilans annuels pour les collectivités.\nProfil : bac+5 en hydrologie ou environnement, permis B, déplacements fréquents.",
-    "competences_cles": [
-      "hydrologie",
-      "analyse de l'eau",
-      "environnement",
-      "instruction de dossiers"
-    ],
-    "seniority_level": "mid",
-    "sector": "public_education",
-    "company_size": "pme",
-    "canonical_title": "chargé de mission eau",
-    "created_at": "2026-11-03T11:00:00Z",
-    "source": "indeed",
-    "url": "https://example.com/offres/o088",
-    "piege_filtre_metier": true
-  },
-  {
     "offer_id": "o089",
     "poste": "Commercial B2B SaaS",
     "entreprise": "Datasell",

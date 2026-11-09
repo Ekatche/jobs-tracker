@@ -166,26 +166,3 @@ def validate_reference(ref) -> list[str]:
     _check_labels(ref["matching_labels"], errors)
     _check_facts(ref["cv_facts"], errors)
     return errors
-
-
-def coverage_report(ref) -> dict:
-    """Comptages du jeu (aucun seuil asserté ici). Suppose un jeu déjà validé."""
-    per_profile = Counter(r["profile_id"] for r in ref["matching_labels"])
-    subgroups = {
-        key: dict(Counter(p["subgroup"][key] for p in ref["profiles"]))
-        for key in ("metier", "niveau", "langue", "reconversion")
-    }
-    return {
-        "profiles": len(ref["profiles"]),
-        "offers": len(ref["offers"]),
-        "labels": len(ref["matching_labels"]),
-        "labels_per_profile_min": min(
-            (per_profile.get(p["profile_id"], 0) for p in ref["profiles"]), default=0
-        ),
-        "labels_by_value": dict(Counter(r["label"] for r in ref["matching_labels"])),
-        "subgroups": subgroups,
-        "profiles_with_fact_page_ge_4": len(
-            {f["profile_id"] for f in ref["cv_facts"] if f["page"] >= 4}
-        ),
-        "letter_requirements": len(ref["letter_requirements"]),
-    }

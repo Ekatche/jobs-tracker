@@ -238,7 +238,7 @@ def _isolated_llm_budget_ledger(tmp_path, monkeypatch):
     """Aucun test n'écrit dans le vrai registre `scripts/data/llm_budget.jsonl`."""
     from scripts import llm_budget
 
-    monkeypatch.setattr(llm_budget, "LEDGER_PATH", tmp_path / "llm_budget.jsonl")
+    monkeypatch.setattr(llm_budget, "LEDGER_PATH", tmp_path / "data" / "llm_budget.jsonl")
 
 
 _LLM_ENTRYPOINTS = ("acompletion", "completion", "aembedding", "embedding")

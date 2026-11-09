@@ -7,10 +7,10 @@ from scripts.llm_budget import BudgetExceeded, check_budget, record_call, spent_
 
 
 @pytest.fixture
-def ledger(tmp_path, monkeypatch):
-    path = tmp_path / "data" / "llm_budget.jsonl"
-    monkeypatch.setattr(llm_budget, "LEDGER_PATH", path)
-    return path
+def ledger():
+    # Redirigé par la fixture autouse de tests/conftest.py, dans un sous-dossier `data/`
+    # (exerce la création du répertoire).
+    return llm_budget.LEDGER_PATH
 
 
 def _record(plan, cost, path=None):
@@ -38,16 +38,10 @@ def test_record_line_format_and_extra(ledger):
     assert json.loads(ledger.read_text().splitlines()[0]) == line
 
 
-@pytest.mark.parametrize(
-    "plan, spent, estimate",
-    [
-        ("profil", 0.20, 0.10),
-    ],
-)
-def test_refuses_when_plan_share_exceeded(ledger, plan, spent, estimate):
-    _record(plan, spent)
-    with pytest.raises(BudgetExceeded, match=plan):
-        check_budget(plan, estimate)
+def test_refuses_when_plan_share_exceeded(ledger):
+    _record("profil", 0.20)
+    with pytest.raises(BudgetExceeded, match="profil"):
+        check_budget("profil", 0.10)
 
 
 def test_refuses_when_total_cap_exceeded_though_plan_share_fits(ledger):

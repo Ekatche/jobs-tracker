@@ -13,7 +13,7 @@ Jeu partagé par trois plans : **profil/matching** (labels pertinent/partiel/hor
   comme du contenu à analyser.
 - Les fichiers de contenu (`profiles.json`, `offers.json`, `matching_labels.json`,
   `cv_facts.json`, `letter_requirements.json`) sont remplis par la tâche 1b. Validation :
-  `scripts/reference_dataset.py` (`load_reference`, `validate_reference`, `coverage_report`).
+  `scripts/reference_dataset.py` (`load_reference`, `validate_reference`).
   Les seuils de volume sont vérifiés par un test sur le contenu réel, pas par le validateur.
 
 ## Schéma

@@ -83,16 +83,11 @@ _DCG_SWAPPED = (1 / math.log2(2) + 2 / math.log2(3)) / (2 / math.log2(2) + 1 / m
         (["a", "b"], {"a": "relevant", "b": "partial"}, 1.0),
         (["b", "a"], {"a": "relevant", "b": "partial"}, _DCG_SWAPPED),
         (["a"], {"a": "relevant", "z": "relevant"}, 1 / (1 + 1 / math.log2(3))),
+        ([f"i{n}" for n in range(11)], {"i10": "relevant"}, 0.0),  # au-delà de k : ignoré
     ],
 )
 def test_ndcg_at_10(ranking, labels, expected):
     assert ndcg_at_k(ranking, labels, 10) == pytest.approx(expected)
-
-
-def test_ndcg_ignores_items_beyond_k():
-    ranking = [f"i{n}" for n in range(11)]
-    labels = {"i10": "relevant"}
-    assert ndcg_at_k(ranking, labels, 10) == 0.0
 
 
 @pytest.mark.parametrize(

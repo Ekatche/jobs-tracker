@@ -396,9 +396,8 @@
   {
     "profile_id": "p04",
     "offer_id": "o042",
-    "label": "partiel",
-    "preference_violee": true,
-    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil développeur backend senior : logiciel embarqué C++ : métier différent du backend (temps réel, RTOS, bus CAN, aérospatial), recoupement faible limité au génie logiciel général ; préférence déclarée violée : ville Toulouse hors des villes visées (Lyon, Paris)"
+    "label": "hors_sujet",
+    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil développeur backend senior : logiciel embarqué C++ : métier différent du backend (temps réel, RTOS, bus CAN, aérospatial), recoupement faible limité au génie logiciel général"
   },
   {
     "profile_id": "p04",
@@ -624,9 +623,8 @@
   {
     "profile_id": "p06",
     "offer_id": "o042",
-    "label": "partiel",
-    "preference_violee": true,
-    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil devops confirme : logiciel embarqué C++ : métier différent du devops (temps réel, RTOS, bus CAN, aérospatial), recoupement faible limité au développement logiciel ; préférence déclarée violée : ville Toulouse hors des villes visées (Paris)"
+    "label": "hors_sujet",
+    "motif": "Ingénieur logiciel embarqué C++ (Toulouse, CDI, Présentiel, niveau mid) face à un profil devops confirme : logiciel embarqué C++ : métier différent du devops (temps réel, RTOS, bus CAN, aérospatial), recoupement faible limité au développement logiciel"
   },
   {
     "profile_id": "p06",

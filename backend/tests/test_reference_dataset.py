@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.reference_dataset import coverage_report, load_reference, validate_reference
+from scripts.reference_dataset import load_reference, validate_reference
 
 MINI = Path(__file__).parent / "fixtures" / "reference_mini"
 
@@ -124,15 +124,3 @@ def test_valid_mini_dataset_has_no_error_and_tolerates_optional_field(ref):
     assert validate_reference(ref) == []
     ref["offers"][0]["piege_filtre_metier"] = True
     assert validate_reference(ref) == []
-
-
-def test_coverage_report_on_mini_dataset(ref):
-    report = coverage_report(ref)
-    assert report["profiles"] == 2
-    assert report["offers"] == 2
-    assert report["labels"] == 3
-    assert report["labels_per_profile_min"] == 1
-    assert report["labels_by_value"] == {"pertinent": 1, "partiel": 1, "hors_sujet": 1}
-    assert report["profiles_with_fact_page_ge_4"] == 1
-    assert report["letter_requirements"] == 1
-    assert report["subgroups"]["niveau"] == {"junior": 1, "senior": 1}

@@ -14,7 +14,6 @@ from app.services.evaluation.offer_fit import SENIORITY_ORDER
 from app.services.offer_scoring.assess import KNOWN_WORK_MODES
 from app.services.profile.merge import build_profile_from_sources
 from scripts.reference_dataset import (
-    coverage_report,
     load_reference,
     validate_reference,
 )
@@ -106,7 +105,7 @@ def test_volume_subgroup_and_source_thresholds():
     facts_by_profile = Counter(f["profile_id"] for f in REF["cv_facts"])
     for pid in PROFILE_IDS:
         assert facts_by_profile[pid] >= 5, pid
-    assert coverage_report(REF)["profiles_with_fact_page_ge_4"] >= 3
+    assert len({f["profile_id"] for f in REF["cv_facts"] if f["page"] >= 4}) >= 3
     critical = {"experiences.company", "experiences.role", "experiences.dates", "education.degree"}
     for f in REF["cv_facts"]:
         if f["champ"] in critical:
