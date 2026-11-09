@@ -21,32 +21,32 @@ Ce plan possède le **jeu synthétique commun** et le **registre de budget** uti
 
 ## Tâche 1 — Jeu commun, registre et erreurs de fusion
 
-- [ ] Fixer le jeu commun avant de le remplir. Emplacement : `backend/scripts/reference/`, versionné car entièrement synthétique (aucune donnée réelle, aucun PDF binaire : les PDF sont générés par le plan parseur). Fichiers et schéma minimal :
+- [x] Fixer le jeu commun avant de le remplir. Emplacement : `backend/scripts/reference/`, versionné car entièrement synthétique (aucune donnée réelle, aucun PDF binaire : les PDF sont générés par le plan parseur). Fichiers et schéma minimal :
   - `profiles.json` : `profile_id`, sources par nom (`cv`, `manual`…), sous-groupe (métier, niveau, langue, reconversion) ;
   - `offers.json` : `offer_id`, champs au format des offres stockées ;
   - `matching_labels.json` : `profile_id`, `offer_id`, `label` (`pertinent`, `partiel`, `hors_sujet`), motif ;
   - `cv_facts.json` (parseur) : `profile_id`, fait attendu, page, critique ou non ;
   - `letter_requirements.json` (lettres) : `profile_id`, `offer_id`, exigences, preuves exactes, éléments transférables, lacunes.
   Documenter le schéma et les critères pertinent, partiel et hors sujet dans `backend/scripts/reference/README.md`.
-- [ ] Constituer le contenu : juniors, reconversions, rôles voisins, français/anglais, offres rejetées par le filtre métier ; au moins 15 offres annotées par profil, une même offre pouvant servir à plusieurs profils.
-- [ ] Créer le registre `backend/scripts/data/llm_budget.jsonl` (non versionné) : une ligne par appel réel (date, plan, script, modèle, coût estimé ou facturé). Fournir une fonction commune sous `backend/scripts/` qui refuse un appel si la part du plan serait dépassée ; les trois plans l'utilisent avant tout appel réel.
-- [ ] Étendre `backend/scripts/matching_bench.py` pour lire le jeu commun via un adaptateur vers le format de `load_export` ; réutiliser ses caches et son mode sans `--confirm`. Les labels annotés remplacent le juge LLM sur ce jeu. `export_matching_bench.py` reste une option séparée pour des données réelles : export en lecture seule, fichiers privés dans `backend/scripts/data/`, jamais versionnés ; ne pas le considérer comme anonymisé par défaut.
-- [ ] Mesurer précision@5, nDCG@10, rappel sur les exemples annotés, faux négatifs, respect des préférences et résultats par métier et source.
-- [ ] Ajouter dans `backend/tests/test_profile_merge.py` des cas de dates et employeurs conflictuels, expérience distincte et correction manuelle suivie d'un réimport avec libellé différent ; éviter doublon et perte de correction sans fusionner deux postes distincts. Depuis `backend`, exécuter `uv run pytest tests/test_profile_merge.py -v`.
+- [x] Constituer le contenu : juniors, reconversions, rôles voisins, français/anglais, offres rejetées par le filtre métier ; au moins 15 offres annotées par profil, une même offre pouvant servir à plusieurs profils.
+- [x] Créer le registre `backend/scripts/data/llm_budget.jsonl` (non versionné) : une ligne par appel réel (date, plan, script, modèle, coût estimé ou facturé). Fournir une fonction commune sous `backend/scripts/` qui refuse un appel si la part du plan serait dépassée ; les trois plans l'utilisent avant tout appel réel.
+- [x] Étendre `backend/scripts/matching_bench.py` pour lire le jeu commun via un adaptateur vers le format de `load_export` ; réutiliser ses caches et son mode sans `--confirm`. Les labels annotés remplacent le juge LLM sur ce jeu. `export_matching_bench.py` reste une option séparée pour des données réelles : export en lecture seule, fichiers privés dans `backend/scripts/data/`, jamais versionnés ; ne pas le considérer comme anonymisé par défaut.
+- [x] Mesurer précision@5, nDCG@10, rappel sur les exemples annotés, faux négatifs, respect des préférences et résultats par métier et source.
+- [x] Ajouter dans `backend/tests/test_profile_merge.py` des cas de dates et employeurs conflictuels, expérience distincte et correction manuelle suivie d'un réimport avec libellé différent ; éviter doublon et perte de correction sans fusionner deux postes distincts. Depuis `backend`, exécuter `uv run pytest tests/test_profile_merge.py -v`.
 
 ## Tâche 2 — Provenance et préférences
 
-- [ ] Partir du contrat existant de provenance et de résolution des conflits ; identifier les limites de granularité pour compétences déclarées, projets, formations et expériences avant toute migration.
-- [ ] Tester qu'une compétence issue d'un projet ne devient pas automatiquement une expérience professionnelle et qu'une préférence explicite survit à une fusion. Adapter fusion et contexte uniquement lorsque les tests révèlent un défaut.
-- [ ] Depuis `backend`, exécuter `uv run pytest tests/test_profile_merge.py -v` et les tests de contexte concernés ; contrôler que les anciens profils restent lisibles.
+- [x] Partir du contrat existant de provenance et de résolution des conflits ; identifier les limites de granularité pour compétences déclarées, projets, formations et expériences avant toute migration.
+- [x] Tester qu'une compétence issue d'un projet ne devient pas automatiquement une expérience professionnelle et qu'une préférence explicite survit à une fusion. Adapter fusion et contexte uniquement lorsque les tests révèlent un défaut.
+- [x] Depuis `backend`, exécuter `uv run pytest tests/test_profile_merge.py -v` et les tests de contexte concernés ; contrôler que les anciens profils restent lisibles.
 
 ## Tâche 3 — Calibrage et explications
 
-- [ ] Rejouer le benchmark avec `backend/app/services/offer_scoring/` et relever les erreurs par sous-groupe avant de proposer des seuils ou poids ; examiner en priorité `COS_FLOOR` et `COS_CEIL`, et vérifier sur quelles données leur calibrage a été établi.
-- [ ] Pour chaque règle modifiée, ajouter une régression métier dans `backend/tests/test_offer_scoring_assess.py` ou `test_offer_scoring_role_gate.py` ; vérifier aussi contrat, géographie et inconnues. Depuis `backend`, exécuter `uv run pytest tests/test_offer_scoring_assess.py tests/test_offer_scoring_role_gate.py -v`.
-- [ ] Étudier le contrat API et l'interface avant d'exposer raisons du score, préférences insatisfaites et données manquantes ; tester que chaque raison reflète effectivement le calcul.
+- [x] Rejouer le benchmark avec `backend/app/services/offer_scoring/` et relever les erreurs par sous-groupe avant de proposer des seuils ou poids ; examiner en priorité `COS_FLOOR` et `COS_CEIL`, et vérifier sur quelles données leur calibrage a été établi.
+- [x] Pour chaque règle modifiée, ajouter une régression métier dans `backend/tests/test_offer_scoring_assess.py` ou `test_offer_scoring_role_gate.py` ; vérifier aussi contrat, géographie et inconnues. Depuis `backend`, exécuter `uv run pytest tests/test_offer_scoring_assess.py tests/test_offer_scoring_role_gate.py -v`.
+- [x] Étudier le contrat API et l'interface avant d'exposer raisons du score, préférences insatisfaites et données manquantes ; tester que chaque raison reflète effectivement le calcul.
 
 ## Tâche 4 — Simulation avant recalcul
 
-- [ ] Utiliser l'export privé figé pour comparer avant/après en environnement isolé ; adapter si nécessaire le banc au format de l'export. `rematch_all_users.py` opère sur la base configurée, pas sur cet export : sans option il estime seulement, `--confirm` effectue une simulation sans écriture mais peut appeler les embeddings ; ne jamais utiliser `--apply` pour cette mesure.
-- [ ] Tester l'invariant dans `backend/tests/test_offer_profile_matcher.py` : candidatures et interactions existantes conservées après rattachement et recalcul. Depuis `backend`, exécuter `uv run pytest tests/test_offer_profile_matcher.py -v`. Documenter ajouts, retraits, faux négatifs et limites avant tout recalcul réel.
+- [x] Utiliser l'export privé figé pour comparer avant/après en environnement isolé ; adapter si nécessaire le banc au format de l'export. `rematch_all_users.py` opère sur la base configurée, pas sur cet export : sans option il estime seulement, `--confirm` effectue une simulation sans écriture mais peut appeler les embeddings ; ne jamais utiliser `--apply` pour cette mesure.
+- [x] Tester l'invariant dans `backend/tests/test_offer_profile_matcher.py` : candidatures et interactions existantes conservées après rattachement et recalcul. Depuis `backend`, exécuter `uv run pytest tests/test_offer_profile_matcher.py -v`. Documenter ajouts, retraits, faux négatifs et limites avant tout recalcul réel.

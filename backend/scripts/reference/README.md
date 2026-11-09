@@ -220,3 +220,27 @@ Limites.
   avec `cos=None` par le banc mais ignorée par `rematch_user`.
 - La garde d'interaction (candidature ou interaction conservée sous le plancher) n'est pas simulée sur
   l'export : `rematch_user` n'y tourne pas. Elle est couverte par `tests/test_offer_profile_matcher.py`.
+
+## Banc de matching : résultats et décisions
+
+Mesure sur ce jeu synthétique (22 profils, 389 labels, 2 574 paires évaluées, embeddings `mistral-embed` en cache, `FLOOR` 35), à la date du jeu 2026-11-08 ; chiffres de `scripts/reference_bench_results.json`. Les résultats ont été calculés avant le reclassement de 2 labels (p04/o042 et p06/o042 en `hors_sujet`) : effet négligeable, non régénérés.
+
+| Mesure | Hybride | Chronologique | Cible du plan |
+|---|---|---|---|
+| p@5 | 0,727 | 0,218 | 0,80 |
+| nDCG@10 | 0,951 | 0,465 | sans seuil |
+| Rappel | 0,863 | | 0,90 |
+| Violations de préférence @5 | 0,68 | 0,86 | |
+
+- **Faux négatifs : 13** sur 94 offres pertinentes, 11 écartées par la garde métier (`role`) et 2 sous le plancher (`below_floor`, un seul profil sans rôle visé). Profils les plus faibles en rappel : p13 chef de projet (0,25), p12 (0,60). Source la plus faible : cadremploi (0,43, 7 pertinentes).
+- **Définition de p@5** : toutes les offres annotées du profil sont classées, offres détachées comprises, placées en fin de liste. 5 profils sur 22 ont moins de 5 offres rattachées : leur top 5 inclut alors des offres détachées, que la production masque, ce qui pèse sur p@5. La métrique n'a pas été changée. Le plafond de p@5 est aussi abaissé par construction : un profil à 4 offres pertinentes ne dépasse pas 0,80.
+- **Sous-groupes** : les 14 sous-groupes métier sont tous sous le seuil de 20 exemples pertinents, ainsi que senior (16) et reconversion (18) : aucune conclusion par sous-groupe, aucune régression mesurable.
+- **`COS_FLOOR` 0,73 / `COS_CEIL` 0,83 inchangés** : calibrés sur un seul profil réel. Sur le jeu, 1 % des pertinentes sont sous le plancher et 1 % des hors sujet au-dessus du plafond, loin du seuil d'alerte de 25 % ; 22 % des pertinentes saturent au-dessus du plafond (perte de résolution, pas d'erreur de classement). Jeu écrit par nous : à recalibrer dès qu'un deuxième profil réel existe.
+- **Garde métier corrigée** : union des jetons bruts et développés (acronymes comme SRE) et groupe juridique FR/EN (juriste, legal, counsel, lawyer ; sans avocat, droit ni les adjectifs juridique/juridiques, qui rattachaient « Conseiller Commercial Protection Juridique »). Le retrait des adjectifs fait perdre o099 (« Assistant Juridique ») au profil p20 : un piège visible au top 5 coûte plus qu'un rappel manqué. Collision connue : « Legal Entity Controller/Accountant » passent pour un rôle juriste.
+- **Rôles voisins non élargis** (10 des 11 faux négatifs `role`, par exemple data scientist face à ML engineer, comptable face à contrôleur de gestion) : élargir sur nos propres labels serait du surapprentissage et ouvrirait des faux positifs.
+
+Décisions en attente de l'utilisateur, avant `rematch_all_users.py --apply` :
+
+1. Cibles 80 % / 90 % non atteintes (rappel 0,863 notamment) : élargir ou non les rôles voisins.
+2. Fusion d'expériences : « Orion » et « Orion Capital » aux mêmes dates fusionnent (`profile/merge.py`) ; une promotion dans la même année avec l'ancien poste sans fin est fusionnée à tort. Cas rares, corrigeables à la main.
+3. L'export privé ne contient qu'un profil : l'effet réel de la garde métier en production n'est pas mesuré (cf. « Simulation avant recalcul »).
