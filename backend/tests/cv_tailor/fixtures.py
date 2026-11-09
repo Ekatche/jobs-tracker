@@ -1,3 +1,5 @@
+import copy
+
 from app.models import (
     TailoredCVSchema,
     TailoredExperienceItem,
@@ -142,3 +144,23 @@ def _exp(company, start, end, n_bullets, relevance=None, bullets=None):
         relevant_technologies=["Tech"],
         relevance=relevance,
     )
+
+
+def _variant(experience_updates=None, extra_experience=None) -> dict:
+    payload = copy.deepcopy(VALID_LLM_OUTPUT)
+    payload["experiences"][0].update(experience_updates or {})
+    if extra_experience:
+        payload["experiences"].append(extra_experience)
+    return payload
+
+
+# Un élément inventé par catégorie atomique (technologie, puce chiffrée) au milieu d'éléments vérifiés.
+UNSUPPORTED_ATOMIC_OUTPUT = _variant({
+    "bullet_points": [*VALID_LLM_OUTPUT["experiences"][0]["bullet_points"], "Division par deux des coûts, soit 90% d'économies."],
+    "relevant_technologies": [*VALID_LLM_OUTPUT["experiences"][0]["relevant_technologies"], "Kubernetes"],
+})
+
+# Entreprise inventée : violation structurelle, rien à retirer sans toucher à l'expérience entière.
+INVENTED_COMPANY_OUTPUT = _variant(
+    extra_experience={"title": "CTO", "company": "Fake Phantom Corp", "start_date": "2023", "end_date": "Présent"},
+)

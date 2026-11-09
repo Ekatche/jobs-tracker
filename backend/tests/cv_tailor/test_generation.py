@@ -6,9 +6,10 @@ from app.models import (
     TailoredCVSchema,
 )
 from app.services.cv_tailor import (
+    CVHonestyError,
     generate_tailored_cv_content,
 )
-from tests.cv_tailor.fixtures import SAMPLE_PROFILE, SAMPLE_OFFER, SAMPLE_EVALUATION, VALID_LLM_OUTPUT
+from tests.cv_tailor.fixtures import INVENTED_COMPANY_OUTPUT, UNSUPPORTED_ATOMIC_OUTPUT, SAMPLE_PROFILE, SAMPLE_OFFER, SAMPLE_EVALUATION, VALID_LLM_OUTPUT
 
 
 @pytest.mark.asyncio
@@ -130,3 +131,30 @@ async def test_tailored_cv_schema_flattens_certification_dicts_from_llm():
         "Expertise Big Data — 2021",
         "Analysis of bulk RNA-seq data (2023)",
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload, structural",
+    [(UNSUPPORTED_ATOMIC_OUTPUT, False), (INVENTED_COMPANY_OUTPUT, True)],
+    ids=["atomic_claims_dropped", "structural_violation_raises"],
+)
+async def test_generate_tailored_cv_content_last_attempt_violations(payload, structural):
+    response = MagicMock()
+    response.choices = [MagicMock(message=MagicMock(content=json.dumps(payload)))]
+
+    with patch("app.services.cv_tailor.acompletion", new_callable=AsyncMock) as mock_acompletion:
+        mock_acompletion.return_value = response
+        call = generate_tailored_cv_content(profile=SAMPLE_PROFILE, offer=SAMPLE_OFFER, evaluation=SAMPLE_EVALUATION)
+        if structural:
+            with pytest.raises(CVHonestyError, match="Fake Phantom Corp"):
+                await call
+            return
+        result = await call
+
+    assert mock_acompletion.call_count == 2
+    tech_corp = result.experiences[0]
+    assert "Kubernetes" not in tech_corp.relevant_technologies
+    assert tech_corp.relevant_technologies == ["Python", "FastAPI", "Docker"]
+    assert len(tech_corp.bullet_points) == 2 and not any("90%" in b for b in tech_corp.bullet_points)
+    assert len(result.experiences) == 2

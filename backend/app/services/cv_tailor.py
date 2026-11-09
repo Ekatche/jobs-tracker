@@ -8,7 +8,7 @@ from typing import Any, Dict, List, NamedTuple, Optional
 from litellm import acompletion
 
 from app.models import TailoredCVSchema, TailoredExperienceItem
-from app.services.cv_guards import verify_cv_honesty
+from app.services.cv_guards import Finding, audit_cv_claims
 from app.services.cv_templates import _cumulative_career_years, _most_recent_first
 
 logger = logging.getLogger(__name__)
@@ -230,6 +230,41 @@ def enforce_page_budget(
     )
 
 
+def drop_unsupported_claims(cv: TailoredCVSchema, findings: List[Finding]) -> TailoredCVSchema:
+    """
+    Retire seulement les éléments atomiques confirmés inventés (technologie, puce, compétence, certification).
+    Une expérience n'est jamais supprimée : si toutes ses puces tombent, elle reste sans puces.
+    """
+    dropped: Dict[str, Dict[Optional[int], set]] = {}
+    for f in findings:
+        logger.warning(f"CV claim dropped ({f.field}): {f.message}")
+        key = f.group_index if f.field == "prioritized_skills" else f.experience_index
+        dropped.setdefault(f.field, {}).setdefault(key, set()).add(f.item_index)
+
+    experiences = []
+    for idx, exp in enumerate(cv.experiences):
+        bullets_out = dropped.get("bullet_points", {}).get(idx, set())
+        techs_out = dropped.get("relevant_technologies", {}).get(idx, set())
+        experiences.append(exp.model_copy(update={
+            "bullet_points": [b for i, b in enumerate(exp.bullet_points) if i not in bullets_out],
+            "relevant_technologies": [t for i, t in enumerate(exp.relevant_technologies) if i not in techs_out],
+        }))
+
+    groups = []
+    for idx, group in enumerate(cv.prioritized_skills):
+        skills_out = dropped.get("prioritized_skills", {}).get(idx, set())
+        kept = [s for i, s in enumerate(group.skills) if i not in skills_out]
+        if kept or not skills_out:
+            groups.append(group.model_copy(update={"skills": kept}))
+
+    certs_out = dropped.get("certifications", {}).get(None, set())
+    return cv.model_copy(update={
+        "experiences": experiences,
+        "prioritized_skills": groups,
+        "certifications": [c for i, c in enumerate(cv.certifications) if i not in certs_out],
+    })
+
+
 async def generate_tailored_cv_content(
     profile: Dict[str, Any],
     offer: Dict[str, Any],
@@ -279,11 +314,16 @@ async def generate_tailored_cv_content(
         tailored_cv = TailoredCVSchema(**raw_json)
 
         # Anti-hallucination guardrail validation
-        is_valid, violations = verify_cv_honesty(tailored_cv, profile)
-        if is_valid:
+        audit = audit_cv_claims(tailored_cv, profile)
+        if not audit.violations:
             return enforce_page_budget(tailored_cv, budget, evaluation)
 
+        violations = [f.message for f in audit.violations]
         logger.warning(f"CV honesty verification failed (attempt {attempt + 1}/{max_attempts}): {'; '.join(violations)}")
+
+        # Dernier essai : des éléments atomiques inventés se retirent un à un, sans perdre les preuves vérifiées autour.
+        if attempt == max_attempts - 1 and all(f.atomic for f in audit.violations):
+            return enforce_page_budget(drop_unsupported_claims(tailored_cv, audit.violations), budget, evaluation)
 
     raise CVHonestyError(violations)
 
