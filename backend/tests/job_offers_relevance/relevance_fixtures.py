@@ -1,8 +1,6 @@
 """Fixtures partagées des tests de l'API offres (pertinence, tri, filtres).
 
-Module au nom unique, importé explicitement : pas de `conftest.py` de sous-dossier
-(sans `__init__.py`, il prendrait le nom de module `conftest` et casserait les
-`from conftest import ...` du reste de la suite).
+Module au nom unique, importé explicitement par les tests de ce dossier.
 
 Seed direct dans `job_offers` et `offer_relevance` sur la base de test locale
 (127.0.0.1:27018, cf. conftest.py). Les tests qui en dépendent portent
@@ -17,7 +15,7 @@ from bson import ObjectId
 from app.auth import get_current_user
 from app.models import UserModel, UserRole
 from app.services.offer_scoring.score import level_for
-from conftest import DATABASE_NAME, MONGO_URI
+from tests.conftest import DATABASE_NAME, MONGO_URI
 from main import app
 
 def _mongo_test_db_available() -> bool:

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import motor.motor_asyncio
 import pytest
 from bson import ObjectId
-from conftest import DATABASE_NAME, MONGO_URI
+from tests.conftest import DATABASE_NAME, MONGO_URI
 
 from scripts.transfer_user import TransferError, dump_bundle, export_user, import_user, load_bundle, remap_ids
 

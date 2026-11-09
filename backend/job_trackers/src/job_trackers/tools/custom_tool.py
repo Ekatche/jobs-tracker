@@ -1,5 +1,7 @@
 import os
 import logging
+import json
+from app.services.collection_context import collection_query_id, query_fingerprint
 from crewai.tools import BaseTool
 from typing import Type, Any, Optional
 from urllib.parse import urlsplit
@@ -65,6 +67,7 @@ class TavilyJobBoardSearchTool(BaseTool):
             return []
 
         clean_query = query.strip()
+        query_id = collection_query_id.get() or query_fingerprint(clean_query)
         tavily_client = self.client
         if not tavily_client:
             tavily_key = os.environ.get("TAVILY_API_KEY")
@@ -113,7 +116,26 @@ class TavilyJobBoardSearchTool(BaseTool):
             low = u.lower()
             if any(domain in low for domain in excluded_domains):
                 return False
-            # Exclure les pages génériques non pertinentes
+
+            try:
+                parsed = urlsplit(u.strip())
+                hostname = (parsed.hostname or parsed.netloc).lower()
+                path = (parsed.path or "").lower()
+
+                # Filtrer les sous-domaines techniques/support/documentation
+                support_prefixes = ("support.", "help.", "docs.", "blog.", "status.", "community.")
+                if any(hostname.startswith(prefix) for prefix in support_prefixes):
+                    return False
+
+                # Filtrer les pages vitrines/marketing des éditeurs ATS sans chemin d'offre
+                if hostname in ("recruitee.com", "www.recruitee.com") and not path.startswith("/o/"):
+                    return False
+                if hostname in ("teamtailor.com", "www.teamtailor.com") and not path.startswith("/jobs/"):
+                    return False
+            except Exception:
+                pass
+
+            # Exclure les pages génériques et articles non pertinents
             excluded_paths = (
                 "/blog/",
                 "/conseils/",
@@ -128,6 +150,16 @@ class TavilyJobBoardSearchTool(BaseTool):
                 "/cgu",
                 "/privacy",
                 "/conditions-generales",
+                "/articles/",
+                "/temoignages",
+                "/resources/",
+                "/help/",
+                "/support/",
+                "/pricing",
+                "/tarifs",
+                "jobsearch.ftl",
+                "joblist.ftl",
+                "/jobs/search",
             )
             if any(p in low for p in excluded_paths):
                 return False
@@ -186,6 +218,7 @@ class TavilyJobBoardSearchTool(BaseTool):
                     country="france",
                     exclude_domains=excluded_domains,
                 )
+                logger.info("collection_source %s", json.dumps({"query_id": query_id, "source": "tavily_jobboards", "status": "success" if response_fr and response_fr.get("results") else "empty", "found": len(response_fr.get("results") or []) if response_fr else 0}))
                 if response_fr and response_fr.get("results"):
                     for r in response_fr["results"]:
                         url = r.get("url")
@@ -197,6 +230,7 @@ class TavilyJobBoardSearchTool(BaseTool):
                     )
                     logger.info(f"📋 {len(response_fr['results'])} résultats job boards (score hôte) : {scored}")
             except Exception as e_fr:
+                logger.info("collection_source %s", json.dumps({"query_id": query_id, "source": "tavily_jobboards", "status": "error", "found": 0}))
                 logger.warning(f"⚠️ Erreur Passe 1 (job boards): {e_fr}")
 
             # ✅ PASSE 2: Recherche directe sur les ATS & carrières d'entreprises (max 10)
@@ -210,6 +244,7 @@ class TavilyJobBoardSearchTool(BaseTool):
                     include_domains=company_ats_domains,
                     exclude_domains=spam_aggregators,
                 )
+                logger.info("collection_source %s", json.dumps({"query_id": query_id, "source": "tavily_ats", "status": "success" if response_ats and response_ats.get("results") else "empty", "found": len(response_ats.get("results") or []) if response_ats else 0}))
                 if response_ats and response_ats.get("results"):
                     for r in response_ats["results"]:
                         url = r.get("url")
@@ -217,6 +252,7 @@ class TavilyJobBoardSearchTool(BaseTool):
                             all_urls.append(url)
                     logger.info(f"🏢 {len(response_ats['results'])} résultats trouvés sur ATS entreprises")
             except Exception as e_ats:
+                logger.info("collection_source %s", json.dumps({"query_id": query_id, "source": "tavily_ats", "status": "error", "found": 0}))
                 logger.warning(f"⚠️ Erreur Passe 2 (ATS): {e_ats}")
 
             # Dédoublonnage en conservant l'ordre

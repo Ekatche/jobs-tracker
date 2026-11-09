@@ -32,7 +32,7 @@ async def test_build_search_queries_with_roles_and_locations():
     mock_db = _mock_db_with_profiles(profiles)
 
     with patch("app.tasks.job_offers_collectors.get_database", AsyncMock(return_value=mock_db)):
-        queries = await build_search_queries()
+        queries = await build_search_queries(rotation_day=0)
 
     assert len(queries) == MAX_QUERIES_PER_PROFILE  # Capped at 3 per profile
     assert queries[0] == "Je recherche un poste de Data Engineer proche de Lyon (CDI)"
@@ -56,7 +56,7 @@ async def test_build_search_queries_empty_locations_standard_remote():
     mock_db = _mock_db_with_profiles(profiles)
 
     with patch("app.tasks.job_offers_collectors.get_database", AsyncMock(return_value=mock_db)):
-        queries = await build_search_queries()
+        queries = await build_search_queries(rotation_day=0)
 
     assert queries == ["Je recherche un poste de Machine Learning Engineer (CDI)"]
 
@@ -77,7 +77,7 @@ async def test_build_search_queries_empty_locations_full_remote():
     mock_db = _mock_db_with_profiles(profiles)
 
     with patch("app.tasks.job_offers_collectors.get_database", AsyncMock(return_value=mock_db)):
-        queries = await build_search_queries()
+        queries = await build_search_queries(rotation_day=0)
 
     assert queries == ["Je recherche un poste de Backend Developer en télétravail (Freelance)"]
 
@@ -102,7 +102,7 @@ async def test_build_search_queries_case_insensitive_dedup():
     mock_db = _mock_db_with_profiles(profiles)
 
     with patch("app.tasks.job_offers_collectors.get_database", AsyncMock(return_value=mock_db)):
-        queries = await build_search_queries()
+        queries = await build_search_queries(rotation_day=0)
 
     assert len(queries) == 1
     assert queries[0] == "Je recherche un poste de Data Engineer proche de Lyon"
@@ -128,7 +128,7 @@ async def test_build_search_queries_round_robin_fairness():
     mock_db = _mock_db_with_profiles(profiles)
 
     with patch("app.tasks.job_offers_collectors.get_database", AsyncMock(return_value=mock_db)):
-        queries = await build_search_queries()
+        queries = await build_search_queries(rotation_day=0)
 
     # Round 0: RoleA1, RoleB1
     # Round 1: RoleA2, RoleB2
@@ -157,7 +157,7 @@ async def test_build_search_queries_capped_at_max_total():
     mock_db = _mock_db_with_profiles(profiles)
 
     with patch("app.tasks.job_offers_collectors.get_database", AsyncMock(return_value=mock_db)):
-        queries = await build_search_queries()
+        queries = await build_search_queries(rotation_day=0)
 
     assert len(queries) == MAX_TOTAL_QUERIES
     assert len(queries) == 8
@@ -183,7 +183,7 @@ async def test_build_search_queries_profile_without_roles_uses_location_only():
     mock_db = _mock_db_with_profiles(profiles)
 
     with patch("app.tasks.job_offers_collectors.get_database", AsyncMock(return_value=mock_db)):
-        queries = await build_search_queries()
+        queries = await build_search_queries(rotation_day=0)
 
     assert len(queries) == 2
     assert queries[0] == "Je recherche un poste proche de Lyon"
@@ -196,7 +196,7 @@ async def test_build_search_queries_empty_db_fallback():
     mock_db = _mock_db_with_profiles([])
 
     with patch("app.tasks.job_offers_collectors.get_database", AsyncMock(return_value=mock_db)):
-        queries = await build_search_queries()
+        queries = await build_search_queries(rotation_day=0)
 
     assert queries == list(DEFAULT_QUERIES)
 
@@ -205,7 +205,7 @@ async def test_build_search_queries_empty_db_fallback():
 async def test_build_search_queries_mongo_exception_fallback():
     """(i) exception levée par MongoDB → rattrapée proprement et retourne DEFAULT_QUERIES."""
     with patch("app.tasks.job_offers_collectors.get_database", side_effect=Exception("Mongo connection refused")):
-        queries = await build_search_queries()
+        queries = await build_search_queries(rotation_day=0)
 
     assert queries == list(DEFAULT_QUERIES)
 
@@ -239,7 +239,7 @@ async def test_build_search_queries_normalizes_and_mutualizes_roles():
 
     with patch("app.tasks.job_offers_collectors.get_database", AsyncMock(return_value=mock_db)), \
          patch("app.services.role_normalizer.normalize_role", AsyncMock(return_value="AI Engineer")) as mock_norm:
-        queries = await build_search_queries()
+        queries = await build_search_queries(rotation_day=0)
 
     # Both profiles should produce the same query and be mutualized into 1
     assert len(queries) == 1
@@ -262,7 +262,7 @@ async def test_build_search_queries_intra_profile_role_dedup():
 
     with patch("app.tasks.job_offers_collectors.get_database", AsyncMock(return_value=mock_db)), \
          patch("app.services.role_normalizer.normalize_role", AsyncMock(return_value="AI Engineer")):
-        queries = await build_search_queries()
+        queries = await build_search_queries(rotation_day=0)
 
     # Intra-profile dedup should leave only 1 branch of queries
     assert len(queries) == 1
@@ -291,7 +291,7 @@ async def test_build_search_queries_skips_inactive_profiles():
     mock_db = _mock_db_with_profiles(profiles)
 
     with patch("app.tasks.job_offers_collectors.get_database", AsyncMock(return_value=mock_db)):
-        queries = await build_search_queries()
+        queries = await build_search_queries(rotation_day=0)
 
     assert len(queries) == 1
     assert queries[0] == "Je recherche un poste de MLOps Engineer proche de Bordeaux"

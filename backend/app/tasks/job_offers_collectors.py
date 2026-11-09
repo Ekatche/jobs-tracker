@@ -1,12 +1,14 @@
 import asyncio
 import os
 import logging
+import json
 from datetime import datetime, timezone
 from app.services.job_offers import (
     get_urls,
     get_job_offers_from_query,
 )
 from app.database import get_database
+from app.services.collection_context import collection_query_id, query_fingerprint
 from app.services.company_profiles import CompanyResolver
 from app.services.normalization import (
     compute_unique_key,
@@ -610,6 +612,7 @@ async def collect_and_save_offers(query: str, use_web_search: bool = True) -> di
     structurées sont collectées, sans crédit Tavily ni appel LLM du crew.
     """
     logger.info(f"🚀 Collecte async démarrée: {query}")
+    query_token = collection_query_id.set(query_fingerprint(query))
     try:
         db = await get_database()
         _, city = parse_source_query(query)
@@ -687,9 +690,13 @@ async def collect_and_save_offers(query: str, use_web_search: bool = True) -> di
         cleaned = await clean_duplicate_offers(enriched)
         result = await save_offers_to_database(cleaned)
         await tag_new_offers(result["offer_ids"], db)
+        logger.info("collection_result %s", json.dumps({"query_id": collection_query_id.get(), "saved": result.get("saved", 0), "updated": result.get("updated", 0), "web_enabled": use_web_search}))
         return result
     finally:
-        await cleanup_resources()
+        try:
+            await cleanup_resources()
+        finally:
+            collection_query_id.reset(query_token)
 
 
 def collect_offers_sync(query: str, use_web_search: bool = True) -> dict:
@@ -712,7 +719,7 @@ def collect_offers_sync(query: str, use_web_search: bool = True) -> dict:
         raise
 
 
-async def build_search_queries() -> list[str]:
+async def build_search_queries(rotation_day: int | None = None) -> list[str]:
     """Génère dynamiquement les requêtes de recherche depuis les préférences des candidats.
 
     Interroge la collection candidate_profile, combine rôles cibles et localisations,
@@ -733,6 +740,8 @@ async def build_search_queries() -> list[str]:
 
         memo_normalized: dict[str, str] = {}
         profiles_queries_list: list[list[str]] = []
+        # Une rotation journalière stable évite qu'un redémarrage ne modifie le choix.
+        rotation_day = datetime.now(timezone.utc).date().toordinal() if rotation_day is None else rotation_day
 
         for profile in profiles:
             prefs = profile.get("preferences") or {}
@@ -766,40 +775,37 @@ async def build_search_queries() -> list[str]:
             remote_policy = prefs.get("remote_policy")
             is_full_remote = str(remote_policy).lower() in ("full_remote", "remotepolicy.full_remote")
             contract_types = prefs.get("contract_types") or []
-            contract_suffix = f" ({contract_types[0]})" if contract_types else ""
-
             candidate_queries: list[str] = []
-            if target_roles:
-                if locations:
+            # Parcourir tous les métiers avant de passer au contrat suivant.
+            for contract in contract_types or [None]:
+                contract_suffix = f" ({contract})" if contract else ""
+                if target_roles:
                     for role in target_roles:
-                        for loc in locations:
-                            candidate_queries.append(
-                                f"Je recherche un poste de {role} proche de {loc}{contract_suffix}"
-                            )
+                        if locations:
+                            for loc in locations:
+                                candidate_queries.append(f"Je recherche un poste de {role} proche de {loc}{contract_suffix}")
+                        elif is_full_remote:
+                            candidate_queries.append(f"Je recherche un poste de {role} en télétravail{contract_suffix}")
+                        else:
+                            candidate_queries.append(f"Je recherche un poste de {role}{contract_suffix}")
+                elif locations:
+                    for loc in locations:
+                        candidate_queries.append(f"Je recherche un poste proche de {loc}{contract_suffix}")
                 elif is_full_remote:
-                    for role in target_roles:
-                        candidate_queries.append(
-                            f"Je recherche un poste de {role} en télétravail{contract_suffix}"
-                        )
-                else:
-                    for role in target_roles:
-                        candidate_queries.append(
-                            f"Je recherche un poste de {role}{contract_suffix}"
-                        )
-            elif locations:
-                for loc in locations:
-                    candidate_queries.append(f"Je recherche un poste proche de {loc}{contract_suffix}")
-            elif is_full_remote:
-                candidate_queries.append(f"Je recherche un poste en télétravail{contract_suffix}")
+                    candidate_queries.append(f"Je recherche un poste en télétravail{contract_suffix}")
 
             if candidate_queries:
-                profiles_queries_list.append(candidate_queries[:MAX_QUERIES_PER_PROFILE])
+                offset = (rotation_day * MAX_QUERIES_PER_PROFILE) % len(candidate_queries)
+                rotated = candidate_queries[offset:] + candidate_queries[:offset]
+                profiles_queries_list.append(rotated[:MAX_QUERIES_PER_PROFILE])
 
         if not profiles_queries_list:
             logger.info("ℹ️ Aucun profil candidat avec rôles cibles trouvé, utilisation de DEFAULT_QUERIES")
             return list(DEFAULT_QUERIES)
 
         # Sélection en Round-Robin équitable entre profils avec déduplication normalisée
+        profile_offset = rotation_day % len(profiles_queries_list)
+        profiles_queries_list = profiles_queries_list[profile_offset:] + profiles_queries_list[:profile_offset]
         selected_queries: list[str] = []
         seen_keys: set[str] = set()
 

@@ -734,7 +734,7 @@ async def offers_db():
     import uuid
 
     import motor.motor_asyncio
-    from conftest import DATABASE_NAME, MONGO_URI
+    from tests.conftest import DATABASE_NAME, MONGO_URI
 
     client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
     name = f"{DATABASE_NAME}_verify_{uuid.uuid4().hex[:8]}"

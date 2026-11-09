@@ -15,7 +15,7 @@ from app.services.collection_schedule import (
     next_collection_at,
     previous_collection_at,
 )
-from conftest import DATABASE_NAME, MONGO_URI
+from tests.conftest import DATABASE_NAME, MONGO_URI
 from main import app
 
 UTC = timezone.utc
