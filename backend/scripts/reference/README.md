@@ -213,10 +213,10 @@ Limites.
   représentatif de la production.
 - Labels du juge LLM (modèle de repli compris), pas humains ; accord juge/humain limité à la feuille de
   validation.
-- 4 paires sur 100 ont un vecteur d'offre en cache périmé (texte d'embedding modifié depuis) : elles sont
-  scorées avec `cos=None`, de façon identique avant et après, donc sans effet sur la comparaison, mais les
-  chiffres absolus sont légèrement biaisés tant que `embed --confirm` n'a pas été relancé (dépense, à
-  l'utilisateur). En production, `rematch_user` n'évalue pas du tout ces paires (`semantic_unknown`,
-  `offer_profile_matcher.py:189-191`) : les absolus du banc ne se transposent pas exactement.
+- 4 paires sur 100 n'ont pas de cosinus valide en cache (vecteur d'offre périmé) ; toutes sont écartées
+  par le filtre géographique avant tout score, donc le cosinus manquant n'intervient ni dans le banc ni en
+  production (`rematch_user` ne saute en `semantic_unknown` que les paires non filtrées,
+  `offer_profile_matcher.py:189`). Sur un autre export, une paire non filtrée sans cosinus serait scorée
+  avec `cos=None` par le banc mais ignorée par `rematch_user`.
 - La garde d'interaction (candidature ou interaction conservée sous le plancher) n'est pas simulée sur
   l'export : `rematch_user` n'y tourne pas. Elle est couverte par `tests/test_offer_profile_matcher.py`.
