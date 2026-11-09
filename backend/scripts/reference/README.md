@@ -169,15 +169,16 @@ Méthode. « Avant » = base de fusion, dans un worktree détaché temporaire ; 
 ```bash
 git worktree add --detach <tmp>/before 871c87a        # puis copier l'export et les caches dans <tmp>/before/backend/scripts/data/matching_bench/
 # dans chaque arbre, avec le même interpréteur : sys.path[0] = <arbre>/backend, puis
+#   export = load_export(Path(<export.json>))   # pas json.load : _id doit passer par bson json_util, sinon 0 paire, sans erreur
 #   cos = cached_hybrid_cos_records(export); assessed = hybrid_scores(export, cos)
-#   rattachée = not _is_detached(assessed[offer_id], FLOOR)
+#   rattachée = not _is_detached(assessed[alias][offer_id], FLOOR)   # assessed = {alias: {offer_id: (motif, résultat)}}
 git worktree remove --force <tmp>/before
 ```
 
 Sont comparés, par profil : offres rattachées (échantillon plus offres d'interaction, soit les ids de
 `_hybrid_assessment_ids`) avant et après, ajoutées, retirées, répartition par label du juge en cache,
 faux négatifs (offres `relevant` détachées), P@10, P@20, FP@20 du classement hybride, candidatures
-(`applied`) et interactions sous le plancher.
+(`applied`) et interactions détachées (filtre dur ou sous le plancher).
 
 Résultat du 2026-11-09 (base `871c87a`, HEAD `b5d4ef2`), agrégats seulement :
 
@@ -191,15 +192,22 @@ Résultat du 2026-11-09 (base `871c87a`, HEAD `b5d4ef2`), agrégats seulement :
 | `partial` détachées | 20 | 20 |
 | `irrelevant` rattachées | 2 | 2 |
 | P@10 / P@20 / FP@20 hybride | 0,20 / 0,25 / 0,00 | 0,20 / 0,25 / 0,00 |
-| Candidatures (20) sous le plancher | 2 | 2 |
-| Offres d'interaction (30) sous le plancher | 7 | 7 |
+| Candidatures (20) détachées (filtre dur ou sous le plancher) | 2 | 2 |
+| Offres d'interaction (30, dont les 20 candidatures) détachées (filtre dur ou sous le plancher) | 7 | 7 |
+
+Motifs de détachement (identiques avant et après) : les 48 offres détachées se répartissent en 33
+géographie, 12 métier, 2 contrat, 1 mot exclu, 0 plancher (plus petit score non filtré 38,3 pour
+FLOOR 35). Candidatures détachées (2) : 1 métier, 1 contrat. Interactions détachées (7, dont ces 2) :
+6 métier, 1 contrat. Le seul faux négatif est lui aussi écarté par la garde métier : en production, les
+offres déjà rattachées parmi ces 7 seraient conservées par la garde d'interaction.
 
 Limites.
 
 - L'export ne contient qu'un profil et 100 paires : l'absence d'effet est observée, pas démontrée. Elle
-  s'explique si le profil n'est pas juridique et n'a pas de rôle à acronyme ; le chemin modifié est
-  actif (`title_matches_roles("Legal Counsel", role_terms(["juriste"]))` passe de faux à vrai), mais
-  l'export ne l'exerce pas. Les ajouts attendus (groupe juridique FR/EN, jetons bruts et développés)
+  s'explique par un profil sans aucun terme juridique (fait vérifié) et sans rôle à acronyme ; le chemin
+  modifié est actif (`title_matches_roles("Legal Counsel", role_terms(["juriste"]))` passe de faux à
+  vrai). La garde métier est exercée (12 paires filtrées, mêmes verdicts avant et après), mais pas ses
+  chemins nouveaux (groupe juridique, union des jetons). Les ajouts attendus (groupe juridique FR/EN, jetons bruts et développés)
   restent donc non mesurés en volume réel.
 - Export figé à sa date : le stock d'offres de production a changé depuis. Ce n'est pas un échantillon
   représentatif de la production.
@@ -208,6 +216,7 @@ Limites.
 - 4 paires sur 100 ont un vecteur d'offre en cache périmé (texte d'embedding modifié depuis) : elles sont
   scorées avec `cos=None`, de façon identique avant et après, donc sans effet sur la comparaison, mais les
   chiffres absolus sont légèrement biaisés tant que `embed --confirm` n'a pas été relancé (dépense, à
-  l'utilisateur).
+  l'utilisateur). En production, `rematch_user` n'évalue pas du tout ces paires (`semantic_unknown`,
+  `offer_profile_matcher.py:189-191`) : les absolus du banc ne se transposent pas exactement.
 - La garde d'interaction (candidature ou interaction conservée sous le plancher) n'est pas simulée sur
   l'export : `rematch_user` n'y tourne pas. Elle est couverte par `tests/test_offer_profile_matcher.py`.
