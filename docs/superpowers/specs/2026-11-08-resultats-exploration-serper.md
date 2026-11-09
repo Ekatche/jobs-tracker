@@ -41,3 +41,4 @@ Ce seuil dépend du plan Tavily actif, du partage du quota gratuit, des essais, 
 ## Suite éventuelle
 
 Conserver Tavily en production. Si le volume mensuel dépasse durablement le seuil des ~510 requêtes complètes/mois, réévaluer sur un échantillon multi-métiers annoté humainement avec référence JobSpy figée.
+
