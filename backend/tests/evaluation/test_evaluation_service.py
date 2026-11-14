@@ -268,3 +268,40 @@ async def test_evaluate_offer_two_pass_short_circuits_on_domain_mismatch():
     assert evaluation.score == 1.5
     cols["job_offers"].update_one.assert_called_once()
     cols["offer_evaluations"].update_one.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_evaluate_offer_records_company_history_and_bloc_h():
+    db, cols = make_eval_db()
+    apps_cursor = AsyncMock()
+    apps_cursor.to_list = AsyncMock(return_value=[{"company": "Acme Corp", "status": "Candidature envoyée"}])
+    apps_col = MagicMock()
+    apps_col.find.return_value = apps_cursor
+    cols["applications"] = apps_col
+
+    pass1 = make_llm_response({
+        "archetype": "Senior Fullstack Engineer",
+        "summary": "Construire des APIs FastAPI.",
+        "requirements": [
+            {"requirement": "FastAPI", "weight": "critical", "evidence_tier": "stated", "quote_from_offer": "maîtrisant React, FastAPI et MongoDB"},
+            {"requirement": "Python", "weight": "high", "evidence_tier": "inferred", "quote_from_offer": ""},
+        ],
+    })
+    pass2 = make_llm_response({
+        "matched_requirements": [
+            {"req_id": "R1", "requirement": "FastAPI", "weight": "critical", "candidate_evidence": "3 ans FastAPI", "verbatim_quote": "maîtrisant React, FastAPI et MongoDB", "status": "full_match"},
+            {"req_id": "R2", "requirement": "Python", "weight": "high", "candidate_evidence": "6 ans Python", "verbatim_quote": "Python", "status": "full_match"},
+        ],
+        "missing_requirements": [],
+    })
+
+    with patch("app.services.evaluation.evaluator.compute_domain_relevance", AsyncMock(return_value=None)), \
+         patch("app.services.evaluation.evaluator.acompletion", AsyncMock(side_effect=[pass1, pass2])):
+        evaluation = await evaluate_offer_two_pass(db=db, user_id=TEST_USER_ID, offer_id=TEST_OFFER_ID)
+
+    assert evaluation.bloc_g.company_history_note is not None
+    assert "Acme Corp" in evaluation.bloc_g.company_history_note
+    assert evaluation.bloc_b.matched_requirements[1].weight == "meaningful"  # inferred capped!
+    assert evaluation.bloc_b.matched_requirements[1].importance_evidence_tier == "inferred"
+    assert evaluation.bloc_h.eligible is True
+    assert len(evaluation.bloc_h.answers) == 3

@@ -188,11 +188,11 @@ Pour que l'utilisateur sache que sa tâche longue est terminée sans avoir à ra
 |---|---|---|
 | `offer_analyst` | `openai/gpt-5.6-luna` | ~$0.005 |
 | `company_researcher` | `openai/gpt-5.6-luna` | ~$0.005 (recherche web Tavily avec cache TTL 7j) |
-| `writer` | `openai/gpt-5.6-sol` | ~$0.015 |
-| `critic` | `gemini/gemini-3.8-flash` (cross-provider) | ~$0.002 |
-| `reviser` | `openai/gpt-5.6-sol` (conditionnel) | ~$0.015 |
+| `writer` | `openai/gpt-5.6-terra` (ou `openai/gpt-5.6-sol`) | ~$0.015 |
+| `critic` | `gemini/gemini-3.8-flash` (cross-provider, fallback `gemini/gemini-3.5-flash-lite`) | ~$0.002 |
+| `reviser` | `openai/gpt-5.6-terra` (conditionnel) | ~$0.015 |
 
-**Stack LangChain** (résumé d'offre) : `gpt-5-nano` → ~$0.002/appel  
+**Stack LangChain / Évaluation / PDF** : `openai/gpt-5-nano` (résumé) ; `gemini/gemini-3.8-flash` par défaut pour l'évaluation Two-Pass et la transcription de PDF scannés (`gemini/gemini-3.5-flash-lite` en fallback léger)  
 **Stack CrewAI** (scraping) : `CREW_LLM_MODEL` → ~$0.01/recherche
 
 ### B. Modèle de Tracking
@@ -243,3 +243,7 @@ Deux points d'interception :
 | Scraping CrewAI (3 agents) | `job_trackers/crew.py` | ✅ En production |
 | Airflow DAGs | `airflow/dags/` | ✅ En production |
 | Banque d'histoires STAR+R (commune aux kits d'entretien) | `app/services/star_bank.py`, `app/services/star_bank_rules.py`, `app/routers/star_stories.py` | ✅ En production ; remplissage depuis les kits existants par `backend/migrate_star_stories_to_bank.py --apply` à lancer après sauvegarde |
+| Évaluation Two-Pass enrichie (Blocs A–H, `importance_evidence_tier`, budget 12 lignes Bloc B, signaux déterministes Bloc G, brouillons Bloc H) | `app/services/evaluation/evaluator.py`, `app/services/evaluation/offer_fit.py` | ✅ Intégré |
+| Garde-fous CV, Score ATS & Clean-Markers (`GET /resumes/{id}/ats-score`, `GET /resumes/{id}/export-text`) | `app/services/cv_guards.py`, `app/services/ats_score.py`, `app/routers/resumes.py` | ✅ Intégré |
+| Connecteurs ATS Zero-Token (Greenhouse, Lever, Workable, SmartRecruiters, Ashby, Workday CXS, WTTJ, Indeed) & `detect_non_content_marker` | `app/services/ats/router.py` | ✅ Intégré |
+| Analytics de calibration & lacunes compétences JD (`GET /applications/pipeline/calibrate`, `GET /job-offers/analytics/skill-gaps`) | `app/services/analytics/calibration.py`, `app/routers/applications.py`, `app/routers/job_offers.py` | ✅ Intégré |

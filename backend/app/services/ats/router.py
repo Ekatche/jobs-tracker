@@ -3,7 +3,7 @@ import html
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -62,9 +62,9 @@ def normalize_employment_type(emp_type: Any) -> str:
     if not emp_type:
         return "Non spécifié"
     raw = str(emp_type).upper().replace("-", "_").replace(" ", "_")
-    if "FULL_TIME" in raw or "CDI" in raw or "PERMANENT" in raw:
+    if "FULL_TIME" in raw or "FULLTIME" in raw or "CDI" in raw or "PERMANENT" in raw:
         return "CDI"
-    if "PART_TIME" in raw:
+    if "PART_TIME" in raw or "PARTTIME" in raw:
         return "Temps partiel"
     if "CONTRACT" in raw or "CDD" in raw or "TEMPORARY" in raw:
         return "CDD"
@@ -264,7 +264,9 @@ async def extract_smartrecruiters_job(
                 if cleaned and cleaned != "Non spécifié":
                     desc_parts.append(f"### {sec_title}\n{cleaned}")
 
-        full_description = "\n\n".join(desc_parts) if desc_parts else "Non spécifié"
+        if not desc_parts:
+            return None
+        full_description = "\n\n".join(desc_parts)
 
         return {
             "poste": title.strip(),
@@ -280,6 +282,248 @@ async def extract_smartrecruiters_job(
         raise
     except Exception as e:
         logger.debug(f"Échec SmartRecruiters API pour {url}: {e}")
+        return None
+
+
+_SAFE_PATH_SEGMENT_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+_WORKDAY_HOST_RE = re.compile(r"^(?P<tenant>[A-Za-z0-9-]+)\.(?P<shard>wd\d+)\.myworkdayjobs\.com$", re.IGNORECASE)
+_LOCALE_SEGMENT_RE = re.compile(r"^[a-z]{2}(?:-[A-Za-z]{2})?$")
+_SUBSTANTIVE_JD_RE = re.compile(
+    r"\b(?:missions|responsibilities|qualifications|profil\s+recherché|requirements)\b",
+    re.IGNORECASE,
+)
+_NON_CONTENT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "404-shell",
+        re.compile(
+            r"(?:job|offre|page|position|role)\s+(?:not\s+found|introuvable|n['’]existe\s+plus"
+            r"|no\s+longer\s+available|expired|closed|clôturée|fermée)"
+            r"|404\s+not\s+found|this\s+job\s+is\s+no\s+longer\s+open",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "login-wall",
+        re.compile(
+            r"sign\s+in\s+to\s+(?:view|continue|apply)|log\s+in\s+to\s+continue"
+            r"|connexion\s+requise|connectez-vous\s+pour\s+accéder|please\s+log\s+in",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "paywall",
+        re.compile(
+            r"subscribe\s+to\s+(?:read|continue|unlock)|abonnez-vous\s+pour\s+lire"
+            r"|contenu\s+réservé\s+aux\s+abonnés|paywall",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "js-required",
+        re.compile(
+            r"enable\s+javascript\s+and\s+cookies|you\s+need\s+to\s+enable\s+javascript"
+            r"|javascript\s+is\s+required|veuillez\s+activer\s+javascript",
+            re.IGNORECASE,
+        ),
+    ),
+)
+
+
+def _is_safe_segment(segment: str) -> bool:
+    return bool(segment and ".." not in segment and _SAFE_PATH_SEGMENT_RE.match(segment))
+
+
+def detect_non_content_marker(text: str) -> Optional[Dict[str, str]]:
+    """Detect login walls, 404 shells, paywalls, and JS-required blockers while avoiding long-JD false positives."""
+    if not text or not text.strip():
+        return None
+    stripped = re.sub(r"<(script|style)\b[^>]*>.*?</\1>", " ", text, flags=re.IGNORECASE | re.DOTALL)
+    visible = re.sub(r"<[^>]+>", " ", html.unescape(stripped))
+    visible = re.sub(r"\s+", " ", visible).strip()
+    target = visible or text.strip()
+    if len(visible) > 1200 and _SUBSTANTIVE_JD_RE.search(visible):
+        return None
+    for category, pattern in _NON_CONTENT_PATTERNS:
+        match = pattern.search(target)
+        if match:
+            return {"category": category, "reason": match.group(0)}
+    return None
+
+
+def _check_non_content_html(raw_html: str, url: str) -> bool:
+    """Raise ExpiredOfferError on 404 shells; return True when another non-content gate should halt scraping."""
+    marker = detect_non_content_marker(raw_html)
+    if not marker:
+        return False
+    if marker["category"] == "404-shell":
+        raise ExpiredOfferError(f"Offre fermée détectée ({marker['reason']}): {url}")
+    logger.info(f"Marqueur non-contenu ({marker['category']}) détecté pour {url}: {marker['reason']}")
+    return True
+
+
+def check_smartrecruiters_board_status(data: Any) -> Literal["active", "not_found"]:
+    """Treat SmartRecruiters HTTP 200 empty boards (#4215) as not_found rather than empty."""
+    if not isinstance(data, dict):
+        return "not_found"
+    content = data.get("content")
+    total = data.get("totalFound", 0)
+    if not isinstance(content, list) or len(content) == 0 or total == 0:
+        return "not_found"
+    return "active"
+
+
+def _ashby_remote_policy(job: Dict[str, Any]) -> str:
+    workplace = str(job.get("workplaceType") or "").strip().lower()
+    if workplace == "remote":
+        return "Full Remote"
+    if workplace == "hybrid":
+        return "Hybride"
+    if workplace == "onsite":
+        return "Présentiel"
+    if job.get("isRemote") is True:
+        return "Full Remote"
+    if job.get("isRemote") is False:
+        return "Présentiel"
+    return "Non spécifié"
+
+
+def _ashby_salary(job: Dict[str, Any]) -> str:
+    comp = job.get("compensation")
+    if not isinstance(comp, dict):
+        return "Non spécifié"
+    tier_summary = comp.get("compensationTierSummary")
+    if isinstance(tier_summary, str) and tier_summary.strip():
+        return tier_summary.strip()
+    parts: List[str] = []
+    for item in comp.get("summaryComponents") or []:
+        if not isinstance(item, dict):
+            continue
+        label = item.get("label") or item.get("compensationType") or ""
+        min_v, max_v = item.get("minValue"), item.get("maxValue")
+        curr = item.get("currencyCode") or ""
+        if min_v is not None and max_v is not None:
+            parts.append(f"{label}: {min_v}-{max_v} {curr}".strip())
+    return "; ".join(parts) if parts else "Non spécifié"
+
+
+async def extract_ashby_job(url: str, client: httpx.AsyncClient) -> Optional[Dict[str, Any]]:
+    """Extract an Ashby job offer via the zero-token public posting API."""
+    try:
+        parsed = urlparse(url)
+        if "ashbyhq.com" not in parsed.netloc.lower():
+            return None
+        segments = [p for p in parsed.path.split("/") if p]
+        if len(segments) < 2:
+            return None
+        org, job_id = segments[0], segments[1]
+        if not (_is_safe_segment(org) and _is_safe_segment(job_id)):
+            return None
+
+        api_url = f"https://api.ashbyhq.com/posting-api/job-board/{org}?includeCompensation=true"
+        resp = await client.get(api_url, headers=DEFAULT_HEADERS, timeout=DEFAULT_TIMEOUT)
+        if resp.status_code in (404, 410):
+            raise ExpiredOfferError(f"Ashby board {org} introuvable ({resp.status_code})")
+        if resp.status_code != 200:
+            return None
+
+        data = resp.json()
+        if not isinstance(data, dict) or not isinstance(data.get("jobs"), list):
+            return None
+        jobs = data["jobs"]
+        job = next(
+            (
+                j for j in jobs
+                if isinstance(j, dict)
+                and (str(j.get("id")) == job_id or str(j.get("jobUrl") or "").rstrip("/").endswith(f"/{job_id}"))
+            ),
+            None,
+        )
+        if not job or job.get("isListed") is False:
+            raise ExpiredOfferError(f"Ashby offre {job_id} expirée ou non listée")
+
+        desc_html = job.get("descriptionHtml") or ""
+        description = clean_html_to_text(desc_html) if desc_html else (job.get("descriptionPlain") or "").strip()
+        if not description or description == "Non spécifié":
+            return None
+
+        company_name = ((data.get("organization") or {}).get("name") or org.replace("-", " ").title()).strip()
+        return {
+            "poste": str(job.get("title") or "").strip() or "Non spécifié",
+            "entreprise": company_name,
+            "description": description,
+            "localisation": str(job.get("location") or "Non spécifié").strip(),
+            "type_contrat": normalize_employment_type(job.get("employmentType")),
+            "politique_teletravail": _ashby_remote_policy(job),
+            "salaire": _ashby_salary(job),
+            "date_publication": job.get("publishedAt"),
+            "url": url,
+            "ats_platform": "ashby",
+            "source_record": job,
+        }
+    except ExpiredOfferError:
+        raise
+    except Exception as e:
+        logger.debug(f"Échec Ashby API pour {url}: {e}")
+        return None
+
+
+async def extract_workday_job(url: str, client: httpx.AsyncClient) -> Optional[Dict[str, Any]]:
+    """Extract a Workday job offer via the CXS JSON endpoint."""
+    try:
+        parsed = urlparse(url)
+        host = parsed.netloc.lower()
+        host_match = _WORKDAY_HOST_RE.match(host)
+        if not host_match:
+            return None
+        tenant = host_match.group("tenant")
+        segments = [p for p in parsed.path.split("/") if p]
+        if segments and _LOCALE_SEGMENT_RE.match(segments[0]):
+            segments = segments[1:]
+        if len(segments) < 3 or segments[1].lower() not in ("job", "details"):
+            return None
+        site = segments[0]
+        job_segments = segments[2:]
+        if not (_is_safe_segment(site) and all(_is_safe_segment(s) for s in job_segments)):
+            return None
+
+        api_url = f"https://{host}/wday/cxs/{tenant}/{site}/job/{'/'.join(job_segments)}"
+        headers = {**DEFAULT_HEADERS, "Accept": "application/json"}
+        resp = await client.get(api_url, headers=headers, timeout=DEFAULT_TIMEOUT)
+        if resp.status_code in (404, 410):
+            raise ExpiredOfferError(f"Workday offre expirée ({resp.status_code})")
+        if resp.status_code != 200:
+            return None
+
+        data = resp.json()
+        if not isinstance(data, dict) or not isinstance(data.get("jobPostingInfo"), dict):
+            return None
+        info = data["jobPostingInfo"]
+        raw_desc = info.get("jobDescription") or ""
+        cleaned = clean_html_to_text(raw_desc) if raw_desc else ""
+        if (not cleaned or cleaned == "Non spécifié") and info.get("canApply") is False:
+            raise ExpiredOfferError("Workday offre fermée (canApply=False)")
+        if not cleaned or cleaned == "Non spécifié":
+            return None
+
+        remote_raw = str(info.get("remoteType") or "").lower()
+        remote_policy = "Full Remote" if "remote" in remote_raw else ("Hybride" if "hybrid" in remote_raw else "Non spécifié")
+        return {
+            "poste": str(info.get("title") or "").strip() or "Non spécifié",
+            "entreprise": tenant.replace("-", " ").title(),
+            "description": cleaned,
+            "localisation": str(info.get("location") or "Non spécifié").strip(),
+            "type_contrat": normalize_employment_type(info.get("timeType")),
+            "politique_teletravail": remote_policy,
+            "salaire": "Non spécifié",
+            "date_publication": info.get("startDate"),
+            "url": url,
+            "ats_platform": "workday",
+            "source_record": data,
+        }
+    except ExpiredOfferError:
+        raise
+    except Exception as e:
+        logger.debug(f"Échec Workday CXS API pour {url}: {e}")
         return None
 
 
@@ -620,6 +864,22 @@ async def extract_ats_or_jsonld_offer(
                         jsonld_result["ats_platform"] = "cadremploi"
                         logger.info(f"⚡ Extraction Zero-Token réussie (Cadremploi): {jsonld_result['poste']} - {jsonld_result['entreprise']}")
                         return jsonld_result
+                    if _check_non_content_html(c_html, url):
+                        return None
+
+        # 7b. Ashby direct public board API
+        if "ashbyhq.com" in domain:
+            ashby_result = await extract_ashby_job(url, client)
+            if ashby_result:
+                logger.info(f"⚡ Extraction Zero-Token réussie (Ashby): {ashby_result['poste']} - {ashby_result['entreprise']}")
+                return ashby_result
+
+        # 7c. Workday CXS JSON endpoint
+        if "myworkdayjobs.com" in domain:
+            wd_result = await extract_workday_job(url, client)
+            if wd_result:
+                logger.info(f"⚡ Extraction Zero-Token réussie (Workday): {wd_result['poste']} - {wd_result['entreprise']}")
+                return wd_result
 
         # 8. Universal Schema.org JSON-LD fetch
         # Pour les job boards comme HelloWork, Meteojob, JobTeaser, Ashby, etc.
@@ -639,6 +899,8 @@ async def extract_ats_or_jsonld_offer(
 
                 logger.info(f"⚡ Extraction Zero-Token réussie (JSON-LD/{jsonld_result.get('ats_platform', 'web')}): {jsonld_result['poste']} - {jsonld_result['entreprise']}")
                 return jsonld_result
+            if _check_non_content_html(resp.text, url):
+                return None
         elif resp.status_code in (403, 503):
             # Tentative de repli via curl_cffi pour les sites protégés par Cloudflare
             curl_res = await asyncio.to_thread(_fetch_with_curl_cffi, url)
@@ -651,6 +913,8 @@ async def extract_ats_or_jsonld_offer(
                     if jsonld_result:
                         logger.info(f"⚡ Extraction Zero-Token réussie (JSON-LD via curl_cffi): {jsonld_result['poste']} - {jsonld_result['entreprise']}")
                         return jsonld_result
+                    if _check_non_content_html(c_html, url):
+                        return None
 
     except ExpiredOfferError:
         raise

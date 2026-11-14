@@ -14,7 +14,7 @@ from tests.evaluation.conftest import (
 )
 
 PRIMARY_MODEL = "gemini/gemini-3.8-flash"
-FALLBACK_MODEL = "gemini/gemini-2.5-flash"
+FALLBACK_MODEL = "gemini/gemini-3.5-flash-lite"
 
 
 def _gemini_503():

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Body, Depends, status, HTTPException, BackgroundTasks
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from datetime import datetime, timezone
 import pymongo
@@ -21,6 +21,8 @@ from ..utils import serialize_mongodb_doc, capitalize_words
 from ..auth import get_current_user
 from ..llm.provider_errors import classify_llm_error, llm_http_exception
 from ..llm.utils import fetch_documents, split_documents, summarize_chunks
+from ..services.analytics.calibration import compute_score_calibration
+from ..services.ats_score import clean_invisible_markers
 from ..services.evaluation.evaluator import evaluate_offer_two_pass
 from ..services.usage_tracker import record_api_usage, require_user_quota
 from ..services.normalization import clean_job_title_syntax, compute_unique_key
@@ -102,6 +104,8 @@ async def _append_letter_version(db, letter_id, version: dict, guard_context: di
     """Ajoute une version numérotée sans jamais écraser les précédentes."""
     letter = await db["cover_letters"].find_one({"_id": letter_id})
     version["n"] = len(letter.get("versions", [])) + 1
+    if isinstance(version.get("body"), str):
+        version["body"] = clean_invisible_markers(version["body"])
     # Un rapport de garde encore bloquant (après révisions) ne rend pas la lettre prête.
     blocking = (version.get("guard_report") or {}).get("is_blocking")
     update_set = {
@@ -480,6 +484,23 @@ async def get_pipeline_summary(
         thank_yous_due_count=thank_yous_due,
         evaluated_offers_ready_count=eval_count,
     )
+
+
+@job_router.get("/pipeline/calibrate")
+async def calibrate_pipeline_scores(
+    min_band_n: int = 5,
+    current_user: UserModel = Depends(get_current_user),
+    db=Depends(get_database),
+) -> Dict[str, Any]:
+    """Calibrate AI offer scores against observed pipeline outcomes (excluding in-flight apps)."""
+    user_id_str = str(current_user.id)
+    user_id_filter: List[Dict[str, Any]] = [{"user_id": user_id_str}]
+    if ObjectId.is_valid(user_id_str):
+        user_id_filter.append({"user_id": ObjectId(user_id_str)})
+
+    apps = await db["applications"].find({"$or": user_id_filter}).to_list(length=5000)
+    evals = await db["offer_evaluations"].find({"$or": user_id_filter}).to_list(length=5000)
+    return compute_score_calibration(apps, evals, min_band_n=max(1, min_band_n))
 
 
 @job_router.get("/{application_id}", response_model=JobApplicationResponse)

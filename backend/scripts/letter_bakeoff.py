@@ -74,7 +74,6 @@ SIMULATED_KEY = "dummy-simulated-key"
 # gpt-5.6-terra d'après platform.openai.com/docs/models/gpt-5.6-terra, 2026-11-09).
 PRICES_USD_PER_M = {
     "gemini/gemini-3.8-flash": (0.75, 3.75),
-    "gemini/gemini-3.7-flash": (0.75, 3.75),
     "openai/gpt-6.1-sol": (2.00, 10.00),
     "openai/gpt-5.6-terra": (2.00, 12.00),
 }
@@ -415,8 +414,8 @@ def _record_row(row: Dict[str, Any], label: str, prompt_version: Optional[str]) 
 
 
 SIM_MODELS = {"analyst": "gemini/gemini-3.8-flash", "critic": "gemini/gemini-3.8-flash",
-              "writer": "openai/gpt-6.1-sol", "reviser": "openai/gpt-6.1-sol"}
-SIM_CV_MODEL = "gemini/gemini-3.7-flash"
+              "writer": "openai/gpt-5.6-terra", "reviser": "openai/gpt-5.6-terra"}
+SIM_CV_MODEL = "gemini/gemini-3.8-flash"
 
 
 @contextlib.contextmanager

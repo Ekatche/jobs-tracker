@@ -84,7 +84,7 @@ Chaque offre viable passe par un sas d'évaluation IA avant d'apparaître sur l'
 | Composant | Fichier(s) | Notes |
 |---|---|---|
 | Modèles d'évaluation | `app/models.py` | `OfferEvaluationInDB`, `RequirementMatch`, `MissingRequirement` |
-| Évaluateur Two-Pass (Gemini 3.7 Flash) | `app/services/evaluation/evaluator.py` | Blocs A-G, vérification quotas API, scoring déterministe |
+| Évaluateur Two-Pass (Gemini 3.8 Flash) | `app/services/evaluation/evaluator.py` | Blocs A-G, vérification quotas API, scoring déterministe |
 | Endpoints d'évaluation | `app/routers/job_offers.py` | POST `/job-offers/{id}/evaluate`, GET `/job-offers/{id}/evaluation` |
 | UI de consultation détaillée | `frontend/src/app/offers/[id]/page.tsx` | Jauge de score, citations verbatim, points forts/bloquants |
 | Évaluation in-sidebar Kanban | `frontend/src/components/applications/ApplicationDetails.tsx` | Évaluation en 1 clic directement dans la sidebar |
@@ -123,7 +123,7 @@ Lorsqu'une offre est validée par l'utilisateur (Score >= 4.0).
     *   Budget de pages selon le parcours (1 page sous 5 ans, 2 pages au-delà) ; puces réparties selon la pertinence pour l'offre et le Bloc B, sans retirer aucune expérience.
     *   Export en PDF ultra-sobre et optimisé pour le parsing des robots ATS.
 *   **Lettre de Motivation (Pipeline Multi-Agents LiteLLM)** :
-    *   Pipeline séquentiel de 4 agents : `offer_analyst` (gpt-5.6-luna) → `writer` (gpt-5.6-sol) → `critic` (gemini-3.8-flash, cross-provider) → `reviser` (gpt-5.6-sol, conditionnel).
+    *   Pipeline séquentiel de 4 agents : `offer_analyst` (gemini-3.8-flash) → `writer` (gpt-5.6-terra) → `critic` (gemini-3.8-flash, cross-provider) → `reviser` (gpt-5.6-terra, conditionnel).
     *   Letter Guards en code pur (ponctuation, mots bannis, longueur) + critique inter-modèle.
     *   Alimenté avec le profil candidat et la description de l'offre.
     *   Coût : ~$0.04-0.08 par lettre.
@@ -184,7 +184,7 @@ Lorsque le statut passe à "Entretien programmé" (`interview`).
 | Endpoints des lignes du kit | `app/routers/interview_prep.py` | `/offers/{id}/interview-prep/slots/{slot_id}` : PUT (histoire, exigence, angle), DELETE, `/write` (IA, annulable), `/manual-story` |
 | Remplissage initial de la banque | `backend/migrate_star_stories_to_bank.py` | Copie les histoires des kits existants dans la banque (simulation par défaut, `--apply` pour écrire) ; l'ancien champ `stories` est conservé comme copie de sûreté |
 | Composants de la banque | `frontend/src/components/interview/` | `StorySlotsTable` (tableau exigence / histoire / adéquation), `StoryBankPanel` (panneau « Toute ma banque »), `DuplicateResolver` (vue côte à côte des doublons), `StarStoryCard` (faits, versions écartées, suppression) |
-| Service de génération & Quotas | `app/services/interview_prep_service.py` | LiteLLM Gemini 3.7 Flash, extraction JSON déterministe, décompte `ApiUsageAction.INTERVIEW_PREP` |
+| Service de génération & Quotas | `app/services/interview_prep_service.py` | LiteLLM Gemini 3.8 Flash, extraction JSON déterministe, décompte `ApiUsageAction.INTERVIEW_PREP` |
 | Exporteur Markdown complet | `app/services/interview_prep_service.py` | Rendu mémo complet prêt à l'export/impression |
 | Endpoints REST FastAPI | `app/routers/interview_prep.py` | Routes `/offers/{id}/interview-prep/*` (GET, POST modular, PUT, export) |
 | Client frontend & Types | `frontend/src/types/interview.ts`, `frontend/src/lib/api.ts` | `interviewPrepApi` complet avec export et téléchargement direct |
@@ -252,3 +252,14 @@ graph TD
 ```
 
 **Ordre d'implémentation recommandé** : 7 → 1 (compléter onboarding) → 3 → 4 → 5 (compléter CV) → 6
+
+---
+
+## Mises à jour Career-Ops v1.32+ intégrées ✅
+
+| Chantier | Phase liée | Composants ajoutés / renforcés | Fichiers principaux |
+|---|---|---|---|
+| **A — Évaluation & Matching** | Phase 3 | `importance_evidence_tier` + plafond Pass 1 (`inferred`), budget 12 lignes Bloc B (`apply_bloc_b_row_budget`), signaux Bloc G (`check_pay_range_width`, `check_employment_classification_risk`, `check_ai_buzzword_mismatch`, `company_history_note`, `build_risk_summary`), brouillons Bloc H (`build_bloc_h_draft`) | `backend/app/models.py`, `backend/app/services/evaluation/offer_fit.py`, `backend/app/services/evaluation/evaluator.py` |
+| **B — Garde-fous CV, ATS & Clean-Markers** | Phase 5 | Horizon 30/60/90j (`_is_plan_horizon`), noms éducation/effectif + liaison plus proche, anti-escalade d'autorité (`_check_delegated_authorship_escalation`), service `ats_score.py`, endpoints `/resumes/{id}/ats-score` & `/resumes/{id}/export-text`, nettoyage Unicode CV & lettres | `backend/app/services/cv_guards.py`, `backend/app/services/ats_score.py`, `backend/app/routers/resumes.py`, `backend/app/routers/applications.py` |
+| **C — Collecte & Connecteurs ATS** | Phase 2 | `detect_non_content_marker`, extracteurs Zero-Token Ashby (`extract_ashby_job`) & Workday CXS (`extract_workday_job`), correctif SmartRecruiters board fantôme (`check_smartrecruiters_board_status` #4215) | `backend/app/services/ats/router.py` |
+| **D — Analytics & Pilotage** | Phase 4 | Calibration scores/résultats (`compute_score_calibration`, exclusion `in_flight`, plancher `min_band_n`), lacunes compétences JD (`compute_jd_skill_gaps`), endpoints `/applications/pipeline/calibrate` & `/job-offers/analytics/skill-gaps` | `backend/app/services/analytics/calibration.py`, `backend/app/routers/applications.py`, `backend/app/routers/job_offers.py` |

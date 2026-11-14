@@ -15,6 +15,11 @@ from app.models import (
     UserModel,
     utcnow_with_timezone,
 )
+from app.services.ats_score import (
+    clean_tailored_cv_markers,
+    export_cv_ats_plain_text,
+    score_cv_ats_friendliness,
+)
 from app.services.cv_parser import _flatten_contact_value
 from app.services.cv_pdf_renderer import generate_cv_pdf
 from app.services.cv_tailor import DEFAULT_CV_MODEL, CVHonestyError, generate_tailored_cv_content
@@ -184,6 +189,9 @@ async def generate_resume(
     except Exception as usage_err:
         logger.warning(f"Failed to record API usage for CV tailoring: {usage_err}")
 
+    if isinstance(tailored_cv, TailoredCVSchema):
+        tailored_cv = clean_tailored_cv_markers(tailored_cv)
+
     # Persist in MongoDB
     now = utcnow_with_timezone()
     resume_doc = {
@@ -246,7 +254,7 @@ async def update_resume(
 
     update_fields: Dict[str, Any] = {"updated_at": utcnow_with_timezone()}
     if request.content is not None:
-        update_fields["content"] = request.content.model_dump()
+        update_fields["content"] = clean_tailored_cv_markers(request.content).model_dump()
     if request.template is not None:
         update_fields["template"] = request.template
     if request.accent is not None:
@@ -263,16 +271,12 @@ async def update_resume(
     return serialize_mongodb_doc(updated_doc)
 
 
-@resumes_router.get("/{resume_id}/pdf")
-async def get_resume_pdf(
+async def _load_owned_resume_and_candidate(
     resume_id: str,
-    template: Optional[TemplateKey] = Query(None),
-    accent: Optional[AccentKey] = Query(None),
-    with_photo: Optional[bool] = Query(None),
-    db=Depends(get_database),
-    current_user: UserModel = Depends(get_current_user),
-):
-    """Generate and stream a vector A4 PDF of the tailored resume."""
+    db: Any,
+    current_user: UserModel,
+) -> tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+    """Load an owned tailored resume alongside candidate profile and contact context."""
     if not ObjectId.is_valid(resume_id):
         raise HTTPException(status_code=400, detail="ID de CV invalide.")
 
@@ -283,14 +287,28 @@ async def get_resume_pdf(
     if str(resume.get("user_id")) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Accès non autorisé à ce CV.")
 
-    # Candidate profile info for contact details & photo
     profile_query = [{"user_id": str(current_user.id)}]
     if ObjectId.is_valid(str(current_user.id)):
         profile_query.append({"user_id": ObjectId(current_user.id)})
     profile_doc = await db["candidate_profile"].find_one({"$or": profile_query}) or {}
     contact_info = profile_doc.get("personal_info") or profile_doc.get("contact") or {}
-
     candidate = _build_candidate(profile_doc, current_user)
+    return resume, profile_doc, contact_info, candidate
+
+
+@resumes_router.get("/{resume_id}/pdf")
+async def get_resume_pdf(
+    resume_id: str,
+    template: Optional[TemplateKey] = Query(None),
+    accent: Optional[AccentKey] = Query(None),
+    with_photo: Optional[bool] = Query(None),
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Generate and stream a vector A4 PDF of the tailored resume."""
+    resume, profile_doc, contact_info, candidate = await _load_owned_resume_and_candidate(
+        resume_id, db, current_user
+    )
 
     # Paramètre d'URL, sinon valeur enregistrée, sinon défaut (ancien document sans accent).
     chosen_template = template or resume.get("template") or DEFAULT_TEMPLATE
@@ -328,6 +346,69 @@ async def get_resume_pdf(
             "Content-Type": "application/pdf"
         }
     )
+
+
+@resumes_router.get("/{resume_id}/ats-score")
+async def get_resume_ats_score(
+    resume_id: str,
+    offer_id: Optional[str] = Query(None),
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Compute a deterministic ATS parseability and invisible-marker score for a tailored resume."""
+    resume, profile_doc, contact_info, candidate = await _load_owned_resume_and_candidate(
+        resume_id, db, current_user
+    )
+
+    target_keywords: Optional[List[str]] = None
+    target_offer_id = offer_id or (str(resume.get("offer_id")) if resume.get("offer_id") else None)
+    if target_offer_id and ObjectId.is_valid(target_offer_id):
+        offer_doc = await db["job_offers"].find_one({"_id": ObjectId(target_offer_id)})
+        if isinstance(offer_doc, dict):
+            raw_kws = offer_doc.get("competences_cles")
+            if isinstance(raw_kws, list):
+                target_keywords = [str(k).strip() for k in raw_kws if str(k).strip()] or None
+            elif isinstance(raw_kws, str) and raw_kws.strip():
+                target_keywords = [k.strip() for k in raw_kws.split(",") if k.strip()] or None
+
+    content = resume.get("content") or {}
+    html_content = render_cv_html(
+        cv=content,
+        candidate=candidate,
+        template_name=resume.get("template") or DEFAULT_TEMPLATE,
+        with_photo=bool(resume.get("with_photo", False)),
+        photo_url=contact_info.get("photo_url") or profile_doc.get("photo_url"),
+        accent=resume.get("accent") or DEFAULT_ACCENT,
+    )
+    report = score_cv_ats_friendliness(
+        tailored_content=content,
+        candidate=candidate,
+        target_keywords=target_keywords,
+        html_content=html_content,
+    )
+    return {"resume_id": resume_id, **report}
+
+
+@resumes_router.get("/{resume_id}/export-text")
+async def export_resume_text(
+    resume_id: str,
+    format: Literal["markdown", "txt"] = Query("markdown"),
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Export a tailored resume in ATS-safe single-column Markdown or plain text format."""
+    resume, _profile_doc, _contact_info, candidate = await _load_owned_resume_and_candidate(
+        resume_id, db, current_user
+    )
+    text_content = export_cv_ats_plain_text(resume.get("content") or {}, candidate, fmt=format)
+    ext = "md" if format == "markdown" else "txt"
+    filename = f"CV_{_slugify(candidate['full_name'])}_{_slugify(resume.get('target_company', 'offre'))}.{ext}"
+    return {
+        "resume_id": resume_id,
+        "format": format,
+        "filename": filename,
+        "content": text_content,
+    }
 
 
 @resumes_router.delete("/{resume_id}")

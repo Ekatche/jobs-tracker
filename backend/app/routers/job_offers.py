@@ -3,7 +3,7 @@ import logging
 import re
 import unicodedata
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 from ..models import (
@@ -21,6 +21,7 @@ from ..services.collection_schedule import next_collection_at, previous_collecti
 from ..services.company_profiles import COMPANY_SIZES, SECTORS
 from ..services.normalization import normalize_city, normalize_company
 from ..services.offer_scoring.constants import RELEVANCE_LEVELS
+from ..services.analytics.calibration import compute_jd_skill_gaps
 from ..services.evaluation.evaluator import evaluate_offer_two_pass
 from ..tasks.clean_job_offers import safe_delete_or_expire_offer
 
@@ -711,6 +712,22 @@ async def list_user_offer_interactions(
         del doc["_id"]
         result.append(UserOfferInteractionResponse(**doc))
     return result
+
+
+@job_offers_router.get("/analytics/skill-gaps")
+async def get_jd_skill_gaps(
+    min_score: float = Query(0.0, ge=0.0, le=5.0),
+    db=Depends(get_database),
+    current_user: UserModel = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Aggregate recurring missing JD requirements across the user's offer evaluations."""
+    user_id_str = str(current_user.id)
+    user_id_filter: List[Dict[str, Any]] = [{"user_id": user_id_str}]
+    if ObjectId.is_valid(user_id_str):
+        user_id_filter.append({"user_id": ObjectId(user_id_str)})
+
+    evals = await db["offer_evaluations"].find({"$or": user_id_filter}).to_list(length=5000)
+    return compute_jd_skill_gaps(evals, min_score=min_score)
 
 
 @job_offers_router.get("/{offer_id}", response_model=JobOfferResponse)

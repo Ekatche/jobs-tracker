@@ -1,6 +1,6 @@
 # Job Ingestion & Normalization
 
-> Mis à jour : 2026-09-25 · Correspond à la session de travail `20260925-collect-sources-and-geo-filter`.
+> Mis à jour : 2026-11-14 · Intégration des connecteurs Zero-Token Ashby/Workday, filtre non-content et correctif SmartRecruiters (#4215).
 
 ## Vue d'ensemble
 
@@ -59,6 +59,12 @@ Garde-fous du crew CrewAI :
 Offre retirée côté ATS : un 404 de l'API Greenhouse lève `ExpiredOfferError`, l'URL est écartée sans
 crawl de repli (la page redirige vers la liste des postes du board, qui serait extraite comme
 plusieurs offres hors sujet).
+
+Connecteurs Zero-Token et garde-fous complémentaires (`app/services/ats/router.py`) :
+- **Ashby (`extract_ashby_job`)** : extraction via `api.ashbyhq.com/posting-api/job-board/{org}?includeCompensation=true`, priorité à `workplaceType` sur `isRemote`, `ExpiredOfferError` si `404`/`410` ou `isListed=False`.
+- **Workday CXS (`extract_workday_job`)** : extraction JSON via `/wday/cxs/{tenant}/{site}/job/{job_path}`, `ExpiredOfferError` si `404`/`410` ou `canApply=False` sans description.
+- **SmartRecruiters (`check_smartrecruiters_board_status`, `#4215`)** : un board renvoyant HTTP 200 avec `totalFound == 0` ou `content: []` est qualifié `"not_found"` (jamais `"empty"`), et `extract_smartrecruiters_job` renvoie `None` si aucune section de description n'est exploitable.
+- **Filtre de marqueurs non-contenu (`detect_non_content_marker`)** : détecte `404-shell` (lève `ExpiredOfferError`), `login-wall`, `paywall` et `js-required` pour stopper le repli LLM sans faux positif sur les longues fiches de poste structurées (> 1200 caractères).
 
 ### Crawl4AI : statuts, métriques et replis
 
@@ -274,7 +280,7 @@ ainsi ré-extraire un champ plus tard (niveau, salaire chiffré, secteur…) san
   - ligne jobspy (`map_jobboard_row`) : cellules vides retirées, dates en ISO, car BSON n'encode pas
     `datetime.date` ;
   - item France Travail (offres collectées avant le retrait de la source) ;
-  - payload Greenhouse, Lever, Workable, SmartRecruiters ou Indeed GraphQL ;
+  - payload Greenhouse, Lever, Workable, SmartRecruiters, Ashby, Workday CXS ou Indeed GraphQL ;
   - objet JobPosting (JSON-LD).
 - `enrich_offers` range cet enregistrement sous la clé de sa source, `{ats_platform: source_record}`
   (par exemple `{"linkedin": {...}}`). La clé `source_record` ne reste pas au premier niveau du

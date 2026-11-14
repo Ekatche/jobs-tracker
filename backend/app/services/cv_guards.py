@@ -3,7 +3,7 @@ import re
 import unicodedata
 from dataclasses import dataclass, field as dc_field
 from difflib import SequenceMatcher
-from typing import Tuple, List, Dict, Any, Optional, Set
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from app.models import TailoredCVSchema
 from app.services.cv_templates import _cumulative_career_years, _date_key, _end_key
 
@@ -195,6 +195,85 @@ _NON_CLAIM_NOUNS: Set[str] = STOPWORDS | {
     "decembre", "new",
 }
 
+# Known metric nouns for nearest-noun window binding (including education/training & headcount terms from career-ops).
+_METRIC_NOUNS_RAW = (
+    # Durations kept here so lazy binding binds "15 ans à encadrer des plateformes" to "ans" (duration) rather than "plateformes".
+    "an", "ans", "année", "années", "annee", "annees", "mois", "semaine", "semaines", "jour", "jours",
+    "heure", "heures", "year", "years", "month", "months", "week", "weeks", "day", "days", "hour", "hours",
+    # People, education, training & ops counts
+    "utilisateurs", "utilisateur", "users", "user", "clients", "client", "customers", "customer",
+    "employés", "employes", "employees", "collaborateurs", "staff", "personnel", "personnes", "people",
+    "ingénieurs", "ingenieurs", "engineers", "équipes", "equipes", "teams", "entreprises", "companies",
+    "partenaires", "partners", "organisations", "organizations", "pays", "countries",
+    "candidats", "candidat", "candidates", "candidate", "stagiaires", "trainees", "apprenants", "learners",
+    "participants", "étudiants", "etudiants", "students", "élèves", "eleves", "diplômés", "graduates",
+    "formateurs", "instructors", "enseignants", "teachers", "écoles", "ecoles", "schools",
+    "classes", "classrooms", "formations", "courses", "workshops", "ateliers", "certifications", "certificats",
+    "techniciens", "technicians", "opérateurs", "operators", "chercheurs", "researchers", "bénévoles", "volunteers",
+    "patients", "projets", "projects", "workflows", "pipelines", "agents", "documents", "rapports", "reports",
+    "déploiements", "deploiements", "deployments", "serveurs", "servers", "services", "modules", "outils", "tools",
+    "modèles", "modeles", "models", "intégrations", "integrations", "tests", "sites", "magasins", "bâtiments",
+)
+_NEAREST_METRIC_RE = re.compile(
+    rf"(?<![\w.,/-])({_NUM})\s*\+?\s*(?:[^\W\d_][\w'’-]*\s+){{0,4}}?({'|'.join(sorted(set(_METRIC_NOUNS_RAW), key=len, reverse=True))})\b",
+    re.IGNORECASE,
+)
+
+_TIME_UNIT_NOUNS = {
+    "jour", "jours", "day", "days", "semaine", "semaines", "week", "weeks",
+    "mois", "month", "months", "heure", "heures", "hour", "hours",
+}
+_PLAN_HORIZON_LEAD_RE = re.compile(r"\b(?:les?\s+(?:premiers?|prochains?)?|the\s+(?:first|next)|my\s+(?:first|next)|first|next)\s*$", re.IGNORECASE)
+_PLAN_HORIZON_TRAIL_RE = re.compile(r"^\s*(?:premiers?|prochains?|first|next)\b", re.IGNORECASE)
+_PROSPECTIVE_CLAUSE_RE = re.compile(
+    r"\b(?:plan|plans|planifi[ée]r?|feuille\s+de\s+route|roadmap|approche|approach|objectif|objectives?|"
+    r"would|will|shall|should|d['’]ici|pour\s+les)\b|['’](?:ll|d)\b|\b30\s*/\s*60\s*/\s*90\b",
+    re.IGNORECASE,
+)
+
+# Delegated authorship & participation escalation detection (career-ops verify-cv-facts.mjs).
+_DELEGATED_PARTY_RE = re.compile(
+    r"\b(?:prestataires?|agences?|cabinets?|sous-traitants?|fournisseurs?|"
+    r"vendors?|agenc(?:y|ies)|contractors?|consultanc(?:y|ies)|consultants?|external\s+teams?|outsourc(?:ed|ing))\b",
+    re.IGNORECASE,
+)
+_PARTICIPATION_RE = re.compile(
+    r"\b(?:particip[ée]s?|contribu[ée]s?|assist[ée]s?|aid[ée]s?|en\s+appui|second[ée]s?|"
+    r"collaborat(?:ed|ing)|assisted|contributed|participated|supported|helped)\b",
+    re.IGNORECASE,
+)
+_THIRD_PARTY_EXECUTION_RE = re.compile(
+    r"\b(?:prestataires?|agences?|cabinets?|vendors?|agenc(?:y|ies)|contractors?|consultants?)\b"
+    r"[^.;!?]{0,120}\b(?:qui|ont|which|who|that)\b[^.;!?]{0,120}"
+    r"\b(?:d[ée]velopp[ée]|cod[ée]|con[çc]u|construit|authored|built|coded|developed|engineered|implemented|wrote)\b",
+    re.IGNORECASE,
+)
+_DIRECT_LEADERSHIP_RE = re.compile(
+    r"\b(?:dirig[ée]|pilot[ée]|architectur[ée]|con[çc]u|fond[ée]|cr[ée]{2}|d[ée]velopp[ée]|impl[ée]ment[ée]|"
+    r"led|architected|owned|spearheaded|directed|authored|built|coded|developed|engineered|implemented|wrote)\b",
+    re.IGNORECASE,
+)
+_DIRECT_OWNERSHIP_CLAIM_RE = re.compile(
+    r"\b(dirig[ée]|pilot[ée]|architectur[ée]|con[çc]u\s+de\s+bout\s+en\s+bout|fond[ée]|cr[ée]{2}\s+de\s+z[ée]ro|"
+    r"led|architected|owned|spearheaded|directed|built\s+from\s+scratch|built\s+end[\s-]+to[\s-]+end)\b\s+([^.;!?]{1,160})",
+    re.IGNORECASE,
+)
+_ATTRIBUTION_STOPWORDS: Set[str] = STOPWORDS | {
+    "a", "an", "the", "my", "our", "by", "from", "with", "through", "sur", "du", "des", "une", "mon", "ma", "mes",
+    "dirige", "pilote", "architecture", "concu", "fonde", "cree", "participe", "contribue", "assiste", "aide",
+    "led", "architected", "owned", "spearheaded", "directed", "built", "authored", "developed", "engineered",
+    "prestataire", "prestataires", "agence", "agences", "vendor", "vendors", "agency", "contractor", "consultant",
+}
+
+_METRIC_NOUN_SYNONYMS: Dict[str, str] = {
+    "candidates": "candidats", "candidat": "candidats",
+    "trainees": "stagiaires", "learners": "apprenants", "students": "etudiants",
+    "schools": "ecoles", "ecole": "ecoles", "classrooms": "classes", "workshops": "ateliers",
+    "teams": "equipes", "equipe": "equipes", "users": "utilisateurs", "utilisateur": "utilisateurs",
+    "deployments": "deploiements", "projects": "projets", "projet": "projets",
+    "personnel": "staff", "employees": "collaborateurs",
+}
+
 # Clés qui ne portent pas de fait métier : dates, coordonnées, identifiants, charges brutes des sources, valeurs écartées.
 _SKIPPED_KEYS = {
     "start", "end", "start_date", "end_date", "year", "date", "dates", "phone", "email", "url", "id", "_id", "user_id",
@@ -252,6 +331,25 @@ def _to_float(raw: str) -> float:
     return round(float(raw.replace(",", ".")), 6)
 
 
+def _canonical_metric_noun(raw_noun: str) -> str:
+    cleaned = _clean_str(raw_noun).split(" ")[0]
+    return _METRIC_NOUN_SYNONYMS.get(cleaned, cleaned)
+
+
+def _is_plan_horizon(text: str, match_start: int, match_end: int, noun: str) -> bool:
+    """Detect prospective 30/60/90-day plan horizons so they are not flagged as fabricated metrics."""
+    if noun not in _TIME_UNIT_NOUNS:
+        return False
+    lead_window = text[max(0, match_start - 30): match_start]
+    between = text[match_start: match_end]
+    if not (_PLAN_HORIZON_LEAD_RE.search(lead_window) or _PLAN_HORIZON_TRAIL_RE.search(between)):
+        return False
+    clause_start = max((text.rfind(sep, 0, match_start) for sep in (".", "!", "?", "\n")), default=-1) + 1
+    clause_end_candidates = [text.find(sep, match_end) for sep in (".", "!", "?", "\n") if text.find(sep, match_end) != -1]
+    clause_end = min(clause_end_candidates) if clause_end_candidates else len(text)
+    return bool(_PROSPECTIVE_CLAUSE_RE.search(text[clause_start:clause_end]))
+
+
 def _extract_metrics(text: str) -> List[_Metric]:
     """Valeurs chiffrées porteuses d'une affirmation : %, montants, multiplicateurs, effectifs et volumes. Ni années ni durées."""
     text = _normalize_digits(text)
@@ -277,8 +375,24 @@ def _extract_metrics(text: str) -> List[_Metric]:
             else:
                 add(m, (kind, value))
 
+    # Pass 1: lazy binding to nearest known metric noun (supports up to 4 adjectives and education/headcount nouns)
+    for m in _NEAREST_METRIC_RE.finditer(text):
+        raw_number = m.group(1)
+        noun = _canonical_metric_noun(m.group(2))
+        if not free(m.span(1)) or not noun or re.fullmatch(r"(?:19|20)\d\d", raw_number):
+            continue
+        if _is_plan_horizon(text, m.start(1), m.end(2), noun) or noun in _NON_CLAIM_NOUNS:
+            # Consume number span so fallback _COUNT_RE never re-binds e.g. "90" to "premiers"
+            consumed.append(m.span(1))
+            continue
+        words = re.findall(r"[\w.+#'’-]+", text[max(0, m.start(1) - 40): m.start(1)])
+        context = _clean_str(f"{words[-1]} {raw_number}") if words and words[-1][:1].isupper() else ""
+        add(m, ("n", _to_float(raw_number)), context, noun)
+
+    # Pass 2: fallback adjacent noun for domain nouns outside _METRIC_NOUNS_RAW
     for m in _COUNT_RE.finditer(text):
-        raw_number, noun = m.group(1), _clean_str(m.group(2)).split(" ")[0]
+        raw_number = m.group(1)
+        noun = _canonical_metric_noun(m.group(2))
         if not free(m.span(1)) or noun in _NON_CLAIM_NOUNS or not noun:
             continue
         if re.fullmatch(r"(?:19|20)\d\d", raw_number):
@@ -449,6 +563,52 @@ def _short_term_in(raw: str, bullet: str) -> bool:
     return False
 
 
+def _attribution_tokens(text: str) -> Set[str]:
+    return {
+        tok
+        for tok in _clean_str(text).split()
+        if len(tok) >= 3 and tok not in _ATTRIBUTION_STOPWORDS and not tok.isdigit()
+    }
+
+
+def _check_delegated_authorship_escalation(bullet: str, own_strings: Sequence[str]) -> Optional[str]:
+    """Detect upgrading delegated or subordinate participation into direct authorship."""
+    if _DELEGATED_PARTY_RE.search(bullet) or _PARTICIPATION_RE.search(bullet):
+        return None
+    claims = list(_DIRECT_OWNERSHIP_CLAIM_RE.finditer(bullet))
+    if not claims:
+        return None
+
+    source_statements = [
+        stmt.strip()
+        for raw in own_strings
+        for stmt in re.split(r"[.!?;]+|\n+", raw)
+        if stmt.strip()
+    ]
+    direct_sets: List[Set[str]] = []
+    delegated_sets: List[Set[str]] = []
+    for stmt in source_statements:
+        has_delegated = bool(_DELEGATED_PARTY_RE.search(stmt) or _PARTICIPATION_RE.search(stmt))
+        has_direct = bool(_DIRECT_LEADERSHIP_RE.search(stmt)) and not bool(_THIRD_PARTY_EXECUTION_RE.search(stmt))
+        if has_direct and not has_delegated:
+            direct_sets.append(_attribution_tokens(stmt))
+        elif has_delegated and (not has_direct or _THIRD_PARTY_EXECUTION_RE.search(stmt)):
+            delegated_sets.append(_attribution_tokens(stmt))
+
+    if not delegated_sets:
+        return None
+
+    for claim in claims:
+        obj_tokens = _attribution_tokens(claim.group(2))
+        if len(obj_tokens) < 2:
+            continue
+        if any(len(obj_tokens & direct) >= 2 for direct in direct_sets):
+            continue
+        if any(len(obj_tokens & delegated) >= 2 for delegated in delegated_sets):
+            return claim.group(0).strip()
+    return None
+
+
 def _audit_experience(
     exp: Any,
     exp_idx: int,
@@ -492,6 +652,13 @@ def _audit_experience(
 
     other_terms = [(p, _stack_terms(p)) for p, _ in others]
     for bullet_idx, bullet in enumerate(exp.bullet_points):
+        escalated = _check_delegated_authorship_escalation(bullet, own.raw)
+        if escalated:
+            audit.violations.append(Finding(
+                f"Puce {bullet_idx + 1} du poste {where} surévalue la responsabilité ('{escalated}') par rapport à une contribution ou prestation déléguée dans le profil.",
+                "bullet_points", exp_idx, item_index=bullet_idx,
+            ))
+
         for metric in _extract_metrics(bullet):
             if metric.context and metric.context in global_ctx.corpus and not any(ctx.has_canon(metric) for _, ctx in others):
                 continue  # « Python 3 », « ISO 27001 » : un nom, pas une mesure (sauf valeur qui vient d'un autre poste)

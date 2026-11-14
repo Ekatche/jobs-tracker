@@ -43,8 +43,8 @@ def test_letter_bench_simulated_estimate_and_budget_ledger(tmp_path, monkeypatch
     # 3. --real sans --confirm, via main : estimation seule, aucun appel (un point d'appel qui lèverait serait
     #    avalé par le pipeline : on compte les appels dans une liste).
     for role, (env, _) in bench.ROLE_ENV.items():
-        monkeypatch.setenv(env, "gemini/gemini-3.8-flash" if role in ("analyst", "critic") else "openai/gpt-6.1-sol")
-    monkeypatch.setattr(mods.cv, "DEFAULT_CV_MODEL", "gemini/gemini-3.7-flash")
+        monkeypatch.setenv(env, "gemini/gemini-3.8-flash" if role in ("analyst", "critic") else "openai/gpt-5.6-terra")
+    monkeypatch.setattr(mods.cv, "DEFAULT_CV_MODEL", "gemini/gemini-3.8-flash")
     calls = []
 
     async def spy(**kwargs):

@@ -235,7 +235,7 @@ async def _transcribe_scanned_pdf_with_vlm(pdf_bytes: bytes) -> str:
     if not images:
         return ""
 
-    model = os.getenv("VLM_MODEL", os.getenv("FAST_LLM_MODEL", "gemini/gemini-2.5-flash"))
+    model = os.getenv("VLM_MODEL", os.getenv("FAST_LLM_MODEL", "gemini/gemini-3.8-flash"))
     logger.info(f"Transcribing scanned PDF using VLM model: {model} ({len(images)} pages)")
 
     messages = [

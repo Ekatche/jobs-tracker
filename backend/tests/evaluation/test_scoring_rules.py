@@ -12,7 +12,10 @@ from app.models import (
 )
 from app.services.evaluation.evaluator import (
     _clean_json_output,
+    apply_bloc_b_row_budget,
+    build_bloc_h_draft,
     calculate_evaluation_score,
+    cap_pass1_inferred_importance,
     quote_in_offer,
     reconcile_with_pass1,
 )
@@ -204,4 +207,71 @@ def test_reconcile_ignores_unknown_req_id():
 def test_quote_in_offer(quote, expected):
     offer = "Poste d'animateur. Titulaire du BAFA, vous rejoignez l'équipe d'animation.\nPermis B apprécié."
     assert quote_in_offer(quote, offer) is expected
+
+
+# --- Gate Pass 1 Inferred, Budget Bloc B & Bloc H ---
+
+
+@pytest.mark.parametrize(
+    "tier,weight,expected_weight",
+    [
+        ("inferred", "critical", "meaningful"),
+        ("inferred", "high", "meaningful"),
+        ("inferred", "meaningful", "meaningful"),
+        ("structural", "critical", "critical"),
+        ("stated", "high", "high"),
+    ],
+)
+def test_cap_pass1_inferred_importance(tier, weight, expected_weight):
+    reqs = [{"id": "R1", "requirement": "K8s", "weight": weight, "evidence_tier": tier}]
+    cap_pass1_inferred_importance(reqs)
+    assert reqs[0]["weight"] == expected_weight
+
+    matched, _ = reconcile_with_pass1(
+        reqs, [{"req_id": "R1", "requirement": "K8s", "weight": "critical"}], []
+    )
+    assert matched[0]["weight"] == expected_weight
+    assert matched[0]["importance_evidence_tier"] == tier
+
+
+def test_apply_bloc_b_row_budget_keeps_critical_high_and_sorts_unmet_first():
+    matched = (
+        [_match(f"CritMatch{i}", "critical", "full_match") for i in range(4)]
+        + [_match(f"HighMatch{i}", "high", "full_match") for i in range(4)]
+        + [_match("PartMatch", "high", "partial_match")]
+        + [_match(f"MeanFull{i}", "meaningful", "full_match") for i in range(4)]
+    )
+    missing = [_missing("MeanMiss", "meaningful"), _missing("HighMiss", "high")]
+
+    kept_m, kept_miss, dropped = apply_bloc_b_row_budget(matched, missing, max_rows=12)
+    assert dropped == 3
+    assert len(kept_m) + len(kept_miss) == 12
+    assert {m.requirement for m in kept_miss} == {"HighMiss", "MeanMiss"}
+    assert kept_miss[0].weight == "high"
+    # partial_match precedes full_match within high band
+    high_matches = [m for m in kept_m if m.weight == "high"]
+    assert high_matches[0].status == "partial_match"
+
+
+def test_apply_bloc_b_row_budget_exceeds_limit_if_more_than_12_critical_high():
+    matched = [_match(f"Crit{i}", "critical") for i in range(13)]
+    missing = [_missing("MeanMiss", "meaningful")]
+    kept_m, kept_miss, dropped = apply_bloc_b_row_budget(matched, missing, max_rows=12)
+    assert len(kept_m) == 13
+    assert kept_miss == []
+    assert dropped == 1
+
+
+def test_build_bloc_h_draft_threshold_and_content():
+    offer = {"poste": "AI Engineer", "entreprise": "Acme", "competences_cles": ["Python", "FastAPI"]}
+    profile = {"headline": "Backend Dev", "personal_info": {"availability": "Immédiate"}}
+    bloc_a = BlocA(summary="Construire des agents.", archetype="Agentic Engineer")
+    bloc_b = BlocB(matched_requirements=FOUR_FULL_MATCHES, missing_requirements=[_missing("Rust", "high")])
+
+    assert build_bloc_h_draft(offer, profile, bloc_a, bloc_b, 3.9).eligible is False
+    draft = build_bloc_h_draft(offer, profile, bloc_a, bloc_b, 4.2)
+    assert draft.eligible is True
+    assert len(draft.answers) == 3
+    assert "Rust (high)" in draft.gaps_flagged
+    assert "Python" in draft.jd_keywords
 

@@ -496,7 +496,7 @@ _CV_TAG_RE = re.compile(r"<\s*/?\s*cv_text\b[^>]*>", re.IGNORECASE)
 async def _parse_cv_text(cv_text: str, model: str) -> Dict[str, Any]:
     """Extrait les données structurées d'un texte de CV via le LLM texte."""
     chosen_model = model
-    if chosen_model.startswith("gemini/") or chosen_model in ("gemini/gemini-3.8-flash", "gemini/gemini-2.5-flash", "gemini/gemini-3.7-flash", "gemini/gemini-2.0-flash"):
+    if chosen_model.startswith("gemini/"):
         chosen_model = os.getenv("CV_PARSER_MODEL", "openai/gpt-4o-mini")
 
     safe_text = _CV_TAG_RE.sub("[balise retirée]", cv_text)
