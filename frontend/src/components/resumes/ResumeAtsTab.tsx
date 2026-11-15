@@ -107,6 +107,21 @@ export default function ResumeAtsTab({ resumeId, offerId, refreshKey = 0 }: Resu
     document.body.removeChild(a);
   };
 
+  const offerScore = ats?.breakdown.offer_alignment ?? 0;
+  const techScore = ats
+    ? ats.breakdown.text +
+      ats.breakdown.sections +
+      ats.breakdown.contact +
+      ats.breakdown.layout +
+      ats.breakdown.metrics_and_bullets +
+      ats.breakdown.charset_and_markers
+    : 0;
+  const displayedTotal = ats
+    ? ats.breakdown.offer_alignment !== undefined
+      ? offerScore + techScore
+      : ats.score
+    : 0;
+
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-[#0f172a] custom-scrollbar">
       {error && (
@@ -127,6 +142,11 @@ export default function ResumeAtsTab({ resumeId, offerId, refreshKey = 0 }: Resu
               <p className="text-xs text-slate-400">
                 Adéquation aux mots-clés de l&apos;offre (40 pts) et conformité technique ATS (60 pts)
               </p>
+              {ats && (
+                <p className="text-[11px] font-mono text-slate-300 mt-1">
+                  Somme : Adéquation offre ({offerScore}/40) + Conformité ATS ({techScore}/60) = {displayedTotal}/100
+                </p>
+              )}
             </div>
           </div>
 
@@ -134,7 +154,8 @@ export default function ResumeAtsTab({ resumeId, offerId, refreshKey = 0 }: Resu
             {ats && (
               <>
                 <span className="text-xl font-extrabold font-mono text-white">
-                  {ats.score}<span className="text-xs font-normal text-slate-400">/100</span>
+                  {displayedTotal}
+                  <span className="text-xs font-normal text-slate-400">/100</span>
                 </span>
                 <span className={`px-2.5 py-0.5 rounded-lg border text-xs font-bold ${GRADE_CLS[ats.grade]}`}>
                   Grade {ats.grade}

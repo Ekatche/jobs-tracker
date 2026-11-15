@@ -8,6 +8,8 @@ from typing import Any, Dict, List, NamedTuple, Optional
 from litellm import acompletion
 
 from app.models import TailoredCVSchema, TailoredExperienceItem
+from app.services.ats_keywords import extract_offer_keywords
+from app.services.ats_score import _METRIC_HINT_RE
 from app.services.cv_guards import Finding, audit_cv_claims
 from app.services.cv_templates import _cumulative_career_years, _deduplicate_experiences, _most_recent_first
 from app.services.profile.merge_experiences import _merge_experiences
@@ -95,6 +97,8 @@ def load_tailor_prompt(
 
     career_years = _cumulative_career_years(profile)
     seniority_phrase = format_career_seniority_phrase(career_years)
+    ats_keywords = extract_offer_keywords(offer, evaluation)
+    ats_keywords_str = ", ".join(ats_keywords) if ats_keywords else "Aucun mot-clé spécifique extrait"
 
     return template.format(
         candidate_profile=json.dumps(profile_for_prompt, ensure_ascii=False, indent=2, default=str),
@@ -103,6 +107,7 @@ def load_tailor_prompt(
         job_location=job_location,
         offer_description=offer_desc,
         evaluation_context=eval_context_str,
+        ats_keywords=ats_keywords_str,
         page_limit="Deux pages A4" if budget.pages == 2 else "Une page A4",
         bullet_budget=budget.bullets,
         max_projects=budget.projects,
@@ -150,7 +155,9 @@ def _is_principal(exp: TailoredExperienceItem) -> bool:
 
 
 def _is_protected(bullet: str, terms: List[str]) -> bool:
-    """Vrai si la puce cite une exigence de l'offre (mot entier, casse ignorée)."""
+    """Vrai si la puce porte une métrique chiffrée ou cite une exigence clé de l'offre."""
+    if _METRIC_HINT_RE.search(bullet):
+        return True
     text = bullet.casefold()
     return any(re.search(rf"(?<!\w){re.escape(term)}(?!\w)", text) for term in terms)
 

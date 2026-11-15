@@ -20,6 +20,9 @@ Description :
 ### ANALYSE DE COMPATIBILITÉ (BLOC B & EXIGENCES) :
 {evaluation_context}
 
+### MOTS-CLÉS ATS DE L'OFFRE À PRIVILÉGIER :
+{ats_keywords}
+
 ---
 
 ### DIRECTIVES CRITIQUES :
@@ -65,7 +68,8 @@ Description :
      - marketing : taux de conversion, audience, coût d'acquisition ;
      - logistique / terrain : cadence (colis ou lignes par heure), taux d'erreur, jours sans accident, tonnage.
      Ne retiens que les métriques du métier réel du candidat. N'invente JAMAIS un chiffre absent du profil.
-   - Réaligne le vocabulaire métier sur celui de l'offre si le candidat a effectivement exercé ces missions.
+   - Si le profil mentionne des métriques chiffrées (%, durées réduites, volumes ou cadences comme « ~10 patients/semaine »), conserve-les obligatoirement dans les puces des expériences correspondantes : elles pèsent directement dans l'axe ATS « Puces & métriques ».
+   - Réaligne le vocabulaire métier sur celui de l'offre et intègre naturellement dans l'accroche, les compétences et les puces les mots-clés ATS listés ci-dessus dès lors qu'ils reflètent une mission ou compétence réelle du candidat.
    - Pour un métier opérationnel ou manuel (logistique, production, bâtiment, conduite…), écris des phrases simples et concrètes, sans jargon de bureau.
    - Isole dans `relevant_technologies` les outils, logiciels, engins ou méthodes réellement utilisés à chaque poste d'après le profil (6 outils au maximum par expérience, ex : SAP, chariot élévateur, scanner RF, Canva, Python).
 

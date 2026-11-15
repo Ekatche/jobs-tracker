@@ -135,3 +135,21 @@ def test_load_tailor_prompt_injects_seniority_phrase():
     prompt_j = load_tailor_prompt(profile_junior, offer, budget=budget_j)
 
     assert "avec une expérience dans" in prompt_j
+
+
+def test_load_tailor_prompt_injects_ats_keywords_and_metric_preservation():
+    from app.services.cv_tailor import load_tailor_prompt
+
+    offer = {
+        "poste": "Ingénieur IA",
+        "entreprise": "TechMed",
+        "competences_cles": ["Python", "RAG", "Azure"],
+        "description": "Développement de solutions LLM et RAG sous Azure.",
+    }
+    prompt = load_tailor_prompt(SAMPLE_PROFILE, offer, SAMPLE_EVALUATION)
+
+    assert "MOTS-CLÉS ATS DE L'OFFRE À PRIVILÉGIER" in prompt
+    assert "{ats_keywords}" not in prompt
+    for kw in ("Python", "RAG", "Azure"):
+        assert kw in prompt
+    assert "Puces & métriques" in prompt

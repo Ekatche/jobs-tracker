@@ -42,7 +42,14 @@ _ASCII_REPLACEMENTS = str.maketrans({
     "\u2014": "-",
     "\u2015": "-",
 })
-_METRIC_HINT_RE = re.compile(r"\d+(?:[.,]\d+)?\s*(?:%|k|m|x|ans|years|\+|€|\$|£)", re.IGNORECASE)
+_METRIC_HINT_RE = re.compile(
+    r"\d+(?:[.,]\d+)?\s*(?:%|k\b|m\b|x\b|ans\b|years\b|\+|€|\$|£"
+    r"|/\s*(?:jour|semaine|mois|an|h|heure|sec|s)\b"
+    r"|(?:patients?|utilisateurs?|clients?|projets?|pipelines?|sources?|mod[eè]les?"
+    r"|personnes?|jeunes?|enfants?|dossiers?|articles?|commandes?|fournisseurs?"
+    r"|[eé]quipes?|collaborateurs?|heures?|jours?|semaines?|mois)\b)",
+    re.IGNORECASE,
+)
 _EMAIL_RE = re.compile(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", re.IGNORECASE)
 _HIDDEN_CSS_RE = re.compile(r"(?:display\s*:\s*none|opacity\s*:\s*0\b|font-size\s*:\s*0(?:px|pt|em|rem)?\b)", re.IGNORECASE)
 
@@ -287,10 +294,15 @@ def score_cv_ats_friendliness(
         contact_score += 6
     else:
         issues.append("Adresse e-mail valide introuvable.")
-    if candidate.get("phone") or candidate.get("linkedin_url") or candidate.get("github_url"):
+    if (
+        candidate.get("phone")
+        or candidate.get("linkedin_url")
+        or candidate.get("github_url")
+        or candidate.get("website_url")
+    ):
         contact_score += 4
     else:
-        issues.append("Téléphone ou lien LinkedIn/GitHub absent.")
+        issues.append("Téléphone ou lien LinkedIn/GitHub/Portfolio absent.")
 
     # 4. Layout & hierarchy (10 pts)
     layout_score = 10

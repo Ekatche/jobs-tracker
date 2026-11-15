@@ -311,3 +311,26 @@ async def test_append_letter_version_strips_invisible_markers():
     await _append_letter_version(mock_db, ObjectId(), version)
     pushed = cover_letters.update_one.call_args.args[1]["$push"]["versions"]
     assert pushed["body"] == "Bonjour équipe Acme."
+
+
+@pytest.mark.parametrize(
+    "bullet",
+    [
+        "Prise en charge de ~10 patients/semaine en rééducation.",
+        "Déploiement de 4 pipelines sur AWS et 12 sources ingérées.",
+        "Réduction de 35% du temps de traitement.",
+    ],
+)
+def test_score_cv_ats_accepts_website_url_and_domain_metrics(bullet: str):
+    cv_dict = _make_cv([bullet]).model_dump()
+    candidate = {
+        "full_name": "Alice Martin",
+        "email": "alice@example.com",
+        "website_url": "https://alice.example.com",
+    }
+    html_ok = "<html><head><meta charset='utf-8'></head><body>" + ("Python Kubernetes " * 40) + "</body></html>"
+    report = score_cv_ats_friendliness(cv_dict, candidate, target_keywords=["Python", "Kubernetes"], html_content=html_ok)
+    assert report["breakdown"]["contact"] == 10
+    assert report["breakdown"]["metrics_and_bullets"] == 10
+    assert report["score"] == 100
+    assert report["issues"] == []

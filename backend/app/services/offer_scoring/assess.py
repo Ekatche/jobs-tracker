@@ -14,7 +14,7 @@ from typing import Optional
 
 from app.services.evaluation.offer_fit import normalize_contract
 from app.services.normalization import detect_contract_type
-from app.services.offer_scoring.constants import W_SECTOR, W_SIZE
+from app.services.offer_scoring.constants import W_SECTOR, W_SIZE, W_SKILLS
 from app.services.offer_scoring.geo import (
     departments_for_location,
     expand_with_neighboring_departments,
@@ -25,6 +25,7 @@ from app.services.offer_scoring.score import (
     ScoreResult,
     SkillIdf,
     combine,
+    description_skill_points,
     preference_points,
     semantic_points,
     seniority_points,
@@ -142,6 +143,10 @@ def assess_offer(
     # exprimée (§4.3) — sinon `semantic_points` gère `cos=None` (inconnu).
     semantic = semantic_points(cos) if features.identity else None
     skills = skill_points(offer.get("competences_cles") or [], features.skills, idf)
+    if skills is not None and (not skills.known or skills.points == W_SKILLS / 2):
+        desc_skills = description_skill_points(offer.get("description"), offer.get("poste"), features.skills)
+        if desc_skills is not None and (not skills.known or desc_skills.points == 0.0):
+            skills = desc_skills
     seniority = seniority_points(offer.get("seniority_level"), features.seniority_levels)
     sector = preference_points(offer.get("sector"), features.preferred_industries, W_SECTOR)
     size = preference_points(offer.get("company_size"), features.preferred_company_sizes, W_SIZE)

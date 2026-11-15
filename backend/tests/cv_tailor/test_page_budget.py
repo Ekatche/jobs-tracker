@@ -302,3 +302,20 @@ def test_page_budget_ignores_career_gaps():
         ]
     }
     assert compute_page_budget(profile) == PAGE_BUDGETS[1]
+
+
+def test_enforce_protects_quantified_metric_bullets():
+    old_bullets = [
+        "Suivi quotidien de ~10 patients/semaine en rééducation.",
+        "Rédaction des comptes-rendus hebdomadaires pour l'équipe.",
+        "Participation aux réunions de coordination.",
+    ]
+    cv = _make_sample_cv(
+        experiences=[
+            _exp("Recent Corp", "2022", "Présent", 2),
+            _exp("Old Corp", "2018", "2022", 0, bullets=old_bullets),
+        ]
+    )
+    tight = PageBudget(1, 3, 2)
+    result = enforce_page_budget(cv, tight)
+    assert result.experiences[1].bullet_points == [old_bullets[0]]

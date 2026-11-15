@@ -347,3 +347,42 @@ def test_role_match_passes():
 def test_profile_without_role_terms_has_no_role_filter():
     offer = {"poste": "Contrôleur de gestion", "type_contrat": "CDI"}
     assert hard_filter_reason(offer, make_features()) is None
+
+
+@pytest.mark.parametrize(
+    "description,expected_skill_points,expect_strong",
+    [
+        (
+            "Coordination d'un projet d'études cliniques en épidémiologie et recherche biomédicale sur le VIH, analyse qualitative et rédaction de publications.",
+            0.0,
+            False,
+        ),
+        (
+            "Animation socioculturelle auprès d'un public jeunesse, accompagnement social individuel, montage de projets éducatifs et ateliers collectifs.",
+            22.5,
+            True,
+        ),
+    ],
+)
+def test_assess_offer_uses_description_when_competences_cles_missing(description, expected_skill_points, expect_strong):
+    features = make_features(
+        identity="Animateur socioculturel",
+        skills=frozenset({"animation socioculturelle", "accompagnement social", "montage de projets", "jeunesse"}),
+        preferences=DEFAULT_PREFERENCES,
+    )
+    offer = {
+        "poste": "Chargé de projet",
+        "localisation": "Lyon",
+        "type_contrat": "CDI",
+        "competences_cles": [],
+        "description": description,
+    }
+    reason, result = assess_offer(offer, features, cos=0.83, idf=build_skill_idf([[]]))
+    assert reason is None
+    assert "skills" not in result.unknown_components
+    assert result.breakdown["skills"] >= expected_skill_points
+    if not expect_strong:
+        assert result.breakdown["skills"] == 0.0
+        assert result.level != "strong"
+    else:
+        assert result.level == "strong"

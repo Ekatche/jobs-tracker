@@ -109,3 +109,24 @@ def test_short_terms_need_exact_match():
 )
 def test_bilingual_and_synonym_role_matching(roles, title, expected):
     assert title_matches_roles(title, role_terms(roles)) is expected
+
+
+@pytest.mark.parametrize(
+    "title,expected",
+    [
+        ("Chargé.e de projet en sciences sociales sur la rémission-guérison du VIH", False),
+        ("Contrôleur de gestion sociale", False),
+        ("Animateur prévention H/F", False),
+        ("Animateur QSE industriel", False),
+        ("Animateur commercial terrain", False),
+        ("Animateur socioculturel H/F", True),
+        ("Chargé de mission insertion sociale", True),
+        ("Animateur d'ateliers jeunesse", True),
+    ],
+)
+def test_animation_and_social_roles_reject_polysemic_false_friends(title, expected):
+    assert title_matches_roles(title, role_terms(ANIMATION_ROLES)) is expected
+
+
+def test_hse_profile_still_matches_animateur_prevention():
+    assert title_matches_roles("Animateur prévention santé", role_terms(["Animateur HSE", "Chargé de prévention"]))

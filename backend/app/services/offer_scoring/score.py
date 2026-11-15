@@ -9,6 +9,7 @@ exprimé aucune préférence renvoie `None` et sort du dénominateur.
 """
 
 import math
+import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, NamedTuple, Optional, Sequence
 
@@ -24,7 +25,7 @@ from app.services.offer_scoring.constants import (
     W_SENIORITY,
     W_SKILLS,
 )
-from app.services.offer_scoring.role_gate import role_terms
+from app.services.offer_scoring.role_gate import GENERIC_TITLE_WORDS, role_terms
 from app.services.relevance import contains_keyword, normalize_text
 
 
@@ -124,6 +125,61 @@ def skill_points(
 
     matched = sum(idf.weight(skill) for skill in normalized_offer_skills if matches(skill))
     return ComponentPoints(max(W_SKILLS / 2, W_SKILLS * matched / total), W_SKILLS, True)
+
+
+_MIN_DESCRIPTION_CHARS = 80
+_GENERIC_SKILL_TOKENS = GENERIC_TITLE_WORDS | frozenset(
+    """
+    avec dans pour tout tous sans sous vers entre chez
+    etre avoir faire mise gestion suivi analyse organisation planification
+    communication redaction reporting outil outils methode methodes technique techniques
+    connaissance connaissances maitrise competence competences travail equipe equipes
+    autonomie rigueur polyvalence capacite niveau cadre bonne bonnes sens esprit
+    """.split()
+)
+
+
+def description_skill_points(
+    description: Optional[str],
+    poste: Optional[str],
+    candidate_skills: frozenset[str],
+) -> Optional[ComponentPoints]:
+    """Évalue l'adéquation compétences sur le texte de l'offre (poste + description).
+
+    Utilisé lorsque `competences_cles` est absent ou ne donne aucune correspondance
+    malgré une description substantielle (`>= 80` caractères) :
+    - 0 compétence ni jeton métier trouvé -> `0.0 / W_SKILLS` (pénalité franche, pas de 15/30 gratuit) ;
+    - >= 1 correspondance -> score progressif entre `W_SKILLS * 0.5` et `W_SKILLS`.
+    """
+    if not candidate_skills:
+        return None
+    desc_norm = normalize_text(description or "")
+    if len(desc_norm) < _MIN_DESCRIPTION_CHARS:
+        return None
+
+    full_offer_text = normalize_text(f"{poste or ''} {description or ''}")
+    matched_phrases = sum(
+        1 for skill in candidate_skills
+        if len(skill) >= 3 and contains_keyword(full_offer_text, frozenset({skill}))
+    )
+
+    candidate_tokens = {
+        tok
+        for skill in candidate_skills
+        for tok in skill.split()
+        if len(tok) >= 4 and tok not in _GENERIC_SKILL_TOKENS
+    }
+    matched_tokens = sum(
+        1 for tok in candidate_tokens
+        if re.search(rf"(?<![a-z0-9]){re.escape(tok)}(?![a-z0-9])", full_offer_text)
+    )
+
+    if matched_phrases == 0 and matched_tokens == 0:
+        return ComponentPoints(0.0, W_SKILLS, True)
+
+    denom = max(4, min(8, len(candidate_skills)))
+    ratio = min(1.0, (matched_phrases * 2 + matched_tokens) / denom)
+    return ComponentPoints(W_SKILLS * (0.5 + 0.5 * ratio), W_SKILLS, True)
 
 
 def seniority_points(offer_level: Optional[str], wanted: Sequence[str]) -> Optional[ComponentPoints]:

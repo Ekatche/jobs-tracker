@@ -7,6 +7,7 @@ FLOOR avec la base fixe des composantes hors métier. Cette garde lexicale,
 sans appel réseau, écarte l'offre avant tout score (`hard_filter_reason`).
 """
 
+import re
 from typing import Iterable, Optional
 
 import snowballstemmer
@@ -15,6 +16,26 @@ from app.services.evaluation.domain_relevance import expand_title_acronyms
 from app.services.relevance import normalize_text
 
 _STEMMER = snowballstemmer.stemmer("french")
+
+# Expressions figées polysémiques (ex: « sciences sociales », « gestion sociale »,
+# « animateur prévention / commercial ») : on retire l'adjectif « social(e)(s) » ou le
+# nom générique « animateur » avant la coupe en jetons afin qu'ils ne rejoignent pas
+# les métiers du travail social ni de l'animation socioculturelle.
+_NON_SOCIAL_WORK_COMPOUNDS_RE = re.compile(
+    r"\b(sciences?(?:\s+humaines?\s+et)?|gestion|droit|paie|administration|protection|"
+    r"securite|audit|bilan|dialogue|relations?|innovation|raison|siege|capital|"
+    r"mandataires?|comptabilite|controle|fiscalite)\s+socia(?:l|le|ux|les)\b"
+)
+_NON_SOCIOCULTURAL_ANIMATION_RE = re.compile(
+    r"\b(?:animateur|animatrice|animation)\s+(?:de\s+|des\s+|du\s+|d\s+|en\s+)?"
+    r"(prevention|hse|qse|qhse|securite|qualite|lean|commercial|commerciale|commerciaux|"
+    r"reseau|reseaux|ventes?|chantier|production|magasin|point\s+de\s+vente)\b"
+)
+
+
+def _neutralize_false_friends(norm_text: str) -> str:
+    cleaned = _NON_SOCIAL_WORK_COMPOUNDS_RE.sub(r"\1", norm_text)
+    return _NON_SOCIOCULTURAL_ANIMATION_RE.sub(r"\1", cleaned)
 
 # Mots qui ne disent rien du métier : niveau, contrat, fonction générique,
 # mots vides (déjà normalisés : minuscules, sans accents). Un rôle fait
@@ -73,7 +94,9 @@ def _title_tokens(text: Optional[str]) -> list[str]:
     texte d'origine, le jeton « sre » d'un rôle ne retrouverait plus l'intitulé.
     """
     raw = text or ""
-    tokens = normalize_text(raw).split() + normalize_text(expand_title_acronyms(raw)).split()
+    base = _neutralize_false_friends(normalize_text(raw))
+    expanded = _neutralize_false_friends(normalize_text(expand_title_acronyms(raw)))
+    tokens = base.split() + expanded.split()
     return list(dict.fromkeys(token for token in tokens if token not in GENERIC_TITLE_WORDS))
 
 
