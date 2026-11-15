@@ -15,6 +15,7 @@ from app.models import (
     UserModel,
     utcnow_with_timezone,
 )
+from app.services.ats_keywords import extract_offer_keywords
 from app.services.ats_score import (
     clean_tailored_cv_markers,
     export_cv_ats_plain_text,
@@ -362,14 +363,21 @@ async def get_resume_ats_score(
 
     target_keywords: Optional[List[str]] = None
     target_offer_id = offer_id or (str(resume.get("offer_id")) if resume.get("offer_id") else None)
+    if not target_offer_id and resume.get("application_id"):
+        app_id = str(resume["application_id"])
+        if ObjectId.is_valid(app_id):
+            app_doc = await db["applications"].find_one({"_id": ObjectId(app_id)})
+            if isinstance(app_doc, dict) and app_doc.get("offer_id"):
+                target_offer_id = str(app_doc["offer_id"])
     if target_offer_id and ObjectId.is_valid(target_offer_id):
         offer_doc = await db["job_offers"].find_one({"_id": ObjectId(target_offer_id)})
-        if isinstance(offer_doc, dict):
-            raw_kws = offer_doc.get("competences_cles")
-            if isinstance(raw_kws, list):
-                target_keywords = [str(k).strip() for k in raw_kws if str(k).strip()] or None
-            elif isinstance(raw_kws, str) and raw_kws.strip():
-                target_keywords = [k.strip() for k in raw_kws.split(",") if k.strip()] or None
+        eval_doc = await db["offer_evaluations"].find_one(
+            {"offer_id": str(target_offer_id), "user_id": str(current_user.id)}
+        )
+        target_keywords = extract_offer_keywords(
+            offer_doc if isinstance(offer_doc, dict) else None,
+            eval_doc if isinstance(eval_doc, dict) else None,
+        ) or None
 
     content = resume.get("content") or {}
     html_content = render_cv_html(

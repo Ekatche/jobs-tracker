@@ -9,7 +9,8 @@ from litellm import acompletion
 
 from app.models import TailoredCVSchema, TailoredExperienceItem
 from app.services.cv_guards import Finding, audit_cv_claims
-from app.services.cv_templates import _cumulative_career_years, _most_recent_first
+from app.services.cv_templates import _cumulative_career_years, _deduplicate_experiences, _most_recent_first
+from app.services.profile.merge_experiences import _merge_experiences
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,12 @@ def load_tailor_prompt(
         k: v for k, v in profile.items()
         if k not in ["_id", "id", "user_id", "created_at", "updated_at", "suggested_roles_cache"]
     }
+    if profile_for_prompt.get("experiences"):
+        profile_for_prompt["experiences"] = _merge_experiences(
+            {"manual": {"experiences": profile_for_prompt["experiences"]}},
+            ["manual"],
+            [],
+        )
 
     target_company = offer.get("entreprise") or offer.get("company") or "L'entreprise cible"
     target_role = offer.get("poste") or offer.get("title") or "Poste visé"
@@ -165,7 +172,8 @@ def enforce_page_budget(
     4. Une entrée sans puce perd ses technologies ; projets plafonnés à budget.projects, compétences à
        MAX_SKILL_GROUPS groupes de MAX_SKILLS_PER_GROUP.
     """
-    experiences = [TailoredExperienceItem(**d) for d in _most_recent_first([e.model_dump() for e in cv.experiences])]
+    deduped_raw = _deduplicate_experiences(_most_recent_first([e.model_dump() for e in cv.experiences]))
+    experiences = [TailoredExperienceItem(**d) for d in deduped_raw]
 
     principal = [_is_principal(exp) for exp in experiences]
     if experiences and not any(principal):

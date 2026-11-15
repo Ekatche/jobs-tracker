@@ -110,6 +110,40 @@ async def test_compute_domain_relevance_embeds_expanded_title():
     assert embed.call_args.kwargs["input"][1] == "Développeur Confirmé intelligence artificielle"
 
 
+@pytest.mark.parametrize(
+    "identity, roles, embeddings, expected_inputs, min_expected",
+    [
+        (
+            "Data Scientist Data Manager",
+            ["Data Scientist", "Data Manager", "Data Scientist", ""],
+            [[1.0, 0.0], [1.0, 0.0], [0.0, 1.0], [0.0, 1.0]],
+            ["Data Scientist Data Manager", "Data Scientist", "Data Manager", "Data Manager Snds"],
+            0.99,
+        ),
+        (
+            "",
+            ["  Data Manager  ", ""],
+            [[0.0, 1.0], [0.2, 0.98]],
+            ["Data Manager", "Data Manager Snds"],
+            0.9,
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_compute_domain_relevance_max_across_deduped_roles(
+    identity, roles, embeddings, expected_inputs, min_expected
+):
+    fake_resp = MagicMock()
+    fake_resp.data = [{"embedding": vec} for vec in embeddings]
+    embed = AsyncMock(return_value=fake_resp)
+
+    with patch("litellm.aembedding", embed):
+        score = await compute_domain_relevance(identity, "Data Manager Snds", candidate_roles=roles)
+
+    assert embed.call_args.kwargs["input"] == expected_inputs
+    assert score is not None and score >= min_expected
+
+
 # ---------- keep_relevant_titles (M12, import seul depuis app.services.sources) ----------
 
 

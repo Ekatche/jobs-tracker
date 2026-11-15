@@ -156,16 +156,93 @@ def test_score_cv_ats_and_export_plain_text():
     candidate = {"full_name": "Alice Martin", "email": "alice@example.com", "linkedin_url": "https://linkedin.com/in/alice"}
     html_ok = "<html><head><meta charset='utf-8'></head><body>" + ("x " * 160) + "</body></html>"
 
-    report = score_cv_ats_friendliness(cv_dict, candidate, target_keywords=["Python", "Rust"], html_content=html_ok)
-    assert report["score"] >= 90
-    assert report["grade"] == "A"
-    assert report["keyword_coverage"] == {"matched": ["Python"], "missing": ["Rust"], "coverage_pct": 50.0}
+    report = score_cv_ats_friendliness(
+        cv_dict, candidate, target_keywords=["Python", "Rust"], html_content=html_ok
+    )
+    assert report["score"] == 80
+    assert report["grade"] == "B"
+    assert report["breakdown"]["offer_alignment"] == 20
+    assert report["keyword_coverage"] == {
+        "matched": ["Python"], "missing": ["Rust"], "coverage_pct": 50.0
+    }
+
+    full_report = score_cv_ats_friendliness(
+        cv_dict,
+        candidate,
+        target_keywords=["Python", "Kubernetes"],
+        html_content=html_ok,
+    )
+    assert full_report["score"] == 100
+    assert full_report["grade"] == "A"
+    assert full_report["breakdown"]["offer_alignment"] == 40
 
     md = export_cv_ats_plain_text(cv_dict, candidate, fmt="markdown")
     txt = export_cv_ats_plain_text(cv_dict, candidate, fmt="txt")
     assert md.startswith("# Alice Martin — Staff Backend Engineer")
     assert "## Compétences" in md
     assert "ALICE MARTIN — STAFF BACKEND ENGINEER" in txt
+
+
+def test_resume_ats_score_uses_eval_bloc_b_and_description_fallback():
+    user_id = ObjectId()
+    offer_id = ObjectId()
+    resume_id = ObjectId()
+    user = UserModel(
+        id=str(user_id), username="alice", email="alice@example.com", hashed_password="pw"
+    )
+    cv_data = _make_cv(["Modèles PyTorch et API Python en production."]).model_dump()
+    resume_doc = {
+        "_id": resume_id,
+        "user_id": user_id,
+        "offer_id": offer_id,
+        "template": "sidebar_elegance",
+        "accent": "indigo",
+        "content": cv_data,
+    }
+    offer_doc = {
+        "_id": offer_id,
+        "poste": "Data Scientist",
+        "competences_cles": None,
+        "description": "Stack : Docker et PostgreSQL pour les données cliniques.",
+    }
+    eval_doc = {
+        "offer_id": offer_id,
+        "bloc_b": {
+            "matched_requirements": [{"requirement": "Maîtrise de Python et PyTorch"}],
+            "missing_requirements": [{"requirement": "Orchestration Airflow"}],
+        },
+    }
+    colls = {
+        "tailored_resumes": MagicMock(
+            find_one=AsyncMock(return_value=resume_doc), update_one=AsyncMock()
+        ),
+        "candidate_profile": MagicMock(
+            find_one=AsyncMock(return_value={"personal_info": {"full_name": "Alice"}})
+        ),
+        "job_offers": MagicMock(find_one=AsyncMock(return_value=offer_doc)),
+        "offer_evaluations": MagicMock(find_one=AsyncMock(return_value=eval_doc)),
+    }
+    mock_db = MagicMock()
+    mock_db.__getitem__.side_effect = lambda name: colls[name]
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_database] = lambda: mock_db
+    try:
+        client = TestClient(app)
+        with patch(
+            "app.routers.resumes.render_cv_html",
+            return_value="<html><meta charset='utf-8'><body>" + ("ok " * 60) + "</body></html>",
+        ):
+            resp = client.get(f"/resumes/{resume_id}/ats-score")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "Python" in body["keyword_coverage"]["matched"]
+        assert "PyTorch" in body["keyword_coverage"]["matched"]
+        assert "Docker" in body["keyword_coverage"]["missing"]
+        assert "Airflow" in body["keyword_coverage"]["missing"]
+        assert 0 < body["breakdown"]["offer_alignment"] < 40
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_resume_ats_score_and_export_endpoints_and_clean_markers():
@@ -190,6 +267,7 @@ def test_resume_ats_score_and_export_endpoints_and_clean_markers():
         ),
         "candidate_profile": MagicMock(find_one=AsyncMock(return_value={"personal_info": {"full_name": "Alice"}})),
         "job_offers": MagicMock(find_one=AsyncMock(return_value={"_id": offer_id, "competences_cles": ["Python", "Docker"]})),
+        "offer_evaluations": MagicMock(find_one=AsyncMock(return_value=None)),
     }
     mock_db = MagicMock()
     mock_db.__getitem__.side_effect = lambda name: colls[name]
@@ -203,6 +281,7 @@ def test_resume_ats_score_and_export_endpoints_and_clean_markers():
         assert score_resp.status_code == 200
         body = score_resp.json()
         assert body["resume_id"] == str(resume_id)
+        assert body["breakdown"]["offer_alignment"] == 20
         assert body["keyword_coverage"]["matched"] == ["Python"]
         assert body["keyword_coverage"]["missing"] == ["Docker"]
 

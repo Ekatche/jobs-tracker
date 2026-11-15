@@ -300,13 +300,15 @@ def test_evaluate_application_endpoint():
     )
 
     client = TestClient(app)
+    mock_eval = AsyncMock(return_value=fake_eval)
     try:
-        with patch("app.routers.applications.evaluate_offer_two_pass", AsyncMock(return_value=fake_eval)):
+        with patch("app.routers.applications.evaluate_offer_two_pass", mock_eval):
             response = client.post(f"/applications/{app_id}/evaluate")
             assert response.status_code == 200, response.text
             data = response.json()
             assert data["score"] == 4.2
             assert data["bloc_a"]["archetype"] == "AI Engineer"
+            assert mock_eval.await_args.kwargs.get("skip_domain_prefilter") is True
             # Verify offer_id was generated and linked
             app_col.update_one.assert_called_once()
     finally:

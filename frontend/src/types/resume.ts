@@ -84,6 +84,7 @@ export interface PdfOptions {
 }
 
 export interface AtsScoreBreakdown {
+  offer_alignment?: number;
   text: number;
   sections: number;
   contact: number;

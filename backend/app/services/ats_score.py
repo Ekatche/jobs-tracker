@@ -4,6 +4,7 @@ import re
 from typing import Any, Dict, List, Literal, Optional
 
 from app.models import TailoredCVSchema
+from app.services.ats_keywords import keyword_matches_cv
 
 _NAMED_INVISIBLE_MARKERS: Dict[int, str] = {
     0x200B: "ZERO-WIDTH SPACE",
@@ -239,7 +240,7 @@ def score_cv_ats_friendliness(
     target_keywords: Optional[List[str]] = None,
     html_content: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Deterministically score a CV's ATS parseability (0-100), issues, markers, and optional keyword coverage."""
+    """Deterministically score ATS parseability (60 pts) and offer keyword alignment (40 pts)."""
     issues: List[str] = []
     full_text = _collect_cv_text(tailored_content, candidate)
     visible_text = (
@@ -248,64 +249,64 @@ def score_cv_ats_friendliness(
         else full_text
     )
 
-    # 1. Selectable text (15 pts)
+    # 1. Selectable text (10 pts)
     char_count = len(visible_text)
     if char_count >= 300:
-        text_score = 15
+        text_score = 10
     elif char_count >= 150:
-        text_score = 8
+        text_score = 5
         issues.append(f"Contenu textuel court ({char_count} caractères) : vise au moins 300 caractères.")
     else:
         text_score = 0
         issues.append(f"Contenu textuel insuffisant ({char_count} caractères) pour un parseur ATS.")
 
-    # 2. Recognizable sections (20 pts)
+    # 2. Recognizable sections (10 pts)
     section_score = 0
     if (tailored_content.get("professional_summary") or "").strip():
-        section_score += 5
+        section_score += 2
     else:
         issues.append("Résumé professionnel manquant.")
     experiences = tailored_content.get("experiences") or []
     if experiences:
-        section_score += 6
+        section_score += 3
     else:
         issues.append("Aucune expérience professionnelle renseignée.")
     if tailored_content.get("prioritized_skills"):
-        section_score += 5
+        section_score += 3
     else:
         issues.append("Section compétences absente.")
     if tailored_content.get("education") or tailored_content.get("certifications") or tailored_content.get("languages"):
-        section_score += 4
+        section_score += 2
     else:
         issues.append("Formation, certifications ou langues absentes.")
 
-    # 3. Reachable contact details (15 pts)
+    # 3. Reachable contact details (10 pts)
     contact_score = 0
     email = str(candidate.get("email") or "")
     if _EMAIL_RE.search(email) or _EMAIL_RE.search(full_text):
-        contact_score += 10
+        contact_score += 6
     else:
         issues.append("Adresse e-mail valide introuvable.")
     if candidate.get("phone") or candidate.get("linkedin_url") or candidate.get("github_url"):
-        contact_score += 5
+        contact_score += 4
     else:
         issues.append("Téléphone ou lien LinkedIn/GitHub absent.")
 
-    # 4. Layout & hierarchy (20 pts)
-    layout_score = 20
+    # 4. Layout & hierarchy (10 pts)
+    layout_score = 10
     if not (tailored_content.get("target_role_title") or "").strip():
-        layout_score -= 5
+        layout_score -= 3
         issues.append("Titre du poste visé absent.")
     if html_content:
         if re.search(r"<table\b", html_content, re.IGNORECASE):
-            layout_score -= 10
+            layout_score -= 5
             issues.append("Tableaux HTML détectés : risque de mauvaise lecture par les ATS.")
         if re.search(r"column-count\s*:\s*[2-9]", html_content, re.IGNORECASE):
-            layout_score -= 5
+            layout_score -= 3
             issues.append("Colonnes CSS multiples détectées.")
     layout_score = max(0, layout_score)
 
-    # 5. Bullets & measurable impact (15 pts)
+    # 5. Bullets & measurable impact (10 pts)
     all_bullets = [
         str(b).strip()
         for exp in experiences
@@ -315,42 +316,67 @@ def score_cv_ats_friendliness(
     ]
     bullets_score = 0
     if all_bullets:
-        bullets_score += 10
+        bullets_score += 7
         if any(len(b) > 400 for b in all_bullets):
-            bullets_score -= 3
+            bullets_score -= 2
             issues.append("Certaines puces dépassent 400 caractères : privilégie des puces concises.")
         if any(_METRIC_HINT_RE.search(b) for b in all_bullets):
-            bullets_score += 5
+            bullets_score += 3
         else:
             issues.append("Aucune métrique chiffrée détectée dans les puces d'expérience.")
     else:
         issues.append("Aucune puce d'expérience détectée.")
 
-    # 6. Charset & invisible Unicode markers (15 pts)
+    # 6. Charset & invisible Unicode markers (10 pts)
     markers_found = scan_invisible_markers(full_text)
     if html_content:
         for lbl, cnt in scan_invisible_markers(html_content).items():
             markers_found[lbl] = max(markers_found.get(lbl, 0), cnt)
-    markers_score = 15
+    markers_score = 10
     if markers_found:
-        markers_score -= 10
+        markers_score -= 7
         issues.append(f"Caractères Unicode invisibles détectés : {', '.join(sorted(markers_found))}.")
     if html_content:
         if "utf-8" not in html_content.lower():
-            markers_score -= 5
+            markers_score -= 3
             issues.append("Déclaration charset UTF-8 absente du HTML.")
         if _HIDDEN_CSS_RE.search(html_content):
-            markers_score -= 5
+            markers_score -= 3
             issues.append("Texte potentiellement masqué en CSS (display:none / opacity:0 / font-size:0).")
     markers_score = max(0, markers_score)
 
-    total = text_score + section_score + contact_score + layout_score + bullets_score + markers_score
+    tech_total = text_score + section_score + contact_score + layout_score + bullets_score + markers_score
+
+    # 7. Offer keyword alignment (40 pts)
+    keyword_coverage: Optional[Dict[str, Any]] = None
+    clean_kws = [str(kw).strip() for kw in (target_keywords or []) if str(kw).strip()]
+    unique_kws = list(dict.fromkeys(clean_kws))
+    if unique_kws:
+        matched = [kw for kw in unique_kws if keyword_matches_cv(kw, full_text)]
+        matched_set = set(matched)
+        missing = [kw for kw in unique_kws if kw not in matched_set]
+        coverage_pct = round(100.0 * len(matched) / len(unique_kws), 1)
+        offer_alignment = round(40.0 * coverage_pct / 100.0)
+        keyword_coverage = {
+            "matched": matched,
+            "missing": missing,
+            "coverage_pct": coverage_pct,
+        }
+        if coverage_pct < 75.0 and missing:
+            issues.append(
+                f"Couverture mots-clés de l'offre faible ({coverage_pct}%) — manquants : {', '.join(missing[:5])}."
+            )
+    else:
+        offer_alignment = round(tech_total * (40.0 / 60.0))
+
+    total = tech_total + offer_alignment
     grade = "A" if total >= 90 else "B" if total >= 75 else "C" if total >= 60 else "D"
 
-    result: Dict[str, Any] = {
+    return {
         "score": total,
         "grade": grade,
         "breakdown": {
+            "offer_alignment": offer_alignment,
             "text": text_score,
             "sections": section_score,
             "contact": contact_score,
@@ -360,20 +386,5 @@ def score_cv_ats_friendliness(
         },
         "issues": issues,
         "invisible_markers": markers_found,
-        "keyword_coverage": None,
+        "keyword_coverage": keyword_coverage,
     }
-
-    if target_keywords:
-        lower_text = full_text.lower()
-        clean_kws = [str(kw).strip() for kw in target_keywords if str(kw).strip()]
-        unique_kws = list(dict.fromkeys(clean_kws))
-        matched = [kw for kw in unique_kws if kw.lower() in lower_text]
-        missing = [kw for kw in unique_kws if kw.lower() not in lower_text]
-        coverage_pct = round(100.0 * len(matched) / len(unique_kws), 1) if unique_kws else 100.0
-        result["keyword_coverage"] = {
-            "matched": matched,
-            "missing": missing,
-            "coverage_pct": coverage_pct,
-        }
-
-    return result

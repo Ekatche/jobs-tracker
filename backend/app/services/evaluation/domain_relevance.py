@@ -82,28 +82,41 @@ def build_candidate_identity(headline: str, target_roles: List[str]) -> str:
     return " ".join(p.strip() for p in parts if p and p.strip())
 
 
-async def compute_domain_relevance(candidate_identity: str, offer_title: str) -> Optional[float]:
-    """Similarité cosinus entre l'identité candidat et l'intitulé de l'offre.
+async def compute_domain_relevance(
+    candidate_identity: str,
+    offer_title: str,
+    candidate_roles: Optional[List[str]] = None,
+) -> Optional[float]:
+    """Max cosine similarity between candidate identity/roles and offer title.
 
-    Fail-open : retourne None si l'un des deux textes est vide, ou si l'appel
-    d'embedding échoue (timeout, quota, erreur réseau). L'appelant doit alors
-    traiter l'absence de score comme "ne pas court-circuiter l'évaluation",
-    jamais comme un mismatch.
+    Fail-open: returns None if no non-empty candidate text or offer title is
+    provided, or if the embedding call fails (timeout, quota, network error).
+    Callers must treat None as "do not short-circuit evaluation", never mismatch.
     """
-    if not candidate_identity.strip() or not offer_title.strip():
+    candidates = list(
+        dict.fromkeys(
+            c.strip()
+            for c in [candidate_identity, *(candidate_roles or [])]
+            if c and c.strip()
+        )
+    )
+    if not candidates or not offer_title.strip():
         return None
 
     try:
         from litellm import aembedding
 
         resp = await aembedding(
-            model=EMBEDDING_MODEL, input=[candidate_identity, expand_title_acronyms(offer_title)]
+            model=EMBEDDING_MODEL,
+            input=[*candidates, expand_title_acronyms(offer_title)],
         )
         data = resp.data if hasattr(resp, "data") else resp["data"]
 
-        emb_candidate = _extract_embedding(data[0])
-        emb_offer = _extract_embedding(data[1])
-        return cosine_similarity(emb_candidate, emb_offer)
+        emb_offer = _extract_embedding(data[-1])
+        return max(
+            cosine_similarity(_extract_embedding(item), emb_offer)
+            for item in data[:-1]
+        )
     except Exception as e:
         logger.warning(
             f"⚠️ Erreur pré-filtre de cohérence métier (candidat='{candidate_identity}', "

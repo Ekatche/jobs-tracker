@@ -8,6 +8,7 @@ import jinja2
 from markupsafe import Markup
 
 from app.models import TailoredCVSchema
+from app.services.profile.merge_experiences import companies_refer_to_same_entity
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +162,55 @@ def _most_recent_first(experiences: List[Dict[str, Any]]) -> List[Dict[str, Any]
     )
 
 
+def _deduplicate_experiences(experiences: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Collapse duplicate stints sharing dates, normalized role title, and employer entity."""
+    deduped: List[Dict[str, Any]] = []
+    for exp in experiences:
+        s_key = _date_key(exp.get("start_date") or exp.get("start"))
+        e_key = _end_key(exp.get("end_date") or exp.get("end"))
+        role_norm = (exp.get("title") or exp.get("role") or "").strip().casefold()
+        comp = exp.get("company") or exp.get("entreprise") or ""
+
+        duplicate_idx = None
+        if s_key[0] > 0:
+            for idx, existing in enumerate(deduped):
+                ex_s = _date_key(existing.get("start_date") or existing.get("start"))
+                ex_e = _end_key(existing.get("end_date") or existing.get("end"))
+                ex_role = (existing.get("title") or existing.get("role") or "").strip().casefold()
+                ex_comp = existing.get("company") or existing.get("entreprise") or ""
+                if (
+                    ex_s == s_key
+                    and ex_e == e_key
+                    and ex_role == role_norm
+                    and companies_refer_to_same_entity(ex_comp, comp)
+                ):
+                    duplicate_idx = idx
+                    break
+
+        if duplicate_idx is None:
+            deduped.append(exp)
+            continue
+
+        kept = dict(deduped[duplicate_idx])
+        existing_bullets = list(kept.get("bullet_points") or [])
+        seen_bullets = {b.strip().casefold() for b in existing_bullets if b and b.strip()}
+        for bullet in exp.get("bullet_points") or []:
+            if bullet and bullet.strip().casefold() not in seen_bullets:
+                existing_bullets.append(bullet)
+                seen_bullets.add(bullet.strip().casefold())
+        kept["bullet_points"] = existing_bullets
+
+        existing_techs = list(kept.get("relevant_technologies") or [])
+        seen_techs = {t.strip().casefold() for t in existing_techs if t and t.strip()}
+        for tech in exp.get("relevant_technologies") or []:
+            if tech and tech.strip().casefold() not in seen_techs:
+                existing_techs.append(tech)
+                seen_techs.add(tech.strip().casefold())
+        kept["relevant_technologies"] = existing_techs
+        deduped[duplicate_idx] = kept
+    return deduped
+
+
 def _cumulative_career_years(profile: Dict[str, Any]) -> float:
     """Durée cumulée des expériences en années, mois de fin inclus, fusionnant les intervalles qui se chevauchent."""
     today = date.today()
@@ -220,7 +270,7 @@ def render_cv_html(
     """
     cv_dict = cv.model_dump() if isinstance(cv, TailoredCVSchema) else cv
     # Copie : le dict de l'appelant (document stocké) garde son ordre et ses dates complètes.
-    experiences = _most_recent_first(cv_dict.get("experiences") or [])
+    experiences = _deduplicate_experiences(_most_recent_first(cv_dict.get("experiences") or []))
     cv_dict = {**cv_dict, "experiences": [_with_month_year(exp) for exp in experiences]}
 
     base_css_file = TEMPLATES_DIR / "base_cv.css"

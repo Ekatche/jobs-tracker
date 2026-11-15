@@ -260,6 +260,7 @@ async def evaluate_application_offer(
             offer_id=offer_id,
             user_id=str(current_user.id),
             db=db,
+            skip_domain_prefilter=True,
         )
     except HTTPException:
         raise

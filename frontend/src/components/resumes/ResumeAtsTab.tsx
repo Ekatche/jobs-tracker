@@ -23,12 +23,13 @@ const AXES: Array<{
   label: string;
   max: number;
 }> = [
-  { key: "text", label: "Texte sélectionnable", max: 15 },
-  { key: "sections", label: "Sections reconnues", max: 20 },
-  { key: "contact", label: "Coordonnées atteignables", max: 15 },
-  { key: "layout", label: "Structure ATS", max: 20 },
-  { key: "metrics_and_bullets", label: "Puces & métriques", max: 15 },
-  { key: "charset_and_markers", label: "Encodage & propreté", max: 15 },
+  { key: "offer_alignment", label: "Adéquation à l'offre", max: 40 },
+  { key: "text", label: "Texte sélectionnable", max: 10 },
+  { key: "sections", label: "Sections reconnues", max: 10 },
+  { key: "contact", label: "Coordonnées atteignables", max: 10 },
+  { key: "layout", label: "Structure ATS", max: 10 },
+  { key: "metrics_and_bullets", label: "Puces & métriques", max: 10 },
+  { key: "charset_and_markers", label: "Encodage & propreté", max: 10 },
 ];
 
 const GRADE_CLS: Record<ResumeAtsScoreResponse["grade"], string> = {
@@ -124,7 +125,7 @@ export default function ResumeAtsTab({ resumeId, offerId, refreshKey = 0 }: Resu
             <div>
               <h3 className="text-sm font-bold text-white">Score de compatibilité ATS</h3>
               <p className="text-xs text-slate-400">
-                Analyse déterministe sur 100 points et détection des caractères Unicode invisibles
+                Adéquation aux mots-clés de l&apos;offre (40 pts) et conformité technique ATS (60 pts)
               </p>
             </div>
           </div>

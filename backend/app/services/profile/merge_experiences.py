@@ -12,6 +12,24 @@ from .merge_helpers import (
 
 _MAX_START_GAP_MONTHS = 2
 _MIN_OVERLAP_MONTHS = 2
+_GENERIC_COMPANY_TOKENS = {
+    "agence", "agency", "groupe", "group", "cabinet", "consulting", "conseil",
+    "by", "and", "et", "de", "du", "des", "the", "services", "solutions",
+    "technologies", "tech", "france", "international", "holding",
+}
+
+
+def companies_refer_to_same_entity(company_a: str, company_b: str) -> bool:
+    """Return True if two company names denote the same employer despite prefixes or suffixes."""
+    slug_a = company_slug(company_a)
+    slug_b = company_slug(company_b)
+    if not slug_a or not slug_b:
+        return False
+    if slug_a == slug_b or _keys_loosely_match(slug_a, slug_b):
+        return True
+    core_a = {t for t in slug_a.split() if len(t) >= 3 and t not in _GENERIC_COMPANY_TOKENS}
+    core_b = {t for t in slug_b.split() if len(t) >= 3 and t not in _GENERIC_COMPANY_TOKENS}
+    return bool(core_a and core_b and (core_a & core_b))
 
 
 def _end_of(experience: Dict[str, Any]) -> str | None:
@@ -57,7 +75,7 @@ def _merge_one_experience(
     merged: Dict[str, Any] = {
         "company": winner.get("company", ""),
         "start": next((s for s in starts if s), None),
-        "sources": [source for source, _ in contributions],
+        "sources": list(dict.fromkeys(source for source, _ in contributions)),
     }
 
     for field in _SCALAR_FIELDS:
@@ -137,9 +155,16 @@ def _merge_experiences(
             matched_key = None
             for key in key_order:
                 existing_company, existing_start = key
-                if existing_company == c_slug or _keys_loosely_match(existing_company, c_slug):
+                if companies_refer_to_same_entity(existing_company, c_slug):
                     if any(s == source for s, _ in grouped[key]):
-                        continue
+                        same_stint = (
+                            existing_start == s_date
+                            and _end_of(experience) == _end_of(grouped[key][0][1])
+                            and (experience.get("role") or "").strip().casefold()
+                            == (grouped[key][0][1].get("role") or "").strip().casefold()
+                        )
+                        if not same_stint:
+                            continue
                     if existing_start == s_date or existing_start is None or s_date is None:
                         matched_key = key
                         break

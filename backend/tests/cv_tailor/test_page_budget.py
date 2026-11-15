@@ -97,6 +97,55 @@ def test_enforce_keeps_consecutive_same_employer_stints_separate():
     assert [e.bullet_points for e in result.experiences] == [["Pilotage du hub."], ["Animation d'ateliers."]]
 
 
+def test_enforce_deduplicates_same_stint_renamed_company():
+    """Same stint under renamed employer collapses while earlier stint remains."""
+    from app.services.cv_templates import render_cv_html
+
+    stint_nile = TailoredExperienceItem(
+        title="Data Engineer",
+        company="Nile by Digitalisim",
+        location="Lyon",
+        start_date="2026-08",
+        end_date="Présent",
+        bullet_points=["Industrialisation continue des flux."],
+        relevance="principale",
+    )
+    stint_agence = TailoredExperienceItem(
+        title="Data Engineer",
+        company="Agence Nile",
+        location="Lyon",
+        start_date="2026-08",
+        end_date="Présent",
+        bullet_points=["Pipelines GenAI a Lyon."],
+        relevance="secondaire",
+    )
+    stint_earlier = TailoredExperienceItem(
+        title="Data Engineer",
+        company="Nile by Digitalisim",
+        location="Lyon",
+        start_date="2025-08",
+        end_date="2026-08",
+        bullet_points=["Alternance data engineering."],
+        relevance="principale",
+    )
+    cv = _make_sample_cv(experiences=[stint_nile, stint_agence, stint_earlier])
+    result = enforce_page_budget(cv, PAGE_BUDGETS[1])
+    assert len(result.experiences) == 2
+    assert [(e.company, e.start_date, e.end_date) for e in result.experiences] == [
+        ("Nile by Digitalisim", "2026-08", "Présent"),
+        ("Nile by Digitalisim", "2025-08", "2026-08"),
+    ]
+    html = render_cv_html(
+        cv=cv,
+        candidate={"full_name": "Katche Eliel", "email": "eliel@example.com"},
+        template_name="sidebar_elegance",
+        with_photo=False,
+    )
+    assert "Nile by Digitalisim" in html
+    assert "Agence Nile" not in html
+    assert html.count(">Data Engineer<") == 2
+
+
 def test_enforce_caps_projects_skills_technologies():
     projects = [
         TailoredProjectItem(name=f"Project {i}", description=f"Desc {i}", technologies=["Tech"])

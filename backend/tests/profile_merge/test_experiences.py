@@ -229,3 +229,55 @@ def test_multiple_roles_at_same_company_same_source_not_collapsed():
     assert len(profile["experiences"]) == 2
     roles = {e["role"] for e in profile["experiences"]}
     assert roles == {"Junior Engineer", "Senior Engineer"}
+
+
+def test_renamed_company_with_shared_core_token_merges_same_stint():
+    """Same ongoing role under renamed company ('Nile') collapses cleanly."""
+    sources = {
+        "manual": {
+            "experiences": [
+                {
+                    "company": "Nile by Digitalisim",
+                    "role": "Data Engineer",
+                    "start": "2026-08",
+                    "end": None,
+                    "location": "Lyon",
+                },
+                {
+                    "company": "Agence Nile",
+                    "role": "Data Engineer",
+                    "start": "2026-08",
+                    "end": None,
+                    "location": "Lyon",
+                },
+                {
+                    "company": "Nile by Digitalisim",
+                    "role": "Data Engineer",
+                    "start": "2025-08",
+                    "end": "2026-08",
+                    "location": "Lyon",
+                },
+            ]
+        },
+        "website": {
+            "experiences": [
+                {
+                    "company": "Agence Nile",
+                    "role": "Data Engineer",
+                    "start": "2026-08",
+                    "end": None,
+                    "location": "Lyon",
+                }
+            ]
+        },
+    }
+    profile, _ = build_profile_from_sources(sources)
+    exps = profile["experiences"]
+    assert len(exps) == 2
+    current = [e for e in exps if e["start"] == "2026-08" and e["end"] is None]
+    assert len(current) == 1
+    assert current[0]["company"] == "Nile by Digitalisim"
+    assert current[0]["sources"] == ["manual", "website"]
+    earlier = [e for e in exps if e["start"] == "2025-08"]
+    assert len(earlier) == 1
+    assert earlier[0]["end"] == "2026-08"

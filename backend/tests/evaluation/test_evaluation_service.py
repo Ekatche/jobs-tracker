@@ -342,3 +342,36 @@ async def test_company_history_note_ignores_draft_and_current_offer(docs_factory
     else:
         assert note is not None
         assert expected_substring in note
+
+
+@pytest.mark.parametrize("skip_prefilter", [True, False])
+@pytest.mark.asyncio
+async def test_evaluate_offer_two_pass_skip_domain_prefilter_behavior(skip_prefilter):
+    db, cols = make_eval_db(
+        profile_doc={
+            "user_id": TEST_USER_ID,
+            "headline": "Data Scientist",
+            "preferences": {"target_roles": ["Data Manager"]},
+            "skills": {"languages": ["Python"]},
+        }
+    )
+    pass1 = make_llm_response({"archetype": "Data Manager", "summary": "S", "requirements": []})
+    pass2 = make_llm_response({"matched_requirements": [], "missing_requirements": []})
+    mock_domain = AsyncMock(return_value=0.05)
+    mock_llm = AsyncMock(side_effect=[pass1, pass2])
+
+    with patch("app.services.evaluation.evaluator.compute_domain_relevance", mock_domain), \
+         patch("app.services.evaluation.evaluator.acompletion", mock_llm):
+        evaluation = await evaluate_offer_two_pass(
+            db=db, user_id=TEST_USER_ID, offer_id=TEST_OFFER_ID, skip_domain_prefilter=skip_prefilter
+        )
+
+    if skip_prefilter:
+        mock_domain.assert_not_called()
+        assert mock_llm.call_count == 2
+        assert evaluation.bloc_a.domain_mismatch is False
+    else:
+        mock_domain.assert_awaited_once()
+        assert mock_domain.await_args.kwargs["candidate_roles"] == ["Data Scientist", "Data Manager"]
+        mock_llm.assert_not_called()
+        assert evaluation.bloc_a.domain_mismatch is True

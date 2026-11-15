@@ -114,6 +114,7 @@ async def compute_offer_evaluation(
     user_id: Union[str, ObjectId, PyObjectId],
     offer_id: Union[str, ObjectId, PyObjectId],
     model: Optional[str] = None,
+    skip_domain_prefilter: bool = False,
 ) -> OfferEvaluationRun:
     """
     Calcul pur du Two-Pass (Pass 1, Pass 2, blocs A/B/G, score), sans effet de bord.
@@ -139,16 +140,25 @@ async def compute_offer_evaluation(
         else []
     )
 
-    candidate_identity = build_candidate_identity(candidate_headline, candidate_target_roles)
-    domain_similarity = await mod.compute_domain_relevance(candidate_identity, job_title)
-    domain_mismatch_prefilter = (
-        domain_similarity is not None and domain_similarity < DOMAIN_RELEVANCE_THRESHOLD
-    )
-    if domain_mismatch_prefilter:
-        mod.logger.info(
-            f"🚫 Offre '{job_title}' écartée par le pré-filtre de cohérence métier "
-            f"(similarité={domain_similarity:.3f} < seuil={DOMAIN_RELEVANCE_THRESHOLD})"
+    domain_mismatch_prefilter = False
+    if not skip_domain_prefilter:
+        candidate_identity = build_candidate_identity(candidate_headline, candidate_target_roles)
+        candidate_roles = [
+            r for r in [candidate_headline, *(candidate_target_roles or [])] if r and r.strip()
+        ]
+        domain_similarity = await mod.compute_domain_relevance(
+            candidate_identity,
+            job_title,
+            candidate_roles=candidate_roles,
         )
+        domain_mismatch_prefilter = (
+            domain_similarity is not None and domain_similarity < DOMAIN_RELEVANCE_THRESHOLD
+        )
+        if domain_mismatch_prefilter:
+            mod.logger.info(
+                f"🚫 Offre '{job_title}' écartée par le pré-filtre de cohérence métier "
+                f"(similarité={domain_similarity:.3f} < seuil={DOMAIN_RELEVANCE_THRESHOLD})"
+            )
 
     start_time = time.time()
     pass1_data, in1, out1 = await run_pass1(offer_doc, eval_model, models_used, domain_mismatch_prefilter)
@@ -194,6 +204,7 @@ async def evaluate_offer_two_pass(
     user_id: Union[str, ObjectId, PyObjectId],
     offer_id: Union[str, ObjectId, PyObjectId],
     model: Optional[str] = None,
+    skip_domain_prefilter: bool = False,
 ) -> OfferEvaluation:
     """
     Execute the Two-Pass Career-Ops Evaluation Protocol:
@@ -206,7 +217,13 @@ async def evaluate_offer_two_pass(
 
     await mod.require_user_quota(db, user_str_id, ApiUsageAction.EVALUATION)
 
-    run = await mod.compute_offer_evaluation(db, user_id, offer_id, model)
+    run = await mod.compute_offer_evaluation(
+        db,
+        user_id,
+        offer_id,
+        model,
+        skip_domain_prefilter=skip_domain_prefilter,
+    )
     offer_oid = ObjectId(run.evaluation["offer_id"])
     final_score = run.evaluation["score"]
 
