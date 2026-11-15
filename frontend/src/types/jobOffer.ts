@@ -1,15 +1,20 @@
+export type ImportanceEvidenceTier = "stated" | "structural" | "inferred";
+
 export interface RequirementMatch {
   requirement: string;
   weight: "critical" | "high" | "meaningful";
+  importance_evidence_tier?: ImportanceEvidenceTier;
   candidate_evidence: string;
   verbatim_quote: string;
   status: "full_match" | "partial_match";
+  evidence_tier?: string;
   quote_verified?: boolean;
 }
 
 export interface MissingRequirement {
   requirement: string;
   weight: "critical" | "high" | "meaningful";
+  importance_evidence_tier?: ImportanceEvidenceTier;
   reason: string;
   impact_on_role?: string;
 }
@@ -35,6 +40,12 @@ export interface BlocB {
   matched_requirements: RequirementMatch[];
   missing_requirements: MissingRequirement[];
   score_justification: string;
+  dropped_requirements_count?: number;
+}
+
+export interface RiskSummaryItem {
+  signal: string;
+  status: string;
 }
 
 export interface BlocG {
@@ -42,6 +53,24 @@ export interface BlocG {
   is_scam_risk: boolean;
   reposted_frequency?: string | null;
   warnings: string[];
+  employment_classification_risk?: string | null;
+  pay_range_width_warning?: string | null;
+  ai_buzzword_mismatch?: string | null;
+  company_history_note?: string | null;
+  risk_summary?: RiskSummaryItem[];
+}
+
+export interface DraftApplicationAnswer {
+  question: string;
+  answer: string;
+}
+
+export interface BlocH {
+  eligible: boolean;
+  answers: DraftApplicationAnswer[];
+  key_achievements: string[];
+  gaps_flagged: string[];
+  jd_keywords: string[];
 }
 
 export interface OfferEvaluation {
@@ -54,6 +83,7 @@ export interface OfferEvaluation {
   bloc_a: BlocA;
   bloc_b: BlocB;
   bloc_g: BlocG;
+  bloc_h?: BlocH | null;
   created_at: string;
   updated_at: string;
 }

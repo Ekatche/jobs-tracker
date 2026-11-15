@@ -82,3 +82,35 @@ export interface PdfOptions {
   accent?: CvAccentKey;
   withPhoto?: boolean;
 }
+
+export interface AtsScoreBreakdown {
+  text: number;
+  sections: number;
+  contact: number;
+  layout: number;
+  metrics_and_bullets: number;
+  charset_and_markers: number;
+}
+
+export interface AtsKeywordCoverage {
+  matched: string[];
+  missing: string[];
+  coverage_pct: number;
+}
+
+export interface ResumeAtsScoreResponse {
+  resume_id: string;
+  score: number;
+  grade: "A" | "B" | "C" | "D";
+  breakdown: AtsScoreBreakdown;
+  issues: string[];
+  invisible_markers: Record<string, number>;
+  keyword_coverage: AtsKeywordCoverage | null;
+}
+
+export interface ResumeExportTextResponse {
+  resume_id: string;
+  format: "markdown" | "txt";
+  filename: string;
+  content: string;
+}

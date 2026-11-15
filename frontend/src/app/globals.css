@@ -185,3 +185,15 @@ body {
 .tab-inactive:hover {
   color: white;
 }
+
+/* Native top-layer modal scroll containment without locking document body */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgb(2 6 23 / 0.78);
+  backdrop-filter: blur(4px);
+}

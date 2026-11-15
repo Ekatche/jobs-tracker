@@ -39,6 +39,7 @@ import {
 import { PrefilledData } from "@/components/dashboard/NewApplicationModal";
 import { getContractBadgeStyles } from "@/lib/contractBadge";
 import CompanyFilters from "@/components/offers/CompanyFilters";
+import SkillGapsModal from "@/components/offers/SkillGapsModal";
 import { getRelevanceLevelOption, RELEVANCE_LEVEL_OPTIONS } from "@/lib/relevanceLevels";
 
 function cleanDescriptionPreview(text: string | undefined): string {
@@ -605,6 +606,7 @@ function OffersPageContent() {
 
   // UI
   const [showFilters, setShowFilters] = useState(false);
+  const [isSkillGapsOpen, setIsSkillGapsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"offers" | "stats">("offers");
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [regenerateError, setRegenerateError] = useState<string | null>(null);
@@ -1082,20 +1084,32 @@ function OffersPageContent() {
             </div>
           </div>
 
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all border shadow-sm ${
-              showFilters || locationFilter || companyFilter
-                ? "bg-blue-600 text-white border-blue-500 shadow-blue-500/20"
-                : "bg-slate-800/90 text-slate-300 hover:text-white border-slate-700 hover:bg-slate-700"
-            }`}
-          >
-            <FiFilter className="w-3.5 h-3.5" />
-            <span>Filtres</span>
-            {(locationFilter || companyFilter) && (
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsSkillGapsOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all border shadow-sm bg-slate-800/90 text-amber-300 hover:bg-amber-500/15 border-amber-500/30"
+              title="Voir les compétences manquantes récurrentes dans vos offres évaluées"
+            >
+              <FiLayers className="w-3.5 h-3.5" />
+              <span>Lacunes JD</span>
+            </button>
+
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all border shadow-sm ${
+                showFilters || locationFilter || companyFilter
+                  ? "bg-blue-600 text-white border-blue-500 shadow-blue-500/20"
+                  : "bg-slate-800/90 text-slate-300 hover:text-white border-slate-700 hover:bg-slate-700"
+              }`}
+            >
+              <FiFilter className="w-3.5 h-3.5" />
+              <span>Filtres</span>
+              {(locationFilter || companyFilter) && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Onglets */}
@@ -1601,6 +1615,11 @@ function OffersPageContent() {
         {/* Contenu de l'onglet Statistiques */}
         {activeTab === "stats" && <StatsContent />}
       </div>
+
+      <SkillGapsModal
+        isOpen={isSkillGapsOpen}
+        onClose={() => setIsSkillGapsOpen(false)}
+      />
     </div>
   );
 }

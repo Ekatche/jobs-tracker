@@ -13,6 +13,7 @@ import {
   FiPlus,
   FiTrash2,
   FiSave,
+  FiShield,
 } from "react-icons/fi";
 import { TailoredResume, TailoredCVSchema } from "@/types/resume";
 import { resumeApi } from "@/lib/api";
@@ -28,6 +29,7 @@ import {
   type ResumeAppearance,
 } from "@/lib/cvTemplates";
 import AccentSwatches from "@/components/resumes/AccentSwatches";
+import ResumeAtsTab from "@/components/resumes/ResumeAtsTab";
 
 interface ResumePreviewModalProps {
   resume: TailoredResume | null;
@@ -36,7 +38,7 @@ interface ResumePreviewModalProps {
   onUpdateAppearance?: (resumeId: string, appearance: ResumeAppearance) => Promise<void>;
   onUpdateContent?: (resumeId: string, content: TailoredCVSchema) => Promise<void>;
   onRegenerate?: (resume: TailoredResume) => Promise<void>;
-  initialTab?: "preview" | "edit";
+  initialTab?: "preview" | "edit" | "ats";
 }
 
 export default function ResumePreviewModal({
@@ -48,7 +50,8 @@ export default function ResumePreviewModal({
   onRegenerate,
   initialTab = "preview",
 }: ResumePreviewModalProps) {
-  const [activeTab, setActiveTab] = useState<"preview" | "edit">("preview");
+  const [activeTab, setActiveTab] = useState<"preview" | "edit" | "ats">("preview");
+  const [atsRefreshKey, setAtsRefreshKey] = useState<number>(0);
   const [selectedTemplate, setSelectedTemplate] = useState<CvTemplateKey>(DEFAULT_TEMPLATE);
   const [selectedAccent, setSelectedAccent] = useState<CvAccentKey>(DEFAULT_ACCENT);
   const [withPhoto, setWithPhoto] = useState<boolean>(false);
@@ -193,6 +196,7 @@ export default function ResumePreviewModal({
     try {
       await onUpdateContent(resumeId, editableContent);
       setSaveSuccess(true);
+      setAtsRefreshKey((prev) => prev + 1);
       setTimeout(() => setSaveSuccess(false), 3000);
       setActiveTab("preview");
     } catch (err: unknown) {
@@ -282,6 +286,17 @@ export default function ResumePreviewModal({
               >
                 <FiEdit3 className="text-xs" />
                 <span>Éditer le contenu</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("ats")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all ${
+                  activeTab === "ats"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <FiShield className="text-xs" />
+                <span>Score ATS &amp; Export</span>
               </button>
             </div>
 
@@ -547,6 +562,14 @@ export default function ResumePreviewModal({
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === "ats" && (
+          <ResumeAtsTab
+            resumeId={resumeId}
+            offerId={resume.offer_id}
+            refreshKey={atsRefreshKey}
+          />
         )}
       </div>
     </div>

@@ -33,6 +33,11 @@ import NewApplicationModal, {
 } from "@/components/dashboard/NewApplicationModal";
 import InterviewPrepTab from "@/components/interview/InterviewPrepTab";
 import { getContractBadgeStyles } from "@/lib/contractBadge";
+import {
+  EvidenceTierBadge,
+  BlocGRiskSummary,
+  BlocHDraftPanel,
+} from "@/components/offers/OfferEvaluationExtras";
 
 function OfferDetailPageContent() {
   const params = useParams();
@@ -554,6 +559,11 @@ function OfferDetailPageContent() {
                     <p className="text-sm text-gray-300 leading-relaxed">
                       {evaluation.bloc_b.score_justification}
                     </p>
+                    {(evaluation.bloc_b.dropped_requirements_count ?? 0) > 0 && (
+                      <p className="mt-2.5 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/25 rounded-lg px-3 py-1.5 inline-block">
+                        {evaluation.bloc_b.dropped_requirements_count} critère(s) sans citation vérifiable dans l'offre ont été écartés par le garde anti-hallucination.
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -582,6 +592,7 @@ function OfferDetailPageContent() {
                                 {match.requirement}
                               </span>
                               <div className="flex items-center gap-2">
+                                <EvidenceTierBadge tier={match.importance_evidence_tier} />
                                 {getWeightBadge(match.weight)}
                                 <span
                                   className={`px-2 py-0.5 rounded text-[11px] font-medium ${
@@ -646,7 +657,10 @@ function OfferDetailPageContent() {
                                 <span className="font-semibold text-white text-base">
                                   {missing.requirement}
                                 </span>
-                                {getWeightBadge(missing.weight)}
+                                <div className="flex items-center gap-2">
+                                  <EvidenceTierBadge tier={missing.importance_evidence_tier} />
+                                  {getWeightBadge(missing.weight)}
+                                </div>
                               </div>
 
                               <p className="text-sm text-gray-300 mb-2">
@@ -808,7 +822,11 @@ function OfferDetailPageContent() {
                       </ul>
                     </div>
                   )}
+
+                  <BlocGRiskSummary blocG={evaluation.bloc_g} />
                 </div>
+
+                <BlocHDraftPanel blocH={evaluation.bloc_h} />
               </div>
             )}
 

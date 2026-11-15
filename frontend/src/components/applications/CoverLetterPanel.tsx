@@ -790,13 +790,13 @@ export default function CoverLetterPanel({ applicationId }: CoverLetterPanelProp
                   <div>
                     <span className="text-gray-400">Rédacteur : </span>
                     <span className="font-mono text-gray-200">
-                      {currentVersionData.models?.writer || "gpt-4o-mini"}
+                      {currentVersionData.models?.writer || "openai/gpt-5.6-terra"}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-400">Critique croisé : </span>
                     <span className="font-mono text-gray-200">
-                      {currentVersionData.models?.critic || "mistral-small-2501"}
+                      {currentVersionData.models?.critic || "gemini/gemini-3.8-flash"}
                     </span>
                   </div>
                 </div>

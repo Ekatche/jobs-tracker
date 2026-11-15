@@ -17,7 +17,18 @@ import {
 } from "./auth";
 import { Task } from "@/types/tasks";
 import { CoverLetter, CandidateProfile, CandidatePreferences, CvImportResult } from "@/types/coverLetter";
-import { TailoredResume, GenerateResumeRequest, UpdateResumeRequest, PdfOptions } from "@/types/resume";
+import {
+  TailoredResume,
+  GenerateResumeRequest,
+  UpdateResumeRequest,
+  PdfOptions,
+  ResumeAtsScoreResponse,
+  ResumeExportTextResponse,
+} from "@/types/resume";
+import type {
+  ScoreCalibrationResponse,
+  JdSkillGapsResponse,
+} from "@/types/analytics";
 import {
   InterviewPrep,
   UpdateInterviewPrepPayload,
@@ -381,11 +392,22 @@ export type {
   BlocA,
   BlocB,
   BlocG,
+  BlocH,
+  DraftApplicationAnswer,
+  RiskSummaryItem,
+  ImportanceEvidenceTier,
   RequirementMatch,
   MissingRequirement,
   UserOfferInteraction,
   UserOfferInteractionStatus,
 } from "../types/jobOffer";
+
+export type {
+  ScoreCalibrationBucket,
+  ScoreCalibrationResponse,
+  SkillGapItem,
+  JdSkillGapsResponse,
+} from "../types/analytics";
 
 export interface JobOfferFilter {
   keywords?: string;
@@ -621,6 +643,13 @@ export const applicationApi = {
       "GET"
     );
   },
+
+  calibrateScores: async (minBandN = 5): Promise<ScoreCalibrationResponse> => {
+    return fetchApi<ScoreCalibrationResponse>(
+      `/applications/pipeline/calibrate?min_band_n=${encodeURIComponent(minBandN)}`,
+      "GET"
+    );
+  },
 };
 
 // Ajouter l'API des offres d'emploi après taskApi
@@ -784,6 +813,14 @@ export const jobOffersApi = {
       "GET"
     );
   },
+
+  // Lacunes de compétences récurrentes dans les offres évaluées
+  getSkillGaps: async (minScore = 0): Promise<JdSkillGapsResponse> => {
+    return fetchApi<JdSkillGapsResponse>(
+      `/job-offers/analytics/skill-gaps?min_score=${encodeURIComponent(minScore)}`,
+      "GET"
+    );
+  },
 };
 
 // API Cover Letters
@@ -934,6 +971,19 @@ export const resumeApi = {
 
     const blob = await response.blob();
     return window.URL.createObjectURL(blob);
+  },
+  getAtsScore: async (id: string, offerId?: string): Promise<ResumeAtsScoreResponse> => {
+    const query = offerId ? `?offer_id=${encodeURIComponent(offerId)}` : "";
+    return fetchApi<ResumeAtsScoreResponse>(`/resumes/${id}/ats-score${query}`, "GET");
+  },
+  exportText: async (
+    id: string,
+    format: "markdown" | "txt" = "markdown"
+  ): Promise<ResumeExportTextResponse> => {
+    return fetchApi<ResumeExportTextResponse>(
+      `/resumes/${id}/export-text?format=${encodeURIComponent(format)}`,
+      "GET"
+    );
   },
 };
 

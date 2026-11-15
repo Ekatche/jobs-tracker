@@ -17,12 +17,14 @@ import ApplicationDetails from "@/components/applications/ApplicationDetails";
 import NewApplicationModal, {
   PrefilledData,
 } from "@/components/dashboard/NewApplicationModal";
+import CalibrationModal from "@/components/applications/CalibrationModal";
 import {
   applicationApi,
   jobOffersApi,
   type Application as ApiApplication,
 } from "@/lib/api";
 import {
+  FiActivity,
   FiBriefcase,
   FiAlertCircle,
   FiTrendingUp,
@@ -80,8 +82,9 @@ export default function ApplicationsPage() {
   const [isDeletingNote, setIsDeletingNote] = useState<boolean>(false);
   const [deletingNoteIndex, setDeletingNoteIndex] = useState<number | null>(null);
 
-  // Modal Nouvelle Candidature
+  // Modal Nouvelle Candidature & Calibration IA
   const [isNewAppModalOpen, setIsNewAppModalOpen] = useState(false);
+  const [isCalibrationOpen, setIsCalibrationOpen] = useState(false);
   const [prefilledData, setPrefilledData] = useState<PrefilledData | undefined>(undefined);
 
   // Chargement des données (applications + résumé)
@@ -478,6 +481,17 @@ export default function ApplicationsPage() {
                 )}
               </button>
 
+              {/* Calibration IA */}
+              <button
+                type="button"
+                onClick={() => setIsCalibrationOpen(true)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors border bg-gray-800 text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/15"
+                title="Comparer vos scores d'adéquation IA aux entretiens réellement obtenus"
+              >
+                <FiActivity className="text-xs" />
+                <span>Calibration IA</span>
+              </button>
+
               {/* Basculeur de vue Kanban / Tableau */}
               <div className="flex items-center bg-gray-900 border border-gray-700 rounded-lg p-0.5">
                 <button
@@ -866,6 +880,12 @@ export default function ApplicationsPage() {
           addNotification("success", "Candidature ajoutée avec succès");
         }}
         prefilledData={prefilledData}
+      />
+
+      {/* Modale Calibration IA */}
+      <CalibrationModal
+        isOpen={isCalibrationOpen}
+        onClose={() => setIsCalibrationOpen(false)}
       />
     </div>
   );

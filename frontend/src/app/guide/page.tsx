@@ -58,12 +58,12 @@ const FAQ_ITEMS: FaqItem[] = [
             Collecte et normalisation des offres des principales plateformes pro.
           </div>
           <div className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
-            <span className="font-semibold text-purple-400 block mb-0.5">🔍 Moteur Web (Tavily AI)</span>
-            Détection automatique des annonces sur les pages carrières d'entreprises.
+            <span className="font-semibold text-purple-400 block mb-0.5">⚡ Connecteurs ATS Zero-Token &amp; Tavily</span>
+            Extraction directe sans coût LLM sur Ashby, Workday CXS, Greenhouse, Lever et SmartRecruiters durci.
           </div>
           <div className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
-            <span className="font-semibold text-emerald-400 block mb-0.5">🛡️ Filtre Anti-Bruit</span>
-            Élimination instantanée des doublons et des offres expirées.
+            <span className="font-semibold text-emerald-400 block mb-0.5">🛡️ Filtre Anti-Bruit &amp; Non-Contenu</span>
+            Élimination instantanée des doublons, murs de connexion, coquilles 404, paywalls et offres expirées.
           </div>
         </div>
       </div>
@@ -143,6 +143,25 @@ const FAQ_ITEMS: FaqItem[] = [
         </div>
         <p className="text-xs text-slate-400">
           L'analyse fournit aussi les compétences clés manquantes à mettre en avant ou à préparer pour votre entretien.
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: "career-ops-tools",
+    category: "generation",
+    question: "Qu'apportent le Bloc H, le Score ATS du CV et les vues Calibration IA / Lacunes JD ?",
+    summary: "Brouillons de réponses automatiques pour les offres >= 4.0, audit ATS 0-100 sans marqueurs invisibles et analytics pipeline.",
+    content: (
+      <div className="space-y-2 text-slate-300 text-xs leading-relaxed">
+        <p>
+          <strong className="text-blue-300">Bloc H (Offres &ge; 4.0) :</strong> génère automatiquement vos réponses brouillons aux questions types de candidature, les réalisations clés à valoriser et les écarts à anticiper.
+        </p>
+        <p>
+          <strong className="text-emerald-300">Score ATS &amp; Export :</strong> dans Mes CV, chaque CV adapté reçoit une note 0–100 (grade A–D) sur 6 axes ainsi qu'un export Markdown/Texte nettoyé de tout caractère Unicode invisible.
+        </p>
+        <p>
+          <strong className="text-amber-300">Calibration IA &amp; Lacunes JD :</strong> comparez vos scores IA à vos entretiens réels depuis Suivi des Candidatures, et identifiez les compétences récurrentes manquantes depuis Offres d'emploi.
         </p>
       </div>
     ),

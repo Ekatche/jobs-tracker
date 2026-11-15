@@ -4,6 +4,7 @@ import { Application, formatDate, calculateDays } from "@/types/application";
 import { applicationApi, type OfferEvaluation } from "@/lib/api";
 import StatusSelect from "./StatusSelect";
 import CoverLetterPanel from "./CoverLetterPanel";
+import { BlocHDraftPanel } from "../offers/OfferEvaluationExtras";
 import {
   FiExternalLink,
   FiRefreshCw,
@@ -547,6 +548,7 @@ export default function ApplicationDetails({
                 {/* Fiabilité du contenu scoré */}
                 {(evaluation.bloc_g?.is_scam_risk ||
                   evaluation.bloc_g?.is_ghost_job ||
+                  evaluation.bloc_g?.company_history_note ||
                   (evaluation.bloc_g?.warnings && evaluation.bloc_g.warnings.length > 0)) && (
                   <div className="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
                     <FiAlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
@@ -556,12 +558,23 @@ export default function ApplicationDetails({
                           ? "Risque d'arnaque détecté — score peu fiable"
                           : evaluation.bloc_g.is_ghost_job
                           ? "Offre fantôme suspectée — score peu fiable"
-                          : "Contenu peu fiable — score à prendre avec précaution"}
+                          : evaluation.bloc_g?.warnings?.length
+                          ? "Contenu peu fiable — score à prendre avec précaution"
+                          : "Contexte entreprise"}
                       </p>
+                      {evaluation.bloc_g.company_history_note && (
+                        <p className="mt-0.5 text-slate-200">{evaluation.bloc_g.company_history_note}</p>
+                      )}
                       {evaluation.bloc_g.warnings?.map((warn, idx) => (
                         <p key={idx} className="mt-0.5">{warn}</p>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {evaluation.bloc_h?.eligible && (
+                  <div className="mt-3">
+                    <BlocHDraftPanel blocH={evaluation.bloc_h} compact />
                   </div>
                 )}
 
