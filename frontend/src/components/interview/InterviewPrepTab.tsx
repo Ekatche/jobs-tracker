@@ -3,24 +3,11 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { interviewPrepApi } from "@/lib/api";
 import { InterviewPrep } from "@/types/interview";
-import StorySlotsTable from "./StorySlotsTable";
-import StoryBankPanel from "./StoryBankPanel";
-import AudiencePacksViewer from "./AudiencePacksViewer";
-import AnticipatedQuestionsViewer from "./AnticipatedQuestionsViewer";
-import ReverseQuestionsViewer from "./ReverseQuestionsViewer";
-import {
-  FiZap,
-  FiDownload,
-  FiCopy,
-  FiCheck,
-  FiRefreshCw,
-  FiBookOpen,
-  FiUsers,
-  FiHelpCircle,
-  FiShield,
-  FiAlertCircle,
-  FiX,
-} from "react-icons/fi";
+import InterviewPrepSections from "./InterviewPrepSections";
+import InterviewPrepHeader, {
+  type InterviewPrepSection,
+} from "./InterviewPrepHeader";
+import { FiRefreshCw } from "react-icons/fi";
 
 interface InterviewPrepTabProps {
   offerId: string;
@@ -30,7 +17,6 @@ interface InterviewPrepTabProps {
 
 export default function InterviewPrepTab({
   offerId,
-  targetRole,
   targetCompany,
 }: InterviewPrepTabProps) {
   const [prep, setPrep] = useState<InterviewPrep | null>(null);
@@ -38,8 +24,7 @@ export default function InterviewPrepTab({
   const [generatingModule, setGeneratingModule] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [activeSection, setActiveSection] = useState<"stories" | "audience" | "questions" | "reverse">("stories");
-  // État du panneau « Toute ma banque » : survit aux changements de section, pas de reset nécessaire.
+  const [activeSection, setActiveSection] = useState<InterviewPrepSection>("stories");
   const [bankOpen, setBankOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -51,8 +36,9 @@ export default function InterviewPrepTab({
       setPrep(data);
     } catch (err: unknown) {
       console.error("Error loading interview prep:", err);
-      const msg = err instanceof Error ? err.message : "Impossible de charger la préparation d'entretien.";
-      setError(msg);
+      setError(
+        err instanceof Error ? err.message : "Impossible de charger la préparation d'entretien."
+      );
     } finally {
       setLoading(false);
     }
@@ -67,9 +53,15 @@ export default function InterviewPrepTab({
   const questionsCount = prep?.anticipated_questions?.length || 0;
   const reverseCount = prep?.reverse_questions?.length || 0;
   const practiceCount = prep?.practice_attempts?.length || 0;
-  const totalCompleted = (storiesCount > 0 ? 1 : 0) + (hasAudience ? 1 : 0) + (questionsCount > 0 ? 1 : 0) + (reverseCount > 0 ? 1 : 0);
+  const totalCompleted =
+    (storiesCount > 0 ? 1 : 0) +
+    (hasAudience ? 1 : 0) +
+    (questionsCount > 0 ? 1 : 0) +
+    (reverseCount > 0 ? 1 : 0);
 
-  const handleGenerateModule = async (moduleType: "stories" | "audience-packs" | "questions" | "reverse-questions" | "all") => {
+  const handleGenerateModule = async (
+    moduleType: "stories" | "audience-packs" | "questions" | "reverse-questions" | "all"
+  ) => {
     const hasContent = {
       stories: storiesCount > 0,
       "audience-packs": hasAudience,
@@ -77,49 +69,47 @@ export default function InterviewPrepTab({
       "reverse-questions": reverseCount > 0,
       all: totalCompleted > 0,
     }[moduleType];
+
     if (hasContent) {
-      let message = moduleType === "all"
-        ? "Tout régénérer ? Le contenu actuel des 4 sections, y compris vos corrections, sera remplacé."
-        : "Régénérer cette section ? Son contenu actuel, y compris vos corrections, sera remplacé.";
+      let message =
+        moduleType === "all"
+          ? "Tout régénérer ? Le contenu actuel des 4 sections, y compris vos corrections, sera remplacé."
+          : "Régénérer cette section ? Son contenu actuel, y compris vos corrections, sera remplacé.";
       if ((moduleType === "questions" || moduleType === "all") && practiceCount > 0) {
         message += ` Votre historique d'entraînement (${practiceCount} essai${practiceCount > 1 ? "s" : ""}) sera effacé.`;
       }
       if (moduleType === "stories" || moduleType === "all") {
-        const editedRequirements = (prep?.story_slots ?? [])
+        const edited = (prep?.story_slots ?? [])
           .filter((slot) => slot.angle_edited)
           .map((slot) => slot.requirement);
-        if (editedRequirements.length > 0) {
-          message += ` Les angles rédigés à la main pour : ${editedRequirements.join(", ")} seront perdus si la même histoire n'est pas reprise.`;
+        if (edited.length > 0) {
+          message += ` Les angles rédigés à la main pour : ${edited.join(", ")} seront perdus si la même histoire n'est pas reprise.`;
         }
       }
-      if (!confirm(message)) {
-        return;
-      }
+      if (!confirm(message)) return;
     }
+
     const controller = new AbortController();
     abortRef.current = controller;
     try {
       setGeneratingModule(moduleType);
       setError(null);
-      let updated: InterviewPrep;
-      if (moduleType === "stories") {
-        updated = await interviewPrepApi.generateStories(offerId, controller.signal);
-      } else if (moduleType === "audience-packs") {
-        updated = await interviewPrepApi.generateAudiencePacks(offerId, controller.signal);
-      } else if (moduleType === "questions") {
-        updated = await interviewPrepApi.generateQuestions(offerId, controller.signal);
-      } else if (moduleType === "reverse-questions") {
-        updated = await interviewPrepApi.generateReverseQuestions(offerId, controller.signal);
-      } else {
-        updated = await interviewPrepApi.generateAll(offerId, controller.signal);
-      }
-      setPrep(updated);
+      const loaders = {
+        stories: () => interviewPrepApi.generateStories(offerId, controller.signal),
+        "audience-packs": () =>
+          interviewPrepApi.generateAudiencePacks(offerId, controller.signal),
+        questions: () => interviewPrepApi.generateQuestions(offerId, controller.signal),
+        "reverse-questions": () =>
+          interviewPrepApi.generateReverseQuestions(offerId, controller.signal),
+        all: () => interviewPrepApi.generateAll(offerId, controller.signal),
+      };
+      setPrep(await loaders[moduleType]());
     } catch (err: unknown) {
-      // Cancelled by the user: the server discards the result and the current content stays.
       if (controller.signal.aborted) return;
       console.error(`Error generating ${moduleType}:`, err);
-      const msg = err instanceof Error ? err.message : `Erreur lors de la génération du module ${moduleType}`;
-      setError(msg);
+      setError(
+        err instanceof Error ? err.message : `Erreur lors de la génération du module ${moduleType}`
+      );
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null;
@@ -127,24 +117,6 @@ export default function InterviewPrepTab({
       }
     }
   };
-
-  const handleCancelGeneration = () => {
-    abortRef.current?.abort();
-  };
-
-  function renderCancelButton(moduleType: string) {
-    if (generatingModule !== moduleType) return null;
-    return (
-      <button
-        type="button"
-        onClick={handleCancelGeneration}
-        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shrink-0 flex items-center gap-1.5 transition-colors"
-      >
-        <FiX className="w-3.5 h-3.5" />
-        <span>Annuler</span>
-      </button>
-    );
-  }
 
   const handleCopyMarkdown = async () => {
     try {
@@ -170,334 +142,46 @@ export default function InterviewPrepTab({
     return (
       <div className="flex flex-col items-center justify-center p-12 text-slate-400 space-y-3">
         <FiRefreshCw className="w-8 h-8 animate-spin text-indigo-400" />
-        <p className="text-sm">Chargement du kit de préparation d'entretien...</p>
+        <p className="text-sm">Chargement du kit de préparation d&apos;entretien...</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Action Header Card */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden backdrop-blur-sm">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center gap-1.5">
-                <FiZap className="w-3.5 h-3.5 text-indigo-400" />
-                Intelligence Career-Ops
-              </span>
-              <span className="text-xs text-slate-400">
-                • {totalCompleted}/4 modules prêts
-              </span>
-            </div>
-            <h3 className="text-xl font-bold text-white">
-              Kit de Préparation d'Entretien {targetCompany ? `— ${targetCompany}` : ""}
-            </h3>
-            <p className="text-xs text-slate-400 mt-1 max-w-2xl">
-              Préparez vos entretiens avec précision : histoires STAR+R réelles, discours segmenté par audience, questions probables et questions inversées anti red-flags.
-            </p>
-          </div>
+      <InterviewPrepHeader
+        targetCompany={targetCompany}
+        totalCompleted={totalCompleted}
+        generatingModule={generatingModule}
+        copied={copied}
+        error={error}
+        activeSection={activeSection}
+        storiesCount={storiesCount}
+        hasAudience={hasAudience}
+        questionsCount={questionsCount}
+        reverseCount={reverseCount}
+        onGenerateAll={() => handleGenerateModule("all")}
+        onCancelGeneration={() => abortRef.current?.abort()}
+        onCopyMarkdown={handleCopyMarkdown}
+        onDownloadMarkdown={handleDownloadMarkdown}
+        onSelectSection={setActiveSection}
+      />
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <button
-              type="button"
-              disabled={generatingModule !== null}
-              onClick={() => handleGenerateModule("all")}
-              className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/25 flex items-center gap-2 transition-all disabled:opacity-50"
-            >
-              <FiZap className={`w-4 h-4 ${generatingModule === "all" ? "animate-spin" : ""}`} />
-              <span>{generatingModule === "all" ? "Génération en cours..." : "Tout générer (1-Clic)"}</span>
-            </button>
-            {renderCancelButton("all")}
-
-            <button
-              type="button"
-              onClick={handleCopyMarkdown}
-              title="Copier en Markdown"
-              className="p-2 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition-colors"
-            >
-              {copied ? <FiCheck className="w-4 h-4 text-emerald-400" /> : <FiCopy className="w-4 h-4" />}
-              <span className="hidden sm:inline">{copied ? "Copié !" : "Copier .md"}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDownloadMarkdown}
-              title="Télécharger en fichier Markdown"
-              className="p-2 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition-colors"
-            >
-              <FiDownload className="w-4 h-4" />
-              <span className="hidden sm:inline">Télécharger</span>
-            </button>
-          </div>
-        </div>
-
-        {error && (
-          <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center gap-2">
-            <FiAlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Modular Section Navigation */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <button
-          type="button"
-          onClick={() => setActiveSection("stories")}
-          className={`p-3.5 rounded-xl border flex flex-col items-start gap-1 transition-all ${
-            activeSection === "stories"
-              ? "bg-indigo-950/40 border-indigo-500/60 shadow-lg shadow-indigo-500/10"
-              : "bg-slate-900/60 border-slate-800 text-slate-400 hover:bg-slate-800/40"
-          }`}
-        >
-          <div className="flex items-center justify-between w-full">
-            <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-              <FiBookOpen className="w-4 h-4 text-indigo-400" />
-              1. Histoires STAR+R
-            </span>
-            <span className={`text-[11px] font-bold px-1.5 py-0.2 rounded ${storiesCount > 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-800 text-slate-500"}`}>
-              {storiesCount}
-            </span>
-          </div>
-          <span className="text-[11px] text-slate-400">Preuves & métriques réelles</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSection("audience")}
-          className={`p-3.5 rounded-xl border flex flex-col items-start gap-1 transition-all ${
-            activeSection === "audience"
-              ? "bg-indigo-950/40 border-indigo-500/60 shadow-lg shadow-indigo-500/10"
-              : "bg-slate-900/60 border-slate-800 text-slate-400 hover:bg-slate-800/40"
-          }`}
-        >
-          <div className="flex items-center justify-between w-full">
-            <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-              <FiUsers className="w-4 h-4 text-indigo-400" />
-              2. Packs d'Audience
-            </span>
-            <span className={`text-[11px] font-bold px-1.5 py-0.2 rounded ${hasAudience ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-800 text-slate-500"}`}>
-              {hasAudience ? "Prêt" : "0"}
-            </span>
-          </div>
-          <span className="text-[11px] text-slate-400">RH, Manager, Panel Tech</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSection("questions")}
-          className={`p-3.5 rounded-xl border flex flex-col items-start gap-1 transition-all ${
-            activeSection === "questions"
-              ? "bg-indigo-950/40 border-indigo-500/60 shadow-lg shadow-indigo-500/10"
-              : "bg-slate-900/60 border-slate-800 text-slate-400 hover:bg-slate-800/40"
-          }`}
-        >
-          <div className="flex items-center justify-between w-full">
-            <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-              <FiHelpCircle className="w-4 h-4 text-indigo-400" />
-              3. Questions Anticipées
-            </span>
-            <span className={`text-[11px] font-bold px-1.5 py-0.2 rounded ${questionsCount > 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-800 text-slate-500"}`}>
-              {questionsCount}
-            </span>
-          </div>
-          <span className="text-[11px] text-slate-400">Comportement & Technique</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSection("reverse")}
-          className={`p-3.5 rounded-xl border flex flex-col items-start gap-1 transition-all ${
-            activeSection === "reverse"
-              ? "bg-indigo-950/40 border-indigo-500/60 shadow-lg shadow-indigo-500/10"
-              : "bg-slate-900/60 border-slate-800 text-slate-400 hover:bg-slate-800/40"
-          }`}
-        >
-          <div className="flex items-center justify-between w-full">
-            <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-              <FiShield className="w-4 h-4 text-amber-400" />
-              4. Anti Red-Flags
-            </span>
-            <span className={`text-[11px] font-bold px-1.5 py-0.2 rounded ${reverseCount > 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-800 text-slate-500"}`}>
-              {reverseCount}
-            </span>
-          </div>
-          <span className="text-[11px] text-slate-400">Questions à poser</span>
-        </button>
-      </div>
-
-      {/* Section Content with Unitary Generation Header */}
-      <div>
-        {activeSection === "stories" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between bg-slate-900/40 p-3 rounded-xl border border-slate-800/80">
-              <span className="text-xs text-slate-400">
-                Génération de 3 à 5 histoires structurées basées sur vos expériences déclarées et les exigences clés du poste.
-              </span>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  disabled={generatingModule !== null}
-                  onClick={() => handleGenerateModule("stories")}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/90 hover:bg-indigo-600 text-white shrink-0 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                >
-                  <FiRefreshCw className={`w-3.5 h-3.5 ${generatingModule === "stories" ? "animate-spin" : ""}`} />
-                  <span>{generatingModule === "stories" ? "Génération..." : storiesCount > 0 ? "Régénérer" : "Générer les histoires"}</span>
-                </button>
-                {renderCancelButton("stories")}
-              </div>
-            </div>
-
-            {(() => {
-              const storiesBody =
-                storiesCount === 0 ? (
-                  <div className="text-center py-12 px-4 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800">
-                    <FiBookOpen className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                    <h4 className="text-sm font-medium text-slate-300">Aucune histoire STAR+R générée</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                      Cliquez sur "Générer les histoires" pour extraire vos meilleures réalisations alignées sur cette offre.
-                    </p>
-                  </div>
-                ) : (
-                  <StorySlotsTable
-                    prep={prep!}
-                    offerId={offerId}
-                    onPrepUpdated={setPrep}
-                    onOpenBank={() => setBankOpen(true)}
-                  />
-                );
-
-              if (!bankOpen) return storiesBody;
-
-              return (
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 items-start">
-                  <div className="min-w-0">{storiesBody}</div>
-                  <StoryBankPanel
-                    offerId={offerId}
-                    prep={prep}
-                    open={bankOpen}
-                    onClose={() => setBankOpen(false)}
-                    onPrepUpdated={setPrep}
-                  />
-                </div>
-              );
-            })()}
-          </div>
-        )}
-
-        {activeSection === "audience" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between bg-slate-900/40 p-3 rounded-xl border border-slate-800/80">
-              <span className="text-xs text-slate-400">
-                Adaptez votre discours selon l'interlocuteur : RH (cadrage & salaire), Manager (stratégie), ou Pairs (architecture).
-              </span>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  disabled={generatingModule !== null}
-                  onClick={() => handleGenerateModule("audience-packs")}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/90 hover:bg-indigo-600 text-white shrink-0 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                >
-                  <FiRefreshCw className={`w-3.5 h-3.5 ${generatingModule === "audience-packs" ? "animate-spin" : ""}`} />
-                  <span>{generatingModule === "audience-packs" ? "Génération..." : hasAudience ? "Régénérer" : "Générer les packs"}</span>
-                </button>
-                {renderCancelButton("audience-packs")}
-              </div>
-            </div>
-
-            {!hasAudience ? (
-              <div className="text-center py-12 px-4 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800">
-                <FiUsers className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                <h4 className="text-sm font-medium text-slate-300">Aucun pack d'audience généré</h4>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  Générez vos guides personnalisés pour aborder sereinement chaque tour d'entretien.
-                </p>
-              </div>
-            ) : (
-              <AudiencePacksViewer
-                recruiterPack={prep?.recruiter_pack}
-                hmPack={prep?.hm_pack}
-                techPack={prep?.tech_pack}
-              />
-            )}
-          </div>
-        )}
-
-        {activeSection === "questions" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between bg-slate-900/40 p-3 rounded-xl border border-slate-800/80">
-              <span className="text-xs text-slate-400">
-                Anticipation des questions comportementales (avec renvoi STAR+R) et techniques déduites de l'offre.
-              </span>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  disabled={generatingModule !== null}
-                  onClick={() => handleGenerateModule("questions")}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/90 hover:bg-indigo-600 text-white shrink-0 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                >
-                  <FiRefreshCw className={`w-3.5 h-3.5 ${generatingModule === "questions" ? "animate-spin" : ""}`} />
-                  <span>{generatingModule === "questions" ? "Génération..." : questionsCount > 0 ? "Régénérer" : "Générer les questions"}</span>
-                </button>
-                {renderCancelButton("questions")}
-              </div>
-            </div>
-
-            {questionsCount === 0 ? (
-              <div className="text-center py-12 px-4 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800">
-                <FiHelpCircle className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                <h4 className="text-sm font-medium text-slate-300">Aucune question anticipée</h4>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  Prévoyez les questions ciblées et préparez les points clés incontournables.
-                </p>
-              </div>
-            ) : (
-              <AnticipatedQuestionsViewer
-                offerId={offerId}
-                questions={prep!.anticipated_questions}
-                attempts={prep!.practice_attempts ?? []}
-                onPrepUpdated={setPrep}
-              />
-            )}
-          </div>
-        )}
-
-        {activeSection === "reverse" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between bg-slate-900/40 p-3 rounded-xl border border-slate-800/80">
-              <span className="text-xs text-slate-400">
-                Questions d'audit pour évaluer la santé de l'équipe, la dette technique et l'autonomie.
-              </span>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  disabled={generatingModule !== null}
-                  onClick={() => handleGenerateModule("reverse-questions")}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/90 hover:bg-indigo-600 text-white shrink-0 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                >
-                  <FiRefreshCw className={`w-3.5 h-3.5 ${generatingModule === "reverse-questions" ? "animate-spin" : ""}`} />
-                  <span>{generatingModule === "reverse-questions" ? "Génération..." : reverseCount > 0 ? "Régénérer" : "Générer les questions"}</span>
-                </button>
-                {renderCancelButton("reverse-questions")}
-              </div>
-            </div>
-
-            {reverseCount === 0 ? (
-              <div className="text-center py-12 px-4 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800">
-                <FiShield className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                <h4 className="text-sm font-medium text-slate-300">Aucune question inversée générée</h4>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  Générez les questions tactiques pour auditer vos futurs collaborateurs.
-                </p>
-              </div>
-            ) : (
-              <ReverseQuestionsViewer questions={prep!.reverse_questions} />
-            )}
-          </div>
-        )}
-      </div>
+      <InterviewPrepSections
+        activeSection={activeSection}
+        offerId={offerId}
+        prep={prep}
+        generatingModule={generatingModule}
+        storiesCount={storiesCount}
+        hasAudience={hasAudience}
+        questionsCount={questionsCount}
+        reverseCount={reverseCount}
+        bankOpen={bankOpen}
+        onSetBankOpen={setBankOpen}
+        onPrepUpdated={setPrep}
+        onGenerateModule={handleGenerateModule}
+        onCancel={() => abortRef.current?.abort()}
+      />
     </div>
   );
 }

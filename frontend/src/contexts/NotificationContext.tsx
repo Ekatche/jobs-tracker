@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, ReactNode } from "react";
 import { FiCheck, FiAlertTriangle, FiX } from "react-icons/fi";
 import { v4 as uuidv4 } from "uuid"; // npm install uuid
 
-type NotificationType = "success" | "error" | "info";
+export type NotificationType = "success" | "error" | "info";
 
 interface Notification {
   type: NotificationType;
