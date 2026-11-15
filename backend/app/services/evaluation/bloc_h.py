@@ -34,7 +34,6 @@ _SILENT_APP_STATUSES = {
     "relance",
     "candidature envoyée",
     "relancé",
-    "en étude",
 }
 
 
@@ -65,24 +64,42 @@ async def _fetch_company_applications(
         return None
 
 
-def _count_application_outcomes(docs: List[Dict[str, Any]]) -> Tuple[int, int, Optional[int]]:
+def _parse_app_datetime(value: Any) -> Optional[datetime]:
+    """Parse datetime or ISO-8601 date strings into timezone-aware UTC datetimes."""
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+    return None
+
+
+def _count_application_outcomes(
+    docs: List[Dict[str, Any]],
+    current_offer_id: Optional[Any] = None,
+) -> Tuple[int, int, Optional[int]]:
     """Count responded vs silent/rejected prior applications and recency of latest silence."""
     responded = 0
     silent = 0
     latest_silent_days: Optional[int] = None
     now = datetime.now(timezone.utc)
+    excluded_id = str(current_offer_id) if current_offer_id is not None else None
 
     for doc in docs:
         if not isinstance(doc, dict):
+            continue
+        if excluded_id and doc.get("offer_id") is not None and str(doc.get("offer_id")) == excluded_id:
             continue
         status_norm = str(doc.get("status") or "").strip().lower()
         if status_norm in _RESPONDED_APP_STATUSES:
             responded += 1
         elif status_norm in _SILENT_APP_STATUSES or "refus" in status_norm or "reject" in status_norm:
             silent += 1
-            app_dt = doc.get("application_date") or doc.get("created_at")
-            if isinstance(app_dt, datetime):
-                dt_utc = app_dt if app_dt.tzinfo else app_dt.replace(tzinfo=timezone.utc)
+            dt_utc = _parse_app_datetime(doc.get("application_date") or doc.get("created_at"))
+            if dt_utc is not None:
                 days = max(0, (now - dt_utc).days)
                 if latest_silent_days is None or days < latest_silent_days:
                     latest_silent_days = days
@@ -94,6 +111,7 @@ async def compute_company_history_note(
     db: Any,
     user_str_id: str,
     offer_company: str,
+    current_offer_id: Optional[Any] = None,
 ) -> Optional[str]:
     """Summarize prior applications to the same company without altering the score."""
     if not offer_company or db is None:
@@ -102,7 +120,9 @@ async def compute_company_history_note(
     if not docs:
         return None
 
-    responded, silent, latest_silent_days = _count_application_outcomes(docs)
+    responded, silent, latest_silent_days = _count_application_outcomes(
+        docs, current_offer_id=current_offer_id
+    )
     if silent > 0 and responded == 0:
         days_txt = f" (dernière il y a {latest_silent_days}j)" if latest_silent_days is not None else ""
         return (

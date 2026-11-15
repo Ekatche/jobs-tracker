@@ -142,7 +142,12 @@ async def _build_bloc_g(
                 "canonical_title": offer_doc["canonical_title"],
             }
         )
-    company_history_note = await compute_company_history_note(db, user_str_id, offer_company)
+    company_history_note = await compute_company_history_note(
+        db,
+        user_str_id,
+        offer_company,
+        current_offer_id=offer_doc.get("_id"),
+    )
     bloc_g = BlocG(
         is_ghost_job=bool(pass1_data.get("is_ghost_job", False)),
         is_scam_risk=bool(pass1_data.get("is_scam_risk", False)),

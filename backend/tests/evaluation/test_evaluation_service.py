@@ -1,11 +1,13 @@
 """Tests du service d'évaluation à deux passes (pipeline, garde-fous, profil et quota)."""
 
-import json
+from datetime import datetime, timedelta, timezone
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 from bson import ObjectId
 import pytest
 from fastapi import HTTPException
+
+from app.services.evaluation.bloc_h import compute_company_history_note
 
 from app.services.evaluation.evaluator import (
     compute_offer_evaluation,
@@ -305,3 +307,38 @@ async def test_evaluate_offer_records_company_history_and_bloc_h():
     assert evaluation.bloc_b.matched_requirements[1].importance_evidence_tier == "inferred"
     assert evaluation.bloc_h.eligible is True
     assert len(evaluation.bloc_h.answers) == 3
+
+
+@pytest.mark.parametrize(
+    "docs_factory, expected_substring",
+    [
+        (lambda: [{"company": "Heva", "status": "En étude"}], None),
+        (lambda: [{"company": "Heva", "status": "applied", "offer_id": TEST_OFFER_ID}], None),
+        (
+            lambda: [
+                {
+                    "company": "Heva",
+                    "status": "Candidature envoyée",
+                    "offer_id": str(ObjectId()),
+                    "application_date": (datetime.now(timezone.utc) - timedelta(days=5, hours=1)).isoformat(),
+                }
+            ],
+            "dernière il y a 5j",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_company_history_note_ignores_draft_and_current_offer(docs_factory, expected_substring):
+    db, cols = make_eval_db()
+    apps_cursor = AsyncMock()
+    apps_cursor.to_list = AsyncMock(return_value=docs_factory())
+    apps_col = MagicMock()
+    apps_col.find.return_value = apps_cursor
+    cols["applications"] = apps_col
+
+    note = await compute_company_history_note(db, TEST_USER_ID, "Heva", current_offer_id=ObjectId(TEST_OFFER_ID))
+    if expected_substring is None:
+        assert note is None
+    else:
+        assert note is not None
+        assert expected_substring in note

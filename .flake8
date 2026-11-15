@@ -4,5 +4,5 @@ extend-ignore = E203,W503,E501,E402,W291,W293,W391,E301,E302,E303,E305,E306,E241
 select = C,E,F,W,B950
 exclude = .git,.venv,venv,env, __pycache__, dist,build,.cache,.cache/**,*/cache/*,*/.cache/*,.uv-cache,node_modules,scripts,backend/scripts,backend/retroactive_dedup_job_offers.py
 per-file-ignores = 
-    tests/*: F401,E302,E303,E306,W391,F841
-    backend/tests/*: F401,E302,E303,E306,W391,F841
+    tests/*: F401,F811,E302,E303,E306,W391,F841
+    backend/tests/*: F401,F811,E302,E303,E306,W391,F841
