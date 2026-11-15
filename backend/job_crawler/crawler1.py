@@ -36,6 +36,8 @@ const cookieSelectors = [
     '#axeptio_btn_acceptAll',
     '#onetrust-accept-btn-handler',
     '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
+    'button[data-cky-tag="accept-button"]',
+    '.cky-btn-accept',
     'button[id*="accept"]',
     'button[class*="cookie-accept"]',
     'button[class*="consent-accept"]'
@@ -44,6 +46,9 @@ for (const sel of cookieSelectors) {
     const btn = document.querySelector(sel);
     if (btn) { try { btn.click(); } catch(e){} break; }
 }
+document.querySelectorAll('.cky-consent-container, .cky-modal').forEach(el => {
+    try { el.remove(); } catch(e){}
+});
 """
 
 # crawl4ai 0.6.3 ne re-soumet jamais une URL : ni sur timeout de navigation, ni
