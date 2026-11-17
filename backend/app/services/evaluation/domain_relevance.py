@@ -60,16 +60,75 @@ def _extract_embedding(item):
     return item["embedding"]
 
 
+_SEGMENT_SPLIT_RE = re.compile(r"\s+[–—-]\s+|\s*\|\s*|[()\[\]]+")
+_WORD_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ]+")
+_MIN_UPPER_PROSE_WORD_LEN = 4
+
+
+def _segment_bounds(title: str, start: int, end: int) -> tuple[int, int]:
+    seg_start, seg_end = 0, len(title)
+    for sep in _SEGMENT_SPLIT_RE.finditer(title):
+        if sep.end() <= start:
+            seg_start = sep.end()
+        elif sep.start() >= end:
+            seg_end = sep.start()
+            break
+    return seg_start, seg_end
+
+
+def _should_expand_case_sensitive(title: str, match: "re.Match[str]") -> bool:
+    """Reject case-sensitive acronym expansion inside uppercase French prose segments."""
+    seg_start, seg_end = _segment_bounds(title, match.start(), match.end())
+    segment = title[seg_start:seg_end]
+    tokens = list(_WORD_RE.finditer(segment))
+    words = [tok.group(0) for tok in tokens if len(tok.group(0)) >= 2]
+    if (
+        len(words) >= 2
+        and all(w.isupper() for w in words)
+        and any(len(w) >= _MIN_UPPER_PROSE_WORD_LEN for w in words)
+    ):
+        return False
+
+    rel_start = match.start() - seg_start
+    rel_end = match.end() - seg_start
+    match_idx = next(
+        (i for i, tok in enumerate(tokens) if tok.start() == rel_start and tok.end() == rel_end),
+        None,
+    )
+    if match_idx is None:
+        return True
+
+    prev_word = next(
+        (tokens[i].group(0) for i in range(match_idx - 1, -1, -1) if len(tokens[i].group(0)) >= 2),
+        "",
+    )
+    next_word = next(
+        (tokens[i].group(0) for i in range(match_idx + 1, len(tokens)) if len(tokens[i].group(0)) >= 2),
+        "",
+    )
+    return not (
+        (len(prev_word) >= _MIN_UPPER_PROSE_WORD_LEN and prev_word.isupper())
+        or (len(next_word) >= _MIN_UPPER_PROSE_WORD_LEN and next_word.isupper())
+    )
+
+
 def expand_title_acronyms(title: str) -> str:
-    # Un intitulé tout en majuscules ("CHEF DE PROJET DA") ne permet pas de
-    # distinguer un acronyme d'un mot ordinaire en capitales : on ne tente
-    # alors que l'expansion insensible à la casse ("IA").
+    # Un intitulé tout en majuscules ("CHEF DE PROJET DA") ou un segment
+    # patronymique/géographique en capitales ("CONSEIL DEPARTEMENTAL DE L'ISERE")
+    # ne permet pas de distinguer un sigle (« DE ») d'une préposition : on ne
+    # garde alors que l'expansion insensible à la casse (« IA »).
     title_is_upper = title.isupper()
     for pattern, expansion in ACRONYM_EXPANSIONS:
         title = pattern.sub(expansion, title)
     if not title_is_upper:
         for pattern, expansion in CASE_SENSITIVE_ACRONYMS:
-            title = pattern.sub(expansion, title)
+            current = title
+            title = pattern.sub(
+                lambda m, exp=expansion, src=current: (
+                    exp if _should_expand_case_sensitive(src, m) else m.group(0)
+                ),
+                current,
+            )
     return title
 
 

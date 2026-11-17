@@ -91,6 +91,17 @@ def test_expand_title_acronyms(title, expected):
         ("DE Spark", "Data Engineer Spark"),
         ("Chef de projet", "Chef de projet"),
         ("CHEF DE PROJET DA", "CHEF DE PROJET DA"),
+        ("CHEF DE PROJET - Paris", "CHEF DE PROJET - Paris"),
+        (
+            "Chef de service administratif et financier - CONSEIL DEPARTEMENTAL DE L'ISERE",
+            "Chef de service administratif et financier - CONSEIL DEPARTEMENTAL DE L'ISERE",
+        ),
+        ("Animateur petite enfance - SAINT LAURENT DE MURE", "Animateur petite enfance - SAINT LAURENT DE MURE"),
+        ("Chargé de mission santé - MAIRIE DE BOURGOIN-JALLIEU", "Chargé de mission santé - MAIRIE DE BOURGOIN-JALLIEU"),
+        ("Accompagnant Educatif et Social - PIERRE DE LUNE", "Accompagnant Educatif et Social - PIERRE DE LUNE"),
+        ("Chef de mission VAL DE MARNE", "Chef de mission VAL DE MARNE"),
+        ("DE / ML Engineer", "Data Engineer / Machine Learning Engineer"),
+        ("PM Senior - PARIS", "Product Manager Senior - PARIS"),
         ("Développeur Confirmé Ia", "Développeur Confirmé intelligence artificielle"),
     ],
 )

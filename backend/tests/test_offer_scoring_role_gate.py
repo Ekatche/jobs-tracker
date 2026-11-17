@@ -130,3 +130,18 @@ def test_animation_and_social_roles_reject_polysemic_false_friends(title, expect
 
 def test_hse_profile_still_matches_animateur_prevention():
     assert title_matches_roles("Animateur prévention santé", role_terms(["Animateur HSE", "Chargé de prévention"]))
+
+
+@pytest.mark.parametrize(
+    "title,expected",
+    [
+        ("Chef de service administratif et financier - CONSEIL DEPARTEMENTAL DE L'ISERE", False),
+        ("Animateur petite enfance - SAINT LAURENT DE MURE", False),
+        ("Responsable du service de la relation aux citoyens - MAIRIE DE VILLEFONTAINE", False),
+        ("Chargé de mission santé - MAIRIE DE BOURGOIN-JALLIEU", False),
+        ("Accompagnant Educatif et Social - PIERRE DE LUNE", False),
+        ("DE Spark Confirmé - Lyon", True),
+    ],
+)
+def test_data_roles_reject_uppercase_french_de_in_employer_or_city(title, expected):
+    assert title_matches_roles(title, role_terms(DATA_ROLES)) is expected
